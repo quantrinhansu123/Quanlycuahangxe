@@ -1,22 +1,21 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
-  Users, Search, Plus, 
+  Search, Plus, 
   Edit2, Trash2, Camera, X, Save, 
   Phone, MapPin, Calendar, CreditCard,
   History, Settings, User, Loader2,
-  ArrowLeft, ChevronDown, List, Pin,
+  ArrowLeft, ChevronDown, List, 
   Building2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { clsx } from 'clsx';
-import { getCustomers, upsertCustomer, deleteCustomer, togglePinCustomer } from '../data/customerData';
+import { getCustomers, upsertCustomer, deleteCustomer } from '../data/customerData';
 import type { KhachHang } from '../data/customerData';
 
 const CustomerManagementPage: React.FC = () => {
   const navigate = useNavigate();
   const [customers, setCustomers] = useState<KhachHang[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentTab, setCurrentTab] = useState<'all' | 'pin'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   
   // Filter states
@@ -31,7 +30,33 @@ const CustomerManagementPage: React.FC = () => {
   const [formData, setFormData] = useState<Partial<KhachHang>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [visibleColumns, setVisibleColumns] = useState<string[]>([
+    'anh', 'ho_va_ten', 'so_dien_thoai', 'dia_chi_hien_tai', 'bien_so_xe', 
+    'ngay_dang_ky', 'so_km', 'so_ngay_thay_dau', 'ngay_thay_dau', 'actions'
+  ]);
+
+  const allColumns = [
+    { id: 'anh', label: 'Ảnh' },
+    { id: 'ho_va_ten', label: 'Họ và tên' },
+    { id: 'so_dien_thoai', label: 'Số điện thoại' },
+    { id: 'dia_chi_hien_tai', label: 'Địa chỉ' },
+    { id: 'bien_so_xe', label: 'Biển số' },
+    { id: 'ngay_dang_ky', label: 'Ngày đăng ký' },
+    { id: 'so_km', label: 'Số KM' },
+    { id: 'so_ngay_thay_dau', label: 'Chu kỳ' },
+    { id: 'ngay_thay_dau', label: 'Ngày thay dầu' },
+    { id: 'actions', label: 'Thao tác' }
+  ];
+
+  const toggleColumn = (colId: string) => {
+    setVisibleColumns(prev => 
+      prev.includes(colId) ? prev.filter(c => c !== colId) : [...prev, colId]
+    );
+  };
+
   const cycleOptions = ["30 ngày", "60 ngày", "90 ngày", "180 ngày"];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
   // Load data from Supabase
   const loadCustomers = async () => {
@@ -72,19 +97,16 @@ const CustomerManagementPage: React.FC = () => {
   const filteredCustomers = useMemo(() => {
     return customers.filter(c => {
       const matchSearch = 
-        c.ho_va_ten.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        c.so_dien_thoai.includes(searchQuery) ||
-        c.bien_so_xe.toLowerCase().includes(searchQuery.toLowerCase());
+        (c.ho_va_ten?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+        (c.so_dien_thoai || '').includes(searchQuery) ||
+        (c.bien_so_xe?.toLowerCase() || '').includes(searchQuery.toLowerCase());
       
-      const matchTab = currentTab === 'all' || (currentTab === 'pin' && c.is_pinned);
-      
-      // Filter logic (dept, cycle)
       const matchDept = selectedDepts.length === 0 || selectedDepts.includes(c.dia_chi_hien_tai);
       const matchCycle = selectedCycles.length === 0 || selectedCycles.includes(`${c.so_ngay_thay_dau} ngày`);
 
-      return matchSearch && matchTab && matchDept && matchCycle;
+      return matchSearch && matchDept && matchCycle;
     });
-  }, [customers, searchQuery, currentTab, selectedDepts, selectedCycles]);
+  }, [customers, searchQuery, selectedDepts, selectedCycles]);
 
   const formatDateForInput = (dateStr: string | undefined) => {
     if (!dateStr) return '';
@@ -128,8 +150,7 @@ const CustomerManagementPage: React.FC = () => {
         ngay_thay_dau: '',
         so_ngay_thay_dau: 0,
         so_km: 0,
-        bien_so_xe: '',
-        is_pinned: false
+        bien_so_xe: ''
       });
     }
     setIsModalOpen(true);
@@ -147,8 +168,7 @@ const CustomerManagementPage: React.FC = () => {
       ngay_thay_dau: '',
       so_ngay_thay_dau: 0,
       so_km: 0,
-      bien_so_xe: '',
-      is_pinned: false
+      bien_so_xe: ''
     });
   };
 
@@ -203,40 +223,14 @@ const CustomerManagementPage: React.FC = () => {
     }
   };
 
-  const handleTogglePin = async (id: string, isPinned: boolean) => {
-    try {
-      await togglePinCustomer(id, !isPinned);
-      setCustomers(prev => prev.map(c => c.id === id ? { ...c, is_pinned: !isPinned } : c));
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
   const deptOptions = Array.from(new Set(customers.map(c => c.dia_chi_hien_tai).filter(Boolean)));
 
   return (
     <div className="w-full flex-1 animate-in fade-in slide-in-from-bottom-4 duration-500 text-muted-foreground font-sans">
       <div className="space-y-4">
-        {/* Tabs */}
-        <div className="flex gap-2">
-          <button 
-            onClick={() => setCurrentTab('all')} 
-            className={`flex items-center gap-2 px-4 py-2 ${currentTab === 'all' ? 'bg-card rounded-t-lg border border-b-0 border-border text-primary font-medium text-[13px] relative after:absolute after:-bottom-px after:left-0 after:right-0 after:h-[2px] after:bg-primary z-10' : 'text-muted-foreground hover:text-muted-foreground font-medium text-[13px] border-b border-transparent'}`}
-          >
-            <Users size={18} /> Tất cả khách hàng
-          </button>
-          <button 
-            onClick={() => setCurrentTab('pin')} 
-            className={`flex items-center gap-2 px-4 py-2 ${currentTab === 'pin' ? 'bg-card rounded-t-lg border border-b-0 border-border text-primary font-medium text-[13px] relative after:absolute after:-bottom-px after:left-0 after:right-0 after:h-[2px] after:bg-primary z-10' : 'text-muted-foreground hover:text-muted-foreground font-medium text-[13px] border-b border-transparent'}`}
-          >
-            <Pin size={18} /> Đã ghim
-          </button>
-          <div className="flex-1 border-b border-border"></div>
-        </div>
-
         {/* Toolbar */}
-        <div className="bg-card p-3 rounded-tr-lg rounded-b-lg border border-border shadow-sm flex flex-wrap items-center justify-between gap-4 -mt-4 z-0 relative">
-          <div className="flex items-center gap-3 flex-1 flex-wrap" ref={dropdownRef}>
+        <div className="bg-card p-3 rounded-lg border border-border shadow-sm flex flex-wrap items-center justify-between gap-4" ref={dropdownRef}>
+          <div className="flex items-center gap-3 flex-1 flex-wrap">
             <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors">
               <ArrowLeft size={18} /> Quay lại
             </button>
@@ -248,7 +242,7 @@ const CustomerManagementPage: React.FC = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-9 pr-4 py-1.5 border border-border rounded text-[13px] focus:ring-1 focus:ring-primary focus:border-primary placeholder-slate-400 outline-none" 
-                placeholder="Tìm tên, SĐT, biển số..." 
+                placeholder="Tìm tên khách, số điện thoại, biển số..." 
                 type="text"
               />
             </div>
@@ -327,9 +321,43 @@ const CustomerManagementPage: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
-            <button className="p-1.5 border border-border rounded text-muted-foreground hover:bg-accent transition-colors">
-              <List size={20} />
-            </button>
+            <div className="relative">
+              <button 
+                onClick={() => toggleDropdown('columns')}
+                className={clsx(
+                  "p-1.5 border rounded transition-colors",
+                  openDropdown === 'columns' ? "bg-primary/10 border-primary text-primary" : "border-border text-muted-foreground hover:bg-accent"
+                )}
+                title="Cài đặt cột hiển thị"
+              >
+                <List size={20} />
+              </button>
+              {openDropdown === 'columns' && (
+                <div className="absolute top-10 right-0 z-50 min-w-[200px] bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                  <div className="px-4 py-2 bg-muted border-b border-border flex items-center justify-between">
+                    <span className="text-[12px] font-bold text-foreground">Cài đặt hiển thị cột</span>
+                    <button onClick={() => setVisibleColumns(allColumns.map(c => c.id))} className="text-[10px] text-primary hover:underline">Hiện tất cả</button>
+                  </div>
+                  <ul className="py-2 text-[13px] text-muted-foreground max-h-[300px] overflow-y-auto custom-scrollbar">
+                    {allColumns.map(col => (
+                      <li 
+                        key={col.id} 
+                        onClick={() => toggleColumn(col.id)}
+                        className="px-4 py-2 hover:bg-accent cursor-pointer flex items-center gap-3 transition-colors"
+                      >
+                        <div className={clsx(
+                          "w-4 h-4 rounded border flex items-center justify-center transition-colors",
+                          visibleColumns.includes(col.id) ? "bg-primary border-primary" : "border-border"
+                        )}>
+                          {visibleColumns.includes(col.id) && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                        </div>
+                        {col.label}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
             <button 
               onClick={() => handleOpenModal()}
               className="bg-primary hover:bg-primary/90 text-white px-5 py-1.5 rounded flex items-center gap-2 text-[14px] font-semibold transition-colors"
@@ -346,16 +374,16 @@ const CustomerManagementPage: React.FC = () => {
               <thead>
                 <tr className="bg-muted border-b border-border text-muted-foreground text-[12px] font-bold uppercase tracking-wider">
                   <th className="px-4 py-3 w-10 text-center"><input className="rounded border-border text-primary size-4" type="checkbox" /></th>
-                  <th className="px-4 py-3 font-semibold">Ảnh</th>
-                  <th className="px-4 py-3 font-semibold">Họ và tên</th>
-                  <th className="px-4 py-3 font-semibold">Số điện thoại</th>
-                  <th className="px-4 py-3 font-semibold">Địa chỉ hiện tại</th>
-                  <th className="px-4 py-3 font-semibold">Biển số xe</th>
-                  <th className="px-4 py-3 font-semibold">Ngày đăng ký</th>
-                  <th className="px-4 py-3 font-semibold">Số KM</th>
-                  <th className="px-4 py-3 font-semibold">Số ngày thay dầu</th>
-                  <th className="px-4 py-3 font-semibold">Ngày thay dầu</th>
-                  <th className="px-4 py-3 text-center font-semibold">Thao tác</th>
+                  {visibleColumns.includes('anh') && <th className="px-4 py-3 font-semibold">Ảnh</th>}
+                  {visibleColumns.includes('ho_va_ten') && <th className="px-4 py-3 font-semibold">Họ và tên</th>}
+                  {visibleColumns.includes('so_dien_thoai') && <th className="px-4 py-3 font-semibold">Số điện thoại</th>}
+                  {visibleColumns.includes('dia_chi_hien_tai') && <th className="px-4 py-3 font-semibold">Địa chỉ</th>}
+                  {visibleColumns.includes('bien_so_xe') && <th className="px-4 py-3 font-semibold">Biển số</th>}
+                  {visibleColumns.includes('ngay_dang_ky') && <th className="px-4 py-3 font-semibold">Ngày đăng ký</th>}
+                  {visibleColumns.includes('so_km') && <th className="px-4 py-3 font-semibold">Số KM</th>}
+                  {visibleColumns.includes('so_ngay_thay_dau') && <th className="px-4 py-3 font-semibold">Chu kỳ</th>}
+                  {visibleColumns.includes('ngay_thay_dau') && <th className="px-4 py-3 font-semibold">Ngày thay dầu</th>}
+                  {visibleColumns.includes('actions') && <th className="px-4 py-3 text-center font-semibold">Thao tác</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-[13px]">
@@ -367,77 +395,84 @@ const CustomerManagementPage: React.FC = () => {
                      </td>
                    </tr>
                 ) : filteredCustomers.map(customer => {
-                  const isCầnThayDầu = customer.ngay_thay_dau ? new Date(customer.ngay_thay_dau) <= new Date() : false;
+                  const isCầnThayDầu = customer.ngay_thay_dau ? new Date(customer.ngay_thay_dau) <= today : false;
                   return (
                     <tr key={customer.id} className="hover:bg-muted/80 transition-colors">
                       <td className="px-4 py-4 text-center"><input className="rounded border-border text-primary size-4" type="checkbox" /></td>
-                      <td className="px-4 py-4">
-                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary overflow-hidden border border-border shadow-sm">
-                          {customer.anh ? (
-                            <img src={customer.anh} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            <User size={20} />
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 font-semibold text-foreground whitespace-nowrap">{customer.ho_va_ten}</td>
-                      <td className="px-4 py-4 text-muted-foreground whitespace-nowrap">{customer.so_dien_thoai}</td>
-                      <td className="px-4 py-4 text-muted-foreground text-[12px] truncate max-w-[200px]" title={customer.dia_chi_hien_tai}>
-                        {customer.dia_chi_hien_tai || '—'}
-                      </td>
-                      <td className="px-4 py-4">
-                        <span className={clsx(
-                          "px-2 py-0.5 rounded text-[11px] font-bold border",
-                          customer.bien_so_xe === 'Xe Chưa Biển' 
-                            ? "bg-amber-50 text-amber-600 border-amber-100" 
-                            : "bg-blue-50 text-blue-600 border-blue-100 uppercase"
-                        )}>
-                          {customer.bien_so_xe}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4 text-muted-foreground whitespace-nowrap">{formatDateForDisplay(customer.ngay_dang_ky)}</td>
-                      <td className="px-4 py-4 font-bold text-foreground">
-                        {customer.so_km?.toLocaleString()} <span className="font-normal text-muted-foreground text-[11px]">Km</span>
-                      </td>
-                      <td className="px-4 py-4 text-center text-muted-foreground">
-                        {customer.so_ngay_thay_dau}
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="flex items-center gap-1">
+                      {visibleColumns.includes('anh') && (
+                        <td className="px-4 py-4">
+                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary overflow-hidden border border-border shadow-sm">
+                            {customer.anh ? (
+                              <img src={customer.anh} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <User size={20} />
+                            )}
+                          </div>
+                        </td>
+                      )}
+                      {visibleColumns.includes('ho_va_ten') && <td className="px-4 py-4 font-semibold text-foreground whitespace-nowrap">{customer.ho_va_ten}</td>}
+                      {visibleColumns.includes('so_dien_thoai') && <td className="px-4 py-4 text-muted-foreground whitespace-nowrap">{customer.so_dien_thoai}</td>}
+                      {visibleColumns.includes('dia_chi_hien_tai') && (
+                        <td className="px-4 py-4 text-muted-foreground text-[12px] truncate max-w-[200px]" title={customer.dia_chi_hien_tai}>
+                          {customer.dia_chi_hien_tai || '—'}
+                        </td>
+                      )}
+                      {visibleColumns.includes('bien_so_xe') && (
+                        <td className="px-4 py-4">
                           <span className={clsx(
-                            "font-medium",
-                            isCầnThayDầu ? "text-red-600 font-bold" : "text-muted-foreground"
+                            "px-2 py-0.5 rounded text-[11px] font-bold border",
+                            customer.bien_so_xe === 'Xe Chưa Biển' 
+                              ? "bg-amber-50 text-amber-600 border-amber-100" 
+                              : "bg-blue-50 text-blue-600 border-blue-100 uppercase"
                           )}>
-                            {formatDateForDisplay(customer.ngay_thay_dau)}
+                            {customer.bien_so_xe}
                           </span>
-                          {isCầnThayDầu && <span className="px-1 py-0.5 bg-red-100 text-red-600 rounded text-[9px] font-bold animate-pulse">!!!</span>}
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="flex items-center justify-center gap-4">
-                          <button 
-                            type="button" 
-                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleTogglePin(customer.id, !!customer.is_pinned); }} 
-                            className={`transition-colors ${customer.is_pinned ? 'text-amber-500 hover:text-amber-600' : 'text-muted-foreground/60 hover:text-amber-500'}`}
-                          >
-                            <Pin size={18} className={customer.is_pinned ? "fill-amber-500" : ""} />
-                          </button>
-                          <button 
-                            type="button" 
-                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleOpenModal(customer); }} 
-                            className="text-primary hover:text-blue-700 transition-colors"
-                          >
-                            <Edit2 size={18} />
-                          </button>
-                          <button 
-                            type="button" 
-                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDelete(customer.id); }} 
-                            className="text-destructive hover:text-destructive/80 transition-colors"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </div>
-                      </td>
+                        </td>
+                      )}
+                      {visibleColumns.includes('ngay_dang_ky') && <td className="px-4 py-4 text-muted-foreground whitespace-nowrap">{formatDateForDisplay(customer.ngay_dang_ky)}</td>}
+                      {visibleColumns.includes('so_km') && (
+                        <td className="px-4 py-4 font-bold text-foreground">
+                          {customer.so_km?.toLocaleString()} <span className="font-normal text-muted-foreground text-[11px]">Km</span>
+                        </td>
+                      )}
+                      {visibleColumns.includes('so_ngay_thay_dau') && (
+                        <td className="px-4 py-4 text-center text-muted-foreground">
+                          {customer.so_ngay_thay_dau}
+                        </td>
+                      )}
+                      {visibleColumns.includes('ngay_thay_dau') && (
+                        <td className="px-4 py-4">
+                          <div className="flex items-center gap-1">
+                            <span className={clsx(
+                              "font-medium",
+                              isCầnThayDầu ? "text-red-600 font-bold" : "text-muted-foreground"
+                            )}>
+                              {formatDateForDisplay(customer.ngay_thay_dau)}
+                            </span>
+                            {isCầnThayDầu && <span className="px-1 py-0.5 bg-red-100 text-red-600 rounded text-[9px] font-bold animate-pulse">!!!</span>}
+                          </div>
+                        </td>
+                      )}
+                      {visibleColumns.includes('actions') && (
+                        <td className="px-4 py-4">
+                          <div className="flex items-center justify-center gap-4">
+                            <button 
+                              type="button" 
+                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleOpenModal(customer); }} 
+                              className="text-primary hover:text-blue-700 transition-colors"
+                            >
+                              <Edit2 size={18} />
+                            </button>
+                            <button 
+                              type="button" 
+                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDelete(customer.id); }} 
+                              className="text-destructive hover:text-destructive/80 transition-colors"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}

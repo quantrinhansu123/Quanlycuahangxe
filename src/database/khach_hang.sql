@@ -10,7 +10,6 @@ CREATE TABLE IF NOT EXISTS public.khach_hang (
     so_km INTEGER DEFAULT 0,
     so_ngay_thay_dau INTEGER DEFAULT 0,
     ngay_thay_dau DATE,
-    is_pinned BOOLEAN DEFAULT false,
     created_at TIMESTAMPTZ DEFAULT now()
 );
 

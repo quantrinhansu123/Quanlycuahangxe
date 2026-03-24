@@ -12,7 +12,7 @@ import ContractManagementPage from './pages/ContractManagementPage';
 import ShipmentManagementPage from './pages/ShipmentManagementPage';
 import QuoteManagementPage from './pages/QuoteManagementPage';
 import PurchaseOrderPage from './pages/PurchaseOrderPage';
-import CustomerManagementPage from './pages/CustomerManagementPage.tsx';
+import CustomerManagementPage from './pages/CustomerManagementPage';
 
 function App() {
   return (

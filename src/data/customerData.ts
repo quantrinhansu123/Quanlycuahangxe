@@ -10,8 +10,7 @@ export interface KhachHang {
   ngay_dang_ky: string; // Ngày đăng ký
   so_km: number; // Số Km
   so_ngay_thay_dau: number; // Số ngày thay dầu (chu kỳ)
-  ngay_thay_dau: string; // Ngày thay dầu tiếp theo
-  is_pinned?: boolean; // Ghim khách hàng
+  ngay_thay_dau: string; // Ngày thay dầu
 }
 
 export const getCustomers = async (): Promise<KhachHang[]> => {
@@ -50,18 +49,6 @@ export const deleteCustomer = async (id: string): Promise<void> => {
 
   if (error) {
     console.error('Error deleting customer:', error);
-    throw error;
-  }
-};
-
-export const togglePinCustomer = async (id: string, isPinned: boolean): Promise<void> => {
-  const { error } = await supabase
-    .from('khach_hang')
-    .update({ is_pinned: isPinned })
-    .eq('id', id);
-
-  if (error) {
-    console.error('Error toggling pin:', error);
     throw error;
   }
 };
