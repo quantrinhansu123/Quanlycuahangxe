@@ -131,7 +131,7 @@ const Topbar: React.FC<TopbarProps> = ({ sidebarOpen, setSidebarOpen }) => {
     // Fallback labels for segments
     const segmentLabels: Record<string, string> = {
       'nhan-su': 'Nhân sự',
-      'hanh-chinh': 'Hành chính',
+      'hanh-chinh': 'Bán hàng',
       'kinh-doanh': 'Kinh doanh',
       'marketing': 'Marketing',
       'tai-chinh': 'Tài chính',
@@ -273,7 +273,7 @@ const Topbar: React.FC<TopbarProps> = ({ sidebarOpen, setSidebarOpen }) => {
             <Clock size={16} className="text-primary" />
             <span className="font-bold text-foreground tabular-nums">{formatTime(time)}</span>
           </div>
-          <div className="w-[1px] h-4 bg-border" />
+          <div className="w-px h-4 bg-border" />
           <div className="flex items-center gap-2 text-muted-foreground">
             <Calendar size={16} className="text-primary" />
             <span className="font-medium whitespace-nowrap">{formatDate(time)}</span>

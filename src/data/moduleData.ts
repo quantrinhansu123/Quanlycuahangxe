@@ -1,14 +1,8 @@
 import {
-  Calendar, ClipboardList, FileSignature, Target,
-  Banknote, Scale, Settings,
-  FileText, Send, SquarePen, FolderLock,
-  FileBox, UserCog, Briefcase, FileCode,
-  PieChart, LayoutGrid, Database,
-  Wallet, RefreshCw, Wrench,
-  Car, ScrollText, CalendarDays, Fuel,
-  Users, ShieldCheck, UserPlus,
-  Megaphone, GraduationCap, Star, Award,
-  CheckSquare, Medal, GitCompare, Network,
+  Calendar, ClipboardList, Banknote, Settings, Target, FileSignature,
+  FileText, Send, UserCog, Briefcase, 
+  PieChart, Wallet, RefreshCw, Wrench,
+  Users, ShieldCheck, Megaphone, Star, Award,
   Mail, MessageSquare, Share2, Image,
   Layout, MousePointer2,
   TrendingUp,
@@ -16,7 +10,7 @@ import {
   Receipt, Coins, CreditCard, CheckCircle2,
   BookOpen, Calculator as CalcIcon, History,
   Truck, Package, ShoppingCart, FileCheck, Tag,
-  Warehouse, Box, ArrowLeftRight, Download, Upload, Factory, MapPin, Truck as DeliveryIcon,
+  ArrowLeftRight, MapPin,
   Building2, List, ClipboardCheck, Building, Monitor
 } from 'lucide-react';
 import type { ModuleCardProps } from '../components/ui/ModuleCard';
@@ -25,101 +19,22 @@ import type { ModuleCardProps } from '../components/ui/ModuleCard';
 export const moduleData: Record<string, { section: string; items: ModuleCardProps[] }[]> = {
   '/hanh-chinh': [
     {
-      section: 'Công lương',
+      section: 'Quản lý bán hàng',
       items: [
-        { icon: Calendar, title: 'Chấm công', description: 'Quản lý chấm công, ca làm việc.', colorScheme: 'blue' },
-        { icon: ClipboardList, title: 'Tổng hợp chấm công', description: 'Tổng hợp và báo cáo chấm công theo nhân viên.', colorScheme: 'orange' },
-        { icon: FileSignature, title: 'Phiếu hành chính', description: 'Phiếu đề xuất, xác nhận hành chính.', colorScheme: 'purple' },
-        { icon: Target, title: 'Chấm điểm KPI', description: 'Đánh giá và chấm điểm KPI theo kỳ, nhân viên.', colorScheme: 'purple' },
-        { icon: Banknote, title: 'Bảng lương', description: 'Tính lương, phiếu lương, báo cáo.', colorScheme: 'green' },
-        { icon: Scale, title: 'Điểm cộng trừ', description: 'Ghi nhận điểm cộng, trừ của nhân viên theo tháng.', colorScheme: 'purple' },
-        { icon: Settings, title: 'Thiết lập công lương', description: 'Cấu hình hệ số, quy tắc tính lương.', colorScheme: 'slate' }
-      ]
-    },
-    {
-      section: 'Tài liệu',
-      items: [
-        { icon: FileText, title: 'Văn bản đến', description: 'Tiếp nhận, vào sổ công văn đến.', colorScheme: 'blue' },
-        { icon: Send, title: 'Văn bản đi', description: 'Soạn, phát hành công văn đi.', colorScheme: 'purple' },
-        { icon: SquarePen, title: 'Soạn thảo văn bản', description: 'Soạn thảo, trình duyệt, ký số.', colorScheme: 'purple' },
-        { icon: FolderLock, title: 'Lưu trữ hồ sơ', description: 'Lưu trữ, tra cứu, mượn trả hồ sơ.', colorScheme: 'teal', path: '/hanh-chinh/luu-tru-ho-so' },
-        { icon: FileBox, title: 'Quản lý hợp đồng', description: 'Hợp đồng, gia hạn, lưu trữ.', colorScheme: 'red', path: '/hanh-chinh/quan-ly-hop-dong' },
-        { icon: UserCog, title: 'Thiết lập tài liệu', description: 'Quy trình, mẫu văn bản, phân quyền.', colorScheme: 'slate' }
-      ]
-    },
-    {
-      section: 'Công việc',
-      items: [
-        { icon: Briefcase, title: 'Dự án', description: 'Quản lý dự án, phòng ban, thời gian, mục tiêu.', colorScheme: 'blue' },
-        { icon: FileCode, title: 'Công việc', description: 'Giao việc, theo dõi tiến độ, báo cáo kết quả.', colorScheme: 'green' },
-        { icon: PieChart, title: 'Báo cáo', description: 'Thống kê công việc theo dự án, phòng ban, người, thời gian.', colorScheme: 'teal' },
-        { icon: LayoutGrid, title: 'Thiết lập công việc', description: 'Cảnh báo đến hạn, mẫu công việc, quy tắc mặc định.', colorScheme: 'slate' }
-      ]
-    },
-    {
-      section: 'Tài sản',
-      items: [
-        { icon: Database, title: 'Danh mục tài sản', description: 'Mã tài sản, nhóm, phòng ban quản lý.', colorScheme: 'blue' },
-        { icon: RefreshCw, title: 'Cấp phát / Thu hồi', description: 'Cấp phát, bàn giao, thu hồi tài sản.', colorScheme: 'purple' },
-        { icon: ShieldCheck, title: 'Kiểm kê tài sản', description: 'Đợt kiểm kê, đối chiếu, biên bản.', colorScheme: 'green' },
-        { icon: Wrench, title: 'Bảo trì - Sửa chữa', description: 'Kế hoạch bảo trì, yêu cầu sửa chữa.', colorScheme: 'orange' },
-        { icon: Wallet, title: 'Khấu hao tài sản', description: 'Tính khấu hao, báo cáo khấu hao.', colorScheme: 'purple' },
-        { icon: Settings, title: 'Thiết lập tài sản', description: 'Nhóm tài sản, tham số khấu hao.', colorScheme: 'slate' }
-      ]
-    },
-    {
-      section: 'Quản lý xe',
-      items: [
-        { icon: Car, title: 'Danh sách xe', description: 'Thông tin xe, biển số, trạng thái.', colorScheme: 'blue' },
-        { icon: ScrollText, title: 'Đăng ký sử dụng xe', description: 'Đặt xe, phê duyệt, lịch sử dụng.', colorScheme: 'teal' },
-        { icon: CalendarDays, title: 'Lịch bảo dưỡng', description: 'Định kỳ bảo dưỡng, nhắc lịch.', colorScheme: 'orange' },
-        { icon: Fuel, title: 'Phiếu xăng - Chi phí xe', description: 'Đổ xăng, chi phí đi lại, đối soát.', colorScheme: 'orange' },
-        { icon: Users, title: 'Quản lý lái xe', description: 'Danh sách lái xe, phân công, bảng lương.', colorScheme: 'red' },
-        { icon: UserCog, title: 'Thiết lập quản lý xe', description: 'Loại xe, quy trình đặt xe, phân quyền.', colorScheme: 'slate' }
+        { icon: Users, title: 'Khách hàng', description: 'Quản lý danh sách và thông tin khách hàng.', colorScheme: 'blue', path: '/ban-hang/khach-hang' },
+        { icon: ShoppingCart, title: 'Bán hàng', description: 'Lập hóa đơn và quản lý giao dịch bán hàng.', colorScheme: 'green' },
+        { icon: Wallet, title: 'Thu chi', description: 'Theo dõi các khoản thu và chi tiết tài chính.', colorScheme: 'orange' },
+        { icon: Wrench, title: 'Dịch vụ', description: 'Quản lý các gói dịch vụ và tiến độ sửa chữa.', colorScheme: 'purple' }
       ]
     }
   ],
   '/nhan-su': [
     {
-      section: 'Tuyển dụng',
+      section: 'Quản lý nhân sự',
       items: [
-        { icon: Megaphone, title: 'Tin tuyển dụng', description: 'Đăng tin, vị trí tuyển dụng, yêu cầu.', colorScheme: 'blue' },
-        { icon: UserPlus, title: 'Ứng viên', description: 'Quản lý hồ sơ, trạng thái ứng viên.', colorScheme: 'purple', path: '/nhan-su/ung-vien' },
-        { icon: Calendar, title: 'Lịch phỏng vấn', description: 'Đặt lịch, phỏng vấn, người vấn.', colorScheme: 'purple' },
-        { icon: Send, title: 'Đề xuất tuyển dụng', description: 'Yêu cầu tuyển từ phòng ban, phê duyệt.', colorScheme: 'teal' },
-        { icon: PieChart, title: 'Báo cáo tuyển dụng', description: 'Thống kê theo kênh, vị trí, thời gian.', colorScheme: 'cyan' },
-        { icon: Settings, title: 'Thiết lập tuyển dụng', description: 'Mẫu tin, quy trình, phản hồi mặc định.', colorScheme: 'slate' }
-      ]
-    },
-    {
-      section: 'Đào tạo',
-      items: [
-        { icon: CalendarDays, title: 'Kế hoạch đào tạo', description: 'Kế hoạch năm, quý, chủ đề, ngân sách.', colorScheme: 'blue' },
-        { icon: GraduationCap, title: 'Khóa đào tạo', description: 'Danh sách khóa, giảng viên, thời lượng.', colorScheme: 'emerald' },
-        { icon: ClipboardList, title: 'Đăng ký / Ghi danh', description: 'Nhân viên đăng ký, duyệt, danh sách lớp.', colorScheme: 'teal' },
-        { icon: Star, title: 'Đánh giá đào tạo', description: 'Đánh giá khóa học, chất lượng.', colorScheme: 'orange' },
-        { icon: Award, title: 'Chứng chỉ / Bằng cấp', description: 'Lưu chứng chỉ nhân viên, hạn hiệu lực.', colorScheme: 'pink' },
-        { icon: Settings, title: 'Thiết lập đào tạo', description: 'Loại khóa, danh mục kỹ năng, quy trình.', colorScheme: 'slate' }
-      ]
-    },
-    {
-      section: 'Đánh giá & Phát triển',
-      items: [
-        { icon: CheckSquare, title: 'Đánh giá nhân viên', description: 'Kỳ đánh giá, form đánh giá.', colorScheme: 'blue' },
-        { icon: Target, title: 'Mục tiêu KPI / OKR', description: 'Giao mục tiêu, tiến độ, đánh giá hoàn thành.', colorScheme: 'green' },
-        { icon: Medal, title: 'Khen thưởng & Kỷ luật', description: 'Quyết định khen thưởng, kỷ luật, lưu hồ sơ.', colorScheme: 'orange' },
-        { icon: GitCompare, title: 'Thăng tiến & Luân chuyển', description: 'Đề xuất thăng tiến, luân chuyển, bổ nhiệm.', colorScheme: 'purple' },
-        { icon: Settings, title: 'Thiết lập đánh giá', description: 'Chu kỳ đánh giá, thang điểm, quy trình.', colorScheme: 'slate' }
-      ]
-    },
-    {
-      section: 'Kế hoạch nhân sự',
-      items: [
-        { icon: UserCog, title: 'Định biên', description: 'Số lượng vị trí theo phòng ban, thực tế.', colorScheme: 'blue' },
-        { icon: Calendar, title: 'Kế hoạch nhân sự', description: 'Kế hoạch tuyển, giảm, đào tạo theo năm.', colorScheme: 'purple' },
-        { icon: Network, title: 'Sơ đồ tổ chức', description: 'Xem sơ đồ tổ chức, cây phòng ban.', colorScheme: 'teal' },
-        { icon: FileText, title: 'Báo cáo nhân sự', description: 'Headcount, biến động, turnover.', colorScheme: 'cyan' },
-        { icon: Settings, title: 'Thiết lập kế hoạch', description: 'Mẫu kế hoạch, quy trình phê duyệt.', colorScheme: 'slate' }
+        { icon: Users, title: 'Nhân sự', description: 'Quản lý hồ sơ, thông tin nhân viên trong hệ thống.', colorScheme: 'emerald' },
+        { icon: Calendar, title: 'Chấm công', description: 'Thực hiện chấm công hàng ngày cho nhân viên.', colorScheme: 'blue' },
+        { icon: ClipboardList, title: 'Bảng chấm công', description: 'Xem và tổng hợp dữ liệu chấm công theo tháng.', colorScheme: 'orange' }
       ]
     }
   ],
@@ -267,46 +182,9 @@ export const moduleData: Record<string, { section: string; items: ModuleCardProp
   ],
   '/kho-van': [
     {
-      section: 'Tồn kho & Kho',
+      section: 'Quản lý kho',
       items: [
-        { icon: Warehouse, title: 'Danh sách kho', description: 'Chi nhánh kho, vị trí, người phụ trách.', colorScheme: 'teal' },
-        { icon: Box, title: 'Tồn kho theo mặt hàng', description: 'Tồn theo kho, theo SKU, tồn an toàn.', colorScheme: 'blue' },
-        { icon: ClipboardList, title: 'Kiểm kê tồn kho', description: 'Đợt kiểm kê, đối chiếu, điều chỉnh.', colorScheme: 'teal' },
-        { icon: ArrowLeftRight, title: 'Điều chuyển nội bộ', description: 'Chuyển kho, chuyển vị trí, bàn giao.', colorScheme: 'purple' },
-        { icon: BarChart3, title: 'Báo cáo tồn kho', description: 'Tồn tổng hợp, biến động, tồn lâu.', colorScheme: 'purple' },
-        { icon: Settings, title: 'Thiết lập kho', description: 'Loại kho, đơn vị, quy trình.', colorScheme: 'slate' }
-      ]
-    },
-    {
-      section: 'Nhập kho',
-      items: [
-        { icon: Download, title: 'Phiếu nhập kho', description: 'Tạo phiếu nhập, duyệt, cập nhật tồn.', colorScheme: 'green' },
-        { icon: ShoppingCart, title: 'Nhập từ đơn mua', description: 'Nhập theo PO, đối ứng với Mua hàng.', colorScheme: 'blue' },
-        { icon: RefreshCw, title: 'Nhập trả / Nhập khác', description: 'Trả NCC, nhập hàng về, nhập điều chỉnh.', colorScheme: 'teal' },
-        { icon: CheckCircle2, title: 'Duyệt nhập kho', description: 'Luồng duyệt phiếu nhập.', colorScheme: 'blue' },
-        { icon: BarChart3, title: 'Báo cáo nhập kho', description: 'Thống kê nhập theo kỳ, kho, mặt hàng.', colorScheme: 'purple' },
-        { icon: Settings, title: 'Thiết lập nhập kho', description: 'Loại phiếu, quy tắc, mặc định.', colorScheme: 'slate' }
-      ]
-    },
-    {
-      section: 'Xuất kho',
-      items: [
-        { icon: Upload, title: 'Phiếu xuất kho', description: 'Tạo phiếu xuất, duyệt, trừ tồn.', colorScheme: 'red' },
-        { icon: Truck, title: 'Xuất bán / Xuất đơn hàng', description: 'Xuất theo đơn bán, đối ứng bán hàng.', colorScheme: 'orange' },
-        { icon: Factory, title: 'Xuất nội bộ / Sản xuất', description: 'Xuất chuyển kho, xuất sản xuất, xuất khác.', colorScheme: 'orange' },
-        { icon: CheckCircle2, title: 'Duyệt xuất kho', description: 'Luồng duyệt phiếu xuất.', colorScheme: 'green' },
-        { icon: BarChart3, title: 'Báo cáo xuất kho', description: 'Thống kê xuất theo kỳ, kho, mặt hàng.', colorScheme: 'teal' },
-        { icon: Settings, title: 'Thiết lập xuất kho', description: 'Loại phiếu, quy tắc, mặc định.', colorScheme: 'slate' }
-      ]
-    },
-    {
-      section: 'Vận chuyển & Giao nhận',
-      items: [
-        { icon: DeliveryIcon, title: 'Đơn vận chuyển', description: 'Tạo đơn giao, gắn với phiếu xuất, đơn hàng.', colorScheme: 'teal' },
-        { icon: MapPin, title: 'Theo dõi giao hàng', description: 'Trạng thái giao, cập nhật đã nhận.', colorScheme: 'blue' },
-        { icon: Users, title: 'Đối tác vận chuyển', description: 'Đơn vị vận chuyển, cước, hợp đồng.', colorScheme: 'purple' },
-        { icon: BarChart3, title: 'Báo cáo vận chuyển', description: 'Thống kê giao hàng, tỷ lệ đúng hạn.', colorScheme: 'purple' },
-        { icon: Settings, title: 'Thiết lập vận chuyển', description: 'Loại đơn vận, quy trình, mặc định.', colorScheme: 'slate' }
+        { icon: ArrowLeftRight, title: 'Xuất nhập kho', description: 'Quản lý các hoạt động nhập hàng vào kho và xuất hàng ra khỏi kho.', colorScheme: 'teal' }
       ]
     }
   ],

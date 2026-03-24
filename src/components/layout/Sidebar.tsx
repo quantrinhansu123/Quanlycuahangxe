@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom';
 import { sidebarMenu, extraMenuItems } from '../../data/sidebarMenu';
 import type { SidebarItem } from '../../data/sidebarMenu';
 import { clsx } from 'clsx';
-import { Sparkles } from 'lucide-react'; // Placeholder for the app logo icon
+
 
 interface SidebarProps {
   isOpen: boolean;
@@ -36,14 +36,20 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, setIsOpen }) => {
           isOpen ? "px-4" : "justify-center"
         )}>
           <div className={clsx(
-            "rounded-xl bg-primary text-white flex items-center justify-center shrink-0 transition-all duration-300",
-            isOpen ? "w-8 h-8" : "w-10 h-10"
+            "bg-transparent flex items-center justify-center shrink-0 transition-all duration-300",
+            isOpen ? "w-10 h-10" : "w-12 h-12"
           )}>
-            <Sparkles size={20} />
+            <img 
+              src="/logo.png" 
+              alt="Logo" 
+              className="w-full h-full object-contain"
+            />
           </div>
           <div className={clsx("flex flex-col ml-3 whitespace-nowrap transition-opacity duration-300", !isOpen && "opacity-0 hidden")}>
-            <span className="font-bold text-[15px] leading-tight text-foreground">Quản lý Chuỗi</span>
-            <span className="text-[11px] text-muted-foreground leading-tight">Cửa hàng sửa xe</span>
+            <span className="font-extrabold text-[15px] leading-tight bg-linear-to-r from-[#D4AF37] via-[#FFD700] to-[#B8860B] bg-clip-text text-transparent">
+              Hệ thống VH
+            </span>
+            <span className="text-[11px] text-muted-foreground font-medium leading-tight">Cửa hàng sửa xe</span>
           </div>
         </div>
 

@@ -21,7 +21,7 @@ export type SidebarItem = {
 
 export const sidebarMenu: SidebarItem[] = [
   { icon: Home, label: 'Trang chủ', path: '/' },
-  { icon: FileText, label: 'Hành chính', path: '/hanh-chinh' },
+  { icon: FileText, label: 'Bán hàng', path: '/hanh-chinh' },
   { icon: Users, label: 'Nhân sự', path: '/nhan-su' },
   { icon: Briefcase, label: 'Kinh doanh', path: '/kinh-doanh' },
   { icon: Megaphone, label: 'Marketing', path: '/marketing' },

@@ -12,6 +12,7 @@ import ContractManagementPage from './pages/ContractManagementPage';
 import ShipmentManagementPage from './pages/ShipmentManagementPage';
 import QuoteManagementPage from './pages/QuoteManagementPage';
 import PurchaseOrderPage from './pages/PurchaseOrderPage';
+import CustomerManagementPage from './pages/CustomerManagementPage.tsx';
 
 function App() {
   return (
@@ -21,7 +22,8 @@ function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/ho-so" element={<ProfilePage />} />
           <Route path="/hanh-chinh" element={<ModulePage />} />
-          <Route path="/hanh-chinh/luu-tru-ho-so" element={<RecordArchivePage />} />
+          <Route path="/ban-hang/khach-hang" element={<CustomerManagementPage />} />
+          <Route path="/ban-hang/luu-tru-ho-so" element={<RecordArchivePage />} />
           <Route path="/hanh-chinh/quan-ly-hop-dong" element={<ContractManagementPage />} />
           <Route path="/nhan-su" element={<ModulePage />} />
           <Route path="/nhan-su/ung-vien" element={<CandidatesPage />} />

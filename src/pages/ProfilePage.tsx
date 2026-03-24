@@ -87,7 +87,7 @@ const ProfilePage: React.FC = () => {
           <div className="lg:col-span-3">
             <div className="sticky top-0 self-start space-y-6">
               <div className="bg-card rounded-2xl border border-border overflow-hidden shadow-sm">
-                <div className="h-20 bg-gradient-to-r from-primary/20 to-primary/5" />
+                <div className="h-20 bg-linear-to-r from-primary/20 to-primary/5" />
                 <div className="px-6 pb-6 -mt-10 flex flex-col items-center">
                   <div className="relative group">
                     <div className="w-24 h-24 rounded-full border-4 border-card bg-primary/10 flex items-center justify-center text-3xl font-bold text-primary overflow-hidden shadow-md">
@@ -118,7 +118,7 @@ const ProfilePage: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-3 text-sm text-muted-foreground">
                       <Briefcase size={16} className="text-primary/60 shrink-0" />
-                      <span>Phòng Hành chính</span>
+                      <span>Phòng Bán hàng</span>
                     </div>
                     <div className="flex items-center gap-3 text-sm text-muted-foreground">
                       <User size={16} className="text-primary/60 shrink-0" />
@@ -178,7 +178,7 @@ const ProfilePage: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <InfoItem icon={Fingerprint} label="Mã nhân viên" value="NV000" highlight />
                 <InfoItem icon={Briefcase} label="Chức vụ" value="Giám đốc" highlight />
-                <InfoItem icon={Briefcase} label="Phòng ban" value="Phòng Hành chính" highlight />
+                <InfoItem icon={Briefcase} label="Phòng ban" value="Phòng Bán hàng" highlight />
                 <InfoItem icon={User} label="Cấp bậc" value="Chưa cập nhật" />
                 <InfoItem icon={Calendar} label="Ngày vào làm" value="10/01/2019" />
                 <InfoItem icon={ClockIcon} label="Thâm niên" value="7 năm 2 tháng" />
@@ -273,7 +273,7 @@ const ProfilePage: React.FC = () => {
       {/* Change Avatar Modal - Moved outside to ensure fixed positioning relative to viewport */}
       {isAvatarModalOpen && (
         <div 
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200"
+          className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200"
           onClick={handleBackdropClick}
         >
           <div 
@@ -319,7 +319,7 @@ const ProfilePage: React.FC = () => {
                   <Edit size={16} />
                   <span>Đổi ảnh</span>
                 </button>
-                <div className="w-[1px] h-4 bg-border" />
+                <div className="w-px h-4 bg-border" />
                 <button 
                   onClick={handleRemoveAvatar}
                   className="flex items-center gap-2 text-red-500 hover:underline transition-all text-sm font-bold"
