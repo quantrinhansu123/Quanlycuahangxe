@@ -1,5 +1,5 @@
 import { clsx } from 'clsx';
-import { Box, FileText, Search, Users, Wallet, Wrench } from 'lucide-react';
+import { Box, Clock, FileText, Search, Users, Wallet, Wrench } from 'lucide-react';
 import React, { useState } from 'react';
 import type { ActionCardProps } from '../components/ui/ActionCard';
 import { ActionCard } from '../components/ui/ActionCard';
@@ -34,6 +34,13 @@ const dashboardModules: ActionCardProps[] = [
     description: 'Tuyển dụng, đào tạo, chấm công, lương.',
     href: '/nhan-su',
     colorScheme: 'emerald'
+  },
+  {
+    icon: Clock,
+    title: 'Chấm công',
+    description: 'Chấm công vào/ra hàng ngày.',
+    href: '/cham-cong',
+    colorScheme: 'blue'
   },
   {
     icon: Box,

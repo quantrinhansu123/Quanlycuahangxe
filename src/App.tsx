@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import MainLayout from './components/layout/MainLayout';
 import AttendanceManagementPage from './pages/AttendanceManagementPage';
 import PersonnelManagementPage from './pages/PersonnelManagementPage';
+import CheckInPage from './pages/CheckInPage';
 import CustomerManagementPage from './pages/CustomerManagementPage';
 import Dashboard from './pages/Dashboard';
 import InventoryManagementPage from './pages/InventoryManagementPage';
@@ -25,6 +26,7 @@ function App() {
           <Route path="/ban-hang/phieu-ban-hang-ct" element={<SalesCardCTManagementPage />} />
           <Route path="/nhan-su" element={<ModulePage />} />
           <Route path="/nhan-su/ung-vien" element={<PersonnelManagementPage />} />
+          <Route path="/cham-cong" element={<CheckInPage />} />
           <Route path="/nhan-su/bang-cham-cong" element={<AttendanceManagementPage />} />
           <Route path="/kho-van" element={<ModulePage />} />
           <Route path="/kho-van/xuat-nhap-kho" element={<InventoryManagementPage />} />

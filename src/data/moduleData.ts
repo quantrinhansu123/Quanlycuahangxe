@@ -42,7 +42,7 @@ export const moduleData: Record<string, { section: string; items: ModuleCardProp
       section: 'Quản lý nhân sự',
       items: [
         { icon: Users, title: 'Nhân sự', description: 'Quản lý danh sách nhân viên, vị trí và cơ sở làm việc.', colorScheme: 'emerald', path: '/nhan-su/ung-vien' },
-        { icon: Calendar, title: 'Chấm công', description: 'Thực hiện chấm công hàng ngày cho nhân viên.', colorScheme: 'blue' },
+        { icon: Calendar, title: 'Chấm công', description: 'Thực hiện chấm công hàng ngày cho nhân viên.', colorScheme: 'blue', path: '/cham-cong' },
         { icon: ClipboardList, title: 'Bảng chấm công', description: 'Xem và tổng hợp dữ liệu chấm công theo tháng.', colorScheme: 'orange', path: '/nhan-su/bang-cham-cong' }
       ]
     }

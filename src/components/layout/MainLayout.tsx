@@ -14,7 +14,7 @@ const MainLayout: React.FC = () => {
   // Hide sidebar/bottom nav to give maximum space
   const isDataView = (
     location.pathname.split('/').filter(Boolean).length > 1 || 
-    ['/thu-chi', '/dich-vu'].includes(location.pathname)
+    ['/thu-chi', '/dich-vu', '/cham-cong'].includes(location.pathname)
   );
 
   return (
