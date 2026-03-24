@@ -9,15 +9,18 @@ import { AnimatePresence, motion } from 'framer-motion';
 const MainLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
-  // Only hide sidebar and expand for "leaf" data pages (path depth > 1)
-  const isDataView = location.pathname.split('/').filter(Boolean).length > 1;
+
+  // Pages that focus on heavy data (management tables)
+  // Hide sidebar/bottom nav to give maximum space
+  const isDataView = (
+    location.pathname.split('/').filter(Boolean).length > 1 || 
+    ['/thu-chi', '/dich-vu'].includes(location.pathname)
+  );
 
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden">
-      {/* Sidebar - Hidden on deep data views to give focused feel */}
-      {!isDataView && (
-        <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
-      )}
+      {/* Sidebar - Hidden on focused data views */}
+      {!isDataView && <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />}
 
       {/* Main Content Area */}
       <div 
@@ -50,7 +53,7 @@ const MainLayout: React.FC = () => {
           </AnimatePresence>
         </main>
 
-        {/* Mobile Bottom Navigation - Hidden on deep data views */}
+        {/* Mobile Bottom Navigation - Hidden on focused data views */}
         {!isDataView && <MobileBottomNav />}
       </div>
     </div>
