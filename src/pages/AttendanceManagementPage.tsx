@@ -5,11 +5,13 @@ import {
   Edit2, Trash2, Camera, X, Save, 
   MapPin, Calendar, Clock,
   User, Loader2,
-  ArrowLeft, List
+  ArrowLeft, List,
+  Download, Upload
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { useNavigate } from 'react-router-dom';
 import { clsx } from 'clsx';
-import { getAttendanceRecords, upsertAttendanceRecord, deleteAttendanceRecord } from '../data/attendanceData';
+import { getAttendanceRecords, upsertAttendanceRecord, deleteAttendanceRecord, bulkUpsertAttendanceRecords } from '../data/attendanceData';
 import type { AttendanceRecord } from '../data/attendanceData';
 
 const AttendanceManagementPage: React.FC = () => {
@@ -24,6 +26,8 @@ const AttendanceManagementPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(null);
   const [formData, setFormData] = useState<Partial<AttendanceRecord>>({});
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [visibleColumns, setVisibleColumns] = useState<string[]>([
@@ -118,14 +122,59 @@ const AttendanceManagementPage: React.FC = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const getLocation = () => {
+    if (!("geolocation" in navigator)) {
+      setLocationError("Trình duyệt không hỗ trợ định vị.");
+      return;
+    }
+
+    setLocationLoading(true);
+    setLocationError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setFormData(prev => ({ 
+          ...prev, 
+          vi_tri: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}` 
+        }));
+        setLocationLoading(false);
+      },
+      (error) => {
+        console.error("Lỗi lấy vị trí:", error);
+        if (error.code === 1) {
+          setLocationError("Bạn đã từ chối quyền truy cập vị trí.");
+        } else {
+          setLocationError("Không thể xác định vị trí.");
+        }
+        setLocationLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+    );
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // 1. Tự động lấy giờ hiện tại
+      const now = new Date();
+      const timeStr = now.toTimeString().split(' ')[0].substring(0, 5); // HH:mm
+      
+      setFormData(prev => ({ 
+        ...prev, 
+        checkin: prev.checkin || timeStr, 
+        ngay: now.toISOString().split('T')[0]
+      }));
+
+      // 2. Chuyển ảnh sang dạng base64
       const reader = new FileReader();
       reader.onloadend = () => {
         setFormData(prev => ({ ...prev, anh: reader.result as string }));
       };
       reader.readAsDataURL(file);
+
+      // 3. Tự động lấy tọa độ vị trí
+      getLocation();
     }
   };
 
@@ -138,6 +187,60 @@ const AttendanceManagementPage: React.FC = () => {
     } catch (error) {
       alert('Lỗi: Không thể lưu thông tin chấm công.');
     }
+  };
+
+  const handleDownloadTemplate = () => {
+    const templateData = [
+      {
+        "Ngày": "2024-03-24",
+        "Họ tên Nhân viên": "Nguyễn Văn A",
+        "Check-in": "08:00",
+        "Check-out": "17:30",
+        "Vị trí": "21.273, 106.194"
+      }
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(templateData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "MauChamCong");
+    XLSX.writeFile(workbook, "Mau_nhap_cham_cong.xlsx");
+  };
+
+  const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_json(ws) as any[];
+
+        const formattedData: Partial<AttendanceRecord>[] = data.map(item => ({
+          ngay: item["Ngày"] || new Date().toISOString().split('T')[0],
+          nhan_su: item["Họ tên Nhân viên"] || '',
+          checkin: String(item["Check-in"] || ''),
+          checkout: String(item["Check-out"] || ''),
+          vi_tri: item["Vị trí"] || ''
+        }));
+
+        if (formattedData.length > 0) {
+          setLoading(true);
+          await bulkUpsertAttendanceRecords(formattedData);
+          await loadRecords();
+          alert(`Đã nhập thành công ${formattedData.length} bản ghi chấm công!`);
+        }
+      } catch (error) {
+        console.error(error);
+        alert("Lỗi khi đọc file Excel.");
+      } finally {
+        setLoading(false);
+        if (e.target) e.target.value = '';
+      }
+    };
+    reader.readAsBinaryString(file);
   };
 
   const handleDelete = async (id: string) => {
@@ -175,6 +278,34 @@ const AttendanceManagementPage: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={handleDownloadTemplate}
+                className="flex items-center gap-2 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
+                title="Tải mẫu Excel"
+              >
+                <Download size={18} />
+                <span>Tải mẫu</span>
+              </button>
+              <div className="relative">
+                <button 
+                  onClick={() => document.getElementById('excel-import')?.click()}
+                  className="flex items-center gap-2 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
+                  title="Nhập chấm công từ Excel"
+                >
+                  <Upload size={18} />
+                  <span>Nhập Excel</span>
+                </button>
+                <input 
+                  id="excel-import"
+                  type="file" 
+                  accept=".xlsx, .xls" 
+                  className="hidden" 
+                  onChange={handleImportExcel} 
+                />
+              </div>
+            </div>
+
             <div className="relative">
               <button 
                 onClick={() => toggleDropdown('columns')}
@@ -340,7 +471,38 @@ const AttendanceManagementPage: React.FC = () => {
                   <InputField label="Giờ ra" name="checkout" type="time" value={formData.checkout || ''} onChange={handleInputChange} icon={Clock} />
                 </div>
 
-                <InputField label="Vị trí" name="vi_tri" value={formData.vi_tri || ''} onChange={handleInputChange} icon={MapPin} placeholder="Vị trí chấm công..." />
+                <div className="relative">
+                  <InputField 
+                    label="Vị trí (Tọa độ)" 
+                    name="vi_tri" 
+                    value={formData.vi_tri || ''} 
+                    onChange={handleInputChange} 
+                    icon={MapPin} 
+                    placeholder={locationLoading ? "Đang xác định tọa độ..." : (locationError || "Vị trí chấm công...") }
+                    className={clsx(
+                      locationLoading && "animate-pulse",
+                      locationError && "border-red-300 text-red-500"
+                    )}
+                  />
+                  <div className="absolute right-3 top-9 flex items-center gap-2">
+                    {locationLoading && <Loader2 size={16} className="animate-spin text-primary" />}
+                    {!locationLoading && (
+                      <button 
+                        type="button"
+                        onClick={getLocation}
+                        className="text-primary hover:bg-primary/10 p-1 rounded transition-colors"
+                        title="Lấy lại tọa độ"
+                      >
+                        <MapPin size={16} />
+                      </button>
+                    )}
+                  </div>
+                  {locationError && (
+                    <p className="text-[10px] text-red-500 mt-1 font-medium ml-2">
+                      {locationError}. Hãy bật GPS và cho phép truy cập.
+                    </p>
+                  )}
+                </div>
               </div>
 
               <div className="mt-10 flex items-center justify-end gap-3 pt-6 border-t border-border">

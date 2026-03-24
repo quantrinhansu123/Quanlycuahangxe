@@ -5,11 +5,12 @@ import {
   Phone, MapPin, Calendar, CreditCard,
   History, Settings, User, Loader2,
   ArrowLeft, ChevronDown, List, 
-  Building2
+  Building2, Download, Upload
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { useNavigate } from 'react-router-dom';
 import { clsx } from 'clsx';
-import { getCustomers, upsertCustomer, deleteCustomer } from '../data/customerData';
+import { getCustomers, upsertCustomer, deleteCustomer, bulkUpsertCustomers } from '../data/customerData';
 import type { KhachHang } from '../data/customerData';
 
 const CustomerManagementPage: React.FC = () => {
@@ -212,6 +213,68 @@ const CustomerManagementPage: React.FC = () => {
     }
   };
 
+  const handleDownloadTemplate = () => {
+    const templateData = [
+      {
+        "Họ và tên": "Nguyễn Văn A",
+        "Số điện thoại": "0912345678",
+        "Địa chỉ hiện tại": "Bắc Giang",
+        "Biển số xe": "98A-123.45",
+        "Ngày đăng ký": "2024-01-01",
+        "Số KM": 15000,
+        "Số ngày thay dầu": 60,
+        "Ngày thay dầu": "2024-02-15"
+      }
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(templateData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
+    XLSX.writeFile(workbook, "Mau_nhap_khach_hang.xlsx");
+  };
+
+  const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws) as any[];
+
+        const formattedData: Partial<KhachHang>[] = data.map(item => ({
+          ho_va_ten: item["Họ và tên"] || '',
+          so_dien_thoai: String(item["Số điện thoại"] || ''),
+          dia_chi_hien_tai: item["Địa chỉ hiện tại"] || '',
+          bien_so_xe: item["Biển số xe"] || '',
+          ngay_dang_ky: item["Ngày đăng ký"] || new Date().toISOString().split('T')[0],
+          so_km: Number(item["Số KM"]) || 0,
+          so_ngay_thay_dau: Number(item["Số ngày thay dầu"]) || 0,
+          ngay_thay_dau: item["Ngày thay dầu"] || null
+        }));
+
+        if (formattedData.length > 0) {
+          setLoading(true);
+          await bulkUpsertCustomers(formattedData);
+          await loadCustomers();
+          alert(`Đã nhập thành công ${formattedData.length} khách hàng!`);
+        }
+      } catch (error) {
+        console.error("Lỗi khi nhập Excel:", error);
+        alert("Lỗi khi đọc file Excel. Vui lòng kiểm tra lại định dạng file.");
+      } finally {
+        setLoading(false);
+        // Clear input
+        if (e.target) e.target.value = '';
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
   const handleDelete = async (id: string) => {
     if (window.confirm('Bạn có chắc chắn muốn xóa khách hàng này?')) {
       try {
@@ -358,6 +421,34 @@ const CustomerManagementPage: React.FC = () => {
                 </div>
               )}
             </div>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={handleDownloadTemplate}
+                className="flex items-center gap-2 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium"
+                title="Tải mẫu Excel"
+              >
+                <Download size={18} />
+                <span>Tải mẫu</span>
+              </button>
+              <div className="relative">
+                <button 
+                  onClick={() => document.getElementById('excel-import')?.click()}
+                  className="flex items-center gap-2 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium"
+                  title="Nhập khách hàng từ file Excel"
+                >
+                  <Upload size={18} />
+                  <span>Nhập Excel</span>
+                </button>
+                <input 
+                  id="excel-import"
+                  type="file" 
+                  accept=".xlsx, .xls" 
+                  className="hidden" 
+                  onChange={handleImportExcel} 
+                />
+              </div>
+            </div>
+
             <button 
               onClick={() => handleOpenModal()}
               className="bg-primary hover:bg-primary/90 text-white px-5 py-1.5 rounded flex items-center gap-2 text-[14px] font-semibold transition-colors"

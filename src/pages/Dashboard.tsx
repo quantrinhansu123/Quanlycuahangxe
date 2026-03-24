@@ -18,14 +18,14 @@ const dashboardModules: ActionCardProps[] = [
     icon: Wallet,
     title: 'Thu chi',
     description: 'Quản lý dòng tiền và các chứng từ tài chính.',
-    href: '/ban-hang/thu-chi',
+    href: '/thu-chi',
     colorScheme: 'blue'
   },
   {
     icon: Wrench,
     title: 'Dịch vụ',
     description: 'Quản lý danh mục dịch vụ và giá cả.',
-    href: '/ban-hang/dich-vu',
+    href: '/dich-vu',
     colorScheme: 'purple'
   },
   {

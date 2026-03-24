@@ -39,6 +39,17 @@ export const upsertAttendanceRecord = async (record: Partial<AttendanceRecord>):
   return data as AttendanceRecord;
 };
 
+export const bulkUpsertAttendanceRecords = async (records: Partial<AttendanceRecord>[]): Promise<void> => {
+  const { error } = await supabase
+    .from('cham_cong')
+    .upsert(records);
+
+  if (error) {
+    console.error('Error bulk upserting attendance records:', error);
+    throw error;
+  }
+};
+
 export const deleteAttendanceRecord = async (id: string): Promise<void> => {
   const { error } = await supabase
     .from('cham_cong')

@@ -4,11 +4,13 @@ import {
   Edit2, Trash2, Camera, X, Save, 
   Phone, Mail, User, Loader2,
   ArrowLeft, ChevronDown, 
-  Building2, Briefcase
+  Building2, Briefcase,
+  Download, Upload
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { useNavigate } from 'react-router-dom';
 import { clsx } from 'clsx';
-import { getPersonnel, upsertPersonnel, deletePersonnel, uploadPersonnelImage } from '../data/personnelData';
+import { getPersonnel, upsertPersonnel, deletePersonnel, uploadPersonnelImage, bulkUpsertPersonnel } from '../data/personnelData';
 import type { NhanSu } from '../data/personnelData';
 
 const PersonnelManagementPage: React.FC = () => {
@@ -145,6 +147,60 @@ const PersonnelManagementPage: React.FC = () => {
     }
   };
 
+  const handleDownloadTemplate = () => {
+    const templateData = [
+      {
+        "Họ và tên": "Nguyễn Văn A",
+        "SĐT": "0912345678",
+        "Email": "vana@gmail.com",
+        "Vị trí": "kỹ thuật viên",
+        "Cơ sở": "Cơ sở Bắc Giang"
+      }
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(templateData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "MauNhanSu");
+    XLSX.writeFile(workbook, "Mau_nhap_nhan_su.xlsx");
+  };
+
+  const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_json(ws) as any[];
+
+        const formattedData: Partial<NhanSu>[] = data.map(item => ({
+          ho_ten: item["Họ và tên"] || '',
+          sdt: String(item["SĐT"] || ''),
+          email: item["Email"] || '',
+          vi_tri: String(item["Vị trí"]).toLowerCase() || 'kỹ thuật viên',
+          co_so: item["Cơ sở"] || 'Cơ sở Bắc Giang'
+        }));
+
+        if (formattedData.length > 0) {
+          setLoading(true);
+          await bulkUpsertPersonnel(formattedData);
+          await loadPersonnel();
+          alert(`Đã nhập thành công ${formattedData.length} nhân sự!`);
+        }
+      } catch (error) {
+        console.error(error);
+        alert("Lỗi khi đọc file Excel.");
+      } finally {
+        setLoading(false);
+        if (e.target) e.target.value = '';
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
   const handleDelete = async (id: string) => {
     if (window.confirm('Bạn có chắc chắn muốn xóa nhân viên này?')) {
       try {
@@ -230,6 +286,34 @@ const PersonnelManagementPage: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={handleDownloadTemplate}
+                className="flex items-center gap-2 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
+                title="Tải mẫu Excel"
+              >
+                <Download size={18} />
+                <span>Tải mẫu</span>
+              </button>
+              <div className="relative">
+                <button 
+                  onClick={() => document.getElementById('excel-import')?.click()}
+                  className="flex items-center gap-2 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
+                  title="Nhập nhân sự từ Excel"
+                >
+                  <Upload size={18} />
+                  <span>Nhập Excel</span>
+                </button>
+                <input 
+                  id="excel-import"
+                  type="file" 
+                  accept=".xlsx, .xls" 
+                  className="hidden" 
+                  onChange={handleImportExcel} 
+                />
+              </div>
+            </div>
+
             <button 
               onClick={() => handleOpenModal()}
               className="bg-primary hover:bg-primary/90 text-white px-5 py-1.5 rounded flex items-center gap-2 text-[14px] font-semibold transition-colors"

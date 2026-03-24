@@ -47,6 +47,17 @@ export const upsertSalesCardCT = async (item: Partial<SalesCardCT>): Promise<Sal
   return data as SalesCardCT;
 };
 
+export const bulkUpsertSalesCardCTs = async (items: Partial<SalesCardCT>[]): Promise<void> => {
+  const { error } = await supabase
+    .from('the_ban_hang_ct')
+    .upsert(items);
+
+  if (error) {
+    console.error('Error bulk upserting sales card CTs:', error);
+    throw error;
+  }
+};
+
 export const deleteSalesCardCT = async (id: string): Promise<void> => {
   const { error } = await supabase
     .from('the_ban_hang_ct')

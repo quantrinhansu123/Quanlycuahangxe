@@ -45,6 +45,17 @@ export const upsertTransaction = async (transaction: Partial<ThuChi>): Promise<T
   return data as ThuChi;
 };
 
+export const bulkUpsertTransactions = async (transactions: Partial<ThuChi>[]): Promise<void> => {
+  const { error } = await supabase
+    .from('thu_chi')
+    .upsert(transactions);
+
+  if (error) {
+    console.error('Error bulk upserting transactions:', error);
+    throw error;
+  }
+};
+
 export const deleteTransaction = async (id: string): Promise<void> => {
   const { error } = await supabase
     .from('thu_chi')
@@ -63,7 +74,7 @@ export const uploadTransactionImage = async (file: File): Promise<string> => {
   const filePath = `transactions/${fileName}`;
 
   const { error: uploadError } = await supabase.storage
-    .from('transactions')
+    .from('images') // Use standardized 'images' bucket
     .upload(filePath, file);
 
   if (uploadError) {
@@ -71,7 +82,7 @@ export const uploadTransactionImage = async (file: File): Promise<string> => {
   }
 
   const { data } = supabase.storage
-    .from('transactions')
+    .from('images')
     .getPublicUrl(filePath);
 
   return data.publicUrl;

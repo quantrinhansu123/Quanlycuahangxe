@@ -41,6 +41,17 @@ export const upsertService = async (service: Partial<DichVu>): Promise<DichVu> =
   return data as DichVu;
 };
 
+export const bulkUpsertServices = async (services: Partial<DichVu>[]): Promise<void> => {
+  const { error } = await supabase
+    .from('dich_vu')
+    .upsert(services);
+
+  if (error) {
+    console.error('Error bulk upserting services:', error);
+    throw error;
+  }
+};
+
 export const deleteService = async (id: string): Promise<void> => {
   const { error } = await supabase
     .from('dich_vu')
@@ -59,7 +70,7 @@ export const uploadServiceImage = async (file: File): Promise<string> => {
   const filePath = `services/${fileName}`;
 
   const { error: uploadError } = await supabase.storage
-    .from('personnel') // Reuse personnel bucket or create new
+    .from('images') // Use unified images bucket
     .upload(filePath, file);
 
   if (uploadError) {
@@ -67,7 +78,7 @@ export const uploadServiceImage = async (file: File): Promise<string> => {
   }
 
   const { data } = supabase.storage
-    .from('personnel')
+    .from('images')
     .getPublicUrl(filePath);
 
   return data.publicUrl;

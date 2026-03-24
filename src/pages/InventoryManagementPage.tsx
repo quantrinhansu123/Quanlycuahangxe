@@ -5,11 +5,13 @@ import {
   Calendar,
   Settings, Loader2,
   ArrowLeft, ChevronDown, List, 
-  Building2, Hash, DollarSign, Package, Clock, User
+  Building2, Hash, DollarSign, Package, Clock, User,
+  Download, Upload
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { useNavigate } from 'react-router-dom';
 import { clsx } from 'clsx';
-import { getInventoryRecords, addInventoryRecord, deleteInventoryRecord } from '../data/inventoryData';
+import { getInventoryRecords, addInventoryRecord, deleteInventoryRecord, bulkInsertInventoryRecords } from '../data/inventoryData';
 import type { InventoryRecord } from '../data/inventoryData';
 
 const InventoryManagementPage: React.FC = () => {
@@ -197,6 +199,73 @@ const InventoryManagementPage: React.FC = () => {
     }
   };
 
+  const handleDownloadTemplate = () => {
+    const templateData = [
+      {
+        "Ngày": "2024-03-24",
+        "Giờ": "10:30",
+        "Loại phiếu": "Nhập kho",
+        "Mã đơn hàng": "DH-001",
+        "Cơ sở": "Cơ sở Bắc Giang",
+        "Tên mặt hàng": "Lốp xe Honda",
+        "Số lượng": 10,
+        "Giá": 450000,
+        "Người thực hiện": "Nguyễn Văn A"
+      }
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(templateData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "MauKho");
+    XLSX.writeFile(workbook, "Mau_nhap_kho.xlsx");
+  };
+
+  const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_json(ws) as any[];
+
+        const formattedData: Omit<InventoryRecord, 'id' | 'created_at'>[] = data.map(item => {
+          const so_luong = Number(item["Số lượng"]) || 0;
+          const gia = Number(item["Giá"]) || 0;
+          return {
+            ngay: item["Ngày"] || new Date().toISOString().split('T')[0],
+            gio: item["Giờ"] || "08:00",
+            loai_phieu: item["Loại phiếu"] || 'Nhập kho',
+            id_don_hang: item["Mã đơn hàng"] || '',
+            co_so: item["Cơ sở"] || 'Cơ sở Bắc Giang',
+            ten_mat_hang: item["Tên mặt hàng"] || '',
+            so_luong,
+            gia,
+            tong_tien: so_luong * gia,
+            nguoi_thuc_hien: item["Người thực hiện"] || ''
+          };
+        });
+
+        if (formattedData.length > 0) {
+          setLoading(true);
+          await bulkInsertInventoryRecords(formattedData);
+          await loadRecords();
+          alert(`Đã nhập thành công ${formattedData.length} bản ghi kho!`);
+        }
+      } catch (error) {
+        console.error(error);
+        alert("Lỗi khi đọc file Excel.");
+      } finally {
+        setLoading(false);
+        if (e.target) e.target.value = '';
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
   const handleDelete = async (id: string) => {
     if (window.confirm('Bạn có chắc chắn muốn xóa bản ghi này?')) {
       try {
@@ -304,6 +373,34 @@ const InventoryManagementPage: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={handleDownloadTemplate}
+                className="flex items-center gap-2 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
+                title="Tải mẫu Excel"
+              >
+                <Download size={18} />
+                <span>Tải mẫu</span>
+              </button>
+              <div className="relative">
+                <button 
+                  onClick={() => document.getElementById('excel-import')?.click()}
+                  className="flex items-center gap-2 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
+                  title="Nhập kho từ Excel"
+                >
+                  <Upload size={18} />
+                  <span>Nhập Excel</span>
+                </button>
+                <input 
+                  id="excel-import"
+                  type="file" 
+                  accept=".xlsx, .xls" 
+                  className="hidden" 
+                  onChange={handleImportExcel} 
+                />
+              </div>
+            </div>
+
             <div className="relative">
               <button 
                 onClick={() => toggleDropdown('columns')}

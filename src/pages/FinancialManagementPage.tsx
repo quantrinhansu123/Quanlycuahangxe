@@ -4,11 +4,13 @@ import {
   Edit2, Trash2, Camera, X, Save, 
   User, Loader2,
   ArrowLeft, ChevronDown, 
-  Building2, Wallet, Calendar, Clock, FileText, BadgeDollarSign, Tag
+  Building2, Wallet, Calendar, Clock, FileText, BadgeDollarSign, Tag,
+  Download, Upload
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { useNavigate } from 'react-router-dom';
 import { clsx } from 'clsx';
-import { getTransactions, upsertTransaction, deleteTransaction, uploadTransactionImage } from '../data/financialData';
+import { getTransactions, upsertTransaction, deleteTransaction, uploadTransactionImage, bulkUpsertTransactions } from '../data/financialData';
 import type { ThuChi } from '../data/financialData';
 
 const FinancialManagementPage: React.FC = () => {
@@ -163,6 +165,70 @@ const FinancialManagementPage: React.FC = () => {
     }
   };
 
+  const handleDownloadTemplate = () => {
+    const templateData = [
+      {
+        "Ngày": "2024-03-24",
+        "Giờ": "08:30",
+        "Loại phiếu": "phiếu thu",
+        "Cơ sở": "Cơ sở Bắc Giang",
+        "Số tiền": 500000,
+        "Danh mục": "Thu tiền sửa xe",
+        "Trạng thái": "Hoàn thành",
+        "ID Đơn": "ORD-123",
+        "ID Khách hàng": "0912345678",
+        "Ghi chú": "Thanh toán tiền mặt"
+      }
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(templateData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "MauThuChi");
+    XLSX.writeFile(workbook, "Mau_nhap_thu_chi.xlsx");
+  };
+
+  const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_json(ws) as any[];
+
+        const formattedData: Partial<ThuChi>[] = data.map(item => ({
+          ngay: item["Ngày"] || new Date().toISOString().split('T')[0],
+          gio: item["Giờ"] || "08:00",
+          loai_phieu: String(item["Loại phiếu"]).toLowerCase() || 'phiếu thu',
+          co_so: item["Cơ sở"] || 'Cơ sở Bắc Giang',
+          so_tien: Number(item["Số tiền"]) || 0,
+          danh_muc: item["Danh mục"] || '',
+          trang_thai: item["Trạng thái"] || 'Hoàn thành',
+          id_don: item["ID Đơn"] || '',
+          id_khach_hang: item["ID Khách hàng"] || '',
+          ghi_chu: item["Ghi chú"] || ''
+        }));
+
+        if (formattedData.length > 0) {
+          setLoading(true);
+          await bulkUpsertTransactions(formattedData);
+          await loadTransactions();
+          alert(`Đã nhập thành công ${formattedData.length} bản ghi thu chi!`);
+        }
+      } catch (error) {
+        console.error(error);
+        alert("Lỗi khi đọc file Excel.");
+      } finally {
+        setLoading(false);
+        if (e.target) e.target.value = '';
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
   const handleDelete = async (id: string) => {
     if (window.confirm('Bạn có chắc chắn muốn xóa giao dịch này?')) {
       try {
@@ -268,6 +334,34 @@ const FinancialManagementPage: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={handleDownloadTemplate}
+                className="flex items-center gap-2 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
+                title="Tải mẫu Excel"
+              >
+                <Download size={18} />
+                <span>Tải mẫu</span>
+              </button>
+              <div className="relative">
+                <button 
+                  onClick={() => document.getElementById('excel-import')?.click()}
+                  className="flex items-center gap-2 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
+                  title="Nhập thu chi từ Excel"
+                >
+                  <Upload size={18} />
+                  <span>Nhập Excel</span>
+                </button>
+                <input 
+                  id="excel-import"
+                  type="file" 
+                  accept=".xlsx, .xls" 
+                  className="hidden" 
+                  onChange={handleImportExcel} 
+                />
+              </div>
+            </div>
+
             <button 
               onClick={() => handleOpenModal()}
               className="bg-primary hover:bg-primary/90 text-white px-5 py-1.5 rounded flex items-center gap-2 text-[14px] font-semibold transition-colors"

@@ -19,8 +19,8 @@ function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/ban-hang" element={<ModulePage />} />
           <Route path="/ban-hang/khach-hang" element={<CustomerManagementPage />} />
-          <Route path="/ban-hang/thu-chi" element={<FinancialManagementPage />} />
-          <Route path="/ban-hang/dich-vu" element={<ServiceManagementPage />} />
+          <Route path="/thu-chi" element={<FinancialManagementPage />} />
+          <Route path="/dich-vu" element={<ServiceManagementPage />} />
           <Route path="/ban-hang/phieu-ban-hang" element={<SalesCardManagementPage />} />
           <Route path="/ban-hang/phieu-ban-hang-ct" element={<SalesCardCTManagementPage />} />
           <Route path="/nhan-su" element={<ModulePage />} />

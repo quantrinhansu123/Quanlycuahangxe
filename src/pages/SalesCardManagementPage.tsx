@@ -4,10 +4,12 @@ import {
   Edit2, Trash2, X, Save, 
   Loader2,
   ArrowLeft, 
-  ShoppingCart, User, Wrench, Star, Calendar, Clock
+  ShoppingCart, User, Wrench, Star, Calendar, Clock,
+  Download, Upload
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { useNavigate } from 'react-router-dom';
-import { getSalesCards, upsertSalesCard, deleteSalesCard } from '../data/salesCardData';
+import { getSalesCards, upsertSalesCard, deleteSalesCard, bulkUpsertSalesCards } from '../data/salesCardData';
 import { getCustomers } from '../data/customerData';
 import { getPersonnel } from '../data/personnelData';
 import { getServices } from '../data/serviceData';
@@ -111,6 +113,80 @@ const SalesCardManagementPage: React.FC = () => {
     }
   };
 
+  const handleDownloadTemplate = () => {
+    const templateData = [
+      {
+        "Ngày": "2024-03-24",
+        "Giờ": "08:30",
+        "SĐT Khách hàng": "0912345678",
+        "Tên Nhân viên": "Nguyễn Văn B",
+        "Tên Dịch vụ": "Thay dầu máy",
+        "Đánh giá": "hài lòng",
+        "Số Km": 12000,
+        "Ngày nhắc thay dầu": "2024-05-24"
+      }
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(templateData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "MauSalesCards");
+    XLSX.writeFile(workbook, "Mau_nhap_phieu_ban_hang.xlsx");
+  };
+
+  const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_json(ws) as any[];
+
+        const formattedData: Partial<SalesCard>[] = data.map(item => {
+          // Map Customer by Phone
+          const customerMatch = customers.find(c => c.so_dien_thoai === String(item["SĐT Khách hàng"]));
+          // Map Personnel by Name
+          const personnelMatch = personnel.find(p => p.ho_ten.toLowerCase() === String(item["Tên Nhân viên"]).toLowerCase());
+          // Map Service by Name
+          const serviceMatch = services.find(s => s.ten_dich_vu.toLowerCase() === String(item["Tên Dịch vụ"]).toLowerCase());
+
+          return {
+            ngay: item["Ngày"] || new Date().toISOString().split('T')[0],
+            gio: item["Giờ"] || "08:00",
+            khach_hang_id: customerMatch?.id || null,
+            nhan_vien_id: personnelMatch?.id || null,
+            dich_vu_id: serviceMatch?.id || null,
+            danh_gia: item["Đánh giá"] || 'hài lòng',
+            so_km: Number(item["Số Km"]) || 0,
+            ngay_nhac_thay_dau: item["Ngày nhắc thay dầu"] || null
+          };
+        });
+
+        // Filter out records without essential IDs if necessary, or just warn
+        const validData = formattedData.filter(d => d.khach_hang_id);
+
+        if (validData.length > 0) {
+          setLoading(true);
+          await bulkUpsertSalesCards(validData);
+          await loadData();
+          alert(`Đã nhập thành công ${validData.length} phiếu bán hàng! (${formattedData.length - validData.length} lỗi do không tìm thấy khách hàng)`);
+        } else {
+          alert("Không tìm thấy dữ liệu hợp lệ để nhập (kiểm tra SĐT khách hàng).");
+        }
+      } catch (error) {
+        console.error(error);
+        alert("Lỗi khi đọc file Excel.");
+      } finally {
+        setLoading(false);
+        if (e.target) e.target.value = '';
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
   const handleDelete = async (id: string) => {
     if (window.confirm('Bạn có chắc chắn muốn xóa phiếu này?')) {
       try {
@@ -155,6 +231,34 @@ const SalesCardManagementPage: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={handleDownloadTemplate}
+                className="flex items-center gap-2 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
+                title="Tải mẫu Excel"
+              >
+                <Download size={18} />
+                <span>Tải mẫu</span>
+              </button>
+              <div className="relative">
+                <button 
+                  onClick={() => document.getElementById('excel-import')?.click()}
+                  className="flex items-center gap-2 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
+                  title="Nhập phiếu từ Excel"
+                >
+                  <Upload size={18} />
+                  <span>Nhập Excel</span>
+                </button>
+                <input 
+                  id="excel-import"
+                  type="file" 
+                  accept=".xlsx, .xls" 
+                  className="hidden" 
+                  onChange={handleImportExcel} 
+                />
+              </div>
+            </div>
+
             <button 
               onClick={() => handleOpenModal()}
               className="bg-primary hover:bg-primary/90 text-white px-5 py-1.5 rounded flex items-center gap-2 text-[14px] font-semibold transition-colors shadow-lg shadow-primary/20"

@@ -39,6 +39,17 @@ export const upsertPersonnel = async (personnel: Partial<NhanSu>): Promise<NhanS
   return data as NhanSu;
 };
 
+export const bulkUpsertPersonnel = async (personnel: Partial<NhanSu>[]): Promise<void> => {
+  const { error } = await supabase
+    .from('nhan_su')
+    .upsert(personnel);
+
+  if (error) {
+    console.error('Error bulk upserting personnel:', error);
+    throw error;
+  }
+};
+
 export const deletePersonnel = async (id: string): Promise<void> => {
   const { error } = await supabase
     .from('nhan_su')
@@ -57,7 +68,7 @@ export const uploadPersonnelImage = async (file: File): Promise<string> => {
   const filePath = `personnel/${fileName}`;
 
   const { error: uploadError } = await supabase.storage
-    .from('personnel')
+    .from('images') // Use unified images bucket
     .upload(filePath, file);
 
   if (uploadError) {
@@ -65,7 +76,7 @@ export const uploadPersonnelImage = async (file: File): Promise<string> => {
   }
 
   const { data } = supabase.storage
-    .from('personnel')
+    .from('images')
     .getPublicUrl(filePath);
 
   return data.publicUrl;

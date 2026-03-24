@@ -42,6 +42,17 @@ export const addInventoryRecord = async (record: Omit<InventoryRecord, 'id' | 'c
   return data as InventoryRecord;
 };
 
+export const bulkInsertInventoryRecords = async (records: Omit<InventoryRecord, 'id' | 'created_at'>[]): Promise<void> => {
+  const { error } = await supabase
+    .from('nhap_xuat_kho')
+    .insert(records);
+
+  if (error) {
+    console.error('Error bulk inserting inventory records:', error);
+    throw error;
+  }
+};
+
 export const deleteInventoryRecord = async (id: string): Promise<void> => {
   const { error } = await supabase
     .from('nhap_xuat_kho')

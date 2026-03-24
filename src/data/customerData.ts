@@ -41,6 +41,17 @@ export const upsertCustomer = async (customer: Partial<KhachHang>): Promise<Khac
   return data as KhachHang;
 };
 
+export const bulkUpsertCustomers = async (customers: Partial<KhachHang>[]): Promise<void> => {
+  const { error } = await supabase
+    .from('khach_hang')
+    .upsert(customers);
+
+  if (error) {
+    console.error('Error bulk upserting customers:', error);
+    throw error;
+  }
+};
+
 export const deleteCustomer = async (id: string): Promise<void> => {
   const { error } = await supabase
     .from('khach_hang')
@@ -51,4 +62,24 @@ export const deleteCustomer = async (id: string): Promise<void> => {
     console.error('Error deleting customer:', error);
     throw error;
   }
+};
+
+export const uploadCustomerImage = async (file: File): Promise<string> => {
+  const fileExt = file.name.split('.').pop();
+  const fileName = `${Math.random()}.${fileExt}`;
+  const filePath = `customers/${fileName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('images')
+    .upload(filePath, file);
+
+  if (uploadError) {
+    throw uploadError;
+  }
+
+  const { data } = supabase.storage
+    .from('images')
+    .getPublicUrl(filePath);
+
+  return data.publicUrl;
 };
