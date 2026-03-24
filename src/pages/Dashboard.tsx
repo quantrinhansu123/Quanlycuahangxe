@@ -1,5 +1,5 @@
 import { clsx } from 'clsx';
-import { Box, FileText, Search, Users } from 'lucide-react';
+import { Box, FileText, Search, Users, Wallet, Wrench } from 'lucide-react';
 import React, { useState } from 'react';
 import type { ActionCardProps } from '../components/ui/ActionCard';
 import { ActionCard } from '../components/ui/ActionCard';
@@ -10,9 +10,23 @@ const dashboardModules: ActionCardProps[] = [
   {
     icon: FileText,
     title: 'Bán hàng',
-    description: 'Quản lý đơn hàng, khách hàng và doanh thu.',
+    description: 'Quản lý đơn hàng và phiếu bán hàng CT.',
     href: '/ban-hang',
     colorScheme: 'orange'
+  },
+  {
+    icon: Wallet,
+    title: 'Thu chi',
+    description: 'Quản lý dòng tiền và các chứng từ tài chính.',
+    href: '/ban-hang/thu-chi',
+    colorScheme: 'blue'
+  },
+  {
+    icon: Wrench,
+    title: 'Dịch vụ',
+    description: 'Quản lý danh mục dịch vụ và giá cả.',
+    href: '/ban-hang/dich-vu',
+    colorScheme: 'purple'
   },
   {
     icon: Users,

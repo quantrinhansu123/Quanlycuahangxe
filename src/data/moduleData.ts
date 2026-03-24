@@ -3,8 +3,7 @@ import {
   Calendar, ClipboardList,
   ShoppingCart,
   Users,
-  Wallet,
-  Wrench
+  FileText
 } from 'lucide-react';
 import type { ModuleCardProps } from '../components/ui/ModuleCard';
 
@@ -16,8 +15,7 @@ export const moduleData: Record<string, { section: string; items: ModuleCardProp
       items: [
         { icon: Users, title: 'Khách hàng', description: 'Quản lý danh sách và thông tin khách hàng.', colorScheme: 'blue', path: '/ban-hang/khach-hang' },
         { icon: ShoppingCart, title: 'Bán hàng', description: 'Lập hóa đơn và quản lý giao dịch bán hàng.', colorScheme: 'green', path: '/ban-hang/phieu-ban-hang' },
-        { icon: Wallet, title: 'Thu chi', description: 'Quản lý thu chi, dòng tiền và chứng từ tài chính.', colorScheme: 'orange', path: '/ban-hang/thu-chi' },
-        { icon: Wrench, title: 'Dịch vụ', description: 'Quản lý các gói dịch vụ và tiến độ sửa chữa.', colorScheme: 'purple', path: '/ban-hang/dich-vu' }
+        { icon: FileText, title: 'Bán hàng CT', description: 'Quản lý hóa đơn chi tiết các hạng mục và phụ tùng.', colorScheme: 'blue', path: '/ban-hang/phieu-ban-hang-ct' }
       ]
     }
   ],
