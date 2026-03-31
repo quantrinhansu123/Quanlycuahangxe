@@ -29,7 +29,8 @@ export const getSalesCards = async (): Promise<SalesCard[]> => {
       *,
       khach_hang:khach_hang_id(ho_va_ten, so_dien_thoai),
       nhan_su:nhan_vien_id(ho_ten),
-      dich_vu:dich_vu_id(ten_dich_vu)
+      dich_vu:dich_vu_id(ten_dich_vu),
+      the_ban_hang_ct(san_pham)
     `)
     .order('ngay', { ascending: false })
     .order('gio', { ascending: false });
@@ -55,7 +56,8 @@ export const getSalesCardsPaginated = async (
       *,
       khach_hang:khach_hang_id(id, ho_va_ten, so_dien_thoai),
       nhan_su:nhan_vien_id(id, ho_ten),
-      dich_vu:dich_vu_id(id, ten_dich_vu)
+      dich_vu:dich_vu_id(id, ten_dich_vu),
+      the_ban_hang_ct(san_pham)
     `, { count: 'exact' });
 
   if (searchQuery) {
