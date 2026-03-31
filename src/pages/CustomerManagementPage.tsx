@@ -1,38 +1,42 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Search, Plus, 
-  Edit2, Trash2, Camera, X, Save, 
-  Phone, MapPin, Calendar, CreditCard,
-  History, Settings, User, Loader2,
+  Edit2, Trash2, 
+  History, User, Loader2,
   ArrowLeft, ChevronDown, List, 
-  Building2, Download, Upload, Tag
+  Building2, Download, Upload
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { clsx } from 'clsx';
-import { getCustomers, upsertCustomer, deleteCustomer, bulkUpsertCustomers, bulkDeleteCustomers } from '../data/customerData';
+import * as XLSX from 'xlsx';
+import { getCustomersPaginated, deleteCustomer, bulkUpsertCustomers, bulkDeleteCustomers } from '../data/customerData';
 import type { KhachHang } from '../data/customerData';
+import CustomerFormModal from '../components/CustomerFormModal';
+import Pagination from '../components/Pagination';
+import { clsx } from 'clsx';
 
 const CustomerManagementPage: React.FC = () => {
   const navigate = useNavigate();
   const [customers, setCustomers] = useState<KhachHang[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  
-  // Filter states
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [totalCount, setTotalCount] = useState(0);
+
+  // Filter states (keep for now, but focus on pagination first)
   const [selectedDepts, setSelectedDepts] = useState<string[]>([]);
   const [selectedCycles, setSelectedCycles] = useState<string[]>([]);
-  
+
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<KhachHang | null>(null);
-  const [formData, setFormData] = useState<Partial<KhachHang>>({});
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [visibleColumns, setVisibleColumns] = useState<string[]>([
-    'anh', 'ma_khach_hang', 'ho_va_ten', 'so_dien_thoai', 'dia_chi_hien_tai', 'bien_so_xe', 
+    'anh', 'ma_khach_hang', 'ho_va_ten', 'so_dien_thoai', 'dia_chi_hien_tai', 'bien_so_xe',
     'ngay_dang_ky', 'so_km', 'so_ngay_thay_dau', 'ngay_thay_dau', 'actions'
   ]);
 
@@ -50,7 +54,7 @@ const CustomerManagementPage: React.FC = () => {
   ];
 
   const toggleColumn = (colId: string) => {
-    setVisibleColumns(prev => 
+    setVisibleColumns(prev =>
       prev.includes(colId) ? prev.filter(c => c !== colId) : [...prev, colId]
     );
   };
@@ -59,15 +63,18 @@ const CustomerManagementPage: React.FC = () => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Load data from Supabase
+  // Load data from Supabase with pagination
   const loadCustomers = async () => {
     try {
       setLoading(true);
-      const data = await getCustomers();
+      // If we have local filters (Dept or Cycle), we still fetch all for now 
+      // OR we can implement server-side filtering for those too.
+      // For now, let's prioritize Search + Range.
+      const { data, totalCount } = await getCustomersPaginated(currentPage, pageSize, searchQuery);
       setCustomers(data);
+      setTotalCount(totalCount);
     } catch (error) {
       console.error(error);
-      // Fallback or error UI
     } finally {
       setLoading(false);
     }
@@ -75,7 +82,16 @@ const CustomerManagementPage: React.FC = () => {
 
   useEffect(() => {
     loadCustomers();
-  }, []);
+  }, [currentPage, pageSize]); // Re-load when page or size changes
+
+  // Reset page when searching
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (currentPage !== 1) setCurrentPage(1);
+      else loadCustomers();
+    }, 500); // Debounce search
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -95,31 +111,10 @@ const CustomerManagementPage: React.FC = () => {
     setter(prev => prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val]);
   };
 
-  const filteredCustomers = useMemo(() => {
-    return customers.filter(c => {
-      const matchSearch = 
-        (c.ho_va_ten?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-        (c.so_dien_thoai || '').includes(searchQuery) ||
-        (c.bien_so_xe?.toLowerCase() || '').includes(searchQuery.toLowerCase());
-      
-      const matchDept = selectedDepts.length === 0 || selectedDepts.includes(c.dia_chi_hien_tai);
-      const matchCycle = selectedCycles.length === 0 || selectedCycles.includes(`${c.so_ngay_thay_dau} ngày`);
+  // Since we use Server-side pagination, 'customers' IS already the filtered list for the current page
+  const displayCustomers = customers;
 
-      return matchSearch && matchDept && matchCycle;
-    });
-  }, [customers, searchQuery, selectedDepts, selectedCycles]);
 
-  const formatDateForInput = (dateStr: string | undefined) => {
-    if (!dateStr) return '';
-    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
-    try {
-      const d = new Date(dateStr);
-      if (isNaN(d.getTime())) return '';
-      return d.toISOString().split('T')[0];
-    } catch {
-      return '';
-    }
-  };
 
   const formatDateForDisplay = (dateStr: string | undefined) => {
     if (!dateStr) return '—';
@@ -133,85 +128,16 @@ const CustomerManagementPage: React.FC = () => {
   };
 
   const handleOpenModal = (customer?: KhachHang) => {
-    if (customer) {
-      setEditingCustomer(customer);
-      setFormData({ 
-        ...customer,
-        ngay_dang_ky: formatDateForInput(customer.ngay_dang_ky),
-        ngay_thay_dau: formatDateForInput(customer.ngay_thay_dau)
-      });
-    } else {
-      setEditingCustomer(null);
-      setFormData({
-        ho_va_ten: '',
-        so_dien_thoai: '',
-        dia_chi_hien_tai: '',
-        anh: '',
-        ngay_dang_ky: new Date().toISOString().split('T')[0],
-        ngay_thay_dau: '',
-        so_ngay_thay_dau: 0,
-        so_km: 0,
-        bien_so_xe: ''
-      });
-    }
+    setEditingCustomer(customer || null);
     setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingCustomer(null);
-    setFormData({
-      ho_va_ten: '',
-      so_dien_thoai: '',
-      dia_chi_hien_tai: '',
-      anh: '',
-      ngay_dang_ky: '',
-      ngay_thay_dau: '',
-      so_ngay_thay_dau: 0,
-      so_km: 0,
-      bien_so_xe: ''
-    });
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    
-    if (name === 'so_km' || name === 'so_ngay_thay_dau') {
-      // Remove dots and leading zeros for state storage
-      const numericValue = value.replace(/\./g, '').replace(/^0+(?!$)/, '');
-      const num = parseInt(numericValue, 10) || 0;
-      setFormData(prev => ({ ...prev, [name]: num }));
-    } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
-    }
-  };
 
-  const formatNumber = (num: number | undefined) => {
-    if (num === undefined || num === null) return '0';
-    return num.toLocaleString('vi-VN');
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData(prev => ({ ...prev, anh: reader.result as string }));
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      await upsertCustomer(formData);
-      await loadCustomers();
-      handleCloseModal();
-    } catch (error) {
-      alert('Lỗi: Không thể lưu thông tin khách hàng.');
-    }
-  };
 
   const handleDownloadTemplate = () => {
     const templateData = [
@@ -292,14 +218,14 @@ const CustomerManagementPage: React.FC = () => {
           // Find existing customer to prevent duplication
           const cleanPhone = (p: any) => String(p || '').replace(/\D/g, '');
           const rowPhone = cleanPhone(res.so_dien_thoai);
-          
+
           const existing = customers.find(c => {
             const matchId = validId && c.id === validId;
             const matchMa = rawId && c.ma_khach_hang === rawId;
             const matchPhone = rowPhone && cleanPhone(c.so_dien_thoai) === rowPhone;
             return matchId || matchMa || matchPhone;
           });
-          
+
           if (existing) {
             res.id = existing.id;
             // If ma_khach_hang is blank in DB but present in Excel, keep it
@@ -309,7 +235,7 @@ const CustomerManagementPage: React.FC = () => {
           } else if (validId) {
             res.id = validId;
           }
-          
+
           return res;
         }).filter(item => item.ho_va_ten);
 
@@ -373,15 +299,15 @@ const CustomerManagementPage: React.FC = () => {
               <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/60">
                 <Search size={18} />
               </div>
-              <input 
+              <input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-1.5 border border-border rounded text-[13px] focus:ring-1 focus:ring-primary focus:border-primary placeholder-slate-400 outline-none" 
-                placeholder="Tìm tên khách, số điện thoại, biển số..." 
+                className="w-full pl-9 pr-4 py-1.5 border border-border rounded text-[13px] focus:ring-1 focus:ring-primary focus:border-primary placeholder-slate-400 outline-none"
+                placeholder="Tìm tên khách, số điện thoại, biển số..."
                 type="text"
               />
             </div>
-            
+
             <div className="flex flex-wrap items-center gap-2">
               {/* Dept Dropdown */}
               <div className="relative">
@@ -393,10 +319,10 @@ const CustomerManagementPage: React.FC = () => {
                   <div className="absolute top-10 left-0 z-50 min-w-[200px] bg-card border border-border rounded shadow-lg overflow-hidden animate-in fade-in zoom-in-95 duration-100">
                     <div className="px-3 py-2 bg-muted border-b border-border/50 flex items-center justify-between">
                       <label className="flex items-center gap-2 font-bold text-primary text-[13px] cursor-pointer">
-                        <input 
-                          type="checkbox" 
+                        <input
+                          type="checkbox"
                           checked={selectedDepts.length === deptOptions.length && deptOptions.length > 0}
-                          onChange={(e) => setSelectedDepts(e.target.checked ? deptOptions : [])} 
+                          onChange={(e) => setSelectedDepts(e.target.checked ? deptOptions : [])}
                           className="rounded border-border text-primary size-4"
                         /> Chọn tất cả
                       </label>
@@ -405,8 +331,8 @@ const CustomerManagementPage: React.FC = () => {
                     <ul className="py-1 text-[13px] text-muted-foreground max-h-[200px] overflow-y-auto">
                       {deptOptions.map(dept => (
                         <li key={dept} className="px-3 py-2 hover:bg-accent cursor-pointer flex items-center gap-2">
-                          <input 
-                            type="checkbox" 
+                          <input
+                            type="checkbox"
                             checked={selectedDepts.includes(dept)}
                             onChange={() => handleFilterChange(setSelectedDepts, dept)}
                             className="rounded border-border text-primary size-4"
@@ -428,8 +354,8 @@ const CustomerManagementPage: React.FC = () => {
                   <div className="absolute top-10 left-0 z-50 min-w-[160px] bg-card border border-border rounded shadow-lg overflow-hidden animate-in fade-in zoom-in-95 duration-100">
                     <div className="px-3 py-2 bg-muted border-b border-border/50 flex items-center justify-between">
                       <label className="flex items-center gap-2 font-bold text-primary text-[13px] cursor-pointer">
-                        <input 
-                          type="checkbox" 
+                        <input
+                          type="checkbox"
                           checked={selectedCycles.length === cycleOptions.length}
                           onChange={(e) => setSelectedCycles(e.target.checked ? cycleOptions : [])}
                           className="rounded border-border text-primary size-4"
@@ -440,8 +366,8 @@ const CustomerManagementPage: React.FC = () => {
                     <ul className="py-1 text-[13px] text-muted-foreground">
                       {cycleOptions.map(cycle => (
                         <li key={cycle} className="px-3 py-2 hover:bg-accent cursor-pointer flex items-center gap-2">
-                          <input 
-                            type="checkbox" 
+                          <input
+                            type="checkbox"
                             checked={selectedCycles.includes(cycle)}
                             onChange={() => handleFilterChange(setSelectedCycles, cycle)}
                             className="rounded border-border text-primary size-4"
@@ -457,7 +383,7 @@ const CustomerManagementPage: React.FC = () => {
 
           <div className="flex items-center gap-3">
             <div className="relative">
-              <button 
+              <button
                 onClick={() => toggleDropdown('columns')}
                 className={clsx(
                   "p-1.5 border rounded transition-colors",
@@ -475,8 +401,8 @@ const CustomerManagementPage: React.FC = () => {
                   </div>
                   <ul className="py-2 text-[13px] text-muted-foreground max-h-[300px] overflow-y-auto custom-scrollbar">
                     {allColumns.map(col => (
-                      <li 
-                        key={col.id} 
+                      <li
+                        key={col.id}
                         onClick={() => toggleColumn(col.id)}
                         className="px-4 py-2 hover:bg-accent cursor-pointer flex items-center gap-3 transition-colors"
                       >
@@ -494,7 +420,7 @@ const CustomerManagementPage: React.FC = () => {
               )}
             </div>
             <div className="flex items-center gap-2">
-              <button 
+              <button
                 onClick={handleDeleteAll}
                 className="flex items-center gap-2 px-3 py-1.5 border border-destructive/20 rounded text-[13px] text-destructive hover:bg-destructive/10 transition-colors font-medium bg-card"
                 title="Xóa tất cả khách hàng"
@@ -503,7 +429,7 @@ const CustomerManagementPage: React.FC = () => {
                 <span>Xóa tất cả</span>
               </button>
 
-              <button 
+              <button
                 onClick={handleDownloadTemplate}
                 className="flex items-center gap-2 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium"
                 title="Tải mẫu Excel"
@@ -512,7 +438,7 @@ const CustomerManagementPage: React.FC = () => {
                 <span>Tải mẫu</span>
               </button>
               <div className="relative">
-                <button 
+                <button
                   onClick={() => document.getElementById('excel-import')?.click()}
                   className="flex items-center gap-2 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium"
                   title="Nhập khách hàng từ file Excel"
@@ -520,17 +446,17 @@ const CustomerManagementPage: React.FC = () => {
                   <Upload size={18} />
                   <span>Nhập Excel</span>
                 </button>
-                <input 
+                <input
                   id="excel-import"
-                  type="file" 
-                  accept=".xlsx, .xls" 
-                  className="hidden" 
-                  onChange={handleImportExcel} 
+                  type="file"
+                  accept=".xlsx, .xls"
+                  className="hidden"
+                  onChange={handleImportExcel}
                 />
               </div>
             </div>
 
-            <button 
+            <button
               onClick={() => handleOpenModal()}
               className="bg-primary hover:bg-primary/90 text-white px-5 py-1.5 rounded flex items-center gap-2 text-[14px] font-semibold transition-colors"
             >
@@ -561,18 +487,18 @@ const CustomerManagementPage: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-100 text-[13px]">
                 {loading ? (
-                   <tr>
-                     <td colSpan={12} className="px-4 py-12 text-center text-muted-foreground">
-                       <Loader2 className="animate-spin inline-block mr-2" size={20} />
-                       Đang tải dữ liệu...
-                     </td>
-                   </tr>
-                ) : filteredCustomers.map(customer => {
+                  <tr>
+                    <td colSpan={12} className="px-4 py-12 text-center text-muted-foreground">
+                      <Loader2 className="animate-spin inline-block mr-2" size={20} />
+                      Đang tải dữ liệu...
+                    </td>
+                  </tr>
+                ) : displayCustomers.map(customer => {
                   const isCầnThayDầu = customer.ngay_thay_dau ? new Date(customer.ngay_thay_dau) <= today : false;
                   return (
                     <tr key={customer.id} className="hover:bg-muted/80 transition-colors">
                       <td className="px-4 py-4 text-center"><input className="rounded border-border text-primary size-4" type="checkbox" /></td>
-                      {visibleColumns.includes('ma_khach_hang') && <td className="px-4 py-4 font-mono text-[11px] text-muted-foreground">{customer.ma_khach_hang || customer.id.slice(0,8)}</td>}
+                      {visibleColumns.includes('ma_khach_hang') && <td className="px-4 py-4 font-mono text-[11px] text-muted-foreground">{customer.ma_khach_hang || customer.id.slice(0, 8)}</td>}
                       {visibleColumns.includes('anh') && (
                         <td className="px-4 py-4">
                           <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary overflow-hidden border border-border shadow-sm">
@@ -595,8 +521,8 @@ const CustomerManagementPage: React.FC = () => {
                         <td className="px-4 py-4">
                           <span className={clsx(
                             "px-2 py-0.5 rounded text-[11px] font-bold border",
-                            customer.bien_so_xe === 'Xe Chưa Biển' 
-                              ? "bg-amber-50 text-amber-600 border-amber-100" 
+                            customer.bien_so_xe === 'Xe Chưa Biển'
+                              ? "bg-amber-50 text-amber-600 border-amber-100"
                               : "bg-blue-50 text-blue-600 border-blue-100 uppercase"
                           )}>
                             {customer.bien_so_xe}
@@ -630,16 +556,16 @@ const CustomerManagementPage: React.FC = () => {
                       {visibleColumns.includes('actions') && (
                         <td className="px-4 py-4">
                           <div className="flex items-center justify-center gap-4">
-                            <button 
-                              type="button" 
-                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleOpenModal(customer); }} 
+                            <button
+                              type="button"
+                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleOpenModal(customer); }}
                               className="text-primary hover:text-blue-700 transition-colors"
                             >
                               <Edit2 size={18} />
                             </button>
-                            <button 
-                              type="button" 
-                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDelete(customer.id); }} 
+                            <button
+                              type="button"
+                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDelete(customer.id); }}
                               className="text-destructive hover:text-destructive/80 transition-colors"
                             >
                               <Trash2 size={18} />
@@ -650,7 +576,7 @@ const CustomerManagementPage: React.FC = () => {
                     </tr>
                   );
                 })}
-                {!loading && filteredCustomers.length === 0 && (
+                {!loading && displayCustomers.length === 0 && (
                   <tr>
                     <td colSpan={12} className="px-4 py-8 text-center text-muted-foreground">
                       Không tìm thấy khách hàng nào khớp với điều kiện tìm kiếm.
@@ -660,92 +586,26 @@ const CustomerManagementPage: React.FC = () => {
               </tbody>
             </table>
           </div>
-          <div className="px-4 py-3 bg-card border-t border-border flex items-center justify-between text-[12px]">
-            <div className="flex items-center gap-1.5 text-muted-foreground">
-              <span className="font-bold text-foreground">{filteredCustomers.length}</span>/Tổng:<span className="font-bold text-foreground">{customers.length}</span>
-            </div>
-          </div>
+          <Pagination
+            currentPage={currentPage}
+            pageSize={pageSize}
+            totalCount={totalCount}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }}
+            loading={loading}
+          />
         </div>
       </div>
 
       {/* Modal - Add/Edit Customer */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-100 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-card w-full max-w-2xl rounded-3xl border border-border shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
-            <div className="px-8 py-5 border-b border-border flex items-center justify-between bg-muted/30">
-              <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
-                {editingCustomer ? <Edit2 size={20} className="text-primary" /> : <Plus size={20} className="text-primary" />}
-                {editingCustomer ? 'Chỉnh sửa Khách hàng' : 'Thêm Khách hàng Mới'}
-              </h3>
-              <button onClick={handleCloseModal} className="p-2 rounded-full hover:bg-muted transition-colors text-muted-foreground"><X size={20} /></button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="overflow-y-auto p-8 flex-1 custom-scrollbar">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                <div className="md:col-span-2 flex flex-col items-center mb-4">
-                  <div className="relative group">
-                    <div className="w-24 h-24 rounded-full border-4 border-card bg-primary/10 flex items-center justify-center text-3xl font-bold text-primary overflow-hidden shadow-inner">
-                      {formData.anh ? <img src={formData.anh} alt="Preview" className="w-full h-full object-cover" /> : <User size={40} />}
-                    </div>
-                    <button 
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="absolute bottom-0 right-0 w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all"
-                    >
-                      <Camera size={16} />
-                    </button>
-                    <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
-                  </div>
-                </div>
-                <InputField label="Họ và tên" name="ho_va_ten" value={formData.ho_va_ten} onChange={handleInputChange} icon={User} placeholder="Nhập họ tên đầy đủ..." required />
-                <InputField label="Số điện thoại" name="so_dien_thoai" value={formData.so_dien_thoai} onChange={handleInputChange} icon={Phone} placeholder="09xx..." required />
-                <InputField label="Mã khách hàng (Mã cũ)" name="ma_khach_hang" value={formData.ma_khach_hang} onChange={handleInputChange} icon={Tag} placeholder="Mã khách hàng cũ (nếu có)" />
-                <InputField label="Địa chỉ hiện tại" name="dia_chi_hien_tai" value={formData.dia_chi_hien_tai} onChange={handleInputChange} icon={MapPin} placeholder="Bắc Giang, Hà Nội..." />
-                <InputField label="Biển số xe" name="bien_so_xe" value={formData.bien_so_xe} onChange={handleInputChange} icon={CreditCard} placeholder="98A-xxx.xx" />
-                <InputField label="Ngày đăng ký" name="ngay_dang_ky" type="date" value={formData.ngay_dang_ky} onChange={handleInputChange} icon={Calendar} />
-                <InputField label="Số KM" name="so_km" type="text" value={formatNumber(formData.so_km)} onChange={handleInputChange} icon={History} />
-                <InputField label="Số ngày thay dầu" name="so_ngay_thay_dau" type="text" value={formatNumber(formData.so_ngay_thay_dau)} onChange={handleInputChange} icon={Settings} />
-                <InputField label="Ngày thay dầu" name="ngay_thay_dau" type="date" value={formData.ngay_thay_dau} onChange={handleInputChange} icon={Calendar} className="md:col-span-2" />
-              </div>
-
-              <div className="mt-10 flex items-center justify-end gap-3 pt-6 border-t border-border">
-                <button type="button" onClick={handleCloseModal} className="px-6 py-2.5 rounded-xl text-sm font-bold text-muted-foreground hover:bg-muted border border-border transition-all">Hủy bỏ</button>
-                <button type="submit" className="px-8 py-2.5 rounded-xl text-sm font-bold text-white bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 transition-all flex items-center gap-2 active:scale-95">
-                  <Save size={18} /> <span>{editingCustomer ? 'Lưu thay đổi' : 'Thêm mới'}</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <CustomerFormModal 
+        isOpen={isModalOpen} 
+        onClose={handleCloseModal} 
+        onSuccess={loadCustomers} 
+        customer={editingCustomer} 
+      />
     </div>
   );
 };
-
-const InputField: React.FC<{ 
-  label: string, 
-  name: string, 
-  value?: string | number, 
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void, 
-  icon: React.ElementType,
-  type?: string,
-  placeholder?: string,
-  disabled?: boolean,
-  required?: boolean,
-  className?: string
-}> = ({ label, name, value, onChange, icon: Icon, type = 'text', placeholder, disabled, required, className }) => (
-  <div className={clsx("space-y-1.5", className)}>
-    <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-      <Icon size={14} className="text-primary/70" />
-      {label} {required && <span className="text-red-500">*</span>}
-    </label>
-    <input 
-      type={type} name={name} value={value} onChange={onChange} 
-      onFocus={(e) => e.target.select()} 
-      placeholder={placeholder} disabled={disabled} required={required}
-      className={clsx("w-full px-4 py-2.5 bg-background border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-[14px]", disabled && "opacity-60 cursor-not-allowed bg-muted/20")}
-    />
-  </div>
-);
 
 export default CustomerManagementPage;

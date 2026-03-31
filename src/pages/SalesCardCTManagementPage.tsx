@@ -14,12 +14,13 @@ import {
   Upload,
   X
 } from 'lucide-react';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { getCustomers } from '../data/customerData';
 import type { SalesCardCT } from '../data/salesCardCTData';
-import { bulkUpsertSalesCardCTs, deleteSalesCardCT, getSalesCardCTs, upsertSalesCardCT, deleteAllSalesCardCTs } from '../data/salesCardCTData';
+import { bulkUpsertSalesCardCTs, deleteSalesCardCT, getSalesCardCTsPaginated, upsertSalesCardCT, deleteAllSalesCardCTs } from '../data/salesCardCTData';
+import Pagination from '../components/Pagination';
 import type { SalesCard } from '../data/salesCardData';
 import { getSalesCards } from '../data/salesCardData'; // Header cards
 import type { DichVu } from '../data/serviceData';
@@ -33,6 +34,11 @@ const SalesCardCTManagementPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [totalCount, setTotalCount] = useState(0);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<SalesCardCT | null>(null);
   const [formData, setFormData] = useState<Partial<SalesCardCT>>({});
@@ -42,12 +48,13 @@ const SalesCardCTManagementPage: React.FC = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [cts, cards, servs] = await Promise.all([
-        getSalesCardCTs(),
+      const [ctsResult, cards, servs] = await Promise.all([
+        getSalesCardCTsPaginated(currentPage, pageSize, searchQuery),
         getSalesCards(),
         getServices()
       ]);
-      setItems(cts);
+      setItems(ctsResult.data);
+      setTotalCount(ctsResult.totalCount);
       setSalesCards(cards);
       setServices(servs);
     } catch (error) {
@@ -59,16 +66,18 @@ const SalesCardCTManagementPage: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [currentPage, pageSize]);
 
-  const filteredItems = useMemo(() => {
-    return items.filter(item => {
-      const matchSearch =
-        (item.san_pham?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-        (item.ten_don_hang?.toLowerCase() || '').includes(searchQuery.toLowerCase());
-      return matchSearch;
-    });
-  }, [items, searchQuery]);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (currentPage !== 1) setCurrentPage(1);
+      else loadData();
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Since we use Server-side pagination, 'items' IS already the filtered list for the current page
+  const displayItems = items;
 
   const handleOpenModal = (item?: SalesCardCT) => {
     if (item) {
@@ -110,7 +119,8 @@ const SalesCardCTManagementPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await upsertSalesCardCT(formData);
+      const { thanh_tien, lai, ...cleanData } = formData as any;
+      await upsertSalesCardCT(cleanData);
       await loadData();
       handleCloseModal();
     } catch (error) {
@@ -419,7 +429,7 @@ const SalesCardCTManagementPage: React.FC = () => {
                       Đang tải dữ liệu chi tiết...
                     </td>
                   </tr>
-                ) : filteredItems.map(item => (
+                ) : displayItems.map(item => (
                   <tr key={item.id} className="hover:bg-muted/80 transition-colors">
                     <td className="px-4 py-4">{new Date(item.ngay).toLocaleDateString('vi-VN')}</td>
                     <td className="px-4 py-4 font-bold text-foreground truncate max-w-[150px]">{item.ten_don_hang || '—'}</td>
@@ -444,7 +454,7 @@ const SalesCardCTManagementPage: React.FC = () => {
                     </td>
                   </tr>
                 ))}
-                {!loading && filteredItems.length === 0 && (
+                {!loading && displayItems.length === 0 && (
                   <tr>
                     <td colSpan={10} className="px-4 py-8 text-center text-muted-foreground">Chưa có hạng mục chi tiết nào.</td>
                   </tr>
@@ -452,6 +462,14 @@ const SalesCardCTManagementPage: React.FC = () => {
               </tbody>
             </table>
           </div>
+          <Pagination 
+            currentPage={currentPage}
+            pageSize={pageSize}
+            totalCount={totalCount}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }}
+            loading={loading}
+          />
         </div>
       </div>
 

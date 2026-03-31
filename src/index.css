@@ -13,6 +13,8 @@
   --accent: #f1f5f9;
   --accent-foreground: #0f172a;
   --ring: #3b82f6;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
 }
 
 .dark {
@@ -25,6 +27,8 @@
   --accent: #1e293b;
   --accent-foreground: #f8fafc;
   --ring: #1d4ed8;
+  --popover: #020617;
+  --popover-foreground: #f8fafc;
 }
 
 @theme {
@@ -39,6 +43,8 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-ring: var(--ring);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
   --radius-xl: 1rem;
   --radius-2xl: 1.5rem;
 }

@@ -19,6 +19,7 @@ export interface SalesCard {
   khach_hang?: Partial<KhachHang>;
   nhan_su?: Partial<NhanSu>;
   dich_vu?: Partial<DichVu>;
+  dich_vu_ids?: string[]; // Frontend helper for multi-selection
 }
 
 export const getSalesCards = async (): Promise<SalesCard[]> => {
@@ -38,6 +39,43 @@ export const getSalesCards = async (): Promise<SalesCard[]> => {
     throw error;
   }
   return data as SalesCard[];
+};
+
+export const getSalesCardsPaginated = async (
+  page: number, 
+  pageSize: number, 
+  searchQuery?: string
+): Promise<{ data: SalesCard[], totalCount: number }> => {
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  let query = supabase
+    .from('the_ban_hang')
+    .select(`
+      *,
+      khach_hang:khach_hang_id(id, ho_va_ten, so_dien_thoai),
+      nhan_su:nhan_vien_id(id, ho_ten),
+      dich_vu:dich_vu_id(id, ten_dich_vu)
+    `, { count: 'exact' });
+
+  if (searchQuery) {
+    query = query.or(`khach_hang.ho_va_ten.ilike.%${searchQuery}%,khach_hang.so_dien_thoai.ilike.%${searchQuery}%,dich_vu.ten_dich_vu.ilike.%${searchQuery}%`);
+  }
+
+  const { data, count, error } = await query
+    .order('ngay', { ascending: false })
+    .order('gio', { ascending: false })
+    .range(from, to);
+
+  if (error) {
+    console.error('Error fetching paginated sales cards:', error);
+    throw error;
+  }
+
+  return {
+    data: (data as SalesCard[]) || [],
+    totalCount: count || 0
+  };
 };
 
 export const upsertSalesCard = async (card: Partial<SalesCard>): Promise<SalesCard> => {

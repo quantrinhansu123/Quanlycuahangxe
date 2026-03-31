@@ -24,13 +24,44 @@ export const getSalesCardCTs = async (donHangId?: string): Promise<SalesCardCT[]
     query = query.eq('don_hang_id', donHangId);
   }
   
-  const { data, error } = await query.order('created_at', { ascending: true });
+  const { data, error } = await query.order('created_at', { ascending: false });
 
   if (error) {
     console.error('Error fetching sales card CTs:', error);
     throw error;
   }
   return data as SalesCardCT[];
+};
+
+export const getSalesCardCTsPaginated = async (
+  page: number, 
+  pageSize: number, 
+  searchQuery?: string
+): Promise<{ data: SalesCardCT[], totalCount: number }> => {
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  let query = supabase
+    .from('the_ban_hang_ct')
+    .select('*', { count: 'exact' });
+
+  if (searchQuery) {
+    query = query.or(`san_pham.ilike.%${searchQuery}%,ten_don_hang.ilike.%${searchQuery}%,ghi_chu.ilike.%${searchQuery}%`);
+  }
+
+  const { data, count, error } = await query
+    .order('created_at', { ascending: false })
+    .range(from, to);
+
+  if (error) {
+    console.error('Error fetching paginated sales card CTs:', error);
+    throw error;
+  }
+
+  return {
+    data: (data as SalesCardCT[]) || [],
+    totalCount: count || 0
+  };
 };
 
 export const upsertSalesCardCT = async (item: Partial<SalesCardCT>): Promise<SalesCardCT> => {

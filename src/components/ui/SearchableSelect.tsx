@@ -52,8 +52,8 @@ export function SearchableSelect({
         <button
           disabled={disabled}
           className={cn(
-            "flex h-10 w-full items-center justify-between rounded-xl border border-border/80 bg-muted/10 px-4 py-2 text-[13px] font-medium transition-all hover:bg-muted/20 focus:outline-none focus:ring-2 focus:ring-primary/10",
-            open && "border-primary ring-2 ring-primary/5",
+            "flex w-full items-center justify-between px-4 py-2.5 bg-background border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary/20 text-[14px] font-bold transition-all",
+            open && "ring-2 ring-primary/20 border-primary/50",
             !selectedOption && "text-muted-foreground/60",
             className
           )}
@@ -82,7 +82,7 @@ export function SearchableSelect({
           </div>
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-full min-w-(--radix-popover-trigger-width) p-0 shadow-xl border-border/60">
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 shadow-xl border-border/60" style={{ zIndex: 1100 }}>
         <Command className="rounded-xl overflow-hidden">
           <div className="flex items-center border-b border-border/40 px-3 bg-muted/5">
             <Search className="mr-2 h-4 w-4 shrink-0 opacity-40" />
@@ -105,13 +105,13 @@ export function SearchableSelect({
                     setOpen(false)
                   }}
                   className={cn(
-                    "flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-[13px] font-medium transition-colors hover:bg-primary/5",
-                    value === option.value && "bg-primary/10 text-primary hover:bg-primary/15"
+                    "flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-[13px] font-bold transition-colors hover:bg-primary hover:text-white text-popover-foreground",
+                    value === option.value && "bg-primary text-white"
                   )}
                 >
                   {option.label}
                   {value === option.value && (
-                    <Check className="h-4 w-4 text-primary" />
+                    <Check className="h-4 w-4 text-white" />
                   )}
                 </CommandItem>
               ))}

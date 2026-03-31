@@ -27,6 +27,38 @@ export const getCustomers = async (): Promise<KhachHang[]> => {
   return data as KhachHang[];
 };
 
+export const getCustomersPaginated = async (
+  page: number, 
+  pageSize: number, 
+  searchQuery?: string
+): Promise<{ data: KhachHang[], totalCount: number }> => {
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  let query = supabase
+    .from('khach_hang')
+    .select('*', { count: 'exact' });
+
+  if (searchQuery) {
+    // Search in multiple columns (ho_va_ten, so_dien_thoai, bien_so_xe)
+    query = query.or(`ho_va_ten.ilike.%${searchQuery}%,so_dien_thoai.ilike.%${searchQuery}%,bien_so_xe.ilike.%${searchQuery}%`);
+  }
+
+  const { data, count, error } = await query
+    .order('created_at', { ascending: false })
+    .range(from, to);
+
+  if (error) {
+    console.error('Error fetching paginated customers:', error);
+    throw error;
+  }
+
+  return {
+    data: (data as KhachHang[]) || [],
+    totalCount: count || 0
+  };
+};
+
 export const upsertCustomer = async (customer: Partial<KhachHang>): Promise<KhachHang> => {
   // Ensure we don't send id if it's new for upsert to work correctly if needed
   const { data, error } = await supabase
