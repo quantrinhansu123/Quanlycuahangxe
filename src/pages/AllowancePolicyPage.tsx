@@ -1,25 +1,28 @@
 import { useState, useEffect } from 'react';
 import { 
-  Wallet, Plus, Trash2, Save, Loader2, Info, ChevronLeft, MapPin, Briefcase
+  Plus, Search, Trash2, Edit2, Loader2, MapPin, Wallet, Filter, ChevronLeft
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getSalaryComponents } from '../data/salaryComponentData';
-import type { ThanhPhanLuong } from '../data/salaryComponentData';
-import { upsertAllowancePolicy } from '../data/allowancePolicyData';
+import { getAllowancePolicies, deleteAllowancePolicy } from '../data/allowancePolicyData';
+import type { ChinhSachPhuCap } from '../data/allowancePolicyData';
+import AllowancePolicyModal from '../components/AllowancePolicyModal';
+import { removeVietnameseTones } from '../lib/utils';
 
 const AllowancePolicyPage: React.FC = () => {
   const navigate = useNavigate();
-  const [components, setComponents] = useState<ThanhPhanLuong[]>([]);
+  const [policies, setPolicies] = useState<ChinhSachPhuCap[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCoSo, setSelectedCoSo] = useState('Tất cả cơ sở');
 
-  // Form state
-  const [selectedCoSo, setSelectedCoSo] = useState('Cơ sở Bắc Ninh');
-  const [selectedComponentId, setSelectedComponentId] = useState('');
-  const [policyName, setPolicyName] = useState('');
-  const [positionEntries, setPositionEntries] = useState<{ vi_tri: string, dinh_muc: string, gia_tri: number }[]>([
-    { vi_tri: 'Tất cả vị trí', dinh_muc: '', gia_tri: 0 }
-  ]);
+  // Modal state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingPolicy, setEditingPolicy] = useState<{
+    ten_chinh_sach: string;
+    co_so: string;
+    thanh_phan_luong_id: string;
+    entries: { id?: string, vi_tri: string, dinh_muc: string, gia_tri: number }[];
+  } | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -28,10 +31,8 @@ const AllowancePolicyPage: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [compData] = await Promise.all([
-        getSalaryComponents()
-      ]);
-      setComponents(compData.filter(c => c.loai === 'thu_nhap'));
+      const data = await getAllowancePolicies();
+      setPolicies(data);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -39,45 +40,50 @@ const AllowancePolicyPage: React.FC = () => {
     }
   };
 
-  const handleAddComponent = () => {
-    setPositionEntries([...positionEntries, { vi_tri: '', dinh_muc: '', gia_tri: 0 }]);
-  };
-
-  const handleRemovePosition = (index: number) => {
-    const newEntries = [...positionEntries];
-    newEntries.splice(index, 1);
-    setPositionEntries(newEntries);
-  };
-
-  const handleSave = async () => {
-    if (!selectedComponentId || !policyName) {
-      alert('Vui lòng nhập tên chính sách và chọn khoản phụ cấp');
-      return;
-    }
-
+  const handleDelete = async (_groupedId: string, itemPolicies: ChinhSachPhuCap[]) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa chính sách "${itemPolicies[0].ten_chinh_sach}"?`)) return;
+    
     try {
-      setSaving(true);
-      for (const entry of positionEntries) {
-        if (!entry.vi_tri) continue;
-        await upsertAllowancePolicy({
-          co_so: selectedCoSo,
-          thanh_phan_luong_id: selectedComponentId,
-          ten_chinh_sach: policyName,
-          vi_tri: entry.vi_tri,
-          dinh_muc: entry.dinh_muc,
-          gia_tri: entry.gia_tri
-        });
+      setLoading(true);
+      // Delete all entries for this grouping
+      for (const p of itemPolicies) {
+        await deleteAllowancePolicy(p.id);
       }
-      alert('Đã lưu chính sách phụ cấp thành công!');
-      fetchData();
+      await fetchData();
+      alert('Đã xóa chính sách thành công!');
     } catch (error) {
-      console.error('Error saving policy:', error);
+      console.error('Error deleting policy:', error);
+      alert('Có lỗi xảy ra khi xóa chính sách.');
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
   };
 
-  if (loading) {
+  const handleEdit = (ten: string, cs: string, compId: string, items: ChinhSachPhuCap[]) => {
+    setEditingPolicy({
+      ten_chinh_sach: ten,
+      co_so: cs,
+      thanh_phan_luong_id: compId,
+      entries: items.map(p => ({
+        id: p.id,
+        vi_tri: p.vi_tri,
+        dinh_muc: p.dinh_muc || '',
+        gia_tri: p.gia_tri
+      }))
+    });
+    setIsModalOpen(true);
+  };
+
+  const formatCurrency = (val: number) => new Intl.NumberFormat('vi-VN').format(val);
+
+  const filteredPolicies = policies.filter(p => {
+    const searchMatch = removeVietnameseTones(p.ten_chinh_sach).includes(removeVietnameseTones(searchQuery)) ||
+                       removeVietnameseTones(p.co_so).includes(removeVietnameseTones(searchQuery));
+    const coSoMatch = selectedCoSo === 'Tất cả cơ sở' || p.co_so === selectedCoSo;
+    return searchMatch && coSoMatch;
+  });
+
+  if (loading && policies.length === 0) {
     return (
       <div className="flex items-center justify-center h-[400px]">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -86,170 +92,156 @@ const AllowancePolicyPage: React.FC = () => {
   }
 
   return (
-    <div className="p-6 space-y-6 animate-in fade-in duration-500 max-w-5xl mx-auto">
-      <div className="flex items-center gap-4">
-        <button onClick={() => navigate(-1)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
-          <ChevronLeft size={24} className="text-slate-600" />
+    <div className="p-6 space-y-6 animate-in fade-in duration-500">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <button onClick={() => navigate(-1)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+            <ChevronLeft size={24} className="text-slate-600" />
+          </button>
+          <div>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Chính sách phụ cấp</h1>
+            <p className="text-sm text-slate-500 font-medium">Quản lý các khoản phụ cấp định mức theo vị trí công việc</p>
+          </div>
+        </div>
+        <button 
+          onClick={() => {
+            setEditingPolicy(null);
+            setIsModalOpen(true);
+          }}
+          className="flex items-center justify-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-black shadow-lg shadow-primary/25 hover:scale-[1.02] active:scale-[0.98] transition-all"
+        >
+          <Plus size={20} />
+          Thêm chính sách mới
         </button>
-        <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Thêm chính sách phụ cấp</h1>
-          <p className="text-sm text-slate-500 font-medium">Cấu hình giá trị phụ cấp cho từng vị trí công việc</p>
-        </div>
       </div>
 
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-        {/* General Info */}
-        <div className="p-8 border-b border-slate-100 bg-slate-50/50">
-          <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest mb-6 flex items-center gap-2">
-            <Info size={14} className="text-primary" />
-            Thông tin chung
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="space-y-2">
-              <label className="text-xs font-black text-slate-700 uppercase tracking-widest">Đơn vị áp dụng *</label>
-              <div className="relative">
-                <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <select
-                  className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-primary/20 appearance-none transition-all"
-                  value={selectedCoSo}
-                  onChange={(e) => setSelectedCoSo(e.target.value)}
-                >
-                  <option>Cơ sở Bắc Ninh</option>
-                  <option>Cơ sở Bắc Giang</option>
-                </select>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-black text-slate-700 uppercase tracking-widest">Khoản phụ cấp *</label>
-              <div className="relative">
-                <Wallet className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <select
-                  className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-primary/20 appearance-none transition-all"
-                  value={selectedComponentId}
-                  onChange={(e) => setSelectedComponentId(e.target.value)}
-                >
-                  <option value="">Chọn khoản phụ cấp...</option>
-                  {components.map(c => (
-                    <option key={c.id} value={c.id}>{c.ten}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="space-y-2 md:col-span-2">
-              <label className="text-xs font-black text-slate-700 uppercase tracking-widest">Tên chính sách *</label>
-              <input
-                type="text"
-                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-slate-300"
-                placeholder="Nhập tên chính sách (VD: Chính sách phụ cấp ăn trưa tháng 6)"
-                value={policyName}
-                onChange={(e) => setPolicyName(e.target.value)}
-              />
-            </div>
-          </div>
+      {/* Toolbar */}
+      <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm flex flex-col xl:flex-row gap-4 items-center">
+        <div className="relative flex-1 group w-full">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" size={18} />
+          <input 
+            type="text"
+            placeholder="Tìm theo tên chính sách hoặc cơ sở..."
+            className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all shadow-inner"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
-
-        {/* Position-based Values */}
-        <div className="p-8">
-          <h3 className="text-xs font-black text-slate-900 uppercase tracking-widest mb-6 flex items-center gap-2">
-            <Briefcase size={14} className="text-primary" />
-            Giá trị phụ cấp theo vị trí
-          </h3>
-          
-          <div className="space-y-4">
-            <div className="grid grid-cols-12 gap-4 px-4 py-2 bg-slate-50 rounded-xl">
-              <div className="col-span-5 text-[10px] font-black text-slate-500 uppercase tracking-wider">Vị trí công việc</div>
-              <div className="col-span-3 text-[10px] font-black text-slate-500 uppercase tracking-wider">Định mức</div>
-              <div className="col-span-3 text-[10px] font-black text-slate-500 uppercase tracking-wider">Giá trị (VND)</div>
-              <div className="col-span-1"></div>
-            </div>
-
-            {positionEntries.map((entry, idx) => (
-              <div key={idx} className="grid grid-cols-12 gap-4 items-center group animate-in slide-in-from-left-2 duration-300">
-                <div className="col-span-5 relative">
-                  <select
-                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl font-bold text-sm outline-none focus:border-primary transition-all appearance-none"
-                    value={entry.vi_tri}
-                    onChange={(e) => {
-                      const newEntries = [...positionEntries];
-                      newEntries[idx].vi_tri = e.target.value;
-                      setPositionEntries(newEntries);
-                    }}
-                  >
-                    <option value="">Chọn vị trí...</option>
-                    <option value="Tất cả vị trí">Tất cả vị trí trong đơn vị</option>
-                    <option value="Quản lý">Quản lý cơ sở</option>
-                    <option value="Kỹ thuật viên">Kỹ thuật viên</option>
-                    <option value="Kế toán">Kế toán</option>
-                  </select>
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                    <Plus size={14} />
-                  </div>
-                </div>
-                <div className="col-span-3">
-                  <input
-                    type="text"
-                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl font-bold text-sm outline-none focus:border-primary transition-all"
-                    placeholder="VD: 200k/ngày"
-                    value={entry.dinh_muc}
-                    onChange={(e) => {
-                      const newEntries = [...positionEntries];
-                      newEntries[idx].dinh_muc = e.target.value;
-                      setPositionEntries(newEntries);
-                    }}
-                  />
-                </div>
-                <div className="col-span-3">
-                  <input
-                    type="number"
-                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl font-black text-sm outline-none focus:border-primary transition-all"
-                    value={entry.gia_tri}
-                    onChange={(e) => {
-                      const newEntries = [...positionEntries];
-                      newEntries[idx].gia_tri = Number(e.target.value);
-                      setPositionEntries(newEntries);
-                    }}
-                  />
-                </div>
-                <div className="col-span-1 flex justify-center">
-                  {idx > 0 && (
-                    <button 
-                      onClick={() => handleRemovePosition(idx)}
-                      className="p-2 text-rose-400 hover:bg-rose-50 rounded-xl transition-colors"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-
-            <button
-              onClick={handleAddComponent}
-              className="flex items-center gap-2 px-6 py-3 text-primary font-black text-sm hover:bg-primary/5 rounded-xl transition-colors mt-6 border-2 border-dashed border-primary/20 w-full justify-center"
-            >
-              <Plus size={20} />
-              Thêm vị trí công việc
-            </button>
+        
+        <div className="flex items-center gap-3 w-full xl:w-auto">
+          <div className="relative group min-w-[220px]">
+             <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary" size={16} />
+             <select 
+               value={selectedCoSo}
+               onChange={(e) => setSelectedCoSo(e.target.value)}
+               className="w-full pl-10 pr-10 py-3 bg-white border border-slate-200 rounded-2xl font-black text-xs outline-none focus:ring-2 focus:ring-primary/20 appearance-none transition-all shadow-sm"
+             >
+               <option>Tất cả cơ sở</option>
+               <option>Cơ sở Bắc Ninh</option>
+               <option>Cơ sở Bắc Giang</option>
+             </select>
           </div>
-        </div>
-
-        <div className="p-8 bg-slate-50/50 border-t border-slate-100 flex justify-end gap-3">
-          <button
-            onClick={() => navigate(-1)}
-            className="px-8 py-3 rounded-xl font-bold text-slate-600 hover:bg-slate-200 transition-colors"
-          >
-            Hủy bỏ
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="flex items-center gap-2 px-10 py-3 bg-emerald-600 text-white rounded-xl font-black shadow-lg shadow-emerald-600/25 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
-          >
-            {saving ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
-            Lưu chính sách
+          <button className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-600 hover:bg-slate-50 transition-all shadow-sm">
+            <Filter size={20} />
           </button>
         </div>
       </div>
+
+      {/* Data Table */}
+      <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50/80 border-b border-slate-100">
+                <th className="px-8 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest pl-12">Tên chính sách</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest">Khoản phụ cấp</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest">Đơn vị</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest">Vị trí áp dụng</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest">Ghi chú/Định mức</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest">Mức phụ cấp</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {filteredPolicies.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-8 py-24 text-center">
+                    <div className="flex flex-col items-center">
+                       <Wallet size={48} className="text-slate-200 mb-4" />
+                       <p className="text-lg font-black text-slate-400">Chưa có chính sách nào được thiết lập</p>
+                       <p className="text-sm text-slate-300 font-medium mt-1 italic">Nhấn "Thêm chính sách mới" để bắt đầu</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filteredPolicies.map((p) => {
+                  const items = policies.filter(item => item.ten_chinh_sach === p.ten_chinh_sach && item.co_so === p.co_so);
+                  return (
+                    <tr key={p.id} className="hover:bg-slate-50/50 transition-all group">
+                      <td className="px-8 py-6 pl-12">
+                        <p className="text-[14px] font-black text-slate-900 tracking-tight leading-none">{p.ten_chinh_sach}</p>
+                      </td>
+                      <td className="px-6 py-6">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-xl bg-primary/5 flex items-center justify-center text-primary">
+                            <Wallet size={14} />
+                          </div>
+                          <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                            {(p as any).thanh_phan_luong?.ten || 'Khoản thu nhập'}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-6 font-bold text-sm text-slate-600">
+                        <div className="flex items-center gap-2">
+                          <MapPin size={14} className="text-slate-400" />
+                          {p.co_so}
+                        </div>
+                      </td>
+                      <td className="px-6 py-6">
+                         <span className="px-3 py-1 bg-slate-100 text-[10px] font-black text-slate-600 uppercase rounded-lg">
+                           {p.vi_tri}
+                         </span>
+                      </td>
+                      <td className="px-6 py-6 text-xs font-medium text-slate-500 italic">
+                        {p.dinh_muc || '-'}
+                      </td>
+                      <td className="px-6 py-6 font-black text-sm text-emerald-600">
+                        {formatCurrency(p.gia_tri)}đ
+                      </td>
+                      <td className="px-6 py-6">
+                        <div className="flex items-center justify-center gap-3">
+                          <button 
+                            onClick={() => handleEdit(p.ten_chinh_sach, p.co_so, p.thanh_phan_luong_id, items)}
+                            className="p-3 text-primary hover:bg-primary/10 rounded-2xl transition-all"
+                            title="Sửa chính sách"
+                          >
+                            <Edit2 size={18} />
+                          </button>
+                          <button 
+                            onClick={() => handleDelete(p.id, [p])}
+                            className="p-3 text-rose-500 hover:bg-rose-50 rounded-2xl transition-all"
+                            title="Xóa chính sách"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <AllowancePolicyModal 
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSuccess={fetchData}
+        initialData={editingPolicy}
+      />
     </div>
   );
 };

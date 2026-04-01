@@ -5,7 +5,8 @@ import {
   getTaxBrackets
 } from '../data/payrollSettingsData';
 import type { ThongSoLuong, BieuThueTNCN } from '../data/payrollSettingsData';
-import { clsx } from 'clsx';
+import { cn } from '../lib/utils';
+import { formatNumberVietnamese, parseNumberVietnamese } from '../lib/utils';
 
 const PayrollSettingsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'luong' | 'thue' | 'bao-hiem'>('luong');
@@ -49,6 +50,27 @@ const PayrollSettingsPage: React.FC = () => {
     }
   };
 
+  const MoneyInput = ({ value, onSave, className }: { value: number, onSave: (v: number) => void, className?: string }) => {
+    const [displayVal, setDisplayVal] = useState(formatNumberVietnamese(value));
+
+    return (
+      <input
+        type="text"
+        inputMode="numeric"
+        className={cn("w-full border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-green-500", className)}
+        value={displayVal}
+        onFocus={e => e.target.select()}
+        onChange={e => setDisplayVal(formatNumberVietnamese(e.target.value))}
+        onBlur={() => {
+          const numericVal = parseNumberVietnamese(displayVal);
+          if (numericVal !== value) {
+            onSave(numericVal);
+          }
+        }}
+      />
+    );
+  };
+
   const tabs = [
     { id: 'luong', label: 'Lương' },
     { id: 'thue', label: 'Thuế TNCN' },
@@ -73,11 +95,11 @@ const PayrollSettingsPage: React.FC = () => {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
-            className={clsx(
-              "pb-3 text-sm font-medium transition-all relative",
+            className={cn(
+              "pb-3 text-sm transition-all relative",
               activeTab === tab.id 
                 ? "text-green-600 font-bold" 
-                : "text-gray-400 hover:text-gray-600"
+                : "text-gray-400 hover:text-gray-600 font-medium"
             )}
           >
             {tab.label}
@@ -93,27 +115,23 @@ const PayrollSettingsPage: React.FC = () => {
           <div className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl">
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700 font-bold">Mức lương cơ sở (VND)</label>
-                <input 
-                  type="number"
-                  className="w-full border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-green-500"
-                  defaultValue={settings.find(s => s.loai === 'luong_co_so')?.gia_tri}
-                  onBlur={(e) => {
+                <label className="block text-sm font-medium text-gray-700">Mức lương cơ sở (VND)</label>
+                <MoneyInput 
+                  value={settings.find(s => s.loai === 'luong_co_so')?.gia_tri || 0}
+                  onSave={(v) => {
                     const s = settings.find(s => s.loai === 'luong_co_so');
-                    if (s) handleUpdateSetting(s.id, Number(e.target.value));
+                    if (s) handleUpdateSetting(s.id, v);
                   }}
                 />
               </div>
 
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700 font-bold">Mức lương trần đóng BHXH, BHYT (VND)</label>
-                <input 
-                  type="number"
-                  className="w-full border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:border-green-500"
-                  defaultValue={settings.find(s => s.loai === 'tran_bhxh_bhyt')?.gia_tri}
-                  onBlur={(e) => {
+                <label className="block text-sm font-medium text-gray-700">Mức lương trần đóng BHXH, BHYT (VND)</label>
+                <MoneyInput 
+                  value={settings.find(s => s.loai === 'tran_bhxh_bhyt')?.gia_tri || 0}
+                  onSave={(v) => {
                     const s = settings.find(s => s.loai === 'tran_bhxh_bhyt');
-                    if (s) handleUpdateSetting(s.id, Number(e.target.value));
+                    if (s) handleUpdateSetting(s.id, v);
                   }}
                 />
               </div>
@@ -125,9 +143,9 @@ const PayrollSettingsPage: React.FC = () => {
                 <table className="w-full text-left text-sm">
                   <thead className="bg-[#f9fafb] border-b border-gray-200 text-gray-600">
                     <tr>
-                      <th className="px-4 py-3 border-r border-gray-200 font-bold text-black">Đơn vị / Cơ sở</th>
-                      <th className="px-4 py-3 text-right border-r border-gray-200 font-bold text-black">Mức lương tối thiểu (VND)</th>
-                      <th className="px-4 py-3 text-right font-bold text-black">Trần đóng BHTN (VND)</th>
+                      <th className="px-4 py-3 border-r border-gray-200 font-bold text-black uppercase tracking-tight text-xs">Đơn vị / Cơ sở</th>
+                      <th className="px-4 py-3 text-right border-r border-gray-200 font-bold text-black uppercase tracking-tight text-xs">Mức lương tối thiểu (VND)</th>
+                      <th className="px-4 py-3 text-right font-bold text-black uppercase tracking-tight text-xs">Trần đóng BHTN (VND)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -135,18 +153,24 @@ const PayrollSettingsPage: React.FC = () => {
                       <tr key={co_so} className="text-gray-700">
                         <td className="px-4 py-3 border-r border-gray-200">{co_so}</td>
                         <td className="px-4 py-3 text-right border-r border-gray-200">
-                          <input 
-                            type="number"
-                            className="w-full text-right outline-none bg-transparent focus:text-green-600 font-bold"
-                            defaultValue={settings.find(s => s.loai === 'luong_toi_thieu_vung' && s.co_so === co_so)?.gia_tri}
-                            onBlur={(e) => {
+                          <MoneyInput 
+                            value={settings.find(s => s.loai === 'luong_toi_thieu_vung' && s.co_so === co_so)?.gia_tri || 0}
+                            className="text-right border-none p-0 bg-transparent focus:text-green-600 font-medium"
+                            onSave={(v) => {
                               const s = settings.find(s => s.loai === 'luong_toi_thieu_vung' && s.co_so === co_so);
-                              if (s) handleUpdateSetting(s.id, Number(e.target.value));
+                              if (s) handleUpdateSetting(s.id, v);
                             }}
                           />
                         </td>
-                        <td className="px-4 py-3 text-right text-gray-400 font-medium">
-                          {formatMoney(settings.find(s => s.loai === 'tran_bhtn' && s.co_so === co_so)?.gia_tri || 0)}
+                        <td className="px-4 py-3 text-right">
+                          <MoneyInput 
+                            value={settings.find(s => s.loai === 'tran_bhtn' && s.co_so === co_so)?.gia_tri || 0}
+                            className="text-right border-none p-0 bg-transparent focus:text-green-600 font-medium"
+                            onSave={(v) => {
+                              const s = settings.find(s => s.loai === 'tran_bhtn' && s.co_so === co_so);
+                              if (s) handleUpdateSetting(s.id, v);
+                            }}
+                          />
                         </td>
                       </tr>
                     ))}
@@ -217,7 +241,7 @@ const PayrollSettingsPage: React.FC = () => {
               { label: 'BHTN người lao động', key: 'ty_le_bhtn_nld' },
             ].map(item => (
               <div key={item.key} className="space-y-2">
-                <label className="block text-sm font-bold text-gray-700">{item.label}</label>
+                <label className="block text-sm font-medium text-gray-700">{item.label}</label>
                 <div className="flex items-center gap-2">
                   <input 
                     type="number"
@@ -229,7 +253,7 @@ const PayrollSettingsPage: React.FC = () => {
                       if (s) handleUpdateSetting(s.id, Number(e.target.value));
                     }}
                   />
-                  <span className="text-gray-400 text-sm font-bold">%</span>
+                  <span className="text-gray-400 text-sm font-medium">%</span>
                 </div>
               </div>
             ))}

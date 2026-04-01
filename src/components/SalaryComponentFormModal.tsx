@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X, Save, Loader2 } from 'lucide-react';
 import type { ThanhPhanLuong } from '../data/salaryComponentData';
 import { clsx } from 'clsx';
+import { formatNumberVietnamese, parseNumberVietnamese } from '../lib/utils';
 
 interface Props {
   isOpen: boolean;
@@ -149,13 +150,35 @@ const SalaryComponentFormModal: React.FC<Props> = ({ isOpen, onClose, onSave, in
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <label className="text-xs font-black text-slate-900 uppercase tracking-widest">Giá trị mặc định</label>
-              <input
-                type="number"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-black outline-none focus:ring-2 focus:ring-primary/20"
-                value={formData.gia_tri}
-                onChange={e => setFormData({ ...formData, gia_tri: Number(e.target.value) })}
-              />
+              <label className="text-xs font-black text-slate-900 uppercase tracking-widest">
+                {formData.kieu_gia_tri === 'cong_thuc' ? 'Logic tính toán' : 'Giá trị mặc định'}
+              </label>
+              {formData.kieu_gia_tri === 'cong_thuc' ? (
+                <div className="w-full bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 font-bold text-primary flex items-center gap-2">
+                  <span className="text-lg">ƒ(x)</span>
+                  <span className="text-sm">Tính toán theo hiệu suất / doanh số</span>
+                </div>
+              ) : (
+                <div className="relative">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-black outline-none focus:ring-2 focus:ring-primary/20"
+                    value={formatNumberVietnamese(formData.gia_tri || 0)}
+                    onFocus={e => e.target.select()}
+                    onChange={e => {
+                      const val = parseNumberVietnamese(e.target.value);
+                      setFormData({ ...formData, gia_tri: val });
+                    }}
+                  />
+                  {formData.kieu_gia_tri === 'tien_te' && (
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs pointer-events-none">VND</span>
+                  )}
+                  {formData.kieu_gia_tri === 'phan_tram' && (
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs pointer-events-none">%</span>
+                  )}
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <label className="text-xs font-black text-slate-900 uppercase tracking-widest">Định mức</label>

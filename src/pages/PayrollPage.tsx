@@ -6,9 +6,11 @@ import {
 } from 'lucide-react';
 import { getPayrollBatch, updatePayrollStatus, bulkCreatePayrollItems } from '../data/payrollData';
 import type { BangLuong } from '../data/payrollData';
+import { getAllowancePolicies } from '../data/allowancePolicyData';
 import SelectPayrollEmployeeModal from '../components/SelectPayrollEmployeeModal';
 import type { NhanSu } from '../data/personnelData';
 import { clsx } from 'clsx';
+import { removeVietnameseTones } from '../lib/utils';
 import * as XLSX from 'xlsx';
 
 
@@ -70,20 +72,32 @@ const PayrollPage: React.FC = () => {
   const handleAddPersonnel = async (selected: NhanSu[]) => {
     try {
       setLoading(true);
-      const newItems: Partial<BangLuong>[] = selected.map(p => ({
-        nhan_su_id: p.id,
-        thang: selectedMonth,
-        nam: selectedYear,
-        co_so: p.co_so,
-        trang_thai: 'Chờ duyệt',
-        doanh_so: 0,
-        doanh_so_muc_tieu: 0,
-        luong_ngay_cong: 0,
-        luong_doanh_so: 0,
-        bhxh: 0,
-        thue_tncn: 0,
-        thuc_linh: 0
-      }));
+      const policies = await getAllowancePolicies();
+      
+      const newItems: Partial<BangLuong>[] = selected.map(p => {
+        const matchingPolicies = policies.filter(policy => 
+          policy.co_so === p.co_so && 
+          (policy.vi_tri === p.vi_tri || policy.vi_tri === 'Tất cả vị trí')
+        );
+        
+        const totalAllowance = matchingPolicies.reduce((sum, pol) => sum + pol.gia_tri, 0);
+
+        return {
+          nhan_su_id: p.id,
+          thang: selectedMonth,
+          nam: selectedYear,
+          co_so: p.co_so,
+          trang_thai: 'Chờ duyệt',
+          doanh_so: 0,
+          doanh_so_muc_tieu: 0,
+          luong_ngay_cong: 0,
+          luong_doanh_so: 0,
+          tong_phu_cap: totalAllowance,
+          bhxh: 0,
+          thue_tncn: 0,
+          thuc_linh: totalAllowance // Khởi tạo thục lĩnh bằng tổng phụ cấp nếu các mục khác là 0
+        };
+      });
       
       await bulkCreatePayrollItems(newItems);
       await fetchData();
@@ -246,16 +260,14 @@ const PayrollPage: React.FC = () => {
 
   const formatCurrency = (val: number) => new Intl.NumberFormat('vi-VN').format(val);
 
-  const normalizeString = (str: string) => {
-    return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase();
-  };
+
 
   const filteredData = payrollData.filter(item => {
     if (statusFilter !== 'Tất cả' && item.trang_thai !== statusFilter) return false;
     if (searchQuery) {
-      const q = normalizeString(searchQuery);
-      return normalizeString(item.nhan_su?.ho_ten || '').includes(q) || 
-             normalizeString(item.co_so).includes(q);
+      const q = removeVietnameseTones(searchQuery);
+      return removeVietnameseTones(item.nhan_su?.ho_ten || '').includes(q) || 
+             removeVietnameseTones(item.co_so).includes(q);
     }
     return true;
   });
@@ -564,10 +576,7 @@ const PayrollPage: React.FC = () => {
                 {visibleColumns.includes('luong_ngay') && <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-right text-slate-500">Lương Ngày công</th>}
                 {visibleColumns.includes('luong_doanh_so') && <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-right text-slate-500">Lương Doanh số</th>}
                 {visibleColumns.includes('phu_cap') && (
-                  <>
-                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-right text-emerald-600">Phụ cấp đ.lại</th>
-                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-right text-emerald-600">Phụ cấp đ.thoại</th>
-                  </>
+                  <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-right text-emerald-600">Phụ cấp (Chính sách)</th>
                 )}
                 <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-right text-rose-600">Khấu trừ</th>
                 {visibleColumns.includes('thuc_linh') && (
@@ -672,10 +681,9 @@ const PayrollPage: React.FC = () => {
                   {visibleColumns.includes('luong_ngay') && <td className="px-6 py-4 text-right text-xs font-black text-slate-700">{formatCurrency(item.luong_ngay_cong)}</td>}
                   {visibleColumns.includes('luong_doanh_so') && <td className="px-6 py-4 text-right text-xs font-black text-slate-700">{formatCurrency(item.luong_doanh_so)}</td>}
                   {visibleColumns.includes('phu_cap') && (
-                    <>
-                      <td className="px-6 py-4 text-right text-xs font-black text-emerald-600">0</td>
-                      <td className="px-6 py-4 text-right text-xs font-black text-emerald-600">0</td>
-                    </>
+                    <td className="px-6 py-4 text-right text-xs font-black text-emerald-600">
+                      {formatCurrency(item.tong_phu_cap || 0)}
+                    </td>
                   )}
                   <td className="px-6 py-4 text-right text-xs font-black text-rose-500 italic">-{formatCurrency((item.bhxh || 0) + (item.thue_tncn || 0))}</td>
                   {visibleColumns.includes('thuc_linh') && (

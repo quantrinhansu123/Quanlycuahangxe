@@ -7,8 +7,9 @@ import {
 import type { ThanhPhanLuong } from '../data/salaryComponentData';
 import SalaryComponentFormModal from '../components/SalaryComponentFormModal';
 import { clsx } from 'clsx';
+import { removeVietnameseTones } from '../lib/utils';
 import { 
-  Plus, Search, Edit2, Trash2, Loader2, Braces, Tag, Building2, ListFilter
+  Plus, Search, Edit2, Trash2, Loader2, Braces, Tag, Building2
 } from 'lucide-react';
 
 const SalaryComponentPage: React.FC = () => {
@@ -17,6 +18,7 @@ const SalaryComponentPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingComponent, setEditingComponent] = useState<ThanhPhanLuong | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterLoai, setFilterLoai] = useState<'all' | 'thu_nhap' | 'khau_tru'>('all');
 
   useEffect(() => {
     fetchData();
@@ -46,10 +48,13 @@ const SalaryComponentPage: React.FC = () => {
     }
   };
 
-  const filteredComponents = components.filter(c => 
-    c.ten.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.ma.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredComponents = components.filter(c => {
+    const searchNormalized = removeVietnameseTones(searchQuery);
+    const matchesSearch = removeVietnameseTones(c.ten).includes(searchNormalized) ||
+                         removeVietnameseTones(c.ma).includes(searchNormalized);
+    const matchesLoai = filterLoai === 'all' || c.loai === filterLoai;
+    return matchesSearch && matchesLoai;
+  });
 
   if (loading) {
     return (
@@ -90,10 +95,35 @@ const SalaryComponentPage: React.FC = () => {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <button className="flex items-center justify-center gap-2 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-sm hover:bg-slate-100 transition-all text-slate-600">
-          <ListFilter size={18} />
-          Bộ lọc
-        </button>
+        <div className="flex items-center gap-2 p-1 bg-slate-100 rounded-xl">
+          <button 
+            onClick={() => setFilterLoai('all')}
+            className={clsx(
+              "px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all",
+              filterLoai === 'all' ? "bg-white text-primary shadow-sm" : "text-slate-500 hover:text-slate-700"
+            )}
+          >
+            Tất cả
+          </button>
+          <button 
+            onClick={() => setFilterLoai('thu_nhap')}
+            className={clsx(
+              "px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all",
+              filterLoai === 'thu_nhap' ? "bg-white text-emerald-600 shadow-sm" : "text-slate-500 hover:text-emerald-500"
+            )}
+          >
+            Thu nhập
+          </button>
+          <button 
+            onClick={() => setFilterLoai('khau_tru')}
+            className={clsx(
+              "px-4 py-2 rounded-lg text-xs font-black uppercase tracking-widest transition-all",
+              filterLoai === 'khau_tru' ? "bg-white text-rose-600 shadow-sm" : "text-slate-500 hover:text-rose-500"
+            )}
+          >
+            Khấu trừ
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -146,12 +176,25 @@ const SalaryComponentPage: React.FC = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <p className="text-sm font-black text-slate-900">
-                      {new Intl.NumberFormat('vi-VN').format(item.gia_tri)}
-                      <span className="text-[10px] ml-1 text-slate-400 font-bold">
-                        {item.kieu_gia_tri === 'tien_te' ? 'VND' : '%'}
-                      </span>
-                    </p>
+                    <div className="flex flex-col items-end">
+                      <p className="text-sm font-black text-slate-900 leading-none">
+                        {item.kieu_gia_tri === 'cong_thuc' ? (
+                          <span className="text-primary tracking-tight">ƒ(x) Tùy chỉnh</span>
+                        ) : (
+                          <>
+                            {new Intl.NumberFormat('vi-VN').format(item.gia_tri)}
+                            <span className="text-[10px] ml-1 text-slate-400 font-bold">
+                              {item.kieu_gia_tri === 'tien_te' ? 'VND' : '%'}
+                            </span>
+                          </>
+                        )}
+                      </p>
+                      {item.dinh_muc && (
+                        <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-tighter">
+                          Hạn mức: {item.dinh_muc}
+                        </p>
+                      )}
+                    </div>
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-center gap-2">
