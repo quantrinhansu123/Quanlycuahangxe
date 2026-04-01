@@ -1,6 +1,7 @@
+import { clsx } from 'clsx';
 import { Box, FileText, Search, Users, Wallet, Wrench, BadgeDollarSign } from 'lucide-react';
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+
 import type { ActionCardProps } from '../components/ui/ActionCard';
 import { ActionCard } from '../components/ui/ActionCard';
 import { ModuleCard } from '../components/ui/ModuleCard';
@@ -56,7 +57,7 @@ const Dashboard: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
   const allSections = Object.values(moduleData).flat();
-  const payrollSubItems = moduleData['/tien-luong']?.[0]?.items || [];
+
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -124,42 +125,7 @@ const Dashboard: React.FC = () => {
       {activeTab === 'chuc-nang' && (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 lg:gap-4">
           {dashboardModules.map((module, idx) => {
-            if (module.title === 'Tiền lương') {
-              return (
-                <div 
-                  key={idx} 
-                  className="col-span-2 bg-card rounded-[24px] p-6 border border-border hover:border-primary/20 hover:shadow-xl transition-all duration-300 group"
-                >
-                  <div className="flex flex-col md:flex-row gap-6 h-full">
-                    <div className="flex flex-col items-center text-center md:items-start md:text-left shrink-0">
-                      <div className="w-14 h-14 rounded-[20px] bg-linear-to-br from-amber-500 to-amber-600 text-white flex items-center justify-center mb-4 shadow-lg shadow-amber-500/20 group-hover:scale-110 transition-transform duration-300">
-                        <BadgeDollarSign size={28} />
-                      </div>
-                      <h3 className="font-bold text-[17px] text-foreground mb-1 group-hover:text-primary transition-colors">Tiền lương</h3>
-                      <p className="text-[12px] text-muted-foreground leading-relaxed max-w-[150px]">Quản lý bảng lương, thuế và bảo hiểm.</p>
-                    </div>
-                    
-                    <div className="flex-1 grid grid-cols-2 gap-2">
-                      {payrollSubItems.map((sub, sIdx) => {
-                        const SubIcon = sub.icon;
-                        return (
-                          <Link 
-                            key={sIdx} 
-                            to={sub.path}
-                            className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 hover:border-primary/30 hover:bg-white hover:shadow-sm transition-all group/sub"
-                          >
-                            <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-slate-400 group-hover/sub:text-primary transition-colors shadow-sm">
-                              <SubIcon size={16} />
-                            </div>
-                            <span className="text-[11px] font-black text-slate-700 uppercase tracking-tight">{sub.title}</span>
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              );
-            }
+
             return (
               <ActionCard
                 key={idx}
