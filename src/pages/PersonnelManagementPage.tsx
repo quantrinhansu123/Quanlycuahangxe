@@ -11,7 +11,8 @@ import {
   Search,
   Trash2,
   Upload,
-  User
+  User,
+  Eye
 } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -20,6 +21,7 @@ import type { NhanSu } from '../data/personnelData';
 import { bulkUpsertPersonnel, deletePersonnel, getPersonnelPaginated, upsertPersonnel } from '../data/personnelData';
 import Pagination from '../components/Pagination';
 import PersonnelFormModal from '../components/PersonnelFormModal';
+import PersonnelDailyStatsModal from '../components/PersonnelDailyStatsModal';
 
 const PersonnelManagementPage: React.FC = () => {
   const navigate = useNavigate();
@@ -44,6 +46,9 @@ const PersonnelManagementPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPerson, setEditingPerson] = useState<NhanSu | null>(null);
   const [formData, setFormData] = useState<Partial<NhanSu>>({});
+
+  const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
+  const [selectedStatsPerson, setSelectedStatsPerson] = useState<{ id: string, ho_ten: string } | null>(null);
 
   const positionOptions = ["kỹ thuật viên", "quản lý"];
   const branchOptions = ["Cơ sở Bắc Giang", "Cơ sở Bắc Ninh"];
@@ -407,8 +412,9 @@ const PersonnelManagementPage: React.FC = () => {
                     <td className="px-4 py-4 text-[12px]">{person.co_so}</td>
                     <td className="px-4 py-4 text-center">
                       <div className="flex items-center justify-center gap-3">
-                        <button onClick={() => handleOpenModal(person)} className="text-primary hover:text-blue-700 transition-colors"><Edit2 size={16} /></button>
-                        <button onClick={() => handleDelete(person.id)} className="text-destructive hover:text-red-700 transition-colors"><Trash2 size={16} /></button>
+                        <button onClick={() => { setSelectedStatsPerson({ id: person.id, ho_ten: person.ho_ten }); setIsStatsModalOpen(true); }} className="text-emerald-600 hover:text-emerald-800 transition-colors" title="Xem thống kê làm việc"><Eye size={16} /></button>
+                        <button onClick={() => handleOpenModal(person)} className="text-primary hover:text-blue-700 transition-colors" title="Sửa thông tin"><Edit2 size={16} /></button>
+                        <button onClick={() => handleDelete(person.id)} className="text-destructive hover:text-red-700 transition-colors" title="Xóa nhân viên"><Trash2 size={16} /></button>
                       </div>
                     </td>
                   </tr>
@@ -440,6 +446,13 @@ const PersonnelManagementPage: React.FC = () => {
         onSubmit={handleSubmit}
         branchOptions={branchOptions}
         positionOptions={positionOptions}
+      />
+
+      <PersonnelDailyStatsModal
+        isOpen={isStatsModalOpen}
+        onClose={() => setIsStatsModalOpen(false)}
+        personnelId={selectedStatsPerson?.id || ''}
+        personnelName={selectedStatsPerson?.ho_ten || ''}
       />
     </div>
   );

@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { candidatesData, statusConfig, positionOptions, mockInterviewSessions } from './candidates/data';
 import AddEditCandidateDialog from './candidates/dialogs/AddEditCandidateDialog';
 import CandidateDetailDialog from './candidates/dialogs/CandidateDetailDialog';
+import PersonnelDailyStatsModal from '../components/PersonnelDailyStatsModal';
 import { motion } from 'framer-motion';
 
 const CandidatesPage: React.FC = () => {
@@ -16,6 +17,9 @@ const CandidatesPage: React.FC = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
   const [candidateDetailOpen, setCandidateDetailOpen] = useState(false);
+
+  const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
+  const [selectedStatsPerson, setSelectedStatsPerson] = useState<{ id: string, ho_ten: string } | null>(null);
 
   const filteredCandidates = candidatesData.filter(c => 
     c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -160,7 +164,7 @@ const CandidatesPage: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
-                      <button className="p-2 hover:bg-blue-50 text-blue-600 rounded-lg transition-colors" title="Xem chi tiết">
+                      <button onClick={(e) => { e.stopPropagation(); setSelectedStatsPerson({ id: candidate.id, ho_ten: candidate.name }); setIsStatsModalOpen(true); }} className="p-2 hover:bg-emerald-50 text-emerald-600 rounded-lg transition-colors" title="Xem KPI trong ngày">
                         <Eye size={16} />
                       </button>
                       <button className="p-2 hover:bg-primary/10 text-primary rounded-lg transition-colors" title="Sửa">
@@ -255,6 +259,13 @@ const CandidatesPage: React.FC = () => {
           sessions={mockInterviewSessions}
         />
       )}
+
+      <PersonnelDailyStatsModal
+        isOpen={isStatsModalOpen}
+        onClose={() => setIsStatsModalOpen(false)}
+        personnelId={selectedStatsPerson?.id || ''}
+        personnelName={selectedStatsPerson?.ho_ten || ''}
+      />
     </motion.div>
   );
 };
