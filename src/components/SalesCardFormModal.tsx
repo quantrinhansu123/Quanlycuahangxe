@@ -174,13 +174,14 @@ const SalesCardFormModal: React.FC<{
                   <User size={14} className="text-primary/70" />
                   Người phụ trách (Nhân viên) <span className="text-red-500">*</span>
                 </label>
-                <select
-                  name="nhan_vien_id" value={formData.nhan_vien_id || ''} onChange={handleInputChange} required
-                  className="w-full px-4 py-2.5 bg-background border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary/20 text-[14px]"
-                >
-                  <option value="">-- Chọn nhân viên --</option>
-                  {personnel.map(p => <option key={p.id} value={p.id}>{p.ho_ten} ({p.vi_tri})</option>)}
-                </select>
+                <SearchableSelect
+                  options={personnel.map(p => ({ value: p.id, label: `${p.ho_ten} (${p.vi_tri})` }))}
+                  value={formData.nhan_vien_id || undefined}
+                  onValueChange={(val: string) => setFormData(prev => ({ ...prev, nhan_vien_id: val }))}
+                  placeholder="-- Chọn nhân viên --"
+                  searchPlaceholder="Tìm tên, vị trí..."
+                  className="font-bold overflow-hidden"
+                />
               </div>
 
               {/* Service Selection */}

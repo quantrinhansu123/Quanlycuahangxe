@@ -24,8 +24,10 @@ import type { DichVu } from '../data/serviceData';
 import { bulkUpsertServices, getServices } from '../data/serviceData';
 import SalesCardFormModal from '../components/SalesCardFormModal';
 import { bulkUpsertSalesCardCTs } from '../data/salesCardCTData';
+import { useAuth } from '../context/AuthContext';
 
 const SalesCardManagementPage: React.FC = () => {
+  const { currentUser } = useAuth();
   const navigate = useNavigate();
   const [salesCards, setSalesCards] = useState<SalesCard[]>([]);
   const [customers, setCustomers] = useState<KhachHang[]>([]);
@@ -89,11 +91,15 @@ const SalesCardManagementPage: React.FC = () => {
       setFormData({ ...card });
     } else {
       setEditingCard(null);
+      
+      // Tự động gán người phụ trách là tên user đăng nhập hiện tại từ AuthContext
+      const matchedUser = personnel.find(p => p.ho_ten?.toLowerCase() === currentUser?.ho_ten?.toLowerCase()) || personnel[0];
+
       setFormData({
         ngay: new Date().toISOString().split('T')[0],
         gio: new Date().toLocaleTimeString('vi-VN', { hour12: false, hour: '2-digit', minute: '2-digit' }),
         khach_hang_id: '',
-        nhan_vien_id: '',
+        nhan_vien_id: matchedUser ? matchedUser.id : '',
         dich_vu_id: '',
         dich_vu_ids: [],
         danh_gia: 'hài lòng',
