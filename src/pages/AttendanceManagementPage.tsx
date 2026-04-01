@@ -28,6 +28,7 @@ import { getPersonnel, type NhanSu } from '../data/personnelData';
 
 const AttendanceManagementPage: React.FC = () => {
   const { currentUser } = useAuth();
+  const isAdmin = currentUser?.vi_tri === 'Quản trị viên';
   const navigate = useNavigate();
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [personnel, setPersonnel] = useState<NhanSu[]>([]);
@@ -669,13 +670,26 @@ const AttendanceManagementPage: React.FC = () => {
                     <User size={14} className="text-primary/70" />
                     Nhân sự <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="text"
-                    value={formData.nhan_su || ''}
-                    disabled
-                    className="w-full px-4 py-2.5 bg-muted/30 border border-border rounded-xl font-bold text-[14px] text-foreground cursor-not-allowed opacity-80"
-                  />
-                  <p className="text-[10px] text-muted-foreground italic">Tự động lấy theo tài khoản đăng nhập</p>
+                  {isAdmin ? (
+                    <select
+                      value={formData.nhan_su || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, nhan_su: e.target.value }))}
+                      className="w-full px-4 py-2.5 bg-card border border-border rounded-xl font-bold text-[14px] text-foreground focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                    >
+                      <option value="">Chọn nhân sự</option>
+                      {personnel.map(p => (
+                        <option key={p.id} value={p.ho_ten}>{p.ho_ten}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      value={formData.nhan_su || ''}
+                      disabled
+                      className="w-full px-4 py-2.5 bg-muted/30 border border-border rounded-xl font-bold text-[14px] text-foreground cursor-not-allowed opacity-80"
+                    />
+                  )}
+                  {!isAdmin && <p className="text-[10px] text-muted-foreground italic">Tự động lấy theo tài khoản đăng nhập</p>}
                 </div>
 
                 <div className="space-y-1.5">
@@ -683,10 +697,50 @@ const AttendanceManagementPage: React.FC = () => {
                     <Calendar size={14} className="text-primary/70" />
                     Ngày <span className="text-red-500">*</span>
                   </label>
-                  <div className="w-full px-4 py-2.5 bg-muted/30 border border-border rounded-xl font-bold text-[14px] text-foreground cursor-not-allowed opacity-80 flex items-center">
-                    {formData.ngay ? new Date(formData.ngay).toLocaleDateString('vi-VN') : '—'}
-                  </div>
+                  {isAdmin ? (
+                    <input
+                      type="date"
+                      value={formData.ngay || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, ngay: e.target.value }))}
+                      className="w-full px-4 py-2.5 bg-card border border-border rounded-xl font-bold text-[14px] text-foreground focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                    />
+                  ) : (
+                    <div className="w-full px-4 py-2.5 bg-muted/30 border border-border rounded-xl font-bold text-[14px] text-foreground cursor-not-allowed opacity-80 flex items-center">
+                      {formData.ngay ? new Date(formData.ngay).toLocaleDateString('vi-VN') : '—'}
+                    </div>
+                  )}
                 </div>
+
+                {isAdmin && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                        <Clock size={14} className="text-emerald-600" />
+                        Giờ vào
+                      </label>
+                      <input
+                        type="time"
+                        step="1"
+                        value={formData.checkin || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, checkin: e.target.value }))}
+                        className="w-full px-4 py-2.5 bg-card border border-border rounded-xl font-bold text-[14px] text-foreground focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                        <Clock size={14} className="text-orange-600" />
+                        Giờ ra
+                      </label>
+                      <input
+                        type="time"
+                        step="1"
+                        value={formData.checkout || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, checkout: e.target.value }))}
+                        className="w-full px-4 py-2.5 bg-card border border-border rounded-xl font-bold text-[14px] text-foreground focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {/* Hành động Chấm Công Nhanh (1 Trạm) */}
                 <div className="flex flex-col gap-4 mt-6">
@@ -722,7 +776,14 @@ const AttendanceManagementPage: React.FC = () => {
 
               <div className="mt-10 flex items-center justify-end gap-3 pt-6 border-t border-border">
                 <button type="button" onClick={handleCloseModal} className="px-6 py-2.5 rounded-xl text-sm font-bold text-muted-foreground hover:bg-muted border border-border">Đóng lại</button>
-                <button type="submit" className="hidden">Lưu (Khóa)</button>
+                {isAdmin && (
+                  <button
+                    type="submit"
+                    className="flex items-center gap-2 px-8 py-2.5 rounded-xl text-sm font-bold text-white bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all active:scale-95"
+                  >
+                    <Edit2 size={16} /> Lưu thay đổi
+                  </button>
+                )}
               </div>
             </form>
           </div>
