@@ -9,9 +9,7 @@ import {
   Edit2,
   List,
   Loader2,
-  MapPin,
   Plus,
-  Save,
   Search,
   Trash2,
   Upload,
@@ -19,22 +17,24 @@ import {
   X
 } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
-import type { AttendanceRecord } from '../data/attendanceData';
-import { bulkUpsertAttendanceRecords, deleteAttendanceRecord, upsertAttendanceRecord, getAttendancePaginated } from '../data/attendanceData';
-import { getPersonnel, type NhanSu } from '../data/personnelData';
-import { createPortal } from 'react-dom';
 import Pagination from '../components/Pagination';
+import { useAuth } from '../context/AuthContext';
+import type { AttendanceRecord } from '../data/attendanceData';
+import { bulkUpsertAttendanceRecords, deleteAttendanceRecord, getAttendancePaginated, upsertAttendanceRecord } from '../data/attendanceData';
+import { getPersonnel, type NhanSu } from '../data/personnelData';
 
 const AttendanceManagementPage: React.FC = () => {
+  const { currentUser } = useAuth();
   const navigate = useNavigate();
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [personnel, setPersonnel] = useState<NhanSu[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -50,8 +50,6 @@ const AttendanceManagementPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(null);
   const [formData, setFormData] = useState<Partial<AttendanceRecord>>({});
-  const [locationLoading, setLocationLoading] = useState(false);
-  const [locationError, setLocationError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [visibleColumns, setVisibleColumns] = useState<string[]>([
@@ -76,9 +74,9 @@ const AttendanceManagementPage: React.FC = () => {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const loadRecords = React.useCallback(async () => {
+  const loadRecords = React.useCallback(async (showLoading = true) => {
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
       const [attendanceResult, personnelData] = await Promise.all([
         getAttendancePaginated(currentPage, pageSize, debouncedSearch, {
           nhan_su: selectedStaff,
@@ -92,12 +90,12 @@ const AttendanceManagementPage: React.FC = () => {
     } catch (error) {
       console.error(error);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   }, [currentPage, pageSize, debouncedSearch, selectedStaff, selectedDate]);
 
   useEffect(() => {
-    loadRecords();
+    loadRecords(true);
   }, [loadRecords]);
 
   useEffect(() => {
@@ -125,24 +123,46 @@ const AttendanceManagementPage: React.FC = () => {
     }
   };
 
-  const handleOpenModal = (record?: AttendanceRecord) => {
+  const handleOpenModal = async (record?: AttendanceRecord) => {
     if (record) {
       setEditingRecord(record);
       setFormData({ ...record });
+      setIsModalOpen(true);
     } else {
       setEditingRecord(null);
+      // Khi nhấn "Thêm chấm công", phát hiện xem hôm nay đã có bản ghi nào chưa
+      const todayStr = new Date().toISOString().split('T')[0];
+      const fallbackName = currentUser?.ho_ten || 'Tài khoản đăng nhập';
+
       setFormData({
-        nhan_su: '',
-        ngay: new Date().toISOString().split('T')[0],
+        nhan_su: fallbackName,
+        ngay: todayStr,
         checkin: '',
         checkout: '',
         vi_tri: '',
         anh: ''
       });
-      // Tự động lấy tọa độ khi mở modal thêm mới
-      setTimeout(() => getLocation(), 100);
+
+      setLoading(true);
+      try {
+        const { data } = await getAttendancePaginated(1, 1, undefined, {
+          nhan_su: fallbackName,
+          ngay: todayStr
+        });
+
+        if (data && data.length > 0) {
+          const todayRecord = data[0];
+          setEditingRecord(todayRecord);
+          setFormData({ ...todayRecord });
+        }
+      } catch (err) {
+        console.error("Lỗi tự phát hiện chấm công:", err);
+      } finally {
+        setLoading(false);
+        setIsModalOpen(true);
+        setTimeout(() => getLocation(), 100);
+      }
     }
-    setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
@@ -150,19 +170,12 @@ const AttendanceManagementPage: React.FC = () => {
     setEditingRecord(null);
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
 
   const getLocation = () => {
     if (!("geolocation" in navigator)) {
-      setLocationError("Trình duyệt không hỗ trợ định vị.");
+      console.warn("Trình duyệt không hỗ trợ định vị.");
       return;
     }
-
-    setLocationLoading(true);
-    setLocationError(null);
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -171,16 +184,9 @@ const AttendanceManagementPage: React.FC = () => {
           ...prev,
           vi_tri: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`
         }));
-        setLocationLoading(false);
       },
       (error) => {
         console.error("Lỗi lấy vị trí:", error);
-        if (error.code === 1) {
-          setLocationError("Bạn đã từ chối quyền truy cập vị trí.");
-        } else {
-          setLocationError("Không thể xác định vị trí.");
-        }
-        setLocationLoading(false);
       },
       { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
     );
@@ -189,25 +195,36 @@ const AttendanceManagementPage: React.FC = () => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // 1. Tự động lấy giờ hiện tại
-      const now = new Date();
-      const timeStr = now.toTimeString().split(' ')[0].substring(0, 5); // HH:mm
-
-      setFormData(prev => ({
-        ...prev,
-        checkin: prev.checkin || timeStr,
-        ngay: now.toISOString().split('T')[0]
-      }));
-
-      // 2. Chuyển ảnh sang dạng base64
       const reader = new FileReader();
       reader.onloadend = () => {
         setFormData(prev => ({ ...prev, anh: reader.result as string }));
       };
       reader.readAsDataURL(file);
-
-      // 3. Tự động lấy tọa độ vị trí
       getLocation();
+    }
+  };
+
+  const handleQuickSubmit = async (type: 'checkin' | 'checkout') => {
+    const now = new Date().toTimeString().split(' ')[0].substring(0, 5);
+    const updatedData = { ...formData, [type]: now };
+
+    // Cập nhật lên UI ngay để người dùng thấy
+    setFormData(updatedData);
+
+    const dbPayload = {
+      ...updatedData,
+      checkin: updatedData.checkin || null,
+      checkout: updatedData.checkout || null,
+      vi_tri: updatedData.vi_tri || null,
+      anh: updatedData.anh || null,
+    };
+
+    try {
+      await upsertAttendanceRecord(dbPayload);
+      await loadRecords(false);
+      handleCloseModal();
+    } catch (error) {
+      alert('Lỗi: Không thể lưu thông tin chấm công.');
     }
   };
 
@@ -348,7 +365,7 @@ const AttendanceManagementPage: React.FC = () => {
           setLoading(true);
           try {
             await bulkUpsertAttendanceRecords(formattedData);
-            await loadRecords();
+            await loadRecords(false);
             alert(`Đã nhập thành công ${formattedData.length} bản ghi chấm công!`);
           } catch (err: any) {
             console.error('Database Error details:', err);
@@ -372,7 +389,7 @@ const AttendanceManagementPage: React.FC = () => {
     if (window.confirm('Bạn có chắc chắn muốn xóa bản ghi chấm công này?')) {
       try {
         await deleteAttendanceRecord(id);
-        await loadRecords();
+        await loadRecords(false);
       } catch (error) {
         alert('Lỗi: Không thể xóa bản ghi.');
       }
@@ -404,8 +421,8 @@ const AttendanceManagementPage: React.FC = () => {
               />
             </div>
 
-            <select 
-              value={selectedStaff} 
+            <select
+              value={selectedStaff}
               onChange={(e) => {
                 setSelectedStaff(e.target.value);
                 setCurrentPage(1);
@@ -418,8 +435,8 @@ const AttendanceManagementPage: React.FC = () => {
               ))}
             </select>
 
-            <input 
-              type="date" 
+            <input
+              type="date"
               value={selectedDate}
               onChange={(e) => {
                 setSelectedDate(e.target.value);
@@ -427,9 +444,9 @@ const AttendanceManagementPage: React.FC = () => {
               }}
               className="px-3 py-1.5 border border-border rounded text-[13px] bg-card outline-none focus:ring-1 focus:ring-primary"
             />
-            
+
             {(searchQuery !== '' || selectedStaff !== '' || selectedDate !== '') && (
-              <button 
+              <button
                 onClick={() => {
                   setSearchQuery('');
                   setSelectedStaff('');
@@ -515,7 +532,7 @@ const AttendanceManagementPage: React.FC = () => {
               onClick={() => handleOpenModal()}
               className="bg-primary hover:bg-primary/90 text-white px-5 py-1.5 rounded flex items-center gap-2 text-[14px] font-semibold transition-colors"
             >
-              <Plus size={20} /> Chấm công hộ
+              <Plus size={20} /> Thêm chấm công
             </button>
           </div>
         </div>
@@ -591,7 +608,7 @@ const AttendanceManagementPage: React.FC = () => {
               </tbody>
             </table>
           </div>
-          <Pagination 
+          <Pagination
             currentPage={currentPage}
             pageSize={pageSize}
             totalCount={totalCount}
@@ -637,84 +654,60 @@ const AttendanceManagementPage: React.FC = () => {
                     <User size={14} className="text-primary/70" />
                     Nhân sự <span className="text-red-500">*</span>
                   </label>
-                  <select
-                    name="nhan_su"
+                  <input
+                    type="text"
                     value={formData.nhan_su || ''}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-4 py-2.5 bg-background border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-[14px]"
-                  >
-                    <option value="">-- Chọn nhân viên --</option>
-                    {personnel.map(p => (
-                      <option key={p.id} value={p.ho_ten}>{p.ho_ten} ({p.vi_tri})</option>
-                    ))}
-                  </select>
-                </div>
-
-                <InputField label="Ngày" name="ngay" type="date" value={formData.ngay} onChange={handleInputChange} icon={Calendar} required />
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="relative">
-                    <InputField label="Giờ vào" name="checkin" type="time" value={formData.checkin || ''} onChange={handleInputChange} icon={Clock} />
-                    <button
-                      type="button"
-                      onClick={() => setFormData(prev => ({ ...prev, checkin: new Date().toTimeString().split(' ')[0].substring(0, 5) }))}
-                      className="absolute right-2 top-8 text-[10px] font-bold text-primary hover:underline bg-primary/5 px-2 py-1 rounded"
-                    >
-                      Hiện tại
-                    </button>
-                  </div>
-                  <div className="relative">
-                    <InputField label="Giờ ra" name="checkout" type="time" value={formData.checkout || ''} onChange={handleInputChange} icon={Clock} />
-                    <button
-                      type="button"
-                      onClick={() => setFormData(prev => ({ ...prev, checkout: new Date().toTimeString().split(' ')[0].substring(0, 5) }))}
-                      className="absolute right-2 top-8 text-[10px] font-bold text-primary hover:underline bg-primary/5 px-2 py-1 rounded"
-                    >
-                      Hiện tại
-                    </button>
-                  </div>
-                </div>
-
-                <div className="relative">
-                  <InputField
-                    label="Vị trí (Tọa độ)"
-                    name="vi_tri"
-                    value={formData.vi_tri || ''}
-                    onChange={handleInputChange}
-                    icon={MapPin}
-                    placeholder={locationLoading ? "Đang xác định tọa độ..." : (locationError || "Vị trí chấm công...")}
-                    className={clsx(
-                      locationLoading && "animate-pulse",
-                      locationError && "border-red-300 text-red-500"
-                    )}
+                    disabled
+                    className="w-full px-4 py-2.5 bg-muted/30 border border-border rounded-xl font-bold text-[14px] text-foreground cursor-not-allowed opacity-80"
                   />
-                  <div className="absolute right-3 top-9 flex items-center gap-2">
-                    {locationLoading && <Loader2 size={16} className="animate-spin text-primary" />}
-                    {!locationLoading && (
+                  <p className="text-[10px] text-muted-foreground italic">Tự động lấy theo tài khoản đăng nhập</p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                    <Calendar size={14} className="text-primary/70" />
+                    Ngày <span className="text-red-500">*</span>
+                  </label>
+                  <div className="w-full px-4 py-2.5 bg-muted/30 border border-border rounded-xl font-bold text-[14px] text-foreground cursor-not-allowed opacity-80 flex items-center">
+                    {formData.ngay ? new Date(formData.ngay).toLocaleDateString('vi-VN') : '—'}
+                  </div>
+                </div>
+
+                {/* Hành động Chấm Công Nhanh (1 Trạm) */}
+                <div className="flex flex-col gap-4 mt-6">
+                  {formData.checkin && formData.checkout ? (
+                    <div className="p-5 bg-emerald-50 border border-emerald-200 rounded-xl text-center shadow-inner">
+                      <p className="text-emerald-700 font-bold mb-2 text-lg">🎉 Hoàn tất chấm công hôm nay!</p>
+                      <p className="text-emerald-600 font-semibold text-[15px]">Giờ vào: {formData.checkin} — Giờ ra: {formData.checkout}</p>
+                    </div>
+                  ) : formData.checkin ? (
+                    <div className="flex flex-col gap-3">
+                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-center shadow-sm">
+                        <p className="text-[13px] text-blue-700 font-semibold mb-1">Đã chấm công VÀO lúc: <span className="font-bold text-lg leading-tight block text-blue-800">{formData.checkin}</span></p>
+                      </div>
                       <button
                         type="button"
-                        onClick={getLocation}
-                        className="text-primary hover:bg-primary/10 p-1 rounded transition-colors"
-                        title="Lấy lại tọa độ"
+                        onClick={() => handleQuickSubmit('checkout')}
+                        className="w-full py-4 rounded-xl text-lg font-bold text-white bg-orange-500 hover:bg-orange-600 shadow-lg shadow-orange-500/30 transition-all active:scale-95 flex items-center justify-center gap-2"
                       >
-                        <MapPin size={16} />
+                        <Clock size={24} /> CHẤM CÔNG RA NGAY
                       </button>
-                    )}
-                  </div>
-                  {locationError && (
-                    <p className="text-[10px] text-red-500 mt-1 font-medium ml-2">
-                      {locationError}. Hãy bật GPS và cho phép truy cập.
-                    </p>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleQuickSubmit('checkin')}
+                      className="w-full py-4 rounded-xl text-lg font-bold text-white bg-emerald-500 hover:bg-emerald-600 shadow-lg shadow-emerald-500/30 transition-all active:scale-95 flex items-center justify-center gap-2"
+                    >
+                      <Clock size={24} /> CHẤM CÔNG VÀO NGAY
+                    </button>
                   )}
                 </div>
               </div>
 
               <div className="mt-10 flex items-center justify-end gap-3 pt-6 border-t border-border">
-                <button type="button" onClick={handleCloseModal} className="px-6 py-2.5 rounded-xl text-sm font-bold text-muted-foreground hover:bg-muted border border-border">Hủy bỏ</button>
-                <button type="submit" className="px-8 py-2.5 rounded-xl text-sm font-bold text-white bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 transition-all flex items-center gap-2 active:scale-95">
-                  <Save size={18} /> <span>{editingRecord ? 'Lưu thay đổi' : 'Lưu bản ghi'}</span>
-                </button>
+                <button type="button" onClick={handleCloseModal} className="px-6 py-2.5 rounded-xl text-sm font-bold text-muted-foreground hover:bg-muted border border-border">Đóng lại</button>
+                <button type="submit" className="hidden">Lưu (Khóa)</button>
               </div>
             </form>
           </div>
@@ -724,31 +717,4 @@ const AttendanceManagementPage: React.FC = () => {
     </div>
   );
 };
-
-const InputField: React.FC<{
-  label: string,
-  name: string,
-  value?: string | number,
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void,
-  icon: React.ElementType,
-  type?: string,
-  placeholder?: string,
-  disabled?: boolean,
-  required?: boolean,
-  className?: string
-}> = ({ label, name, value, onChange, icon: Icon, type = 'text', placeholder, disabled, required, className }) => (
-  <div className={clsx("space-y-1.5", className)}>
-    <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-      <Icon size={14} className="text-primary/70" />
-      {label} {required && <span className="text-red-500">*</span>}
-    </label>
-    <input
-      type={type} name={name} value={value} onChange={onChange}
-      onFocus={(e) => e.target.select()}
-      placeholder={placeholder} disabled={disabled} required={required}
-      className={clsx("w-full px-4 py-2.5 bg-background border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-[14px]", disabled && "opacity-60 cursor-not-allowed bg-muted/20")}
-    />
-  </div>
-);
-
 export default AttendanceManagementPage;
