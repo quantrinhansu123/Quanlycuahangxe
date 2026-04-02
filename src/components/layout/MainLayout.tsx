@@ -5,9 +5,11 @@ import Topbar from './Topbar';
 import MobileBottomNav from './MobileBottomNav';
 import { clsx } from 'clsx';
 import { AnimatePresence, motion } from 'framer-motion';
+import { moduleData } from '../../data/moduleData';
 
 const MainLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [globalSearch, setGlobalSearch] = useState('');
   const location = useLocation();
 
   // Pages that focus on heavy data (management tables)
@@ -29,12 +31,18 @@ const MainLayout: React.FC = () => {
           !isDataView ? (sidebarOpen ? "lg:ml-64" : "lg:ml-[72px]") : "lg:ml-0"
         )}
       >
-        <Topbar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+        <Topbar 
+          sidebarOpen={sidebarOpen} 
+          setSidebarOpen={setSidebarOpen} 
+          globalSearch={globalSearch}
+          setGlobalSearch={setGlobalSearch}
+          subModules={moduleData[`/${location.pathname.split('/')[1]}`]?.flatMap(s => s.items) || []}
+        />
 
         {/* Scrollable Content */}
         <main className={clsx(
-          "flex-1 overflow-y-auto custom-scrollbar relative",
-          isDataView ? "p-0" : "p-4 lg:p-6 pb-20 lg:pb-6"
+          "flex-1 overflow-y-auto custom-scrollbar relative pb-24 lg:pb-6",
+          isDataView ? "p-0" : "p-4 lg:p-6"
         )}>
           <AnimatePresence mode="popLayout" initial={false}>
             <motion.div
@@ -48,13 +56,13 @@ const MainLayout: React.FC = () => {
               }}
               className="w-full h-full flex flex-col"
             >
-              <Outlet />
+              <Outlet context={{ globalSearch, setGlobalSearch }} />
             </motion.div>
           </AnimatePresence>
         </main>
 
-        {/* Mobile Bottom Navigation - Hidden on focused data views */}
-        {!isDataView && <MobileBottomNav />}
+        {/* Mobile Bottom Navigation - Always show on mobile */}
+        <MobileBottomNav />
       </div>
     </div>
   );

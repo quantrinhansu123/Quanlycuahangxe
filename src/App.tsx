@@ -22,23 +22,32 @@ function App() {
       <Routes>
         <Route element={<MainLayout />}>
           <Route path="/" element={<Dashboard />} />
-          <Route path="/ban-hang" element={<ModulePage />} />
-          <Route path="/ban-hang/khach-hang" element={<CustomerManagementPage />} />
+          <Route path="/ban-hang" element={<ModulePage />}>
+            <Route path="khach-hang" element={<CustomerManagementPage />} />
+            <Route path="phieu-ban-hang" element={<SalesCardManagementPage />} />
+            <Route path="phieu-ban-hang-ct" element={<SalesCardCTManagementPage />} />
+          </Route>
+
           <Route path="/thu-chi" element={<FinancialManagementPage />} />
           <Route path="/dich-vu" element={<ServiceManagementPage />} />
-          <Route path="/ban-hang/phieu-ban-hang" element={<SalesCardManagementPage />} />
-          <Route path="/ban-hang/phieu-ban-hang-ct" element={<SalesCardCTManagementPage />} />
-          <Route path="/nhan-su" element={<ModulePage />} />
-          <Route path="/nhan-su/ung-vien" element={<PersonnelManagementPage />} />
+
+          <Route path="/nhan-su" element={<ModulePage />}>
+            <Route path="ung-vien" element={<PersonnelManagementPage />} />
+            <Route path="bang-cham-cong" element={<AttendanceManagementPage />} />
+          </Route>
+
           <Route path="/cham-cong" element={<CheckInPage />} />
-          <Route path="/nhan-su/bang-cham-cong" element={<AttendanceManagementPage />} />
-          <Route path="/kho-van" element={<ModulePage />} />
-          <Route path="/kho-van/xuat-nhap-kho" element={<InventoryManagementPage />} />
-          <Route path="/tien-luong" element={<ModulePage />} />
-          <Route path="/tien-luong/bang-luong" element={<PayrollPage />} />
-          <Route path="/tien-luong/thong-so" element={<PayrollSettingsPage />} />
-          <Route path="/tien-luong/thanh-phan" element={<SalaryComponentPage />} />
-          <Route path="/tien-luong/chinh-sach" element={<AllowancePolicyPage />} />
+
+          <Route path="/kho-van" element={<ModulePage />}>
+            <Route path="xuat-nhap-kho" element={<InventoryManagementPage />} />
+          </Route>
+
+          <Route path="/tien-luong" element={<ModulePage />}>
+            <Route path="bang-luong" element={<PayrollPage />} />
+            <Route path="thong-so" element={<PayrollSettingsPage />} />
+            <Route path="thanh-phan" element={<SalaryComponentPage />} />
+            <Route path="chinh-sach" element={<AllowancePolicyPage />} />
+          </Route>
 
           {/* Fallback route */}
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -11,6 +11,7 @@ export interface ThuChi {
   anh: string | null;
   so_tien: number;
   khach_tra?: number;
+  khach_hang?: { ho_va_ten?: string; ma_khach_hang?: string };
   nguoi_nhan: string | null;
   nguoi_chi: string | null;
   trang_thai: string;

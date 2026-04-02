@@ -234,7 +234,11 @@ const SalesCardManagementPage: React.FC = () => {
       }
       
       // AUTOMATION: Create or Update Finance Record (Phiếu thu)
-      const totalAmount = (formDataHeader.service_items || []).reduce((sum, item) => sum + (item.gia_ban || 0), 0);
+      const itemsToCalc = (formDataHeader.service_items && formDataHeader.service_items.length > 0) 
+          ? formDataHeader.service_items 
+          : ((formDataHeader as any).the_ban_hang_ct || []);
+      const totalAmount = itemsToCalc.reduce((sum: number, item: any) => sum + ((item.gia_ban || 0) * (item.so_luong || 1)), 0);
+      
       const existingTx = await getTransactionByOrderId(savedCard.id);
       
       const financialRecord: Partial<ThuChi> = {
@@ -296,6 +300,7 @@ const SalesCardManagementPage: React.FC = () => {
       await upsertTransaction(financialRecord);
       alert(`✅ Đã thu tiền thành công: ${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalAmount)}`);
       await loadData();
+      handleCloseModal();
     } catch (error) {
       console.error(error);
       alert('Lỗi: Không thể thực hiện thu tiền.');
@@ -624,14 +629,137 @@ const SalesCardManagementPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Data Table */}
-        <div className="bg-card rounded-lg border border-border shadow-sm overflow-hidden">
+        {/* Data List (Mobile View - Blocks) */}
+        <div className="grid grid-cols-1 gap-4 md:hidden">
+          {loading ? (
+            <div className="bg-card p-8 text-center text-muted-foreground border border-border rounded-xl">
+              <Loader2 className="animate-spin inline-block mr-2" size={20} />
+              Đang tải dữ liệu phiếu bán hàng...
+            </div>
+          ) : displayItems.length > 0 ? (
+            displayItems.map(card => {
+              const items = (card as any).the_ban_hang_ct || [];
+              const totalAmount = items.reduce((sum: number, ct: any) => sum + (ct.gia_ban * (ct.so_luong || 1)), 0);
+              const branch = items.length > 0 ? items[0].co_so : (card.dich_vu?.co_so || 'Cơ sở chính');
+
+              return (
+                <div key={card.id} className="bg-card p-4 rounded-xl border border-border shadow-sm space-y-4 relative group hover:border-primary/30 transition-all">
+                  {/* Row 1: Ngày / Giờ */}
+                  <div className="flex items-center justify-between border-b border-border/50 pb-2">
+                    <div className="flex items-center gap-2 text-primary font-bold text-[14px]">
+                      <Calendar size={16} />
+                      {new Date(card.ngay).toLocaleDateString('vi-VN')} {card.gio}
+                    </div>
+                    <span className={clsx(
+                      "px-2 py-0.5 rounded-full text-[10px] font-bold uppercase",
+                      card.danh_gia === 'hài lòng' ? "bg-emerald-50 text-emerald-600" :
+                        card.danh_gia === 'bình thường' ? "bg-amber-50 text-amber-600" : "bg-rose-50 text-rose-600"
+                    )}>
+                      {card.danh_gia}
+                    </span>
+                  </div>
+
+                  {/* Row 2: Khách hàng / SĐT */}
+                  <div className="space-y-1">
+                    <div className="text-[16px] font-black text-foreground">
+                      {card.khach_hang?.ho_va_ten || 'N/A'}
+                    </div>
+                    <div className="text-[13px] text-muted-foreground flex items-center gap-1.5 font-medium">
+                      📱 {card.khach_hang?.so_dien_thoai || 'N/A'}
+                    </div>
+                  </div>
+
+                  {/* Row 3: Dịch vụ - Số tiền - Người phụ trách - Cơ sở */}
+                  <div className="bg-muted/30 p-3 rounded-lg border border-border/40 space-y-3">
+                    <div className="flex flex-wrap gap-1.5">
+                      {items.length > 0 ? (
+                        items.map((ct: any, idx: number) => (
+                          <span key={idx} className="px-2 py-0.5 rounded bg-primary/10 text-primary font-semibold text-[11px]">
+                            {ct.san_pham}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="px-2 py-0.5 rounded bg-primary/10 text-primary font-semibold text-[11px]">
+                          {card.dich_vu?.ten_dich_vu || 'N/A'}
+                        </span>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center justify-between text-[13px]">
+                      <div className="flex flex-col gap-0.5">
+                        <div className="text-muted-foreground text-[11px]">Người phụ trách / Cơ sở</div>
+                        <div className="font-bold text-foreground flex items-center gap-1.5">
+                          👤 {card.nhan_su?.ho_ten || 'N/A'} 
+                          <span className="text-muted-foreground/30 px-1">|</span>
+                          🏢 {branch}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-primary font-black text-[15px]">
+                          {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalAmount)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Row 4: Số KM - Ngày nhắc thay dầu */}
+                  <div className="flex items-center justify-between text-[13px] pt-1">
+                    <div className="flex items-center gap-1.5 font-bold text-slate-600">
+                      🚗 {card.so_km?.toLocaleString()} km
+                    </div>
+                    {card.ngay_nhac_thay_dau && (
+                      <div className="flex items-center gap-1.5 text-rose-600 font-bold">
+                        🛢️ Nhắc: {new Date(card.ngay_nhac_thay_dau).toLocaleDateString('vi-VN')}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Actions Bar for Mobile Card */}
+                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/30">
+                    <button onClick={() => handleViewCard(card)} className="flex items-center gap-1 px-3 py-1.5 text-blue-600 hover:bg-blue-50 rounded-lg text-[12px] font-bold border border-blue-100 transition-colors">
+                      <Eye size={14} /> Xem
+                    </button>
+                    <button onClick={() => handleOpenModal(card)} className="flex items-center gap-1 px-3 py-1.5 text-primary hover:bg-primary/10 rounded-lg text-[12px] font-bold border border-primary/20 transition-colors">
+                      <Edit2 size={14} /> Sửa
+                    </button>
+                    <button onClick={() => handleDelete(card.id)} className="flex items-center gap-1 px-3 py-1.5 text-destructive hover:bg-destructive/10 rounded-lg text-[12px] font-bold border border-destructive/20 transition-colors">
+                      <Trash2 size={14} /> Xóa
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="bg-card p-12 text-center text-muted-foreground border border-border border-dashed rounded-xl">
+              Chưa có phiếu bán hàng nào được lập.
+            </div>
+          )}
+          
+          {/* Mobile Summary Row */}
+          {!loading && displayItems.length > 0 && (
+            <div className="bg-primary/5 p-4 rounded-xl border border-primary/20 mt-2">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground text-[12px] font-bold uppercase tracking-wider">Tổng trang này:</span>
+                <span className="text-primary font-black text-lg">
+                  {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
+                    displayItems.reduce((grandSum, card) => {
+                      const items = (card as any).the_ban_hang_ct || [];
+                      return grandSum + items.reduce((sum: number, ct: any) => sum + (ct.gia_ban * (ct.so_luong || 1)), 0);
+                    }, 0)
+                  )}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Data Table (Desktop View) */}
+        <div className="hidden md:block bg-card rounded-lg border border-border shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-muted border-b border-border text-muted-foreground text-[12px] font-bold uppercase tracking-wider">
-                  <th className="px-4 py-3 font-semibold text-center">Ngày</th>
-                  <th className="px-4 py-3 font-semibold text-center">Giờ</th>
+                  <th className="px-4 py-3 font-semibold text-center">Ngày & Giờ</th>
                   <th className="px-4 py-3 font-semibold">Khách hàng</th>
                   <th className="px-4 py-3 font-semibold">SĐT</th>
                   <th className="px-4 py-3 font-semibold">Người phụ trách</th>
@@ -646,7 +774,7 @@ const SalesCardManagementPage: React.FC = () => {
               <tbody className="divide-y divide-slate-100 text-[13px]">
                 {loading ? (
                   <tr>
-                    <td colSpan={11} className="px-4 py-12 text-center text-muted-foreground">
+                    <td colSpan={10} className="px-4 py-12 text-center text-muted-foreground">
                       <Loader2 className="animate-spin inline-block mr-2" size={20} />
                       Đang tải dữ liệu phiếu bán hàng...
                     </td>
@@ -655,8 +783,6 @@ const SalesCardManagementPage: React.FC = () => {
                   <tr key={card.id} className="hover:bg-muted/80 transition-colors">
                     <td className="px-4 py-4 text-center">
                       <div className="font-bold text-foreground">{new Date(card.ngay).toLocaleDateString('vi-VN')}</div>
-                    </td>
-                    <td className="px-4 py-4 text-center">
                       <div className="text-[12px] text-muted-foreground">{card.gio}</div>
                     </td>
                     <td className="px-4 py-4 font-bold text-primary">{card.khach_hang?.ho_va_ten || 'N/A'}</td>
@@ -738,15 +864,15 @@ const SalesCardManagementPage: React.FC = () => {
               </tbody>
             </table>
           </div>
-          <Pagination
-            currentPage={currentPage}
-            pageSize={pageSize}
-            totalCount={totalCount}
-            onPageChange={setCurrentPage}
-            onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }}
-            loading={loading}
-          />
         </div>
+
+        <Pagination
+          currentPage={currentPage}
+          pageSize={pageSize}
+          totalCount={totalCount}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }}
+        />
       </div>
 
       {/* Modal */}

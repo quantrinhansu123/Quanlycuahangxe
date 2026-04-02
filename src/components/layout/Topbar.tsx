@@ -14,14 +14,17 @@ import {
   PanelLeftClose,
   Settings,
   Trash2,
-  User
+  User,
+  Search
 } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { moduleData } from '../../data/moduleData';
 import { extraMenuItems, sidebarMenu } from '../../data/sidebarMenu';
+import { SubModuleSwitcher } from '../ui/SubModuleSwitcher';
+import type { ModuleCardProps } from '../ui/ModuleCard';
 
 interface Notification {
   id: string;
@@ -102,9 +105,18 @@ const mockNotifications: Notification[] = [
 interface TopbarProps {
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
+  globalSearch: string;
+  setGlobalSearch: (val: string) => void;
+  subModules: ModuleCardProps[];
 }
 
-const Topbar: React.FC<TopbarProps> = ({ sidebarOpen, setSidebarOpen }) => {
+const Topbar: React.FC<TopbarProps> = ({ 
+  sidebarOpen, 
+  setSidebarOpen, 
+  globalSearch, 
+  setGlobalSearch,
+  subModules
+}) => {
   const [time, setTime] = useState(new Date());
   const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -231,51 +243,51 @@ const Topbar: React.FC<TopbarProps> = ({ sidebarOpen, setSidebarOpen }) => {
 
   return (
     <header className="h-[55px] bg-card border-b border-border flex items-center justify-between px-4 lg:px-6 z-30 sticky top-0">
-      {/* Left side: Hamburger & Title */}
-      <div className="flex items-center gap-2 lg:gap-2.5">
+      {/* Left side: Hamburger, Title & Tabs */}
+      <div className="flex items-center gap-1 flex-1 min-w-0 pr-2">
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="p-2 text-muted-foreground hover:bg-muted border border-border rounded-lg bg-card shadow-sm transition-colors shrink-0"
+          className="p-1.5 text-muted-foreground hover:bg-muted border border-border/50 rounded-lg bg-card shadow-sm transition-colors shrink-0"
         >
           {sidebarOpen ? <PanelLeftClose size={12} /> : <PanelLeft size={12} />}
         </button>
 
-        <div className="hidden sm:flex items-center gap-2 lg:gap-2.5">
-          <Link to="/" className="text-muted-foreground hover:text-primary transition-colors">
-            <Home size={14} strokeWidth={2} />
-          </Link>
-
-          <span className="text-muted-foreground/40 font-light">
-            <svg width="5" height="8" viewBox="0 0 6 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M1 9L5 5L1 1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </span>
-
-          <Link to="/" className="text-muted-foreground text-[13px] font-medium hover:text-primary transition-colors">
-            Trang chủ
-          </Link>
-
-          {breadcrumbs.map((crumb, idx) => (
-            <React.Fragment key={crumb.path}>
-              <span className="text-muted-foreground/40 font-light">
-                <svg width="5" height="8" viewBox="0 0 6 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M1 9L5 5L1 1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+        {/* Unified Title & Switcher Container */}
+        <div className="flex items-center gap-1.5 min-w-0 overflow-x-hidden py-1">
+          {/* Main Module Name (Hide if we have tabs to save space) */}
+          {subModules.length === 0 && (
+            <div className="flex items-center gap-1 shrink-0">
+              <span className="sm:inline-block hidden text-muted-foreground transition-colors mr-1">
+                <Home size={13} />
               </span>
-              {idx === breadcrumbs.length - 1 ? (
-                <div className="flex items-center bg-primary text-white px-1.5 py-0.5 rounded-lg text-[12px] font-bold shadow-sm ring-1 ring-primary/20">
-                  {crumb.label}
-                </div>
-              ) : (
-                <Link to={crumb.path} className="text-muted-foreground text-[13px] font-medium hover:text-primary transition-colors">
-                  {crumb.label}
-                </Link>
-              )}
-            </React.Fragment>
-          ))}
+              <span className="text-[12px] sm:text-[14px] font-bold text-foreground whitespace-nowrap">
+                {pageTitle}
+              </span>
+            </div>
+          )}
+
+          {/* Inline Tabs */}
+          {subModules.length > 0 && (
+            <div className="flex items-center h-7">
+              <SubModuleSwitcher items={subModules} variant="tabs" />
+            </div>
+          )}
         </div>
-        <div className="sm:hidden font-semibold text-foreground text-sm">
-          {pageTitle}
+      </div>
+
+      {/* Global Search Bar (From user's markup) */}
+      <div className="flex-1 max-w-xs px-2 mx-auto justify-center hidden sm:flex lg:ml-8 lg:mr-8 transition-all duration-300 relative z-10 w-full animate-in slide-in-from-top-2">
+        <div className="relative w-full">
+          <div className="absolute inset-y-0 left-2.5 flex items-center pointer-events-none text-muted-foreground">
+            <Search size={14} />
+          </div>
+          <input
+            type="text"
+            className="w-full text-[13px] bg-muted/30 hover:bg-muted/50 border border-transparent hover:border-border/50 rounded-full pl-8 pr-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-background transition-all placeholder:text-muted-foreground/60"
+            placeholder="Tìm theo tên/mô tả..."
+            value={globalSearch}
+            onChange={(e) => setGlobalSearch(e.target.value)}
+          />
         </div>
       </div>
 

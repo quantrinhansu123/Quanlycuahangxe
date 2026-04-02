@@ -16,6 +16,8 @@ import {
   upsertTransaction
 } from '../data/financialData';
 import type { ThuChi } from '../data/financialData';
+import { getCustomers } from '../data/customerData';
+import type { KhachHang } from '../data/customerData';
 import Pagination from '../components/Pagination';
 import FinancialFormModal from '../components/FinancialFormModal';
 import FinancialCharts from '../components/FinancialCharts';
@@ -23,6 +25,7 @@ import FinancialCharts from '../components/FinancialCharts';
 const FinancialManagementPage: React.FC = () => {
   const location = useLocation();
   const [transactions, setTransactions] = useState<ThuChi[]>([]);
+  const [customers, setCustomers] = useState<KhachHang[]>([]);
   const [stats, setStats] = useState({ income: 0, expense: 0, balance: 0 });
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'list' | 'charts'>('list');
@@ -62,16 +65,18 @@ const FinancialManagementPage: React.FC = () => {
   const loadData = React.useCallback(async () => {
     try {
       setLoading(true);
-      const [transactionsData, statsData] = await Promise.all([
+      const [transactionsData, statsData, customersData] = await Promise.all([
         getTransactionsPaginated(currentPage, pageSize, debouncedSearch, {
           branches: selectedBranches,
           types: selectedTypes
         }),
-        getTransactionStats()
+        getTransactionStats(),
+        getCustomers()
       ]);
       setTransactions(transactionsData.data);
       setTotalCount(transactionsData.totalCount);
       setStats(statsData);
+      setCustomers(customersData);
     } catch (error) {
       console.error(error);
     } finally {
@@ -485,13 +490,13 @@ const FinancialManagementPage: React.FC = () => {
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-muted border-b border-border text-muted-foreground text-[12px] font-bold uppercase tracking-wider">
+                      <th className="px-4 py-3 font-semibold">ID Đơn</th>
                       <th className="px-4 py-3 font-semibold">Ảnh</th>
                       <th className="px-4 py-3 font-semibold text-center">Ngày</th>
-                      <th className="px-4 py-3 font-semibold">ID</th>
+                      <th className="px-4 py-3 font-semibold">ID Phiếu</th>
                       <th className="px-4 py-3 font-semibold text-center">Giờ</th>
                       <th className="px-4 py-3 font-semibold">Loại</th>
                       <th className="px-4 py-3 font-semibold">Danh mục</th>
-                      <th className="px-4 py-3 font-semibold">ID Đơn</th>
                       <th className="px-4 py-3 font-semibold">Khách hàng</th>
                       <th className="px-4 py-3 font-semibold">Người chi</th>
                       <th className="px-4 py-3 font-semibold">Người nhận</th>
@@ -511,6 +516,7 @@ const FinancialManagementPage: React.FC = () => {
                       </tr>
                     ) : transactions.map(transaction => (
                       <tr key={transaction.id} className="hover:bg-muted/80 transition-colors">
+                        <td className="px-4 py-4 font-mono text-[12px]">{transaction.id_don || '—'}</td>
                         <td className="px-4 py-4">
                           {transaction.anh ? (
                             <div className="w-10 h-10 rounded-lg overflow-hidden border border-border">
@@ -536,8 +542,7 @@ const FinancialManagementPage: React.FC = () => {
                           </span>
                         </td>
                         <td className="px-4 py-4 text-foreground font-medium">{transaction.danh_muc || '—'}</td>
-                        <td className="px-4 py-4 font-mono text-[12px]">{transaction.id_don || '—'}</td>
-                        <td className="px-4 py-4">{transaction.id_khach_hang || '—'}</td>
+                        <td className="px-4 py-4">{transaction.khach_hang?.ho_va_ten || customers.find(c => c.id === transaction.id_khach_hang)?.ho_va_ten || transaction.id_khach_hang || '—'}</td>
                         <td className="px-4 py-4">{transaction.nguoi_chi || '—'}</td>
                         <td className="px-4 py-4">{transaction.nguoi_nhan || '—'}</td>
                         <td className="px-4 py-4 text-right font-black text-foreground">

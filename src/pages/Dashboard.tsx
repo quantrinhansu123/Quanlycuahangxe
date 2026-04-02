@@ -1,6 +1,6 @@
-import { clsx } from 'clsx';
-import { Box, FileText, Search, Users, Wallet, Wrench, BadgeDollarSign } from 'lucide-react';
-import React, { useState } from 'react';
+import { Box, FileText, Users, Wallet, Wrench, BadgeDollarSign } from 'lucide-react';
+import React from 'react';
+import { useOutletContext } from 'react-router-dom';
 
 import type { ActionCardProps } from '../components/ui/ActionCard';
 import { ActionCard } from '../components/ui/ActionCard';
@@ -54,11 +54,8 @@ const dashboardModules: ActionCardProps[] = [
 ];
 
 const Dashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'chuc-nang' | 'danh-dau' | 'tat-ca'>('chuc-nang');
-  const [searchQuery, setSearchQuery] = useState('');
-
+  const { globalSearch } = useOutletContext<{ globalSearch: string }>() || { globalSearch: '' };
   const allSections = Object.values(moduleData).flat();
-
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -68,87 +65,11 @@ const Dashboard: React.FC = () => {
         </h1>
       </div>
 
-      <div className={clsx(
-        "bg-card rounded-xl shadow-sm border border-border p-1.5 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-6 lg:mb-8 transition-all duration-300",
-        activeTab === 'tat-ca' ? "w-full" : "max-w-fit"
-      )}>
-        <div className="flex bg-muted/20 rounded-lg p-0.5 shrink-0">
-          <button
-            onClick={() => setActiveTab('chuc-nang')}
-            className={clsx(
-              "px-4 py-1.5 rounded-md text-[13px] font-bold transition-all duration-200",
-              activeTab === 'chuc-nang'
-                ? "bg-card text-primary shadow-sm ring-1 ring-black/5"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            Chức năng
-          </button>
-          <button
-            onClick={() => setActiveTab('danh-dau')}
-            className={clsx(
-              "px-4 py-1.5 rounded-md text-[13px] font-bold transition-all duration-200",
-              activeTab === 'danh-dau'
-                ? "bg-card text-primary shadow-sm ring-1 ring-black/5"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            Đánh dấu
-          </button>
-          <button
-            onClick={() => setActiveTab('tat-ca')}
-            className={clsx(
-              "px-4 py-1.5 rounded-md text-[13px] font-bold transition-all duration-200",
-              activeTab === 'tat-ca'
-                ? "bg-card text-primary shadow-sm ring-1 ring-primary/10"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            Tất cả
-          </button>
-        </div>
-
-        {/* Search Bar (Only shown on "Tất cả" tab) */}
-        {activeTab === 'tat-ca' && (
-          <div className="flex-1 flex items-center bg-muted/20 rounded-lg px-3 py-1.5 animate-in slide-in-from-left-2 duration-300">
-            <Search size={16} className="text-muted-foreground shrink-0" />
-            <input
-              type="text"
-              placeholder="Tìm kiếm module, chức năng..."
-              className="bg-transparent border-none outline-none text-[13px] text-foreground w-full ml-2 placeholder:text-muted-foreground/60"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-        )}
-      </div>
-
-      {activeTab === 'chuc-nang' && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 lg:gap-4">
-          {dashboardModules.map((module, idx) => {
-
-            return (
-              <ActionCard
-                key={idx}
-                {...module}
-                layoutId={`mod-${module.title}`}
-              />
-            );
-          })}
-        </div>
-      )}
-
-      {activeTab === 'danh-dau' && (
-        <div className="text-center py-12 text-muted-foreground bg-card rounded-2xl border border-border border-dashed">
-          Chưa có module nào được đánh dấu.
-        </div>
-      )}
-
-      {activeTab === 'tat-ca' && (
+      {globalSearch ? (
         <div className="space-y-8 animate-in fade-in duration-500">
           <div className="space-y-8">
             {allSections.map((section, idx) => {
-              const query = removeVietnameseTones(searchQuery);
+              const query = removeVietnameseTones(globalSearch);
               const filteredItems = section.items.filter(item =>
                 removeVietnameseTones(item.title).includes(query) ||
                 removeVietnameseTones(item.description).includes(query)
@@ -175,6 +96,16 @@ const Dashboard: React.FC = () => {
               );
             })}
           </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 lg:gap-4">
+          {dashboardModules.map((module, idx) => (
+            <ActionCard
+              key={idx}
+              {...module}
+              layoutId={`mod-${module.title}`}
+            />
+          ))}
         </div>
       )}
     </div>
