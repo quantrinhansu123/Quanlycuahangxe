@@ -1,18 +1,26 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { 
-  Search, Plus, 
-  Edit2, Trash2, Camera,
+import { clsx } from 'clsx';
+import {
+  ArrowLeft,
+  Building2,
+  Camera,
+  ChevronDown,
+  Download,
+  Edit2,
   Eye,
-  Loader2, ArrowLeft, ChevronDown, 
-  Building2, Wrench,
-  Download, Upload
+  Loader2,
+  Plus,
+  Search,
+  Trash2,
+  Upload,
+  Wrench
 } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { getServicesPaginated, upsertService, deleteService, bulkUpsertServices, deleteAllServices } from '../data/serviceData';
-import type { DichVu } from '../data/serviceData';
 import Pagination from '../components/Pagination';
 import ServiceFormModal from '../components/ServiceFormModal';
+import type { DichVu } from '../data/serviceData';
+import { bulkUpsertServices, deleteAllServices, deleteService, getServicesPaginated, upsertService } from '../data/serviceData';
 
 const ServiceManagementPage: React.FC = () => {
   const navigate = useNavigate();
@@ -21,7 +29,7 @@ const ServiceManagementPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -31,7 +39,7 @@ const ServiceManagementPage: React.FC = () => {
   const [selectedBranches, setSelectedBranches] = useState<string[]>([]);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isReadOnlyModal, setIsReadOnlyModal] = useState(false);
   const [editingService, setEditingService] = useState<DichVu | null>(null);
@@ -85,7 +93,7 @@ const ServiceManagementPage: React.FC = () => {
     setter(prev => {
       const isSelected = prev.includes(val);
       const newFilters = isSelected ? prev.filter(v => v !== val) : [...prev, val];
-      setCurrentPage(1); 
+      setCurrentPage(1);
       return newFilters;
     });
   };
@@ -271,102 +279,181 @@ const ServiceManagementPage: React.FC = () => {
         </div>
 
         {/* Toolbar */}
-        <div className="bg-card p-3 rounded-lg border border-border shadow-sm flex flex-wrap items-center justify-between gap-4" ref={dropdownRef}>
-          <div className="flex items-center gap-3 flex-1 flex-wrap">
-            <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors">
-              <ArrowLeft size={18} /> Quay lại
+        <div className="bg-card p-2 rounded-xl border border-border shadow-sm flex flex-wrap items-center justify-between gap-1.5 sm:gap-4" ref={dropdownRef}>
+          <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap">
+            <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 px-2 py-1 sm:px-4 sm:py-2 hover:bg-muted rounded-lg text-muted-foreground transition-all border border-transparent hover:border-border shrink-0">
+              <ArrowLeft className="size-4 sm:size-5" />
+              <span className="font-medium text-[11px] sm:text-[14px]">Quay lại</span>
             </button>
-            <div className="relative w-full sm:w-[250px]">
-              <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/60">
-                <Search size={18} />
-              </div>
-              <input 
+            <div className="relative group shrink-0">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 sm:size-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+              <input
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
-                  setCurrentPage(1); // Reset page on search
+                  setCurrentPage(1);
                 }}
-                className="w-full pl-9 pr-4 py-1.5 border border-border rounded text-[13px] focus:ring-1 focus:ring-primary focus:border-primary placeholder-slate-400 outline-none" 
-                placeholder="Tìm tên dịch vụ..." 
+                className="pl-7 sm:pl-9 pr-3 sm:pr-4 py-1 sm:py-2 bg-muted/50 border-border rounded-lg text-[11px] sm:text-[13px] focus:ring-1 focus:ring-primary focus:border-primary transition-all w-[120px] sm:w-[220px] lg:w-[300px] outline-none"
+                placeholder="Tìm dịch vụ..."
                 type="text"
               />
             </div>
-            
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative">
-                <button onClick={() => toggleDropdown('branch')} className="flex items-center gap-2 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground min-w-[140px] justify-between bg-card hover:bg-accent">
-                  <div className="flex items-center gap-2"><Building2 size={18} />Cơ sở</div>
-                  <ChevronDown size={18} />
-                </button>
-                {openDropdown === 'branch' && (
-                  <div className="absolute top-10 left-0 z-50 min-w-[200px] bg-card border border-border rounded shadow-lg overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                    <ul className="py-1 text-[13px] text-muted-foreground">
-                      {branchOptions.map(branch => (
-                        <li key={branch} className="px-3 py-2 hover:bg-accent cursor-pointer flex items-center gap-2" onClick={() => handleFilterChange(setSelectedBranches, branch)}>
-                          <input 
-                            type="checkbox" 
-                            checked={selectedBranches.includes(branch)}
-                            readOnly
-                            className="rounded border-border text-primary size-4"
-                          /> {branch}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
+
+            <button
+              onClick={() => handleOpenModal()}
+              className="px-2.5 py-1 sm:px-5 sm:py-2 bg-primary hover:bg-primary/90 text-white rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[14px] font-bold transition-all shrink-0 shadow-lg shadow-primary/20"
+            >
+              <Plus className="size-4 sm:size-5" />
+              <span>Thêm mới</span>
+            </button>
+
+            <div className="relative">
+              <button onClick={() => toggleDropdown('branch')} className="flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-2 border border-border rounded-lg text-[11px] sm:text-[13px] text-muted-foreground min-w-[90px] sm:min-w-[140px] justify-between bg-muted/50 hover:bg-muted transition-all">
+                <div className="flex items-center gap-1.5 sm:gap-2 truncate">
+                  <Building2 className="size-3.5 sm:size-4 text-primary shrink-0" />
+                  <span className="truncate">{selectedBranches.length > 0 ? `CS (${selectedBranches.length})` : 'Cơ sở'}</span>
+                </div>
+                <ChevronDown className={clsx("size-3.5 sm:size-4 transition-transform", openDropdown === 'branch' && "rotate-180")} />
+              </button>
+              {openDropdown === 'branch' && (
+                <div className="absolute top-full left-0 z-50 mt-1 min-w-[180px] bg-card border border-border rounded-lg shadow-xl py-1 animate-in fade-in zoom-in-95 duration-200">
+                  <ul className="py-1 text-[13px] text-muted-foreground">
+                    {branchOptions.map(branch => (
+                      <li key={branch} className="px-3 py-2 hover:bg-primary/5 cursor-pointer flex items-center gap-3 text-[14px]" onClick={() => handleFilterChange(setSelectedBranches, branch)}>
+                        <input
+                          type="checkbox"
+                          checked={selectedBranches.includes(branch)}
+                          readOnly
+                          className="rounded border-border text-primary size-4"
+                        /> {branch}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <button 
-                onClick={handleDownloadTemplate}
-                className="flex items-center gap-2 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
-                title="Tải mẫu Excel"
+          <div className="flex items-center gap-1.5 flex-wrap justify-end">
+            <button
+              onClick={handleDownloadTemplate}
+              className="px-2 py-1 sm:px-4 sm:py-2 bg-muted/50 hover:bg-muted border border-border rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold text-muted-foreground transition-all shrink-0"
+              title="Tải mẫu Excel"
+            >
+              <Download className="size-4 sm:size-5" />
+              <span>Tải mẫu</span>
+            </button>
+
+            <div className="relative shrink-0">
+              <button
+                onClick={() => document.getElementById('excel-import-service')?.click()}
+                className="px-2 py-1 sm:px-4 sm:py-2 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold transition-all shrink-0"
+                title="Nhập dịch vụ từ Excel"
               >
-                <Download size={18} />
-                <span>Tải mẫu</span>
+                <Upload className="size-4 sm:size-5" />
+                <span>Nhập Excel</span>
               </button>
-              <div className="relative">
-                <button 
-                  onClick={() => document.getElementById('excel-import')?.click()}
-                  className="flex items-center gap-2 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
-                  title="Nhập dịch vụ từ Excel"
-                >
-                  <Upload size={18} />
-                  <span>Nhập Excel</span>
-                </button>
-                <input 
-                  id="excel-import"
-                  type="file" 
-                  accept=".xlsx, .xls" 
-                  className="hidden" 
-                  onChange={handleImportExcel} 
-                />
-              </div>
+              <input id="excel-import-service" type="file" accept=".xlsx, .xls" className="hidden" onChange={handleImportExcel} />
             </div>
 
             <button
               onClick={handleDeleteAll}
-              className="px-3 py-1.5 border border-red-200 rounded text-[13px] text-red-600 hover:bg-red-50 transition-colors font-medium bg-white flex items-center gap-2"
+              className="px-2 py-1 sm:px-4 sm:py-2 bg-destructive/5 hover:bg-destructive/10 text-destructive border border-destructive/20 rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold transition-all shrink-0"
               title="Xóa toàn bộ dữ liệu"
             >
-              <Trash2 size={18} />
-              <span>Xóa tất cả</span>
-            </button>
-
-            <button 
-              onClick={() => handleOpenModal()}
-              className="bg-primary hover:bg-primary/90 text-white px-5 py-1.5 rounded flex items-center gap-2 text-[14px] font-semibold transition-colors"
-            >
-              <Plus size={20} /> Thêm dịch vụ mới
+              <Trash2 className="size-4 sm:size-5" />
+              <span>Xóa hết</span>
             </button>
           </div>
         </div>
 
-        {/* Data Table */}
-        <div className="bg-card rounded-lg border border-border shadow-sm overflow-hidden">
+        {/* Mobile View (Cards) */}
+        <div className="grid grid-cols-1 gap-3 md:hidden">
+          {loading ? (
+            Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="bg-card p-4 rounded-xl border border-border animate-pulse h-32" />
+            ))
+          ) : services.length > 0 ? (
+            services.map(service => (
+              <div key={service.id} className="bg-card p-3 rounded-xl border border-border shadow-sm space-y-3 relative overflow-hidden group hover:border-primary/40 transition-all animate-in fade-in slide-in-from-bottom-2 duration-300">
+                {/* Row 1: Image & ID */}
+                <div className="flex items-center justify-between">
+                  {service.anh ? (
+                    <div className="w-12 h-12 rounded-lg overflow-hidden border border-border shadow-sm">
+                      <img src={service.anh} alt="" className="w-full h-full object-cover" />
+                    </div>
+                  ) : (
+                    <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center text-muted-foreground/30 border border-border border-dashed">
+                      <Camera size={20} />
+                    </div>
+                  )}
+                  <div className="text-right">
+                    <div className="font-mono text-[10px] text-muted-foreground/60 uppercase">#{service.id.slice(0, 8)}</div>
+                    <div className="text-[11px] text-muted-foreground font-medium">{service.co_so.replace('Cơ sở ', 'CS ')}</div>
+                  </div>
+                </div>
+
+                {/* Row 2: Service Name */}
+                <div className="text-[15px] font-black text-foreground leading-tight">
+                  {service.ten_dich_vu}
+                </div>
+
+                {/* Row 3: Financial Details */}
+                <div className="bg-muted/40 p-3 rounded-lg border border-border/40 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground/60 tracking-wider">Giá nhập (Vốn)</span>
+                      <span className="text-[13px] font-bold text-muted-foreground">{formatCurrency(service.gia_nhap)}</span>
+                    </div>
+                    <div className="text-right flex flex-col">
+                      <span className="text-[10px] uppercase font-bold text-primary tracking-wider">Giá bán (Lẻ)</span>
+                      <span className="text-[16px] font-black text-primary">{formatCurrency(service.gia_ban)}</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-border/30 flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-orange-600 uppercase tracking-widest pl-1 border-l-2 border-orange-500">Hoa hồng kỹ thuật:</span>
+                    <span className="text-orange-600 font-black text-[14px]">
+                      {formatCurrency(service.hoa_hong)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Validity (if exists) */}
+                {(service.tu_ngay || service.toi_ngay) && (
+                  <div className="text-[11px] text-muted-foreground bg-accent/30 px-2 py-1 rounded flex items-center gap-2">
+                    <span className="opacity-60">Hiệu lực:</span>
+                    <span className="font-medium text-foreground">
+                      {service.tu_ngay ? new Date(service.tu_ngay).toLocaleDateString('vi-VN') : '—'}
+                      {' → '}
+                      {service.toi_ngay ? new Date(service.toi_ngay).toLocaleDateString('vi-VN') : '—'}
+                    </span>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <button onClick={() => handleViewService(service)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-blue-100" title="Xem chi tiết">
+                    <Eye size={16} />
+                  </button>
+                  <button onClick={() => handleOpenModal(service)} className="flex items-center gap-1.5 px-3 py-1.5 text-primary hover:bg-primary/5 rounded-lg text-[12px] font-bold border border-primary/20 transition-colors">
+                    <Edit2 size={14} /> Sửa
+                  </button>
+                  <button onClick={() => handleDelete(service.id)} className="flex items-center gap-1.5 px-3 py-1.5 text-destructive hover:bg-destructive/5 rounded-lg text-[12px] font-bold border border-destructive/20 transition-colors">
+                    <Trash2 size={14} /> Xóa
+                  </button>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="bg-card p-12 text-center text-muted-foreground border border-border border-dashed rounded-xl">
+              Chưa có dịch vụ nào trong danh sách.
+            </div>
+          )}
+        </div>
+
+        {/* Data Table (Desktop View) */}
+        <div className="hidden md:block bg-card rounded-lg border border-border shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -384,12 +471,12 @@ const ServiceManagementPage: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-100 text-[13px]">
                 {loading ? (
-                   <tr>
-                     <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
-                       <Loader2 className="animate-spin inline-block mr-2" size={20} />
-                       Đang tải dữ liệu...
-                     </td>
-                   </tr>
+                  <tr>
+                    <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">
+                      <Loader2 className="animate-spin inline-block mr-2" size={20} />
+                      Đang tải dữ liệu...
+                    </td>
+                  </tr>
                 ) : services.map(service => (
                   <tr key={service.id} className="hover:bg-muted/80 transition-colors">
                     <td className="px-4 py-4">
@@ -403,7 +490,7 @@ const ServiceManagementPage: React.FC = () => {
                     </td>
                     <td className="px-4 py-4">{service.co_so}</td>
                     <td className="px-4 py-4 font-mono text-[10px] text-muted-foreground max-w-[80px] truncate" title={service.id}>
-                      {service.id}
+                      {service.id.slice(0, 8)}
                     </td>
                     <td className="px-4 py-4 font-bold text-foreground">{service.ten_dich_vu}</td>
                     <td className="px-4 py-4 text-right text-muted-foreground">{formatCurrency(service.gia_nhap)}</td>
@@ -418,9 +505,9 @@ const ServiceManagementPage: React.FC = () => {
                     </td>
                     <td className="px-4 py-4 text-center">
                       <div className="flex items-center justify-center gap-2">
-                        <button onClick={() => handleViewService(service)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Xem chi tiết"><Eye size={15} /></button>
-                        <button onClick={() => handleOpenModal(service)} className="p-1.5 text-primary hover:bg-primary/10 rounded transition-colors" title="Chỉnh sửa"><Edit2 size={15} /></button>
-                        <button onClick={() => handleDelete(service.id)} className="p-1.5 text-destructive hover:bg-destructive/10 rounded transition-colors" title="Xóa"><Trash2 size={15} /></button>
+                        <button onClick={() => handleViewService(service)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Xem chi tiết"><Eye size={18} /></button>
+                        <button onClick={() => handleOpenModal(service)} className="p-1.5 text-primary hover:bg-primary/10 rounded transition-colors" title="Chỉnh sửa"><Edit2 size={18} /></button>
+                        <button onClick={() => handleDelete(service.id)} className="p-1.5 text-destructive hover:bg-destructive/10 rounded transition-colors" title="Xóa"><Trash2 size={18} /></button>
                       </div>
                     </td>
                   </tr>
@@ -433,7 +520,7 @@ const ServiceManagementPage: React.FC = () => {
               </tbody>
             </table>
           </div>
-          <Pagination 
+          <Pagination
             currentPage={currentPage}
             pageSize={pageSize}
             totalCount={totalCount}

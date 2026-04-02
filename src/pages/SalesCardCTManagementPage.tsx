@@ -292,95 +292,165 @@ const SalesCardCTManagementPage: React.FC = () => {
         </div>
 
         {/* Toolbar */}
-        <div className="bg-card p-3 rounded-lg border border-border shadow-sm flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3 flex-1 flex-wrap">
-            <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors">
-              <ArrowLeft size={18} /> Quay lại
+        <div className="bg-card p-2 rounded-xl border border-border shadow-sm flex flex-wrap items-center justify-between gap-1.5 sm:gap-4">
+          <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap">
+            <button
+              onClick={() => navigate(-1)}
+              className="px-2 py-1 sm:px-4 sm:py-2 hover:bg-muted rounded-lg flex items-center gap-1.5 text-muted-foreground transition-all border border-transparent hover:border-border shrink-0"
+              title="Quay lại"
+            >
+              <ArrowLeft className="size-4 sm:size-5" />
+              <span className="font-medium text-[11px] sm:text-[14px]">Quay lại</span>
             </button>
-            <div className="relative w-full sm:w-[350px]">
-              <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/60">
-                <Search size={18} />
-              </div>
+            <div className="relative group shrink-0">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 sm:size-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
               <input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-1.5 border border-border rounded text-[13px] outline-none focus:ring-1 focus:ring-primary placeholder:text-muted-foreground/40"
-                placeholder="Tìm sản phẩm, tên đơn hàng..."
+                className="pl-7 sm:pl-9 pr-3 sm:pr-4 py-1 sm:py-2 bg-muted/50 border-border rounded-lg text-[11px] sm:text-[13px] focus:ring-1 focus:ring-primary focus:border-primary transition-all w-[120px] sm:w-[220px] lg:w-[320px] outline-none"
+                placeholder="Tìm sản phẩm..."
                 type="text"
               />
             </div>
+            <button
+              onClick={() => handleOpenModal()}
+              className="px-2.5 py-1 sm:px-5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[14px] font-bold transition-all shrink-0 shadow-lg shadow-blue-500/20"
+            >
+              <Plus className="size-4 sm:size-5" />
+              <span>Thêm chi tiết</span>
+            </button>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 flex-wrap justify-end">
+            <button
+              onClick={handleDownloadTemplate}
+              className="px-2 py-1 sm:px-4 sm:py-2 bg-muted/50 hover:bg-muted border border-border rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold text-muted-foreground transition-all shrink-0"
+              title="Tải mẫu Excel"
+            >
+              <Download className="size-4 sm:size-5" />
+              <span>Tải mẫu</span>
+            </button>
+            
+            <div className="relative shrink-0">
               <button
-                onClick={handleDownloadTemplate}
-                className="flex items-center gap-2 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
-                title="Tải mẫu Excel"
+                onClick={() => document.getElementById('excel-import-ct')?.click()}
+                className="px-2 py-1 sm:px-4 sm:py-2 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold transition-all shrink-0"
+                title="Nhập dữ liệu Excel"
               >
-                <Download size={18} />
-                <span>Tải mẫu</span>
+                <Upload className="size-4 sm:size-5" />
+                <span>Nhập Excel</span>
               </button>
-              <div className="relative">
-                <button
-                  onClick={() => document.getElementById('excel-import')?.click()}
-                  className="flex items-center gap-2 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
-                  title="Nhập chi tiết từ Excel"
-                >
-                  <Upload size={18} />
-                  <span>Nhập Excel</span>
-                </button>
-                <input
-                  id="excel-import"
-                  type="file"
-                  accept=".xlsx, .xls"
-                  className="hidden"
-                  onChange={handleImportExcel}
-                />
-              </div>
+              <input id="excel-import-ct" type="file" accept=".xlsx, .xls" className="hidden" onChange={handleImportExcel} />
             </div>
 
             <button
               onClick={handleDeleteAll}
-              className="px-3 py-1.5 border border-red-200 rounded text-[13px] text-red-600 hover:bg-red-50 transition-colors font-medium bg-white flex items-center gap-2"
-              title="Xóa toàn bộ dữ liệu"
+              className="px-2 py-1 sm:px-4 sm:py-2 bg-destructive/5 hover:bg-destructive/10 text-destructive border border-destructive/20 rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold transition-all shrink-0"
+              title="Xóa tất cả"
             >
-              <Trash2 size={18} />
-              <span>Xóa tất cả</span>
-            </button>
-
-            <button
-              onClick={() => handleOpenModal()}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-1.5 rounded flex items-center gap-2 text-[14px] font-semibold transition-colors shadow-lg shadow-blue-500/20"
-            >
-              <Plus size={20} /> Thêm hạng mục CT
+              <Trash2 className="size-4 sm:size-5" />
+              <span>Xóa hết</span>
             </button>
           </div>
         </div>
 
         {/* Data Table */}
         <div className="bg-card rounded-lg border border-border shadow-sm overflow-hidden">
+        {/* Mobile View (Cards) */}
+        <div className="grid grid-cols-1 gap-3 md:hidden">
+          {loading ? (
+            Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="bg-card p-4 rounded-xl border border-border animate-pulse h-32" />
+            ))
+          ) : displayItems.length > 0 ? (
+            displayItems.map(item => (
+              <div key={item.id} className="bg-card p-3 rounded-xl border border-border shadow-sm space-y-3 relative overflow-hidden group hover:border-primary/40 transition-all animate-in fade-in slide-in-from-bottom-2 duration-300">
+                {/* Row 1: Date & ID */}
+                <div className="flex items-center justify-between text-[11px] border-b border-border/50 pb-2">
+                  <div className="flex items-center gap-1.5 font-medium text-muted-foreground">
+                    📅 {new Date(item.ngay).toLocaleDateString('vi-VN')}
+                  </div>
+                  <div className="font-mono text-muted-foreground/60 uppercase">
+                    #{item.id.slice(0, 8)}
+                  </div>
+                </div>
+
+                {/* Row 2: Product & Order */}
+                <div className="space-y-1">
+                  <div className="text-[15px] font-black text-blue-600 leading-tight">
+                    {item.san_pham}
+                  </div>
+                  <div className="text-[12px] text-muted-foreground font-medium truncate">
+                    📄 {item.ten_don_hang || '—'}
+                  </div>
+                </div>
+
+                {/* Row 3: Financial Details */}
+                <div className="bg-muted/40 p-3 rounded-lg border border-border/40 space-y-2">
+                  <div className="flex items-center justify-between text-[13px]">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground/60">Đơn giá / SL</span>
+                      <span className="font-bold text-foreground">
+                        {formatCurrency(item.gia_ban)} <span className="font-normal opacity-60">x{item.so_luong}</span>
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground/60">Thành tiền</span>
+                      <div className="text-foreground font-black text-[15px]">
+                        {formatCurrency(item.thanh_tien)}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="pt-2 border-t border-border/30 flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider">Lãi gộp:</span>
+                    <span className="text-emerald-600 font-black text-[15px]">
+                      +{formatCurrency(item.lai)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <button onClick={() => handleOpenModal(item)} className="flex items-center gap-1.5 px-3 py-1.5 text-primary hover:bg-primary/5 rounded-lg text-[12px] font-bold border border-primary/20 transition-colors">
+                    <Edit2 size={14} /> Sửa
+                  </button>
+                  <button onClick={() => handleDelete(item.id)} className="flex items-center gap-1.5 px-3 py-1.5 text-destructive hover:bg-destructive/5 rounded-lg text-[12px] font-bold border border-destructive/20 transition-colors">
+                    <Trash2 size={14} /> Xóa
+                  </button>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="bg-card p-12 text-center text-muted-foreground border border-border border-dashed rounded-xl">
+              Chưa có hạng mục chi tiết nào.
+            </div>
+          )}
+        </div>
+
+        {/* Data Table (Desktop View) */}
+        <div className="hidden md:block bg-card rounded-lg border border-border shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-muted border-b border-border text-muted-foreground text-[12px] font-bold uppercase tracking-wider">
+                <tr className="bg-muted border-b border-border text-muted-foreground text-[13px] font-bold uppercase tracking-wider">
                   <th className="px-4 py-3 font-semibold">ID</th>
                   <th className="px-4 py-3 font-semibold">Ngày</th>
-                  <th className="px-4 py-3 font-semibold">Tên đơn hàng</th>
-                  <th className="px-4 py-3 font-semibold">Sản phẩm</th>
+                  <th className="px-4 py-3 font-semibold">Tiêu đề đơn</th>
+                  <th className="px-4 py-3 font-semibold">Sản phẩm/Dịch vụ</th>
                   <th className="px-4 py-3 font-semibold">Cơ sở</th>
                   <th className="px-4 py-3 font-semibold text-right">Giá bán</th>
                   <th className="px-4 py-3 font-semibold text-right">Giá vốn</th>
                   <th className="px-4 py-3 font-semibold text-center">SL</th>
                   <th className="px-4 py-3 font-semibold text-right">Thành tiền</th>
-                  <th className="px-4 py-3 font-semibold text-right text-emerald-600">Lãi</th>
-                  <th className="px-4 py-3 text-center font-semibold">Tác vụ</th>
+                  <th className="px-4 py-3 font-semibold text-right text-emerald-600">Lãi gộp</th>
+                  <th className="px-4 py-3 text-center font-semibold">Thao tác</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-[13px]">
+              <tbody className="divide-y divide-slate-100 text-[14px]">
                 {loading ? (
                   <tr>
-                    <td colSpan={10} className="px-4 py-12 text-center text-muted-foreground">
+                    <td colSpan={11} className="px-4 py-12 text-center text-muted-foreground">
                       <Loader2 className="animate-spin inline-block mr-2" size={20} />
                       Đang tải dữ liệu chi tiết...
                     </td>
@@ -388,7 +458,7 @@ const SalesCardCTManagementPage: React.FC = () => {
                 ) : displayItems.map(item => (
                   <tr key={item.id} className="hover:bg-muted/80 transition-colors">
                     <td className="px-4 py-4 font-mono text-[10px] text-muted-foreground max-w-[80px] truncate" title={item.id}>
-                      {item.id}
+                      {item.id.slice(0, 8)}
                     </td>
                     <td className="px-4 py-4">{new Date(item.ngay).toLocaleDateString('vi-VN')}</td>
                     <td className="px-4 py-4 font-bold text-foreground truncate max-w-[150px]">{item.ten_don_hang || '—'}</td>
@@ -404,15 +474,15 @@ const SalesCardCTManagementPage: React.FC = () => {
                     <td className="px-4 py-4 text-right font-black text-emerald-600">{formatCurrency(item.lai)}</td>
                     <td className="px-4 py-4 text-center">
                       <div className="flex items-center justify-center gap-2">
-                        <button onClick={() => handleOpenModal(item)} className="p-1.5 text-primary hover:bg-primary/10 rounded transition-colors"><Edit2 size={15} /></button>
-                        <button onClick={() => handleDelete(item.id)} className="p-1.5 text-destructive hover:bg-destructive/10 rounded transition-colors"><Trash2 size={15} /></button>
+                        <button onClick={() => handleOpenModal(item)} className="p-2 text-primary hover:bg-primary/10 rounded transition-colors" title="Chỉnh sửa"><Edit2 size={18} /></button>
+                        <button onClick={() => handleDelete(item.id)} className="p-2 text-destructive hover:bg-destructive/10 rounded transition-colors" title="Xóa"><Trash2 size={18} /></button>
                       </div>
                     </td>
                   </tr>
                 ))}
                 {!loading && displayItems.length === 0 && (
                   <tr>
-                    <td colSpan={10} className="px-4 py-8 text-center text-muted-foreground">Chưa có hạng mục chi tiết nào.</td>
+                    <td colSpan={11} className="px-4 py-8 text-center text-muted-foreground">Chưa có hạng mục chi tiết nào.</td>
                   </tr>
                 )}
               </tbody>
@@ -426,6 +496,7 @@ const SalesCardCTManagementPage: React.FC = () => {
             onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }}
             loading={loading}
           />
+        </div>
         </div>
       </div>
 

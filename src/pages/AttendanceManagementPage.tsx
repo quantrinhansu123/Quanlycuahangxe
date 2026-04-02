@@ -476,24 +476,24 @@ const AttendanceManagementPage: React.FC = () => {
             )}
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <button
                 onClick={handleDownloadTemplate}
-                className="flex items-center gap-2 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
+                className="flex items-center gap-2 px-2 sm:px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
                 title="Tải mẫu Excel"
               >
                 <Download size={18} />
-                <span>Tải mẫu</span>
+                <span className="hidden sm:inline">Tải mẫu</span>
               </button>
               <div className="relative">
                 <button
                   onClick={() => document.getElementById('excel-import')?.click()}
-                  className="flex items-center gap-2 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
+                  className="flex items-center gap-2 px-2 sm:px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
                   title="Nhập chấm công từ Excel"
                 >
                   <Upload size={18} />
-                  <span>Nhập Excel</span>
+                  <span className="hidden sm:inline">Nhập Excel</span>
                 </button>
                 <input
                   id="excel-import"
@@ -546,16 +546,17 @@ const AttendanceManagementPage: React.FC = () => {
             </div>
             <button
               onClick={() => handleOpenModal()}
-              className="bg-primary hover:bg-primary/90 text-white px-5 py-1.5 rounded flex items-center gap-2 text-[14px] font-semibold transition-colors"
+              className="bg-primary hover:bg-primary/90 text-white px-3 sm:px-5 py-1.5 rounded flex items-center gap-2 text-[13px] sm:text-[14px] font-semibold transition-colors"
             >
-              <Plus size={20} /> Thêm chấm công
+              <Plus size={20} /> <span className="hidden sm:inline">Thêm chấm công</span>
             </button>
           </div>
         </div>
 
         {/* Data Table */}
         <div className="bg-card rounded-lg border border-border shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
+          {/* Desktop Table */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-muted border-b border-border text-muted-foreground text-[12px] font-bold uppercase tracking-wider">
@@ -624,6 +625,63 @@ const AttendanceManagementPage: React.FC = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Card List */}
+          <div className="md:hidden">
+            {loading ? (
+              <div className="px-4 py-12 text-center text-muted-foreground">
+                <Loader2 className="animate-spin inline-block mr-2" size={20} />
+                Đang tải dữ liệu...
+              </div>
+            ) : records.length === 0 ? (
+              <div className="px-4 py-8 text-center text-muted-foreground text-[13px]">Không tìm thấy bản ghi chấm công nào.</div>
+            ) : (
+              <div className="divide-y divide-border">
+                {records.map(record => (
+                  <div key={record.id} className="p-4 flex items-start gap-3 hover:bg-muted/50 transition-colors">
+                    {/* Avatar */}
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary overflow-hidden border border-border shadow-sm shrink-0">
+                      {record.anh ? (
+                        <img src={record.anh} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <User size={18} />
+                      )}
+                    </div>
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-semibold text-foreground text-[14px] truncate">{record.nhan_su}</span>
+                        <span className="text-[11px] text-muted-foreground shrink-0 ml-2">{formatDateForDisplay(record.ngay)}</span>
+                      </div>
+                      <div className="flex items-center gap-4 text-[13px]">
+                        <span className="flex items-center gap-1">
+                          <Clock size={12} className="text-emerald-500" />
+                          <span className="text-emerald-600 font-bold">{record.checkin || '—'}</span>
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Clock size={12} className="text-orange-500" />
+                          <span className="text-orange-600 font-bold">{record.checkout || '—'}</span>
+                        </span>
+                      </div>
+                      {record.vi_tri && (
+                        <p className="text-[11px] text-muted-foreground mt-1 truncate">📍 {record.vi_tri}</p>
+                      )}
+                    </div>
+                    {/* Actions */}
+                    <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
+                      <button onClick={() => handleOpenModal(record)} className="p-1.5 rounded-lg text-primary hover:bg-primary/10 transition-colors" title="Sửa">
+                        <Edit2 size={16} />
+                      </button>
+                      <button onClick={() => handleDelete(record.id)} className="p-1.5 rounded-lg text-destructive hover:bg-red-50 transition-colors" title="Xóa">
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <Pagination
             currentPage={currentPage}
             pageSize={pageSize}
@@ -757,18 +815,18 @@ const AttendanceManagementPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => handleQuickSubmit('checkout')}
-                        className="w-full py-4 rounded-xl text-lg font-bold text-white bg-orange-500 hover:bg-orange-600 shadow-lg shadow-orange-500/30 transition-all active:scale-95 flex items-center justify-center gap-2"
+                        className="w-full py-2.5 sm:py-4 rounded-xl text-sm sm:text-lg font-bold text-white bg-orange-500 hover:bg-orange-600 shadow-lg shadow-orange-500/30 transition-all active:scale-95 flex items-center justify-center gap-2"
                       >
-                        <Clock size={24} /> CHẤM CÔNG RA NGAY
+                        <Clock size={18} className="sm:hidden" /><Clock size={24} className="hidden sm:block" /> CHẤM CÔNG RA NGAY
                       </button>
                     </div>
                   ) : (
                     <button
                       type="button"
                       onClick={() => handleQuickSubmit('checkin')}
-                      className="w-full py-4 rounded-xl text-lg font-bold text-white bg-emerald-500 hover:bg-emerald-600 shadow-lg shadow-emerald-500/30 transition-all active:scale-95 flex items-center justify-center gap-2"
+                      className="w-full py-2.5 sm:py-4 rounded-xl text-sm sm:text-lg font-bold text-white bg-emerald-500 hover:bg-emerald-600 shadow-lg shadow-emerald-500/30 transition-all active:scale-95 flex items-center justify-center gap-2"
                     >
-                      <Clock size={24} /> CHẤM CÔNG VÀO NGAY
+                      <Clock size={18} className="sm:hidden" /><Clock size={24} className="hidden sm:block" /> CHẤM CÔNG VÀO NGAY
                     </button>
                   )}
                 </div>

@@ -321,8 +321,8 @@ const FinancialManagementPage: React.FC = () => {
       <div className="w-full space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-black text-foreground tracking-tight flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-600">
-              <Wallet size={24} />
+            <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center text-orange-600">
+              <Wallet size={18} />
             </div>
             Quản lý Thu chi
           </h1>
@@ -358,220 +358,257 @@ const FinancialManagementPage: React.FC = () => {
 
         {/* Stats Cards - Only on List Tab */}
         {activeTab === 'list' && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             <StatCard title="Tổng Thu" amount={stats.income} color="text-emerald-600" bgColor="bg-emerald-50/50" icon={BadgeDollarSign} />
             <StatCard title="Tổng Chi" amount={stats.expense} color="text-rose-600" bgColor="bg-rose-50/50" icon={Wallet} />
-            <StatCard title="Số dư hiện tại" amount={stats.balance} color="text-amber-600" bgColor="bg-amber-50/50" icon={Wallet} />
+            <div className="col-span-2 md:col-span-1">
+              <StatCard title="Số dư hiện tại" amount={stats.balance} color="text-amber-600" bgColor="bg-amber-50/50" icon={Wallet} />
+            </div>
           </div>
         )}
 
         {activeTab === 'list' ? (
           <>
             {/* Toolbar */}
-            <div className="bg-card p-3 rounded-lg border border-border shadow-sm flex flex-wrap items-center justify-between gap-4" ref={dropdownRef}>
-              <div className="flex items-center gap-3 flex-1 flex-wrap">
-                <div className="relative w-full sm:w-[250px]">
-                  <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/60">
-                    <Search size={18} />
-                  </div>
-                  <input 
-                    value={searchQuery}
-                    onChange={(e) => {
-                      setSearchQuery(e.target.value);
-                      setCurrentPage(1); // Reset to page 1 on search
-                    }}
-                    className="w-full pl-9 pr-4 py-1.5 border border-border rounded text-[13px] focus:ring-1 focus:ring-primary focus:border-primary placeholder-slate-400 outline-none" 
-                    placeholder="Tìm giao dịch..." 
+            {/* Toolbar */}
+            <div className="bg-card p-2 rounded-xl border border-border shadow-sm flex flex-wrap items-center gap-1.5 sm:gap-4 justify-between" ref={dropdownRef}>
+              {/* Main Actions Group */}
+              <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap">
+                <div className="relative group shrink-0">
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 sm:size-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                  <input
                     type="text"
+                    placeholder="Tìm giao dịch..."
+                    value={searchQuery}
+                    onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                    className="pl-7 sm:pl-9 pr-3 sm:pr-4 py-1 sm:py-2 bg-muted/50 border-border rounded-lg text-[11px] sm:text-[13px] focus:ring-1 focus:ring-primary focus:border-primary transition-all w-[120px] sm:w-[220px] lg:w-[300px] outline-none"
                   />
                 </div>
-                
-                <div className="flex flex-wrap items-center gap-2">
-                  {/* Branch Dropdown */}
+
+                <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
                   <div className="relative">
-                    <button onClick={() => toggleDropdown('branch')} className="flex items-center gap-2 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground min-w-[140px] justify-between bg-card hover:bg-accent">
-                      <div className="flex items-center gap-2"><Building2 size={18} />Cơ sở</div>
-                      <ChevronDown size={18} />
+                    <button onClick={() => toggleDropdown('branch')} className="px-2 py-1 sm:px-3 sm:py-2 bg-muted/50 hover:bg-muted border border-border rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[14px] transition-all min-w-[90px] sm:min-w-[120px] justify-between">
+                      <div className="flex items-center gap-1 sm:gap-2 truncate">
+                        <Building2 className="size-3.5 sm:size-4 text-primary shrink-0" />
+                        <span className="truncate">{selectedBranches.length > 0 ? `CS (${selectedBranches.length})` : 'Cơ sở'}</span>
+                      </div>
+                      <ChevronDown className={clsx("size-3.5 sm:size-4 transition-transform", openDropdown === 'branch' && "rotate-180")} />
                     </button>
                     {openDropdown === 'branch' && (
-                      <div className="absolute top-10 left-0 z-50 min-w-[200px] bg-card border border-border rounded shadow-lg overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                        <ul className="py-1 text-[13px] text-muted-foreground">
-                          {branchOptions.map(branch => (
-                            <li key={branch} className="px-3 py-2 hover:bg-accent cursor-pointer flex items-center gap-2" onClick={() => handleFilterChange(setSelectedBranches, branch)}>
-                              <input 
-                                type="checkbox" 
-                                checked={selectedBranches.includes(branch)}
-                                readOnly
-                                className="rounded border-border text-primary size-4"
-                              /> {branch}
-                            </li>
-                          ))}
-                        </ul>
+                      <div className="absolute top-full left-0 z-50 mt-1 min-w-[180px] bg-card border border-border rounded-lg shadow-xl py-1 animate-in fade-in zoom-in-95 duration-200">
+                        {branchOptions.map(branch => (
+                          <div key={branch} className="px-4 py-2 hover:bg-primary/5 cursor-pointer flex items-center gap-3 text-[14px]" onClick={() => handleFilterChange(setSelectedBranches, branch)}>
+                            <input type="checkbox" checked={selectedBranches.includes(branch)} readOnly className="rounded border-border text-primary size-4" /> {branch}
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
 
-                  {/* Type Dropdown */}
                   <div className="relative">
-                    <button onClick={() => toggleDropdown('type')} className="flex items-center gap-2 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground min-w-[120px] justify-between bg-card hover:bg-accent">
-                      <div className="flex items-center gap-2"><Wallet size={18} />Loại phiếu</div>
-                      <ChevronDown size={18} />
+                    <button onClick={() => toggleDropdown('type')} className="px-2 py-1 sm:px-3 sm:py-2 bg-muted/50 hover:bg-muted border border-border rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[14px] transition-all min-w-[80px] sm:min-w-[100px] justify-between">
+                      <div className="flex items-center gap-1 sm:gap-2 truncate">
+                        <Wallet className="size-3.5 sm:size-4 text-primary shrink-0" />
+                        <span className="truncate uppercase">{selectedTypes.length > 0 ? `LOẠI (${selectedTypes.length})` : 'Loại'}</span>
+                      </div>
+                      <ChevronDown className={clsx("size-3.5 sm:size-4 transition-transform", openDropdown === 'type' && "rotate-180")} />
                     </button>
                     {openDropdown === 'type' && (
-                      <div className="absolute top-10 left-0 z-50 min-w-[160px] bg-card border border-border rounded shadow-lg overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                        <ul className="py-1 text-[13px] text-muted-foreground">
-                          {typeOptions.map(opt => (
-                            <li key={opt} className="px-3 py-2 hover:bg-accent cursor-pointer flex items-center gap-2" onClick={() => handleFilterChange(setSelectedTypes, opt)}>
-                              <input 
-                                type="checkbox" 
-                                checked={selectedTypes.includes(opt)}
-                                readOnly
-                                className="rounded border-border text-primary size-4"
-                              /> {opt.toUpperCase()}
-                            </li>
-                          ))}
-                        </ul>
+                      <div className="absolute top-full left-0 z-50 mt-1 min-w-[140px] bg-card border border-border rounded-lg shadow-xl py-1 animate-in fade-in zoom-in-95 duration-200">
+                        {typeOptions.map(opt => (
+                          <div key={opt} className="px-4 py-2 hover:bg-primary/5 cursor-pointer flex items-center gap-3 text-[14px]" onClick={() => handleFilterChange(setSelectedTypes, opt)}>
+                            <input type="checkbox" checked={selectedTypes.includes(opt)} readOnly className="rounded border-border text-primary size-4" /> {opt.toUpperCase()}
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
+
+                  <button
+                    onClick={() => handleOpenModal()}
+                    className="px-2.5 py-1 sm:px-5 sm:py-2 bg-primary hover:bg-primary/90 text-white rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[14px] font-bold transition-all shrink-0 shadow-lg shadow-primary/20"
+                  >
+                    <Plus className="size-4 sm:size-5" />
+                    <span>Phiếu mới</span>
+                  </button>
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <button 
-                    onClick={handleDownloadTemplate}
-                    className="flex items-center gap-2 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
-                    title="Tải mẫu Excel"
+              {/* Utility Actions Group */}
+              <div className="flex items-center gap-1.5 flex-wrap justify-end ml-auto sm:ml-0">
+                <button
+                  onClick={handleDownloadTemplate}
+                  className="px-2 py-1 sm:px-3 sm:py-2 bg-muted/50 hover:bg-muted border border-border rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold text-muted-foreground transition-all shrink-0"
+                  title="Tải mẫu Excel"
+                >
+                  <Download className="size-4 sm:size-5" />
+                  <span>Tải mẫu</span>
+                </button>
+                
+                <div className="relative shrink-0">
+                  <button
+                    onClick={() => document.getElementById('excel-import')?.click()}
+                    className="px-2 py-1 sm:px-3 sm:py-2 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold transition-all shrink-0"
+                    title="Nhập dữ liệu Excel"
                   >
-                    <Download size={18} />
-                    <span>Tải mẫu</span>
+                    <Upload className="size-4 sm:size-5" />
+                    <span>Nhập Excel</span>
                   </button>
-                  <div className="relative">
-                    <button 
-                      onClick={() => document.getElementById('excel-import')?.click()}
-                      className="flex items-center gap-2 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
-                      title="Nhập thu chi từ Excel"
-                    >
-                      <Upload size={18} />
-                      <span>Nhập Excel</span>
-                    </button>
-                    <input 
-                      id="excel-import"
-                      type="file" 
-                      accept=".xlsx, .xls" 
-                      className="hidden" 
-                      onChange={handleImportExcel} 
-                    />
-                  </div>
+                  <input
+                    id="excel-import"
+                    type="file"
+                    accept=".xlsx, .xls"
+                    className="hidden"
+                    onChange={handleImportExcel}
+                  />
                 </div>
 
                 <button
                   onClick={handleDeleteAll}
-                  className="px-3 py-1.5 border border-red-200 rounded text-[13px] text-red-600 hover:bg-red-50 transition-colors font-medium bg-white flex items-center gap-2"
-                  title="Xóa toàn bộ dữ liệu"
+                  className="px-2 py-1 sm:px-4 sm:py-2 bg-destructive/5 hover:bg-destructive/10 text-destructive border border-destructive/20 rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[14px] font-bold transition-all shadow-sm shrink-0"
+                  title="Xóa hết"
                 >
-                  <Trash2 size={18} />
-                  <span>Xóa tất cả</span>
-                </button>
-
-                <button 
-                  onClick={() => handleOpenModal()}
-                  className="bg-primary hover:bg-primary/90 text-white px-5 py-1.5 rounded flex items-center gap-2 text-[14px] font-semibold transition-colors"
-                >
-                  <Plus size={20} /> Ghi nhận phiếu mới
+                  <Trash2 className="size-4 sm:size-5" />
+                  <span>Xóa hết</span>
                 </button>
               </div>
             </div>
 
-            {/* Data Table */}
-            <div className="bg-card rounded-lg border border-border shadow-sm overflow-hidden">
+            {/* Mobile Cards (View) */}
+            <div className="grid grid-cols-1 gap-2 md:hidden">
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="bg-card p-3 rounded-lg border border-border animate-pulse h-20" />
+                ))
+              ) : transactions.map(transaction => (
+                <div key={transaction.id} className={clsx(
+                  "bg-card p-2.5 rounded-lg border-l-4 shadow-sm flex items-center justify-between gap-3 animate-in fade-in slide-in-from-bottom-2 duration-300",
+                  transaction.loai_phieu === 'phiếu thu' ? "border-l-emerald-500 border-border" : "border-l-rose-500 border-border"
+                )}>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={clsx(
+                        "text-[9px] font-black uppercase px-1.5 py-0.5 rounded",
+                        transaction.loai_phieu === 'phiếu thu' ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
+                      )}>
+                        {transaction.loai_phieu === 'phiếu thu' ? 'THU' : 'CHI'}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground font-medium">
+                        {new Date(transaction.ngay).toLocaleDateString('vi-VN')} {transaction.gio}
+                      </span>
+                    </div>
+                    <div className="text-[13px] font-bold text-foreground truncate">{transaction.danh_muc || 'Không tiêu đề'}</div>
+                    <div className="text-[11px] text-muted-foreground truncate">
+                      {transaction.nguoi_chi || transaction.nguoi_nhan || 'N/A'} • {transaction.co_so.replace('Cơ sở', 'CS')}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className={clsx(
+                      "text-[15px] font-black",
+                      transaction.loai_phieu === 'phiếu thu' ? "text-emerald-600" : "text-rose-600"
+                    )}>
+                      {transaction.loai_phieu === 'phiếu thu' ? '+' : '-'}{new Intl.NumberFormat('vi-VN').format(transaction.so_tien)}
+                    </div>
+                    <div className="flex items-center justify-end gap-2 mt-1">
+                      <button onClick={() => handleOpenModal(transaction)} className="text-primary p-1 hover:bg-primary/5 rounded">
+                        <Edit2 size={14} />
+                      </button>
+                      <button onClick={() => handleDelete(transaction.id)} className="text-destructive p-1 hover:bg-destructive/5 rounded">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop Table View */}
+            <div className="hidden md:block bg-card rounded-lg border border-border shadow-sm overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-muted border-b border-border text-muted-foreground text-[12px] font-bold uppercase tracking-wider">
-                      <th className="px-4 py-3 font-semibold">ID Đơn</th>
-                      <th className="px-4 py-3 font-semibold">Ảnh</th>
+                    <tr className="bg-muted border-b border-border text-muted-foreground text-[13px] font-bold uppercase tracking-tight">
+                      <th className="px-4 py-3 font-semibold">Đơn hàng</th>
+                      <th className="px-4 py-3 font-semibold">Hình ảnh</th>
                       <th className="px-4 py-3 font-semibold text-center">Ngày</th>
-                      <th className="px-4 py-3 font-semibold">ID Phiếu</th>
+                      <th className="px-4 py-3 font-semibold">Mã phiếu</th>
                       <th className="px-4 py-3 font-semibold text-center">Giờ</th>
                       <th className="px-4 py-3 font-semibold">Loại</th>
-                      <th className="px-4 py-3 font-semibold">Danh mục</th>
+                      <th className="px-4 py-3 font-semibold">Nghiệp vụ</th>
                       <th className="px-4 py-3 font-semibold">Khách hàng</th>
-                      <th className="px-4 py-3 font-semibold">Người chi</th>
-                      <th className="px-4 py-3 font-semibold">Người nhận</th>
-                      <th className="px-4 py-3 font-semibold text-right">Số tiền</th>
                       <th className="px-4 py-3 font-semibold">Cơ sở</th>
+                      <th className="px-4 py-3 font-semibold text-right">Số tiền</th>
                       <th className="px-4 py-3 font-semibold">Trạng thái</th>
-                      <th className="px-4 py-3 text-center font-semibold">Tác vụ</th>
+                      <th className="px-4 py-3 text-center font-semibold">Thao tác</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 text-[13px]">
+                  <tbody className="divide-y divide-slate-100 text-[14px]">
                     {loading ? (
                       <tr>
-                        <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
+                        <td colSpan={12} className="px-4 py-12 text-center text-muted-foreground">
                           <Loader2 className="animate-spin inline-block mr-2" size={20} />
                           Đang tải dữ liệu...
                         </td>
                       </tr>
                     ) : transactions.map(transaction => (
-                      <tr key={transaction.id} className="hover:bg-muted/80 transition-colors">
-                        <td className="px-4 py-4 font-mono text-[12px]">{transaction.id_don || '—'}</td>
-                        <td className="px-4 py-4">
+                      <tr key={transaction.id} className="hover:bg-muted/80 transition-colors border-b border-border/50">
+                        <td className="px-4 py-3 font-mono text-[13px] truncate max-w-[100px]">{transaction.id_don || '—'}</td>
+                        <td className="px-4 py-3">
                           {transaction.anh ? (
-                            <div className="w-10 h-10 rounded-lg overflow-hidden border border-border">
+                            <div className="w-8 h-8 rounded-lg border border-border overflow-hidden">
                               <img src={transaction.anh} alt="" className="w-full h-full object-cover" />
                             </div>
                           ) : (
-                            <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-muted-foreground/30"><Camera size={18} /></div>
+                            <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center text-muted-foreground/30"><Camera size={16} /></div>
                           )}
                         </td>
-                        <td className="px-4 py-4 whitespace-nowrap text-center font-medium text-foreground">
+                        <td className="px-4 py-3 whitespace-nowrap text-center font-medium text-foreground">
                           {new Date(transaction.ngay).toLocaleDateString('vi-VN')}
                         </td>
-                        <td className="px-4 py-4 font-mono text-[10px] text-muted-foreground max-w-[80px] truncate" title={transaction.id}>
-                          {transaction.id}
+                        <td className="px-4 py-3 font-mono text-[11px] text-muted-foreground truncate" title={transaction.id}>
+                          {transaction.id.slice(0, 12)}
                         </td>
-                        <td className="px-4 py-4 text-center text-muted-foreground">{transaction.gio}</td>
-                        <td className="px-4 py-4">
+                        <td className="px-4 py-3 text-center text-muted-foreground/60">{transaction.gio}</td>
+                        <td className="px-4 py-3">
                           <span className={clsx(
-                            "px-2 py-0.5 rounded text-[10px] font-bold uppercase border",
-                            transaction.loai_phieu === 'phiếu thu' ? "bg-green-50 text-green-700 border-green-100" : "bg-red-50 text-red-700 border-red-100"
+                            "px-2 py-0.5 rounded text-[11px] font-bold uppercase",
+                            transaction.loai_phieu === 'phiếu thu' ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
                           )}>
                             {transaction.loai_phieu === 'phiếu thu' ? 'THU' : 'CHI'}
                           </span>
                         </td>
-                        <td className="px-4 py-4 text-foreground font-medium">{transaction.danh_muc || '—'}</td>
-                        <td className="px-4 py-4">{transaction.khach_hang?.ho_va_ten || customers.find(c => c.id === transaction.id_khach_hang)?.ho_va_ten || transaction.id_khach_hang || '—'}</td>
-                        <td className="px-4 py-4">{transaction.nguoi_chi || '—'}</td>
-                        <td className="px-4 py-4">{transaction.nguoi_nhan || '—'}</td>
-                        <td className="px-4 py-4 text-right font-black text-foreground">
+                        <td className="px-4 py-3 text-foreground font-bold truncate max-w-[150px]">{transaction.danh_muc || '—'}</td>
+                        <td className="px-4 py-3 truncate max-w-[140px]">{transaction.khach_hang?.ho_va_ten || customers.find(c => c.id === transaction.id_khach_hang)?.ho_va_ten || transaction.id_khach_hang || '—'}</td>
+                        <td className="px-4 py-3 text-[12px] text-muted-foreground">{transaction.co_so}</td>
+                        <td className={clsx(
+                          "px-4 py-3 text-right font-black",
+                          transaction.loai_phieu === 'phiếu thu' ? "text-emerald-600" : "text-rose-600"
+                        )}>
                           {formatCurrency(transaction.so_tien)}
                         </td>
-                        <td className="px-4 py-4 text-[12px]">{transaction.co_so}</td>
-                        <td className="px-4 py-4">
+                        <td className="px-4 py-3">
                           <span className={clsx(
-                            "px-2 py-0.5 rounded text-[11px] font-medium",
-                            transaction.trang_thai === 'Hoàn thành' ? "bg-emerald-100 text-emerald-700" : 
-                            transaction.trang_thai === 'Đang chờ' ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"
+                            "px-2 py-0.5 rounded text-[11px] font-bold",
+                            transaction.trang_thai === 'Hoàn thành' ? "bg-emerald-50 text-emerald-600" : 
+                            transaction.trang_thai === 'Đang chờ' ? "bg-amber-50 text-amber-600" : "bg-red-50 text-red-600"
                           )}>
                             {transaction.trang_thai}
                           </span>
                         </td>
-                        <td className="px-4 py-4 text-center">
+                        <td className="px-4 py-3 text-center">
                           <div className="flex items-center justify-center gap-2">
-                            <button onClick={() => handleOpenModal(transaction)} className="p-1.5 text-primary hover:bg-primary/10 rounded transition-colors"><Edit2 size={15} /></button>
-                            <button onClick={() => handleDelete(transaction.id)} className="p-1.5 text-destructive hover:bg-destructive/10 rounded transition-colors"><Trash2 size={15} /></button>
+                            <button onClick={() => handleOpenModal(transaction)} className="text-primary hover:bg-primary/5 rounded p-1.5"><Edit2 size={18} /></button>
+                            <button onClick={() => handleDelete(transaction.id)} className="text-destructive hover:bg-destructive/5 rounded p-1.5"><Trash2 size={18} /></button>
                           </div>
                         </td>
                       </tr>
                     ))}
-                    {!loading && transactions.length === 0 && (
-                      <tr>
-                        <td colSpan={14} className="px-4 py-8 text-center text-muted-foreground">Không có dữ liệu giao dịch.</td>
-                      </tr>
-                    )}
-                  </tbody>
+                  {!loading && transactions.length === 0 && (
+                    <tr>
+                      <td colSpan={12} className="px-2 py-8 text-center text-muted-foreground">Không có dữ liệu giao dịch.</td>
+                    </tr>
+                  )}
+                </tbody>
                 </table>
               </div>
               <Pagination 
@@ -608,13 +645,13 @@ const FinancialManagementPage: React.FC = () => {
 };
 
 const StatCard: React.FC<{ title: string, amount: number, color: string, bgColor: string, icon: React.ElementType }> = ({ title, amount, color, bgColor, icon: Icon }) => (
-  <div className="bg-card p-4 rounded-xl border border-border shadow-sm flex items-center gap-4">
-    <div className={clsx("w-12 h-12 rounded-xl flex items-center justify-center", bgColor, color)}>
-      <Icon size={24} />
+  <div className="bg-card p-3 rounded-xl border border-border shadow-sm flex items-center gap-3">
+    <div className={clsx("w-10 h-10 rounded-lg flex items-center justify-center shrink-0", bgColor, color)}>
+      <Icon size={20} />
     </div>
-    <div>
-      <p className="text-[12px] font-bold text-muted-foreground uppercase">{title}</p>
-      <p className={clsx("text-xl font-black", color)}>{new Intl.NumberFormat('vi-VN').format(amount)} <span className="text-[12px] font-normal">đ</span></p>
+    <div className="min-w-0">
+      <p className="text-[10px] font-bold text-muted-foreground uppercase truncate">{title}</p>
+      <p className={clsx("text-lg font-black truncate", color)}>{new Intl.NumberFormat('vi-VN').format(amount)} <span className="text-[10px] font-normal">đ</span></p>
     </div>
   </div>
 );

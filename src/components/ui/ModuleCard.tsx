@@ -48,34 +48,34 @@ export const ModuleCard: React.FC<ModuleCardProps> = React.memo(({
       layoutId={layoutId}
       onClick={handleClick}
       className={clsx(
-        "group flex items-center bg-card rounded-lg p-2.5 transition-all duration-300 border border-border hover:border-primary/30 hover:shadow-sm cursor-pointer hover:-translate-y-0.5",
+        "group flex items-center bg-card rounded-xl p-2.5 lg:rounded-2xl lg:p-4 transition-all duration-300 border border-border hover:border-primary/40 hover:shadow-lg cursor-pointer hover:-translate-y-1",
         !path && "opacity-60 grayscale-[0.5] cursor-not-allowed hover:translate-y-0 hover:border-border"
       )}
     >
       <div 
         className={clsx(
-          "w-9 h-9 rounded-lg flex items-center justify-center shrink-0 mr-2.5 transition-transform group-hover:scale-110",
+          "w-9 h-9 lg:w-12 lg:h-12 rounded-lg flex items-center justify-center shrink-0 mr-2.5 lg:mr-4 transition-all duration-500 group-hover:scale-110 shadow-md",
           colorMap[colorScheme as keyof typeof colorMap]
         )}
       >
-        <Icon size={18} />
+        <Icon className="size-4.5 lg:size-6" />
       </div>
       
-      <div className="flex-1 min-w-0 pr-1.5">
-        <h3 className="font-bold text-[13px] text-foreground mb-0 truncate transition-colors">
+      <div className="flex-1 min-w-0 pr-2">
+        <h3 className="font-bold text-[13px] lg:text-[16px] text-foreground mb-0.5 lg:mb-1 truncate transition-colors group-hover:text-primary leading-tight">
           {title}
         </h3>
-        <p className="text-[11px] text-muted-foreground truncate leading-tight opacity-80">
+        <p className="text-[11px] lg:text-[13px] text-muted-foreground truncate leading-snug opacity-80 font-medium">
           {description}
         </p>
       </div>
 
-      <div className="flex flex-col gap-2 shrink-0 text-muted-foreground/20" onClick={(e) => e.stopPropagation()}>
+      <div className="flex flex-col gap-2 shrink-0 text-muted-foreground/30" onClick={(e) => e.stopPropagation()}>
         <button className="hover:text-amber-500 transition-colors" title="Đánh dấu">
-          <Star size={13} />
+          <Star className="size-3 lg:size-3.5" />
         </button>
-        <button className="hover:text-primary transition-colors" title="Hướng dẫn sử dụng">
-          <HelpCircle size={13} />
+        <button className="hover:text-primary transition-colors" title="Hướng dẫn">
+          <HelpCircle className="size-3 lg:size-3.5" />
         </button>
       </div>
     </motion.div>

@@ -60,9 +60,10 @@ const Dashboard: React.FC = () => {
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="mb-6 lg:mb-8">
-        <h1 className="text-xl lg:text-2xl font-bold flex items-center gap-2 text-foreground">
+        <h1 className="text-2xl lg:text-3xl font-black flex items-center gap-3 text-foreground tracking-tight">
           Chào buổi tối 👋
         </h1>
+        <p className="text-muted-foreground mt-1 text-[15px] font-medium opacity-60">Chào mừng bạn quay trở lại hệ thống!</p>
       </div>
 
       {globalSearch ? (
@@ -79,15 +80,15 @@ const Dashboard: React.FC = () => {
 
               return (
                 <div key={idx} className="animate-in fade-in slide-in-from-bottom-2 duration-500" style={{ animationDelay: `${idx * 50}ms` }}>
-                  <h2 className="text-[14px] font-bold text-primary mb-3 flex items-center gap-3">
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="w-1 h-4 bg-primary rounded-full"></span>
+                  <h2 className="text-[16px] font-black text-primary mb-5 flex items-center gap-4 uppercase tracking-widest">
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="w-1.5 h-6 bg-primary rounded-full"></span>
                       <span>{section.section}</span>
                     </div>
-                    <div className="h-px flex-1 bg-border/60"></div>
+                    <div className="h-px flex-1 bg-border/40"></div>
                   </h2>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                     {filteredItems.map((item, itemIdx) => (
                       <ModuleCard key={itemIdx} {...item} layoutId={`func-${item.title}`} />
                     ))}
@@ -98,7 +99,7 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
           {dashboardModules.map((module, idx) => (
             <ActionCard
               key={idx}

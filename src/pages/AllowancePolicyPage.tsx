@@ -108,7 +108,7 @@ const AllowancePolicyPage: React.FC = () => {
   }
 
   return (
-    <div className="p-6 space-y-6 animate-in fade-in duration-500">
+    <div className="p-3 sm:p-6 space-y-4 sm:space-y-6 animate-in fade-in duration-500">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
@@ -122,10 +122,10 @@ const AllowancePolicyPage: React.FC = () => {
             setEditingPolicy(null);
             setIsModalOpen(true);
           }}
-          className="flex items-center justify-center gap-2 px-6 py-3 bg-primary text-white rounded-xl font-black shadow-lg shadow-primary/25 hover:scale-[1.02] active:scale-[0.98] transition-all"
+          className="flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 bg-primary text-white rounded-xl font-black shadow-lg shadow-primary/25 hover:scale-[1.02] active:scale-[0.98] transition-all text-sm"
         >
           <Plus size={20} />
-          Thêm chính sách mới
+          <span className="hidden sm:inline">Thêm chính sách mới</span>
         </button>
       </div>
 
@@ -188,8 +188,9 @@ const AllowancePolicyPage: React.FC = () => {
       </div>
 
       {/* Data Table */}
-      <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="bg-white rounded-2xl sm:rounded-[32px] border border-slate-200 shadow-sm overflow-hidden">
+        {/* Desktop Table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50/80 border-b border-slate-100">
@@ -272,6 +273,44 @@ const AllowancePolicyPage: React.FC = () => {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Card List */}
+        <div className="md:hidden divide-y divide-slate-100">
+          {filteredPolicies.length === 0 ? (
+            <div className="px-4 py-16 text-center">
+              <Wallet size={40} className="text-slate-200 mx-auto mb-3" />
+              <p className="text-slate-400 font-bold">Chưa có chính sách nào</p>
+            </div>
+          ) : filteredPolicies.map(p => {
+            const items = policies.filter(item => item.ten_chinh_sach === p.ten_chinh_sach && item.co_so === p.co_so);
+            return (
+              <div key={p.id} className="p-4 flex items-start gap-3">
+                <div className="w-9 h-9 rounded-xl bg-primary/5 flex items-center justify-center text-primary shrink-0">
+                  <Wallet size={16} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-black text-slate-900 text-[14px] truncate">{p.ten_chinh_sach}</span>
+                    <span className="px-2 py-0.5 bg-slate-100 text-[9px] font-black text-slate-600 uppercase rounded shrink-0 ml-2">{p.vi_tri}</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 font-bold">{(p as any).thanh_phan_luong?.ten || 'Khoản thu nhập'}</p>
+                  <div className="flex items-center gap-2 mt-1 text-[12px] text-slate-500">
+                    <MapPin size={12} className="text-slate-400" />
+                    <span>{p.co_so}</span>
+                    {p.dinh_muc && <><span>·</span><span className="italic">{p.dinh_muc}</span></>}
+                  </div>
+                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100">
+                    <span className="text-sm font-black text-emerald-600">{formatCurrency(p.gia_tri)}đ</span>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => handleEdit(p.ten_chinh_sach, p.co_so, p.thanh_phan_luong_id, items)} className="p-1.5 text-primary hover:bg-primary/10 rounded-lg"><Edit2 size={16} /></button>
+                      <button onClick={() => handleDelete(p.id, [p])} className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg"><Trash2 size={16} /></button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 

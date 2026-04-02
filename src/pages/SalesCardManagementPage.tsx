@@ -565,45 +565,51 @@ const SalesCardManagementPage: React.FC = () => {
         </div>
 
         {/* Toolbar */}
-        <div className="bg-card p-3 rounded-lg border border-border shadow-sm flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3 flex-1 flex-wrap">
-            <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 border border-border rounded text-[11px] sm:text-[13px] text-muted-foreground hover:bg-accent transition-colors shrink-0">
-              <ArrowLeft className="size-4 sm:size-[18px]" /> Quay lại
+        <div className="bg-card p-2 rounded-xl border border-border shadow-sm flex flex-wrap items-center justify-between gap-1.5 sm:gap-4">
+          <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap">
+            <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 px-2 py-1 sm:px-4 sm:py-2 hover:bg-muted rounded-lg text-muted-foreground transition-all border border-transparent hover:border-border shrink-0">
+              <ArrowLeft className="size-4 sm:size-5" />
+              <span className="font-medium text-[11px] sm:text-[14px]">Quay lại</span>
             </button>
-            <div className="relative w-full sm:w-[350px]">
-              <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/60">
-                <Search size={18} />
-              </div>
+            <div className="relative group shrink-0">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 sm:size-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
               <input
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full pl-9 pr-4 py-1.5 border border-border rounded text-[13px] focus:ring-1 focus:ring-primary placeholder-slate-400 outline-none"
-                placeholder="Tìm khách hàng, SĐT, dịch vụ..."
+                className="pl-7 sm:pl-9 pr-3 sm:pr-4 py-1 sm:py-2 bg-muted/50 border-border rounded-lg text-[11px] sm:text-[13px] focus:ring-1 focus:ring-primary focus:border-primary transition-all w-[120px] sm:w-[220px] lg:w-[300px] outline-none"
+                placeholder="Tìm khách, dịch vụ..."
                 type="text"
               />
             </div>
+            <button
+              onClick={() => handleOpenModal()}
+              className="px-2.5 py-1 sm:px-5 sm:py-2 bg-primary hover:bg-primary/90 text-white rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[14px] font-bold transition-all shrink-0 shadow-lg shadow-primary/20"
+            >
+              <Plus className="size-4 sm:size-5" />
+              <span>Lập hóa đơn</span>
+            </button>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap justify-end">
+          <div className="flex items-center gap-1.5 flex-wrap justify-end">
             <button
               onClick={handleDownloadTemplate}
-              className="flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 border border-border rounded text-[11px] sm:text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card shrink-0"
+              className="px-2 py-1 sm:px-4 sm:py-2 bg-muted/50 hover:bg-muted border border-border rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold text-muted-foreground transition-all shrink-0"
               title="Tải mẫu Excel"
             >
-              <Download className="size-4 sm:size-[18px]" />
+              <Download className="size-4 sm:size-5" />
               <span>Tải mẫu</span>
             </button>
 
             <div className="relative shrink-0">
               <button
                 onClick={() => document.getElementById('excel-import')?.click()}
-                className="flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 border border-border rounded text-[11px] sm:text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
-                title="Nhập phiếu từ Excel"
+                className="px-2 py-1 sm:px-4 sm:py-2 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold transition-all shrink-0"
+                title="Nhập dữ liệu Excel"
               >
-                <Upload className="size-4 sm:size-[18px]" />
+                <Upload className="size-4 sm:size-5" />
                 <span>Nhập Excel</span>
               </button>
               <input
@@ -614,13 +620,6 @@ const SalesCardManagementPage: React.FC = () => {
                 onChange={handleImportExcel}
               />
             </div>
-
-            <button
-              onClick={() => handleOpenModal()}
-              className="bg-primary hover:bg-primary/90 text-white px-3 py-1 sm:px-5 sm:py-1.5 rounded flex items-center gap-1 text-[12px] sm:text-[14px] font-semibold transition-colors shadow-lg shadow-primary/20 shrink-0"
-            >
-              <Plus className="size-4 sm:size-5" /> Lập phiếu mới
-            </button>
           </div>
         </div>
 
@@ -746,7 +745,7 @@ const SalesCardManagementPage: React.FC = () => {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-muted border-b border-border text-muted-foreground text-[12px] font-bold uppercase tracking-wider">
+                <tr className="bg-muted border-b border-border text-muted-foreground text-[13px] font-bold uppercase tracking-wider">
                   <th className="px-4 py-3 font-semibold text-center">Ngày & Giờ</th>
                   <th className="px-4 py-3 font-semibold">Khách hàng</th>
                   <th className="px-4 py-3 font-semibold">SĐT</th>
@@ -758,7 +757,7 @@ const SalesCardManagementPage: React.FC = () => {
                   <th className="px-4 py-3 text-center font-semibold">Tác vụ</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-[13px]">
+              <tbody className="divide-y divide-slate-100 text-[14px]">
                 {loading ? (
                   <tr>
                     <td colSpan={10} className="px-4 py-12 text-center text-muted-foreground">
@@ -806,16 +805,16 @@ const SalesCardManagementPage: React.FC = () => {
                     <td className="px-4 py-4 text-center">
                       {card.ngay_nhac_thay_dau ? (
                         <div className="flex items-center justify-center gap-1.5 text-rose-600 font-bold">
-                          <Calendar size={14} />
+                          <Calendar size={18} />
                           {new Date(card.ngay_nhac_thay_dau).toLocaleDateString('vi-VN')}
                         </div>
                       ) : '—'}
                     </td>
                     <td className="px-4 py-4 text-center">
                       <div className="flex items-center justify-center gap-2">
-                        <button onClick={() => handleViewCard(card)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Xem chi tiết"><Eye size={15} /></button>
-                        <button onClick={() => handleOpenModal(card)} className="p-1.5 text-primary hover:bg-primary/10 rounded transition-colors" title="Chỉnh sửa"><Edit2 size={15} /></button>
-                        <button onClick={() => handleDelete(card.id)} className="p-1.5 text-destructive hover:bg-destructive/10 rounded transition-colors" title="Xóa"><Trash2 size={15} /></button>
+                        <button onClick={() => handleViewCard(card)} className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Xem chi tiết"><Eye size={18} /></button>
+                        <button onClick={() => handleOpenModal(card)} className="p-2 text-primary hover:bg-primary/10 rounded transition-colors" title="Chỉnh sửa"><Edit2 size={18} /></button>
+                        <button onClick={() => handleDelete(card.id)} className="p-2 text-destructive hover:bg-destructive/10 rounded transition-colors" title="Xóa"><Trash2 size={18} /></button>
                       </div>
                     </td>
                   </tr>

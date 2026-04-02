@@ -101,50 +101,49 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
          <div className="bg-card w-full max-w-3xl rounded-3xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden border border-border animate-in zoom-in-95 duration-300">
 
             {/* Header */}
-            <div className="px-8 py-5 border-b border-border flex items-center justify-between bg-muted/30 shrink-0">
-               <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
-                     <User size={24} />
+            <div className="px-4 py-3 sm:px-8 sm:py-5 border-b border-border flex items-center justify-between bg-muted/30 shrink-0">
+               <div className="flex items-center gap-2.5 sm:gap-4">
+                  <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
+                     <User size={18} className="sm:hidden" /><User size={24} className="hidden sm:block" />
                   </div>
                   <div>
-                     <h2 className="text-xl font-black text-foreground">{customer.ho_va_ten}</h2>
-                     <div className="flex items-center gap-3 text-[11px] text-muted-foreground font-bold uppercase tracking-wider mt-0.5">
-                        <span className="flex items-center gap-1"><Phone size={12} /> {customer.so_dien_thoai}</span>
-                        <span className="flex items-center gap-1"><MapPin size={12} /> {customer.dia_chi_hien_tai || 'Chưa cập nhật'}</span>
+                     <h2 className="text-base sm:text-xl font-black text-foreground">{customer.ho_va_ten}</h2>
+                     <div className="flex items-center gap-2 sm:gap-3 text-[10px] sm:text-[11px] text-muted-foreground font-bold uppercase tracking-wider mt-0.5">
+                        <span className="flex items-center gap-1"><Phone size={11} /> {customer.so_dien_thoai}</span>
+                        <span className="flex items-center gap-1"><MapPin size={11} /> {customer.dia_chi_hien_tai || 'N/A'}</span>
                      </div>
                   </div>
                </div>
                <button
                   onClick={onClose}
-                  className="p-2.5 text-muted-foreground hover:bg-muted rounded-full transition-all active:scale-90"
+                  className="p-1.5 sm:p-2.5 text-muted-foreground hover:bg-muted rounded-full transition-all active:scale-90"
                >
-                  <X size={24} />
+                  <X size={20} className="sm:hidden" /><X size={24} className="hidden sm:block" />
                </button>
             </div>
 
             {/* Date Selector */}
-            <div className="px-8 py-4 border-b border-border bg-card flex flex-wrap items-center gap-4 sm:gap-8 w-full shadow-sm">
-               <div className="flex items-center gap-4">
-                  <div className="flex flex-col gap-1">
-                     <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest px-1">Từ ngày</span>
+            <div className="px-4 py-2.5 sm:px-8 sm:py-4 border-b border-border bg-card flex flex-wrap items-center gap-2 sm:gap-8 w-full shadow-sm">
+               <div className="flex items-center gap-2 sm:gap-4">
+                  <div className="flex flex-col gap-0.5">
+                     <span className="text-[9px] sm:text-[10px] font-black text-muted-foreground uppercase tracking-widest px-1">Từ ngày</span>
                      <input
                         type="date"
                         value={startDateStr}
                         onChange={(e) => setStartDateStr(e.target.value)}
-                        className="font-bold text-foreground text-[14px] bg-muted/40 hover:bg-muted/60 border border-border/50 rounded-xl px-4 py-2 outline-none focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer"
+                        className="font-bold text-foreground text-[12px] sm:text-[14px] bg-muted/40 hover:bg-muted/60 border border-border/50 rounded-lg sm:rounded-xl px-2.5 py-1.5 sm:px-4 sm:py-2 outline-none focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer"
                      />
                   </div>
-
                </div>
 
-               <div className="flex-1 flex justify-end gap-3 min-w-[200px]">
-                  <div className="px-4 py-2 rounded-2xl bg-primary/5 border border-primary/20 flex flex-col items-end">
-                     <span className="text-[9px] font-black text-primary uppercase">Tổng chi tiêu</span>
-                     <span className="text-sm font-black text-primary">{formatCurrency(totalSpent)}</span>
+               <div className="flex-1 flex justify-end gap-2 sm:gap-3 min-w-[150px] sm:min-w-[200px]">
+                  <div className="px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-xl sm:rounded-2xl bg-primary/5 border border-primary/20 flex flex-col items-end">
+                     <span className="text-[8px] sm:text-[9px] font-black text-primary uppercase">Tổng chi tiêu</span>
+                     <span className="text-[11px] sm:text-sm font-black text-primary">{formatCurrency(totalSpent)}</span>
                   </div>
-                  <div className="px-4 py-2 rounded-2xl bg-amber-500/5 border border-amber-500/20 flex flex-col items-end">
-                     <span className="text-[9px] font-black text-amber-600 uppercase">Số lần ghé</span>
-                     <span className="text-sm font-black text-amber-600">{history.length}</span>
+                  <div className="px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-xl sm:rounded-2xl bg-amber-500/5 border border-amber-500/20 flex flex-col items-end">
+                     <span className="text-[8px] sm:text-[9px] font-black text-amber-600 uppercase">Số lần ghé</span>
+                     <span className="text-[11px] sm:text-sm font-black text-amber-600">{history.length}</span>
                   </div>
                </div>
             </div>
@@ -154,27 +153,27 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
                <button
                   onClick={() => setActiveTab('history')}
                   className={clsx(
-                     "px-8 py-4 font-black text-[13px] transition-all flex items-center gap-2 uppercase tracking-wider relative",
+                     "px-4 py-2.5 sm:px-8 sm:py-4 font-black text-[11px] sm:text-[13px] transition-all flex items-center gap-1.5 sm:gap-2 uppercase tracking-wider relative",
                      activeTab === 'history' ? "text-primary bg-background" : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
                   )}
                >
-                  <History size={18} /> Lịch sử dịch vụ
-                  {activeTab === 'history' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-primary rounded-t-full" />}
+                  <History size={14} className="sm:hidden" /><History size={18} className="hidden sm:block" /> Lịch sử dịch vụ
+                  {activeTab === 'history' && <div className="absolute bottom-0 left-0 right-0 h-0.5 sm:h-1 bg-primary rounded-t-full" />}
                </button>
                <button
                   onClick={() => setActiveTab('info')}
                   className={clsx(
-                     "px-8 py-4 font-black text-[13px] transition-all flex items-center gap-2 uppercase tracking-wider relative",
+                     "px-4 py-2.5 sm:px-8 sm:py-4 font-black text-[11px] sm:text-[13px] transition-all flex items-center gap-1.5 sm:gap-2 uppercase tracking-wider relative",
                      activeTab === 'info' ? "text-primary bg-background" : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
                   )}
                >
-                  <Info size={18} /> Thông tin chi tiết
-                  {activeTab === 'info' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-primary rounded-t-full" />}
+                  <Info size={14} className="sm:hidden" /><Info size={18} className="hidden sm:block" /> Thông tin chi tiết
+                  {activeTab === 'info' && <div className="absolute bottom-0 left-0 right-0 h-0.5 sm:h-1 bg-primary rounded-t-full" />}
                </button>
             </div>
 
             {/* Body */}
-            <div className="p-8 overflow-y-auto flex-1 bg-background custom-scrollbar">
+            <div className="p-4 sm:p-8 overflow-y-auto flex-1 bg-background custom-scrollbar">
                {loading ? (
                   <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
                      <Loader2 className="animate-spin mb-4 text-primary" size={40} />
@@ -193,28 +192,28 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
                               const cardTotal = (card.the_ban_hang_ct || []).reduce((s: number, ct: any) => s + (ct.gia_ban * (ct.so_luong || 1)), 0)
                                  || (card.dich_vu?.gia_ban || 0);
                               return (
-                                 <div key={card.id || idx} className="bg-card rounded-2xl border border-border overflow-hidden hover:shadow-md transition-shadow group">
-                                    <div className="p-5 flex flex-col sm:flex-row gap-5 justify-between">
-                                       <div className="space-y-4 flex-1">
-                                          <div className="flex items-center gap-3">
-                                             <div className="px-3 py-1 bg-muted rounded-full text-[12px] font-black text-foreground flex items-center gap-2">
-                                                <Calendar size={14} className="text-primary" /> {new Date(card.ngay).toLocaleDateString('vi-VN')}
+                                 <div key={card.id || idx} className="bg-card rounded-xl sm:rounded-2xl border border-border overflow-hidden hover:shadow-md transition-shadow group">
+                                    <div className="p-3 sm:p-5 flex flex-col sm:flex-row gap-3 sm:gap-5 justify-between">
+                                       <div className="space-y-2 sm:space-y-4 flex-1">
+                                          <div className="flex items-center gap-2 sm:gap-3">
+                                             <div className="px-2 py-0.5 sm:px-3 sm:py-1 bg-muted rounded-full text-[11px] sm:text-[12px] font-black text-foreground flex items-center gap-1.5">
+                                                <Calendar size={12} className="text-primary" /> {new Date(card.ngay).toLocaleDateString('vi-VN')}
                                              </div>
-                                             <div className="px-3 py-1 bg-muted rounded-full text-[12px] font-black text-foreground flex items-center gap-2">
-                                                <Clock size={14} className="text-primary" /> {card.gio?.substring(0, 5) || '--:--'}
+                                             <div className="px-2 py-0.5 sm:px-3 sm:py-1 bg-muted rounded-full text-[11px] sm:text-[12px] font-black text-foreground flex items-center gap-1.5">
+                                                <Clock size={12} className="text-primary" /> {card.gio?.substring(0, 5) || '--:--'}
                                              </div>
                                           </div>
 
-                                          <div className="grid gap-2">
+                                          <div className="grid gap-1.5 sm:gap-2">
                                              {card.the_ban_hang_ct && card.the_ban_hang_ct.length > 0 ? (
                                                 card.the_ban_hang_ct.map((ct: any, i: number) => (
-                                                   <div key={i} className="flex items-center justify-between text-[13px]">
+                                                   <div key={i} className="flex items-center justify-between text-[11px] sm:text-[13px]">
                                                       <span className="font-bold text-foreground">📦 {ct.san_pham}</span>
                                                       <span className="text-muted-foreground font-medium">SL: {ct.so_luong || 1} — {formatCurrency(ct.gia_ban)}</span>
                                                    </div>
                                                 ))
                                              ) : (
-                                                <div className="flex items-center justify-between text-[13px]">
+                                                <div className="flex items-center justify-between text-[11px] sm:text-[13px]">
                                                    <span className="font-bold text-foreground">🛠️ {card.dich_vu?.ten_dich_vu || 'Dịch vụ lẻ'}</span>
                                                    <span className="text-muted-foreground font-medium">{formatCurrency(card.dich_vu?.gia_ban || 0)}</span>
                                                 </div>
@@ -222,14 +221,14 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
                                           </div>
                                        </div>
 
-                                       <div className="shrink-0 flex flex-col items-end justify-between border-l border-border pl-5 gap-3">
-                                          <div className="text-right">
-                                             <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Thanh toán</p>
-                                             <p className="text-lg font-black text-primary leading-none">{formatCurrency(cardTotal)}</p>
+                                       <div className="shrink-0 flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-between border-t sm:border-t-0 sm:border-l border-border pt-2 sm:pt-0 sm:pl-5 gap-2 sm:gap-3">
+                                          <div className="sm:text-right">
+                                             <p className="text-[9px] sm:text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-0.5">Thanh toán</p>
+                                             <p className="text-sm sm:text-lg font-black text-primary leading-none">{formatCurrency(cardTotal)}</p>
                                           </div>
-                                          <div className="text-right">
-                                             <p className="text-[10px] font-black text-muted-foreground uppercase mb-1">Phụ trách</p>
-                                             <div className="px-2 py-0.5 bg-accent rounded text-[11px] font-bold text-accent-foreground border border-border inline-block">
+                                          <div className="sm:text-right">
+                                             <p className="text-[9px] sm:text-[10px] font-black text-muted-foreground uppercase mb-0.5">Phụ trách</p>
+                                             <div className="px-1.5 py-0.5 bg-accent rounded text-[10px] sm:text-[11px] font-bold text-accent-foreground border border-border inline-block">
                                                 {card.nhan_su?.ho_ten || '—'}
                                              </div>
                                           </div>
@@ -288,24 +287,24 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
                )}
             </div>
 
-            <div className="px-8 py-5 border-t border-border bg-muted/10 flex items-center justify-between shrink-0 flex-wrap gap-4">
-               <div className="flex items-center gap-3">
+            <div className="px-4 py-3 sm:px-8 sm:py-5 border-t border-border bg-muted/10 flex items-center justify-between shrink-0 flex-wrap gap-2 sm:gap-4">
+               <div className="flex items-center gap-1.5 sm:gap-3">
                   <a 
                      href={`tel:${customer.so_dien_thoai}`}
-                     className="px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-black rounded-2xl flex items-center gap-2 transition-all active:scale-95 shadow-lg shadow-emerald-500/20"
+                     className="px-3 py-2 sm:px-6 sm:py-3 bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] sm:text-sm font-black rounded-xl sm:rounded-2xl flex items-center gap-1.5 transition-all active:scale-95 shadow-lg shadow-emerald-500/20"
                   >
-                     <Phone size={18} /> GỌI ĐIỆN
+                     <Phone size={14} className="sm:hidden" /><Phone size={18} className="hidden sm:block" /> GỌI ĐIỆN
                   </a>
                   <div className="relative">
                      <button 
                         onClick={handleShareZalo}
-                        className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white text-sm font-black rounded-2xl flex items-center gap-2 transition-all active:scale-95 shadow-lg shadow-blue-500/20"
+                        className="px-3 py-2 sm:px-6 sm:py-3 bg-blue-500 hover:bg-blue-600 text-white text-[11px] sm:text-sm font-black rounded-xl sm:rounded-2xl flex items-center gap-1.5 transition-all active:scale-95 shadow-lg shadow-blue-500/20"
                      >
-                        <MessageSquare size={18} /> GỬI ZALO
+                        <MessageSquare size={14} className="sm:hidden" /><MessageSquare size={18} className="hidden sm:block" /> GỬI ZALO
                      </button>
                      {copySuccess && (
                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1 bg-slate-800 text-white text-[10px] font-bold rounded-lg flex items-center gap-1.5 whitespace-nowrap animate-in fade-in slide-in-from-bottom-2 duration-300">
-                           <Check size={12} className="text-emerald-400" /> ĐÃ COPY NỘI DUNG!
+                           <Check size={12} className="text-emerald-400" /> ĐÃ COPY!
                         </div>
                      )}
                   </div>
@@ -316,7 +315,7 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
                      onClose();
                      navigate('/ban-hang/phieu-ban-hang', { state: { customerId: customer.id } });
                   }} 
-                  className="px-10 py-3 bg-primary hover:bg-primary/90 text-white text-sm font-black rounded-2xl border border-primary/20 transition-all active:scale-95 shadow-lg shadow-primary/20 uppercase tracking-widest"
+                  className="px-5 py-2 sm:px-10 sm:py-3 bg-primary hover:bg-primary/90 text-white text-[11px] sm:text-sm font-black rounded-xl sm:rounded-2xl border border-primary/20 transition-all active:scale-95 shadow-lg shadow-primary/20 uppercase tracking-widest"
                >
                   LÊN ĐƠN HÀNG
                </button>

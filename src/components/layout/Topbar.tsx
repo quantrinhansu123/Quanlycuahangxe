@@ -253,7 +253,7 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
         </button>
 
         {/* Unified Title & Switcher Container */}
-        <div className="flex items-center gap-1.5 min-w-0 overflow-x-hidden py-1">
+        <div className="flex items-center gap-1.5 min-w-0 overflow-x-auto no-scrollbar py-1">
           {/* Breadcrumbs for PC (Home > Module > Page) */}
           <div className={clsx(
             "items-center gap-1.5 shrink-0 text-[11px] sm:text-[13px] font-medium text-muted-foreground",

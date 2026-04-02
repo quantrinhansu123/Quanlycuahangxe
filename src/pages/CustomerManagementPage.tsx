@@ -304,35 +304,46 @@ const CustomerManagementPage: React.FC = () => {
     <div className="w-full flex-1 animate-in fade-in slide-in-from-bottom-4 duration-500 text-muted-foreground font-sans">
       <div className="space-y-4">
         {/* Toolbar */}
-        <div className="bg-card p-3 rounded-lg border border-border shadow-sm flex flex-wrap items-center gap-2 sm:gap-4 justify-between" ref={dropdownRef}>
-          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-            <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors">
-              <ArrowLeft size={18} /> Quay lại
+        <div className="bg-card p-2 rounded-xl border border-border shadow-sm flex flex-wrap items-center gap-1.5 sm:gap-4 justify-between" ref={dropdownRef}>
+          {/* Group 1: Navigation, Search, Filters, Add Button */}
+          <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap">
+            <button
+              onClick={() => navigate(-1)}
+              className="px-2 py-1 sm:px-4 sm:py-2 hover:bg-muted rounded-lg flex items-center gap-1.5 text-muted-foreground transition-all border border-transparent hover:border-border shrink-0"
+              title="Quay lại"
+            >
+              <ArrowLeft className="size-4 sm:size-5" />
+              <span className="font-medium text-[11px] sm:text-[14px]">Quay lại</span>
             </button>
-            <div className="relative w-[180px] sm:w-[250px]">
-              <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/60">
-                <Search className="size-4 sm:size-[18px]" />
-              </div>
+
+            <div className="relative group shrink-0">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 sm:size-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
               <input
+                type="text"
+                placeholder="Tìm khách..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-1.5 border border-border rounded text-[11px] sm:text-[13px] focus:ring-1 focus:ring-primary focus:border-primary placeholder-slate-400 outline-none"
-                placeholder="Tìm khách, SĐT, biển số..."
-                type="text"
+                className="pl-7 sm:pl-9 pr-3 sm:pr-4 py-1 sm:py-2 bg-muted/50 border-border rounded-lg text-[11px] sm:text-[13px] focus:ring-1 focus:ring-primary focus:border-primary transition-all w-[120px] sm:w-[220px] lg:w-[300px] outline-none"
               />
             </div>
 
-            <div className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-1 custom-scrollbar-hide">
+            <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
               {/* Dept Dropdown */}
-              <div className="relative shrink-0">
-                <button onClick={() => toggleDropdown('dept')} className="flex items-center gap-2 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground min-w-[140px] justify-between bg-card hover:bg-accent">
-                  <div className="flex items-center gap-2 shrink-0"><Building2 size={18} />Chi nhánh</div>
-                  <ChevronDown size={18} className="shrink-0" />
+              <div className="relative">
+                <button
+                  onClick={() => toggleDropdown('dept')}
+                  className="px-2 py-1 sm:px-3 sm:py-2 bg-muted/50 hover:bg-muted border border-border rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[14px] transition-all min-w-[90px] sm:min-w-[120px] justify-between"
+                >
+                  <div className="flex items-center gap-1 sm:gap-2 truncate">
+                    <Building2 className="size-3.5 sm:size-4 text-primary shrink-0" />
+                    <span className="truncate">{selectedDepts.length > 0 ? `CS (${selectedDepts.length})` : 'Chi nhánh'}</span>
+                  </div>
+                  <ChevronDown className={clsx("size-3.5 sm:size-4 transition-transform", openDropdown === 'dept' && "rotate-180")} />
                 </button>
                 {openDropdown === 'dept' && (
-                  <div className="absolute top-10 left-0 z-50 min-w-[200px] bg-card border border-border rounded shadow-lg overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                  <div className="absolute top-full left-0 z-50 mt-1 min-w-[200px] bg-card border border-border rounded-lg shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
                     <div className="px-3 py-2 bg-muted border-b border-border/50 flex items-center justify-between">
-                      <label className="flex items-center gap-2 font-bold text-primary text-[13px] cursor-pointer">
+                      <label className="flex items-center gap-2 font-bold text-primary text-[11px] cursor-pointer">
                         <input
                           type="checkbox"
                           checked={selectedDepts.length === deptOptions.length && deptOptions.length > 0}
@@ -340,17 +351,12 @@ const CustomerManagementPage: React.FC = () => {
                           className="rounded border-border text-primary size-4"
                         /> Chọn tất cả
                       </label>
-                      <button onClick={() => setSelectedDepts([])} className="text-[11px] text-destructive hover:underline font-medium">Xoá chọn</button>
+                      <button onClick={() => setSelectedDepts([])} className="text-[10px] text-destructive hover:underline font-medium">Xoá chọn</button>
                     </div>
-                    <ul className="py-1 text-[13px] text-muted-foreground max-h-[200px] overflow-y-auto">
+                    <ul className="py-1 text-[13px] text-muted-foreground max-h-[250px] overflow-y-auto custom-scrollbar">
                       {deptOptions.map(dept => (
-                        <li key={dept} className="px-3 py-2 hover:bg-accent cursor-pointer flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={selectedDepts.includes(dept)}
-                            onChange={() => handleFilterChange(setSelectedDepts, dept)}
-                            className="rounded border-border text-primary size-4"
-                          /> {dept}
+                        <li key={dept} className="px-3 py-2 hover:bg-accent cursor-pointer flex items-center gap-2" onClick={() => handleFilterChange(setSelectedDepts, dept)}>
+                          <input type="checkbox" checked={selectedDepts.includes(dept)} readOnly className="rounded border-border text-primary size-4" /> {dept}
                         </li>
                       ))}
                     </ul>
@@ -359,15 +365,21 @@ const CustomerManagementPage: React.FC = () => {
               </div>
 
               {/* Cycle Dropdown */}
-              <div className="relative shrink-0">
-                <button onClick={() => toggleDropdown('cycle')} className="flex items-center gap-2 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground min-w-[120px] justify-between bg-card hover:bg-accent">
-                  <div className="flex items-center gap-2 shrink-0"><History size={18} />Chu kỳ</div>
-                  <ChevronDown size={18} className="shrink-0" />
+              <div className="relative">
+                <button
+                  onClick={() => toggleDropdown('cycle')}
+                  className="px-2 py-1 sm:px-3 sm:py-2 bg-muted/50 hover:bg-muted border border-border rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[14px] transition-all min-w-[80px] sm:min-w-[110px] justify-between"
+                >
+                  <div className="flex items-center gap-1 sm:gap-2 truncate">
+                    <History className="size-3.5 sm:size-4 text-primary shrink-0" />
+                    <span className="truncate">{selectedCycles.length > 0 ? `CK (${selectedCycles.length})` : 'Chu kỳ'}</span>
+                  </div>
+                  <ChevronDown className={clsx("size-3.5 sm:size-4 transition-transform", openDropdown === 'cycle' && "rotate-180")} />
                 </button>
                 {openDropdown === 'cycle' && (
-                  <div className="absolute top-10 left-0 z-50 min-w-[160px] bg-card border border-border rounded shadow-lg overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                  <div className="absolute top-full left-0 mt-1 min-w-[180px] bg-card border border-border rounded-lg shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
                     <div className="px-3 py-2 bg-muted border-b border-border/50 flex items-center justify-between">
-                      <label className="flex items-center gap-2 font-bold text-primary text-[13px] cursor-pointer">
+                      <label className="flex items-center gap-2 font-bold text-primary text-[11px] cursor-pointer">
                         <input
                           type="checkbox"
                           checked={selectedCycles.length === cycleOptions.length}
@@ -375,17 +387,12 @@ const CustomerManagementPage: React.FC = () => {
                           className="rounded border-border text-primary size-4"
                         /> Chọn tất cả
                       </label>
-                      <button onClick={() => setSelectedCycles([])} className="text-[11px] text-destructive hover:underline font-medium">Xoá chọn</button>
+                      <button onClick={() => setSelectedCycles([])} className="text-[10px] text-destructive hover:underline font-medium">Xoá</button>
                     </div>
-                    <ul className="py-1 text-[13px] text-muted-foreground">
+                    <ul className="py-1 text-[12px] text-muted-foreground overflow-y-auto max-h-[200px]">
                       {cycleOptions.map(cycle => (
-                        <li key={cycle} className="px-3 py-2 hover:bg-accent cursor-pointer flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={selectedCycles.includes(cycle)}
-                            onChange={() => handleFilterChange(setSelectedCycles, cycle)}
-                            className="rounded border-border text-primary size-4"
-                          /> {cycle}
+                        <li key={cycle} className="px-3 py-1.5 hover:bg-accent cursor-pointer flex items-center gap-2" onClick={() => handleFilterChange(setSelectedCycles, cycle)}>
+                          <input type="checkbox" checked={selectedCycles.includes(cycle)} readOnly className="rounded border-border text-primary size-3.5" /> {cycle}
                         </li>
                       ))}
                     </ul>
@@ -393,88 +400,81 @@ const CustomerManagementPage: React.FC = () => {
                 )}
               </div>
 
+              {/* Add New Button (Next to Cycle) */}
               <button
                 onClick={() => handleOpenModal()}
-                className="bg-primary hover:bg-primary/90 text-white px-3 py-1 sm:px-5 sm:py-1.5 rounded flex items-center gap-1.5 text-[12px] sm:text-[14px] font-semibold transition-colors shrink-0 shadow-sm"
+                className="px-2.5 py-1 sm:px-5 sm:py-2 bg-primary hover:bg-primary/90 text-white rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[14px] font-bold transition-all shrink-0 shadow-lg shadow-primary/20"
               >
-                <Plus className="size-4 sm:size-5" /> Thêm mới
+                <Plus className="size-4 sm:size-5" />
+                <span>Thêm mới</span>
               </button>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap justify-end">
-            <div className="relative shrink-0">
+          {/* Group 2: Utilities (Columns, Delete, Download, Import) */}
+          <div className="flex items-center gap-1.5 flex-wrap justify-end">
+            <div className="relative">
               <button
                 onClick={() => toggleDropdown('columns')}
                 className={clsx(
-                  "p-1.5 border rounded transition-colors",
-                  openDropdown === 'columns' ? "bg-primary/10 border-primary text-primary" : "border-border text-muted-foreground hover:bg-accent"
+                  "p-1.5 sm:p-2 border rounded-lg transition-all shrink-0",
+                  openDropdown === 'columns' ? "bg-primary/10 border-primary text-primary" : "bg-muted/50 border-border text-muted-foreground hover:bg-muted"
                 )}
-                title="Cài đặt cột hiển thị"
+                title="Cài đặt cột"
               >
-                <List size={20} />
+                <List className="size-4 sm:size-5" />
               </button>
               {openDropdown === 'columns' && (
-                <div className="absolute top-10 right-0 z-50 min-w-[200px] bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                  <div className="px-4 py-2 bg-muted border-b border-border flex items-center justify-between">
-                    <span className="text-[12px] font-bold text-foreground">Cài đặt hiển thị cột</span>
+                <div className="absolute top-full right-0 mt-1 w-64 bg-card border border-border rounded-xl shadow-2xl z-50 p-3 animate-in fade-in zoom-in-95 duration-200">
+                  <div className="flex items-center justify-between mb-2 pb-2 border-b border-border">
+                    <span className="font-bold text-[14px]">Hiển thị cột</span>
                     <button onClick={() => setVisibleColumns(allColumns.map(c => c.id))} className="text-[10px] text-primary hover:underline">Hiện tất cả</button>
                   </div>
-                  <ul className="py-2 text-[13px] text-muted-foreground max-h-[300px] overflow-y-auto custom-scrollbar">
-                    {allColumns.map(col => (
-                      <li
-                        key={col.id}
-                        onClick={() => toggleColumn(col.id)}
-                        className="px-4 py-2 hover:bg-accent cursor-pointer flex items-center gap-3 transition-colors"
-                      >
-                        <div className={clsx(
-                          "w-4 h-4 rounded border flex items-center justify-center transition-colors",
-                          visibleColumns.includes(col.id) ? "bg-primary border-primary" : "border-border"
-                        )}>
-                          {visibleColumns.includes(col.id) && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                        </div>
-                        {col.label}
-                      </li>
+                  <div className="space-y-1 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
+                    {allColumns.map((col) => (
+                      <label key={col.id} className="flex items-center gap-3 p-2 hover:bg-muted rounded-lg cursor-pointer transition-colors group">
+                        <input
+                          type="checkbox"
+                          checked={visibleColumns.includes(col.id)}
+                          onChange={() => toggleColumn(col.id)}
+                          className="rounded border-border text-primary size-4"
+                        />
+                        <span className="text-[13px] font-medium group-hover:text-primary transition-colors">{col.label}</span>
+                      </label>
                     ))}
-                  </ul>
+                  </div>
                 </div>
               )}
             </div>
 
             <button
               onClick={handleDeleteAll}
-              className="flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 border border-destructive/20 rounded text-[11px] sm:text-[13px] text-destructive hover:bg-destructive/10 transition-colors font-medium bg-card shrink-0"
-              title="Xóa tất cả khách hàng"
+              className="px-2 py-1 sm:px-3 sm:py-2 bg-destructive/5 hover:bg-destructive/10 text-destructive border border-destructive/20 rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold transition-all shrink-0"
+              title="Xóa tất cả"
             >
-              <Trash2 className="size-4 sm:size-[18px]" />
+              <Trash2 className="size-4 sm:size-5" />
               <span>Xóa tất cả</span>
             </button>
 
             <button
               onClick={handleDownloadTemplate}
-              className="flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 border border-border rounded text-[11px] sm:text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium shrink-0"
+              className="px-2 py-1 sm:px-3 sm:py-2 bg-muted/50 hover:bg-muted border border-border rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold text-muted-foreground transition-all shrink-0"
               title="Tải mẫu Excel"
             >
-              <Download className="size-4 sm:size-[18px]" />
+              <Download className="size-4 sm:size-5" />
               <span>Tải mẫu</span>
             </button>
-
+            
             <div className="relative shrink-0">
               <button
                 onClick={() => document.getElementById('excel-import')?.click()}
-                className="flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-1.5 border border-border rounded text-[11px] sm:text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium"
-                title="Nhập khách hàng từ file Excel"
+                className="px-2 py-1 sm:px-3 sm:py-2 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold transition-all shrink-0"
+                title="Nhập dữ liệu Excel"
               >
-                <Upload className="size-4 sm:size-[18px]" />
+                <Upload className="size-4 sm:size-5" />
                 <span>Nhập Excel</span>
               </button>
-              <input
-                id="excel-import"
-                type="file"
-                accept=".xlsx, .xls"
-                className="hidden"
-                onChange={handleImportExcel}
-              />
+              <input id="excel-import" type="file" accept=".xlsx, .xls" className="hidden" onChange={handleImportExcel} />
             </div>
           </div>
         </div>
@@ -504,82 +504,82 @@ const CustomerManagementPage: React.FC = () => {
               };
 
               return (
-                <div key={customer.id} className="bg-card p-4 rounded-xl border border-border shadow-sm space-y-4 relative group hover:border-primary/30 transition-all">
+                <div key={customer.id} className="bg-card p-3 rounded-xl border border-border shadow-sm space-y-2.5 relative group hover:border-primary/30 transition-all">
                   {/* Row 1: Identity & Status */}
                   <div className="flex items-center justify-between border-b border-border/50 pb-2">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary overflow-hidden border border-border shadow-sm">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary overflow-hidden border border-border shadow-sm">
                         {customer.anh ? (
                           <img src={customer.anh} alt="" className="w-full h-full object-cover" />
                         ) : (
-                          <User size={20} />
+                          <User size={16} />
                         )}
                       </div>
                       <div className="flex flex-col">
-                        <button onClick={() => handleOpenDetails(customer)} className="text-[15px] font-black text-foreground hover:text-primary transition-colors text-left leading-tight">
+                        <button onClick={() => handleOpenDetails(customer)} className="text-[13px] font-black text-foreground hover:text-primary transition-colors text-left leading-tight">
                           {customer.ho_va_ten}
                         </button>
-                        <span className="text-[11px] font-mono text-muted-foreground uppercase opacity-60">
+                        <span className="text-[10px] font-mono text-muted-foreground uppercase opacity-60">
                           {customer.ma_khach_hang || customer.id.slice(0, 8)}
                         </span>
                       </div>
                     </div>
                     {isDue && (
-                      <span className="px-2 py-1 bg-red-100 text-red-600 rounded-full text-[10px] font-black animate-pulse flex items-center gap-1">
-                        ⚠️ CẦN THAY DẦU
+                      <span className="px-1.5 py-0.5 bg-red-100 text-red-600 rounded-full text-[9px] font-black animate-pulse flex items-center gap-1">
+                        ⚠️ THAY DẦU
                       </span>
                     )}
                   </div>
 
                   {/* Row 2: Contact */}
-                  <div className="flex items-center gap-2 text-[14px] text-muted-foreground font-medium">
-                    <span className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500">📱</span>
+                  <div className="flex items-center gap-2 text-[12px] text-muted-foreground font-medium">
+                    <span className="text-slate-400">📱</span>
                     {customer.so_dien_thoai || 'Chưa cập nhật'}
                   </div>
 
-                  {/* Row 3: Vehicle Specs (Plate / KM / Cycle) */}
-                  <div className="bg-muted/40 p-3 rounded-lg border border-border/40 grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <div className="text-[10px] uppercase font-bold text-muted-foreground/60">Biển số xe</div>
+                  {/* Row 3: Vehicle Specs */}
+                  <div className="bg-muted/40 p-2 rounded-lg border border-border/40 grid grid-cols-2 gap-2">
+                    <div>
+                      <div className="text-[9px] uppercase font-bold text-muted-foreground/60 mb-0.5">Biển số xe</div>
                       <span className={clsx(
-                        "px-2 py-1 rounded text-[12px] font-black border block w-fit",
+                        "px-1.5 py-0.5 rounded text-[10px] font-black border block w-fit",
                         customer.bien_so_xe === 'Xe Chưa Biển' ? "bg-amber-50 text-amber-600 border-amber-100" : "bg-blue-50 text-blue-600 border-blue-100 uppercase"
                       )}>
                         {customer.bien_so_xe}
                       </span>
                     </div>
-                    <div className="space-y-1">
-                      <div className="text-[10px] uppercase font-bold text-muted-foreground/60">Quãng đường</div>
-                      <div className="text-[14px] font-bold text-foreground">
-                        {customer.so_km?.toLocaleString()} <span className="text-[10px] font-normal opacity-60">Km</span>
+                    <div>
+                      <div className="text-[9px] uppercase font-bold text-muted-foreground/60 mb-0.5">Quãng đường</div>
+                      <div className="text-[12px] font-bold text-foreground">
+                        {customer.so_km?.toLocaleString()} <span className="text-[9px] font-normal opacity-60">Km</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Row 4: Timeline */}
-                  <div className="grid grid-cols-2 gap-2 text-[12px]">
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-muted-foreground/60 text-[10px] uppercase font-bold">Ngày đăng ký:</span>
+                  <div className="grid grid-cols-2 gap-2 text-[11px]">
+                    <div>
+                      <span className="text-muted-foreground/60 text-[9px] uppercase font-bold">Ngày ĐK: </span>
                       <span className="font-medium">{formatDateMobile(customer.ngay_dang_ky)}</span>
                     </div>
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-muted-foreground/60 text-[10px] uppercase font-bold">Lần thay dầu tới:</span>
+                    <div>
+                      <span className="text-muted-foreground/60 text-[9px] uppercase font-bold">Thay dầu: </span>
                       <span className={clsx("font-black", isDue ? "text-red-600" : "text-primary")}>
                         {formatDateMobile(customer.ngay_thay_dau)}
                       </span>
                     </div>
                   </div>
 
-                  {/* Actions for Mobile Card */}
-                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/30 overflow-x-auto no-scrollbar">
-                    <button onClick={() => handleOpenDetails(customer)} className="flex items-center gap-1.5 px-3 py-1.5 text-blue-600 hover:bg-blue-50 rounded-lg text-[12px] font-bold border border-blue-100 transition-colors shrink-0">
-                      <List size={14} /> Chi tiết
+                  {/* Actions */}
+                  <div className="flex items-center justify-end gap-1.5 pt-1.5 border-t border-border/30">
+                    <button onClick={() => handleOpenDetails(customer)} className="flex items-center gap-1 px-2 py-1 text-blue-600 hover:bg-blue-50 rounded-lg text-[11px] font-bold border border-blue-100 transition-colors shrink-0">
+                      <List size={12} /> Chi tiết
                     </button>
-                    <button onClick={() => handleOpenModal(customer)} className="flex items-center gap-1.5 px-3 py-1.5 text-primary hover:bg-primary/10 rounded-lg text-[12px] font-bold border border-primary/20 transition-colors shrink-0">
-                      <Edit2 size={14} /> Sửa
+                    <button onClick={() => handleOpenModal(customer)} className="flex items-center gap-1 px-2 py-1 text-primary hover:bg-primary/10 rounded-lg text-[11px] font-bold border border-primary/20 transition-colors shrink-0">
+                      <Edit2 size={12} /> Sửa
                     </button>
-                    <button onClick={() => handleDelete(customer.id)} className="flex items-center gap-1.5 px-3 py-1.5 text-destructive hover:bg-destructive/10 rounded-lg text-[12px] font-bold border border-destructive/20 transition-colors shrink-0">
-                      <Trash2 size={14} /> Xóa
+                    <button onClick={() => handleDelete(customer.id)} className="flex items-center gap-1 px-2 py-1 text-destructive hover:bg-destructive/10 rounded-lg text-[11px] font-bold border border-destructive/20 transition-colors shrink-0">
+                      <Trash2 size={12} /> Xóa
                     </button>
                   </div>
                 </div>
@@ -597,22 +597,22 @@ const CustomerManagementPage: React.FC = () => {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-muted border-b border-border text-muted-foreground text-[10px] font-bold uppercase tracking-tighter">
-                  <th className="px-2 py-1 w-6 text-center"><input className="rounded border-border text-primary size-3" type="checkbox" /></th>
-                  {visibleColumns.includes('ma_khach_hang') && <th className="px-2 py-1 font-semibold">Mã</th>}
-                  {visibleColumns.includes('anh') && <th className="px-2 py-1 font-semibold">Ảnh</th>}
-                  {visibleColumns.includes('ho_va_ten') && <th className="px-2 py-1 font-semibold">Họ tên</th>}
-                  {visibleColumns.includes('so_dien_thoai') && <th className="px-2 py-1 font-semibold">SĐT</th>}
-                  {visibleColumns.includes('dia_chi_hien_tai') && <th className="px-2 py-1 font-semibold">Địa chỉ</th>}
-                  {visibleColumns.includes('bien_so_xe') && <th className="px-2 py-1 font-semibold">Biển</th>}
-                  {visibleColumns.includes('ngay_dang_ky') && <th className="px-2 py-1 font-semibold">Ngày ĐK</th>}
-                  {visibleColumns.includes('so_km') && <th className="px-2 py-1 font-semibold">KM</th>}
-                  {visibleColumns.includes('so_ngay_thay_dau') && <th className="px-2 py-1 font-semibold">CK</th>}
-                  {visibleColumns.includes('ngay_thay_dau') && <th className="px-2 py-1 font-semibold">Lần tới</th>}
-                  {visibleColumns.includes('actions') && <th className="px-2 py-1 text-center font-semibold">Lệnh</th>}
+                <tr className="bg-muted border-b border-border text-muted-foreground text-[13px] font-bold uppercase tracking-tight">
+                  <th className="px-4 py-3 w-8 text-center"><input className="rounded border-border text-primary size-4" type="checkbox" /></th>
+                  {visibleColumns.includes('ma_khach_hang') && <th className="px-4 py-3 font-semibold">Mã KH</th>}
+                  {visibleColumns.includes('anh') && <th className="px-4 py-3 font-semibold text-center">Ảnh</th>}
+                  {visibleColumns.includes('ho_va_ten') && <th className="px-4 py-3 font-semibold">Họ tên khách hàng</th>}
+                  {visibleColumns.includes('so_dien_thoai') && <th className="px-4 py-3 font-semibold">Số điện thoại</th>}
+                  {visibleColumns.includes('dia_chi_hien_tai') && <th className="px-4 py-3 font-semibold">Địa chỉ</th>}
+                  {visibleColumns.includes('bien_so_xe') && <th className="px-4 py-3 font-semibold">Biển số</th>}
+                  {visibleColumns.includes('ngay_dang_ky') && <th className="px-4 py-3 font-semibold">Ngày ĐK</th>}
+                  {visibleColumns.includes('so_km') && <th className="px-4 py-3 font-semibold text-right">Số KM</th>}
+                  {visibleColumns.includes('so_ngay_thay_dau') && <th className="px-4 py-3 font-semibold text-center">Chu kỳ</th>}
+                  {visibleColumns.includes('ngay_thay_dau') && <th className="px-4 py-3 font-semibold">Ngày thay dầu</th>}
+                  {visibleColumns.includes('actions') && <th className="px-4 py-3 text-center font-semibold">Thao tác</th>}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-[13px]">
+              <tbody className="divide-y divide-slate-100 text-[14px]">
                 {loading ? (
                   Array.from({ length: pageSize }).map((_, i) => (
                     <SkeletonRow key={i} visibleColumns={visibleColumns} />
@@ -687,67 +687,67 @@ const CustomerTableRow: React.FC<{
   };
 
   return (
-    <tr className="hover:bg-muted/80 transition-colors border-b border-slate-50 last:border-0 h-8">
-      <td className="px-2 py-1 text-center"><input className="rounded border-border text-primary size-3" type="checkbox" /></td>
-      {visibleColumns.includes('ma_khach_hang') && <td className="px-2 py-1 font-mono text-[9px] text-muted-foreground/50 uppercase">{customer.ma_khach_hang || customer.id.slice(0, 6)}</td>}
+    <tr className="hover:bg-muted/80 transition-colors border-b border-slate-50 last:border-0 grow">
+      <td className="px-4 py-3 text-center"><input className="rounded border-border text-primary size-4" type="checkbox" /></td>
+      {visibleColumns.includes('ma_khach_hang') && <td className="px-4 py-3 font-mono text-[12px] text-muted-foreground uppercase">{customer.ma_khach_hang || customer.id.slice(0, 8)}</td>}
       {visibleColumns.includes('anh') && (
-        <td className="px-2 py-1">
-          <div className="w-6 h-6 rounded bg-primary/10 flex items-center justify-center text-primary overflow-hidden border border-border shadow-sm">
+        <td className="px-4 py-3">
+          <div className="w-8 h-8 rounded bg-primary/10 flex items-center justify-center text-primary overflow-hidden border border-border shadow-sm mx-auto">
             {customer.anh ? (
               <img src={customer.anh} alt="" className="w-full h-full object-cover border-none" loading="lazy" />
             ) : (
-              <User size={12} />
+              <User size={18} />
             )}
           </div>
         </td>
       )}
       {visibleColumns.includes('ho_va_ten') && (
-        <td className="px-2 py-1 font-bold text-foreground whitespace-nowrap text-[11px]">
+        <td className="px-4 py-3 font-bold text-foreground whitespace-nowrap text-[14px]">
           <button onClick={() => onOpenDetails(customer)} className="text-primary hover:underline transition-all text-left">
             {customer.ho_va_ten}
           </button>
         </td>
       )}
-      {visibleColumns.includes('so_dien_thoai') && <td className="px-2 py-1 text-muted-foreground/80 whitespace-nowrap text-[11px] tabular-nums">{customer.so_dien_thoai}</td>}
+      {visibleColumns.includes('so_dien_thoai') && <td className="px-4 py-3 text-muted-foreground whitespace-nowrap text-[14px] tabular-nums">{customer.so_dien_thoai}</td>}
       {visibleColumns.includes('dia_chi_hien_tai') && (
-        <td className="px-2 py-1 text-muted-foreground/70 text-[10px] truncate max-w-[120px]" title={customer.dia_chi_hien_tai}>
+        <td className="px-4 py-3 text-muted-foreground text-[13px] truncate max-w-[200px]" title={customer.dia_chi_hien_tai}>
           {customer.dia_chi_hien_tai || '—'}
         </td>
       )}
       {visibleColumns.includes('bien_so_xe') && (
-        <td className="px-2 py-1">
+        <td className="px-4 py-3">
           <span className={clsx(
-            "px-1 py-0 rounded text-[9px] font-black border tracking-tighter",
+            "px-2 py-1 rounded text-[12px] font-black border tracking-wider",
             customer.bien_so_xe === 'Xe Chưa Biển' ? "bg-amber-50 text-amber-600 border-amber-100" : "bg-blue-50 text-blue-600 border-blue-100 uppercase"
           )}>
             {customer.bien_so_xe}
           </span>
         </td>
       )}
-      {visibleColumns.includes('ngay_dang_ky') && <td className="px-2 py-1 text-muted-foreground/60 whitespace-nowrap text-[10px]">{formatDate(customer.ngay_dang_ky)}</td>}
+      {visibleColumns.includes('ngay_dang_ky') && <td className="px-4 py-3 text-muted-foreground whitespace-nowrap text-[13px]">{formatDate(customer.ngay_dang_ky)}</td>}
       {visibleColumns.includes('so_km') && (
-        <td className="px-2 py-1 font-bold text-foreground text-[11px] tabular-nums">
-          {customer.so_km?.toLocaleString()} <span className="font-normal text-muted-foreground/50 text-[9px]">Km</span>
+        <td className="px-4 py-3 font-bold text-foreground text-[14px] tabular-nums text-right">
+          {customer.so_km?.toLocaleString()} <span className="font-normal text-muted-foreground text-[10px]">Km</span>
         </td>
       )}
-      {visibleColumns.includes('so_ngay_thay_dau') && <td className="px-2 py-1 text-center text-muted-foreground/60 text-[11px]">{customer.so_ngay_thay_dau}</td>}
+      {visibleColumns.includes('so_ngay_thay_dau') && <td className="px-4 py-3 text-center text-muted-foreground text-[13px]">{customer.so_ngay_thay_dau} ngày</td>}
       {visibleColumns.includes('ngay_thay_dau') && (
-        <td className="px-2 py-1">
+        <td className="px-4 py-3">
           <div className="flex items-center gap-1">
-            <span className={clsx("font-bold text-[11px] tabular-nums", isCầnThayDầu ? "text-red-500" : "text-muted-foreground/80")}>
+            <span className={clsx("font-bold text-[14px] tabular-nums", isCầnThayDầu ? "text-red-500 font-black" : "text-primary")}>
               {formatDate(customer.ngay_thay_dau)}
             </span>
           </div>
         </td>
       )}
       {visibleColumns.includes('actions') && (
-        <td className="px-2 py-1">
+        <td className="px-4 py-3">
           <div className="flex items-center justify-center gap-2">
-            <button onClick={(e) => { e.preventDefault(); onEdit(customer); }} className="text-primary" title="Sửa">
-              <Edit2 size={14} />
+            <button onClick={(e) => { e.preventDefault(); onEdit(customer); }} className="p-2 text-primary hover:bg-primary/5 rounded transition-colors" title="Sửa">
+              <Edit2 size={18} />
             </button>
-            <button onClick={(e) => { e.preventDefault(); onDelete(customer.id); }} className="text-destructive" title="Xóa">
-              <Trash2 size={14} />
+            <button onClick={(e) => { e.preventDefault(); onDelete(customer.id); }} className="p-2 text-destructive hover:bg-destructive/5 rounded transition-colors" title="Xóa">
+              <Trash2 size={18} />
             </button>
           </div>
         </td>

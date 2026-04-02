@@ -448,24 +448,24 @@ const InventoryManagementPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <button 
                 onClick={handleDownloadTemplate}
-                className="flex items-center gap-2 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
+                className="flex items-center gap-2 px-2 sm:px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
                 title="Tải mẫu Excel"
               >
                 <Download size={18} />
-                <span>Tải mẫu</span>
+                <span className="hidden sm:inline">Tải mẫu</span>
               </button>
               <div className="relative">
                 <button 
                   onClick={() => document.getElementById('excel-import')?.click()}
-                  className="flex items-center gap-2 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
+                  className="flex items-center gap-2 px-2 sm:px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
                   title="Nhập kho từ Excel"
                 >
                   <Upload size={18} />
-                  <span>Nhập Excel</span>
+                  <span className="hidden sm:inline">Nhập Excel</span>
                 </button>
                 <input 
                   id="excel-import"
@@ -516,7 +516,7 @@ const InventoryManagementPage: React.FC = () => {
             </div>
             <button
               onClick={handleDeleteAll}
-              className="px-3 py-1.5 border border-red-200 rounded text-[13px] text-red-600 hover:bg-red-50 transition-colors font-medium bg-white flex items-center gap-2"
+              className="hidden sm:flex px-3 py-1.5 border border-red-200 rounded text-[13px] text-red-600 hover:bg-red-50 transition-colors font-medium bg-white items-center gap-2"
               title="Xóa toàn bộ dữ liệu"
             >
               <Trash2 size={18} />
@@ -524,16 +524,17 @@ const InventoryManagementPage: React.FC = () => {
             </button>
             <button 
               onClick={() => handleOpenModal()}
-              className="bg-primary hover:bg-primary/90 text-white px-5 py-1.5 rounded flex items-center gap-2 text-[14px] font-semibold transition-colors"
+              className="bg-primary hover:bg-primary/90 text-white px-3 sm:px-5 py-1.5 rounded flex items-center gap-2 text-[13px] sm:text-[14px] font-semibold transition-colors"
             >
-              <Plus size={20} /> Thêm mới
+              <Plus size={20} /> <span className="hidden sm:inline">Thêm mới</span>
             </button>
           </div>
         </div>
 
         {/* Data Table */}
         <div className="bg-card rounded-lg border border-border shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
+          {/* Desktop Table */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-muted border-b border-border text-muted-foreground text-[12px] font-bold uppercase tracking-wider">
@@ -560,123 +561,105 @@ const InventoryManagementPage: React.FC = () => {
                        Đang tải dữ liệu...
                      </td>
                    </tr>
-                ) : records.map((record: InventoryRecord) => {
-                  return (
+                ) : records.map((record: InventoryRecord) => (
                     <tr key={record.id} className="hover:bg-muted/80 transition-colors">
                       <td className="px-4 py-4 text-center"><input className="rounded border-border text-primary size-4" type="checkbox" /></td>
-                      {visibleColumns.includes('id') && (
-                        <td className="px-4 py-4 font-mono text-[10px] text-muted-foreground max-w-[80px] truncate" title={record.id}>
-                          {record.id}
-                        </td>
-                      )}
+                      {visibleColumns.includes('id') && <td className="px-4 py-4 font-mono text-[10px] text-muted-foreground max-w-[80px] truncate" title={record.id}>{record.id}</td>}
                       {visibleColumns.includes('loai_phieu') && (
                         <td className="px-4 py-4 text-center">
-                          <span className={clsx(
-                            "px-2 py-0.5 rounded text-[11px] font-bold border whitespace-nowrap",
-                            record.loai_phieu === 'Nhập kho' 
-                              ? "bg-teal-50 text-teal-600 border-teal-100 uppercase" 
-                              : "bg-orange-50 text-orange-600 border-orange-100 uppercase"
-                          )}>
-                            {record.loai_phieu}
-                          </span>
+                          <span className={clsx("px-2 py-0.5 rounded text-[11px] font-bold border whitespace-nowrap", record.loai_phieu === 'Nhập kho' ? "bg-teal-50 text-teal-600 border-teal-100 uppercase" : "bg-orange-50 text-orange-600 border-orange-100 uppercase")}>{record.loai_phieu}</span>
                         </td>
                       )}
-                      
-                      {visibleColumns.includes('id_don_hang') && (
-                        <td className="px-4 py-4 text-foreground whitespace-nowrap">
-                          {record.id_don_hang || '—'}
-                        </td>
-                      )}
-
-                      {visibleColumns.includes('ten_mat_hang') && (
-                        <td className="px-4 py-4 font-semibold text-foreground whitespace-nowrap">
-                          {record.ten_mat_hang}
-                        </td>
-                      )}
-
-                      {visibleColumns.includes('co_so') && (
-                        <td className="px-4 py-4 text-muted-foreground text-[12px] truncate max-w-[150px]" title={record.co_so}>
-                          {record.co_so || '—'}
-                        </td>
-                      )}
-
-                      {visibleColumns.includes('so_luong') && (
-                        <td className="px-4 py-4 font-bold text-foreground text-right">
-                          {formatNumber(record.so_luong)}
-                        </td>
-                      )}
-
-                      {visibleColumns.includes('gia') && (
-                        <td className="px-4 py-4 font-medium text-foreground text-right">
-                          {formatNumber(record.gia)} <span className="text-[10px] text-muted-foreground font-normal">VNĐ</span>
-                        </td>
-                      )}
-
-                      {visibleColumns.includes('tong_tien') && (
-                        <td className="px-4 py-4 font-bold text-primary text-right whitespace-nowrap">
-                          {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(record.tong_tien)}
-                        </td>
-                      )}
-
-                      {visibleColumns.includes('ngay') && (
-                        <td className="px-4 py-4 text-muted-foreground whitespace-nowrap">
-                          {formatDateForDisplay(record.ngay)}
-                        </td>
-                      )}
-                      
-                      {visibleColumns.includes('gio') && (
-                        <td className="px-4 py-4 text-muted-foreground whitespace-nowrap">
-                          {record.gio || '—'}
-                        </td>
-                      )}
-
-                      {visibleColumns.includes('nguoi_thuc_hien') && (
-                        <td className="px-4 py-4 text-muted-foreground whitespace-nowrap">
-                          {record.nguoi_thuc_hien || '—'}
-                        </td>
-                      )}
-
+                      {visibleColumns.includes('id_don_hang') && <td className="px-4 py-4 text-foreground whitespace-nowrap">{record.id_don_hang || '—'}</td>}
+                      {visibleColumns.includes('ten_mat_hang') && <td className="px-4 py-4 font-semibold text-foreground whitespace-nowrap">{record.ten_mat_hang}</td>}
+                      {visibleColumns.includes('co_so') && <td className="px-4 py-4 text-muted-foreground text-[12px] truncate max-w-[150px]" title={record.co_so}>{record.co_so || '—'}</td>}
+                      {visibleColumns.includes('so_luong') && <td className="px-4 py-4 font-bold text-foreground text-right">{formatNumber(record.so_luong)}</td>}
+                      {visibleColumns.includes('gia') && <td className="px-4 py-4 font-medium text-foreground text-right">{formatNumber(record.gia)} <span className="text-[10px] text-muted-foreground font-normal">VNĐ</span></td>}
+                      {visibleColumns.includes('tong_tien') && <td className="px-4 py-4 font-bold text-primary text-right whitespace-nowrap">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(record.tong_tien)}</td>}
+                      {visibleColumns.includes('ngay') && <td className="px-4 py-4 text-muted-foreground whitespace-nowrap">{formatDateForDisplay(record.ngay)}</td>}
+                      {visibleColumns.includes('gio') && <td className="px-4 py-4 text-muted-foreground whitespace-nowrap">{record.gio || '—'}</td>}
+                      {visibleColumns.includes('nguoi_thuc_hien') && <td className="px-4 py-4 text-muted-foreground whitespace-nowrap">{record.nguoi_thuc_hien || '—'}</td>}
                       {visibleColumns.includes('actions') && (
                         <td className="px-4 py-4">
                           <div className="flex items-center justify-center gap-4">
-                            <button 
-                              type="button" 
-                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleOpenModal(record); }} 
-                              className="text-primary hover:text-blue-700 transition-colors"
-                              title="Sửa"
-                            >
-                              <Edit2 size={18} />
-                            </button>
-                            <button 
-                              type="button" 
-                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDelete(record.id); }} 
-                              className="text-destructive hover:text-destructive/80 transition-colors"
-                              title="Xóa"
-                            >
-                              <Trash2 size={18} />
-                            </button>
+                            <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleOpenModal(record); }} className="text-primary hover:text-blue-700 transition-colors" title="Sửa"><Edit2 size={18} /></button>
+                            <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDelete(record.id); }} className="text-destructive hover:text-destructive/80 transition-colors" title="Xóa"><Trash2 size={18} /></button>
                           </div>
                         </td>
                       )}
                     </tr>
-                  );
-                })}
+                ))}
                 {!loading && records.length === 0 && (
                   <tr>
-                    <td colSpan={13} className="px-4 py-8 text-center text-muted-foreground">
-                      Không tìm thấy dữ liệu nào khớp với điều kiện tìm kiếm.
-                    </td>
+                    <td colSpan={13} className="px-4 py-8 text-center text-muted-foreground">Không tìm thấy dữ liệu.</td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
-          <div className="px-4 py-3 bg-card border-t border-border flex flex-col sm:flex-row items-center justify-between gap-4 text-[12px]">
+
+          {/* Mobile Card List */}
+          <div className="md:hidden">
+            {loading ? (
+              <div className="px-4 py-12 text-center text-muted-foreground">
+                <Loader2 className="animate-spin inline-block mr-2" size={20} />
+                Đang tải dữ liệu...
+              </div>
+            ) : records.length === 0 ? (
+              <div className="px-4 py-8 text-center text-muted-foreground text-[13px]">Không tìm thấy dữ liệu.</div>
+            ) : (
+              <div className="divide-y divide-border">
+                {records.map(record => (
+                  <div key={record.id} className="p-4 flex items-start gap-3">
+                    <div className={clsx(
+                      "w-10 h-10 rounded-lg flex items-center justify-center shrink-0 border",
+                      record.loai_phieu === 'Nhập kho' ? "bg-teal-50 border-teal-100 text-teal-600" : "bg-orange-50 border-orange-100 text-orange-600"
+                    )}>
+                      <Package size={18} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-semibold text-foreground text-[14px] truncate">{record.ten_mat_hang}</span>
+                        <span className={clsx(
+                          "px-1.5 py-0.5 rounded text-[9px] font-bold uppercase shrink-0 ml-2 border",
+                          record.loai_phieu === 'Nhập kho' ? "bg-teal-50 text-teal-600 border-teal-100" : "bg-orange-50 text-orange-600 border-orange-100"
+                        )}>{record.loai_phieu}</span>
+                      </div>
+                      <div className="flex items-center gap-3 text-[11px] text-muted-foreground mb-1.5">
+                        {record.id_don_hang && <span>{record.id_don_hang}</span>}
+                        <span>{record.co_so}</span>
+                        <span>{formatDateForDisplay(record.ngay)}</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-[12px]">
+                        <div>
+                          <span className="text-muted-foreground">SL: </span>
+                          <span className="font-bold text-foreground">{formatNumber(record.so_luong)}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Giá: </span>
+                          <span className="font-medium text-foreground">{formatNumber(record.gia)}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="font-bold text-primary">{formatNumber(record.tong_tien)}đ</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-1 shrink-0 pt-0.5">
+                      <button type="button" onClick={(e) => { e.preventDefault(); handleOpenModal(record); }} className="p-1.5 rounded-lg text-primary hover:bg-primary/10"><Edit2 size={15} /></button>
+                      <button type="button" onClick={(e) => { e.preventDefault(); handleDelete(record.id); }} className="p-1.5 rounded-lg text-destructive hover:bg-red-50"><Trash2 size={15} /></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="px-4 py-3 bg-card border-t border-border flex flex-col sm:flex-row items-center justify-between gap-2 text-[12px]">
             <div className="flex items-center gap-1.5 text-muted-foreground">
               Hiển thị <span className="font-bold text-foreground">{records.length}</span> bản ghi (Trang {currentPage})
             </div>
             <div className="flex gap-4">
-               <span className="font-medium">Tổng tiền (trang này): <span className="font-bold text-primary">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(records.reduce((acc, curr) => acc + curr.tong_tien, 0))}</span></span>
+               <span className="font-medium">Tổng: <span className="font-bold text-primary">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(records.reduce((acc, curr) => acc + curr.tong_tien, 0))}</span></span>
             </div>
           </div>
           <Pagination 

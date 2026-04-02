@@ -326,24 +326,24 @@ const PersonnelManagementPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <button
                 onClick={handleDownloadTemplate}
-                className="flex items-center gap-2 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
+                className="flex items-center gap-2 px-2 sm:px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
                 title="Tải mẫu Excel"
               >
                 <Download size={18} />
-                <span>Tải mẫu</span>
+                <span className="hidden sm:inline">Tải mẫu</span>
               </button>
               <div className="relative">
                 <button
                   onClick={() => document.getElementById('excel-import')?.click()}
-                  className="flex items-center gap-2 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
+                  className="flex items-center gap-2 px-2 sm:px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
                   title="Nhập nhân sự từ Excel"
                 >
                   <Upload size={18} />
-                  <span>Nhập Excel</span>
+                  <span className="hidden sm:inline">Nhập Excel</span>
                 </button>
                 <input
                   id="excel-import"
@@ -357,16 +357,17 @@ const PersonnelManagementPage: React.FC = () => {
 
             <button
               onClick={() => handleOpenModal()}
-              className="bg-primary hover:bg-primary/90 text-white px-5 py-1.5 rounded flex items-center gap-2 text-[14px] font-semibold transition-colors"
+              className="bg-primary hover:bg-primary/90 text-white px-3 sm:px-5 py-1.5 rounded flex items-center gap-2 text-[13px] sm:text-[14px] font-semibold transition-colors"
             >
-              <Plus size={20} /> Thêm mới
+              <Plus size={20} /> <span className="hidden sm:inline">Thêm mới</span>
             </button>
           </div>
         </div>
 
-        {/* Data Table */}
+        {/* Data Table - Desktop */}
         <div className="bg-card rounded-lg border border-border shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
+          {/* Desktop Table */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-muted border-b border-border text-muted-foreground text-[12px] font-bold uppercase tracking-wider">
@@ -427,6 +428,57 @@ const PersonnelManagementPage: React.FC = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Card List */}
+          <div className="md:hidden">
+            {loading ? (
+              <div className="px-4 py-12 text-center text-muted-foreground">
+                <Loader2 className="animate-spin inline-block mr-2" size={20} />
+                Đang tải dữ liệu...
+              </div>
+            ) : personnel.length === 0 ? (
+              <div className="px-4 py-8 text-center text-muted-foreground text-[13px]">Không có dữ liệu nhân sự.</div>
+            ) : (
+              <div className="divide-y divide-border">
+                {personnel.map(person => (
+                  <div key={person.id} className="p-4 flex items-start gap-3 hover:bg-muted/50 transition-colors">
+                    {/* Avatar */}
+                    <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center text-primary overflow-hidden border border-border shadow-sm shrink-0">
+                      {person.hinh_anh ? (
+                        <img src={person.hinh_anh} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <User size={20} />
+                      )}
+                    </div>
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-semibold text-foreground text-[14px] truncate">{person.ho_ten}</span>
+                        <span className={clsx(
+                          "px-1.5 py-0.5 rounded text-[10px] font-bold shrink-0",
+                          person.vi_tri === 'quản lý' ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
+                        )}>
+                          {person.vi_tri}
+                        </span>
+                      </div>
+                      {person.email && <p className="text-[12px] text-muted-foreground truncate">{person.email}</p>}
+                      <div className="flex items-center gap-3 mt-1 text-[12px] text-muted-foreground">
+                        {person.sdt && <span>{person.sdt}</span>}
+                        <span className="text-[11px] opacity-70">{person.co_so}</span>
+                      </div>
+                    </div>
+                    {/* Actions */}
+                    <div className="flex items-center gap-2 shrink-0 pt-1">
+                      <button onClick={() => { setSelectedStatsPerson({ id: person.id, ho_ten: person.ho_ten }); setIsStatsModalOpen(true); }} className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 transition-colors" title="Xem thống kê"><Eye size={16} /></button>
+                      <button onClick={() => handleOpenModal(person)} className="p-1.5 rounded-lg text-primary hover:bg-primary/10 transition-colors" title="Sửa"><Edit2 size={16} /></button>
+                      <button onClick={() => handleDelete(person.id)} className="p-1.5 rounded-lg text-destructive hover:bg-red-50 transition-colors" title="Xóa"><Trash2 size={16} /></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <Pagination 
             currentPage={currentPage}
             pageSize={pageSize}

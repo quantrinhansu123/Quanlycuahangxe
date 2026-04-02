@@ -118,20 +118,20 @@ const FinancialCharts: React.FC<FinancialChartsProps> = ({ transactions }) => {
   return (
     <div className="space-y-6 pb-12 animate-in fade-in duration-700">
       {/* Top Banner Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPIItem title="Tổng Giao dịch" value={stats.count} icon={Activity} color="blue" subtitle="Tất cả thời gian" trend="+12" />
-        <KPIItem title="Tổng thu nhập" value={stats.income} icon={ArrowUpRight} color="emerald" unit="đ" subtitle="So với tháng trước" trend="+8%" />
-        <KPIItem title="Tổng chi phí" value={stats.expense} icon={ArrowDownRight} color="rose" unit="đ" subtitle="Trong hạn mức" trend="-2%" />
-        <KPIItem title="Số dư thực tế" value={stats.balance} icon={DollarSign} color="amber" unit="đ" subtitle="Khả dụng tại quầy" />
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3">
+        <KPIItem title="Giao dịch" value={stats.count} icon={Activity} color="blue" subtitle="Tất cả" />
+        <KPIItem title="Thu nhập" value={stats.income} icon={ArrowUpRight} color="emerald" unit="đ" />
+        <KPIItem title="Chi phí" value={stats.expense} icon={ArrowDownRight} color="rose" unit="đ" />
+        <KPIItem title="Số dư" value={stats.balance} icon={DollarSign} color="amber" unit="đ" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
         {/* Spline Line Chart (Biến động tài chính) */}
         <div className="bg-card p-6 rounded-2xl border border-border shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-2">
             <div>
-              <h3 className="text-base font-black text-black tracking-tight">Biến động tài chính</h3>
-              <p className="text-[12px] text-black font-medium">Thống kê thu nhập và chi phí năm 2024</p>
+              <h3 className="text-sm font-black text-black tracking-tight uppercase">Biến động tài chính</h3>
+              <p className="text-[10px] text-black font-medium opacity-60">Thu nhập & Chi phí 2024</p>
             </div>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
@@ -144,7 +144,7 @@ const FinancialCharts: React.FC<FinancialChartsProps> = ({ transactions }) => {
               </div>
             </div>
           </div>
-          <div className="h-[300px] w-full">
+          <div className="h-[220px] md:h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={timeSeriesData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -187,10 +187,10 @@ const FinancialCharts: React.FC<FinancialChartsProps> = ({ transactions }) => {
 
         {/* Bar Chart (Cơ sở) */}
         <div className="bg-card p-6 rounded-2xl border border-border shadow-sm hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-2">
             <div>
-              <h3 className="text-base font-black text-black tracking-tight">Cơ cấu Thu - Chi theo Chi nhánh</h3>
-              <p className="text-[12px] text-black font-medium">So sánh hiệu quả hoạt động giữa các cơ sở</p>
+              <h3 className="text-sm font-black text-black tracking-tight uppercase">Cơ cấu Thu - Chi</h3>
+              <p className="text-[10px] text-black font-medium opacity-60">So sánh giữa các chi nhánh</p>
             </div>
             <select className="bg-muted/30 border border-border px-3 py-1.5 rounded-lg text-xs font-bold focus:ring-1 focus:ring-primary outline-none text-black">
               <option>Tháng này</option>
@@ -224,14 +224,14 @@ const FinancialCharts: React.FC<FinancialChartsProps> = ({ transactions }) => {
         
         {/* Doughnut Chart (Cơ cấu chi phí) - Expanded to Full Width */}
         <div className="bg-card p-6 rounded-2xl border border-border shadow-sm hover:shadow-md transition-shadow lg:col-span-2">
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-base font-black text-black tracking-tight">Cơ cấu danh mục Chi phí</h3>
-              <p className="text-[12px] text-black font-medium">Phân bổ nguồn vốn theo danh mục đầu tư</p>
+              <h3 className="text-sm font-black text-black tracking-tight uppercase">Danh mục Chi phí</h3>
+              <p className="text-[10px] text-black font-medium opacity-60">Phân bổ nguồn vốn đầu tư</p>
             </div>
           </div>
-          <div className="flex flex-col md:flex-row items-center gap-12">
-            <div className="relative w-[260px] h-[260px] flex items-center justify-center shrink-0">
+          <div className="flex flex-col md:flex-row items-center gap-6">
+            <div className="relative w-[200px] h-[200px] md:w-[260px] md:h-[260px] flex items-center justify-center shrink-0">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -251,21 +251,21 @@ const FinancialCharts: React.FC<FinancialChartsProps> = ({ transactions }) => {
                 </PieChart>
               </ResponsiveContainer>
               <div className="absolute flex flex-col items-center pointer-events-none">
-                <span className="text-[14px] text-black uppercase tracking-widest font-bold">Tổng chi</span>
-                <span className="text-3xl font-black text-black">{formatCurrency(categoryData.total)}</span>
+                <span className="text-[10px] text-black uppercase tracking-widest font-bold opacity-40">Tổng chi</span>
+                <span className="text-xl md:text-3xl font-black text-black">{formatCurrency(categoryData.total)}</span>
               </div>
             </div>
             
             <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
               {categoryData.data.map((item, idx) => (
-                <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-muted/20 border border-border/50 group">
-                  <div className="flex items-center gap-3">
-                    <div className="w-1.5 h-6 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></div>
-                    <span className="text-[14px] font-bold text-black group-hover:text-primary transition-colors truncate">{item.name}</span>
+                <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-muted/20 border border-border/50 group">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1 h-4 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></div>
+                    <span className="text-[12px] font-bold text-black group-hover:text-primary transition-colors truncate">{item.name}</span>
                   </div>
-                  <div className="flex flex-col items-end">
-                    <span className="text-[14px] font-black text-black">{formatCurrency(item.value)}</span>
-                    <span className="text-[11px] font-bold text-black">({((item.value / categoryData.total) * 100).toFixed(1)}%)</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[12px] font-black text-black">{formatCurrency(item.value)}</span>
+                    <span className="text-[10px] font-bold text-black opacity-40">{((item.value / categoryData.total) * 100).toFixed(0)}%</span>
                   </div>
                 </div>
               ))}
@@ -284,9 +284,8 @@ const KPIItem: React.FC<{
   icon: React.ElementType, 
   color: 'blue' | 'emerald' | 'rose' | 'amber',
   unit?: string,
-  subtitle?: string,
-  trend?: string
-}> = ({ title, value, icon: Icon, color, unit = '', subtitle, trend }) => {
+  subtitle?: string
+}> = ({ title, value, icon: Icon, color, unit = '', subtitle }) => {
   const colorMap = {
     blue: 'text-blue-500 bg-blue-50/50 border-blue-100',
     emerald: 'text-emerald-500 bg-emerald-50/50 border-emerald-100',
@@ -295,31 +294,23 @@ const KPIItem: React.FC<{
   };
 
   return (
-    <div className="bg-card p-5 rounded-2xl border border-border shadow-sm flex flex-col gap-4 relative overflow-hidden group hover:border-primary/20 transition-all">
+    <div className="bg-card p-3 rounded-xl border border-border shadow-sm flex flex-col gap-2 relative overflow-hidden group hover:border-primary/20 transition-all">
       <div className="flex items-center justify-between relative z-10">
-        <h4 className="text-[13px] font-black text-black uppercase tracking-tight">{title}</h4>
-        {trend && (
-          <span className={clsx(
-            "text-[10px] font-black px-2 py-0.5 rounded-full",
-            trend.startsWith('+') ? "bg-emerald-100 text-emerald-600" : "bg-rose-100 text-rose-600"
-          )}>
-            {trend}
-          </span>
-        )}
+        <h4 className="text-[9px] font-black text-black/40 uppercase tracking-tight truncate">{title}</h4>
       </div>
       
-      <div className="flex items-center gap-4 relative z-10">
-        <div className={clsx("w-12 h-12 rounded-2xl flex items-center justify-center border", colorMap[color])}>
-          <Icon size={24} />
+      <div className="flex items-center gap-2.5 relative z-10">
+        <div className={clsx("w-8 h-8 rounded-lg flex items-center justify-center border shrink-0", colorMap[color])}>
+          <Icon size={16} />
         </div>
-        <div>
-          <div className="flex items-baseline gap-1">
-            <span className="text-2xl font-black text-black">
+        <div className="min-w-0">
+          <div className="flex items-baseline gap-0.5 truncate">
+            <span className="text-sm md:text-xl font-black text-black">
               {typeof value === 'number' ? new Intl.NumberFormat('vi-VN').format(value) : value}
             </span>
-            <span className="text-xs font-bold text-black">{unit}</span>
+            <span className="text-[9px] font-bold text-black">{unit}</span>
           </div>
-          {subtitle && <p className="text-[11px] font-bold text-black mt-0.5">{subtitle}</p>}
+          {subtitle && <p className="text-[9px] font-bold text-black/30 truncate">{subtitle}</p>}
         </div>
       </div>
     </div>

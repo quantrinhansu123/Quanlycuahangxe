@@ -152,11 +152,12 @@ const ServiceFormModal: React.FC<ServiceFormModalProps> = React.memo(({
               <InputField label="Từ ngày" name="tu_ngay" type="date" value={formData.tu_ngay || ''} onChange={handleInputChange} icon={Calendar} tabIndex={6} disabled={isReadOnly} />
               <InputField label="Tới ngày" name="toi_ngay" type="date" value={formData.toi_ngay || ''} onChange={handleInputChange} icon={Calendar} tabIndex={7} disabled={isReadOnly} />
 
-              <div className="md:col-span-2 flex flex-col items-center gap-2 pt-4">
+              <div className="md:col-span-2 flex flex-col items-center gap-2 pt-2 sm:pt-4">
                 <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider">Ảnh dịch vụ</label>
-                <div className="relative group w-full max-w-[200px]">
-                  <div className="aspect-square rounded-2xl border-2 border-dashed border-border bg-primary/5 flex items-center justify-center text-primary overflow-hidden shadow-inner">
-                    {formData.anh ? <img src={formData.anh} alt="Preview" className="w-full h-full object-cover" /> : <Camera size={40} className="opacity-20" />}
+                <div className="relative group w-full max-w-[120px] sm:max-w-[200px]">
+                  <div className="aspect-square rounded-xl sm:rounded-2xl border-2 border-dashed border-border bg-primary/5 flex items-center justify-center text-primary overflow-hidden shadow-inner">
+                    {formData.anh ? <img src={formData.anh} alt="Preview" className="w-full h-full object-cover" /> : <Camera size={24} className="opacity-20 sm:hidden" />}
+                    {formData.anh ? null : <Camera size={40} className="opacity-20 hidden sm:block" />}
                     {uploading && <div className="absolute inset-0 bg-black/40 flex items-center justify-center"><Loader2 className="animate-spin text-white" /></div>}
                   </div>
                   {!isReadOnly && (

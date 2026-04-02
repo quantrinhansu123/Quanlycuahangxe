@@ -304,13 +304,13 @@ const PayrollPage: React.FC = () => {
   };
 
   return (
-    <div className="p-6 space-y-6 animate-in fade-in duration-500">
+    <div className="p-3 sm:p-6 space-y-4 sm:space-y-6 animate-in fade-in duration-500">
       {/* SaaS Header */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-2">
         <div className="flex items-center gap-4">
           <div className="space-y-0.5">
             <div className="flex items-center gap-3 relative group/header">
-              <h1 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2 group/title cursor-pointer relative">
+              <h1 className="text-lg sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2 group/title cursor-pointer relative">
                 Bảng lương tháng {selectedMonth}/{selectedYear}
                 <div className="relative">
                    <Calendar size={16} className="text-slate-400 group-hover/title:text-primary transition-colors" />
@@ -344,37 +344,37 @@ const PayrollPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
           <button 
             onClick={() => setShowAddEmployee(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-lg font-bold text-sm text-slate-700 hover:bg-slate-50 transition-all shadow-sm"
+            className="flex items-center gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 bg-white border border-slate-200 rounded-lg font-bold text-sm text-slate-700 hover:bg-slate-50 transition-all shadow-sm"
           >
             <Plus size={18} className="text-primary" />
-            Chọn nhân viên
+            <span className="hidden sm:inline">Chọn nhân viên</span>
           </button>
-          <button onClick={handleImport} className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-lg font-bold text-sm text-slate-600 hover:bg-slate-50 transition-all shadow-sm">
+          <button onClick={handleImport} className="flex items-center gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 bg-white border border-slate-200 rounded-lg font-bold text-sm text-slate-600 hover:bg-slate-50 transition-all shadow-sm">
             <Download size={18} />
-            Nhập khẩu
+            <span className="hidden sm:inline">Nhập khẩu</span>
           </button>
-          <button onClick={handleSendSlip} className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-lg font-bold text-sm text-slate-600 hover:bg-slate-50 transition-all shadow-sm">
+          <button onClick={handleSendSlip} className="hidden sm:flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-lg font-bold text-sm text-slate-600 hover:bg-slate-50 transition-all shadow-sm">
             <Send size={18} />
             Gửi phiếu lương
           </button>
           <button 
             disabled={loading} 
             onClick={handleApproveSelected} 
-            className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg font-bold text-sm hover:bg-blue-100 transition-all shadow-sm disabled:opacity-50"
+            className="flex items-center gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg font-bold text-sm hover:bg-blue-100 transition-all shadow-sm disabled:opacity-50"
           >
             {loading ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
-            Duyệt lương
+            <span className="hidden sm:inline">Duyệt lương</span>
           </button>
           <button 
             disabled={isPaying} 
             onClick={handlePayAll} 
-            className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-lg font-black shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+            className="flex items-center gap-2 px-3 sm:px-6 py-2 sm:py-2.5 bg-primary text-white rounded-lg font-black shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
           >
             {isPaying ? <Loader2 size={18} className="animate-spin" /> : <BadgeDollarSign size={18} />}
-            {isPaying ? 'Đang xử lý...' : 'Trả lương'}
+            <span className="hidden sm:inline">{isPaying ? 'Đang xử lý...' : 'Trả lương'}</span>
           </button>
           
           <div className="h-8 w-px bg-slate-200 mx-1" />
@@ -420,9 +420,9 @@ const PayrollPage: React.FC = () => {
       </div>
 
       {/* Modern Filter Bar */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col xl:flex-row gap-4 items-center">
-        <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 px-5 py-2.5 border border-slate-200 rounded-xl text-[13px] font-black text-slate-600 hover:bg-slate-100 transition-all shadow-sm active:scale-95 whitespace-nowrap">
-          <ArrowLeft size={18} /> Quay lại
+      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col xl:flex-row gap-3 sm:gap-4 items-stretch xl:items-center">
+        <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 px-3 sm:px-5 py-2 sm:py-2.5 border border-slate-200 rounded-xl text-[13px] font-black text-slate-600 hover:bg-slate-100 transition-all shadow-sm active:scale-95 whitespace-nowrap self-start">
+          <ArrowLeft size={18} /> <span className="hidden sm:inline">Quay lại</span>
         </button>
         <div className="relative flex-1 group w-full">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" size={18} />
@@ -435,7 +435,7 @@ const PayrollPage: React.FC = () => {
           />
         </div>
         
-        <div className="flex items-center gap-3 w-full xl:w-auto">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full xl:w-auto">
           {/* Status Filter */}
           <div className="relative group">
              <select 
@@ -537,9 +537,9 @@ const PayrollPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Table Container */}
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden relative">
-        <div className="overflow-x-auto">
+      <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm overflow-hidden relative">
+        {/* Desktop Table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[2000px]">
             <thead className="sticky top-0 bg-slate-50/80 backdrop-blur-md z-30 border-b border-slate-200">
               <tr>
@@ -721,18 +721,98 @@ const PayrollPage: React.FC = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Mobile Card List */}
+        <div className="md:hidden">
+          {loading ? (
+            <div className="py-16 text-center">
+              <Loader2 className="animate-spin inline-block text-primary" size={28} />
+              <p className="mt-3 text-sm font-bold text-slate-400">Đang tải dữ liệu...</p>
+            </div>
+          ) : filteredData.length === 0 ? (
+            <div className="py-16 text-center">
+              <div className="p-4 bg-slate-50 rounded-full inline-block mb-3">
+                <User size={32} className="text-slate-300" />
+              </div>
+              <p className="text-slate-500 font-bold">Không có dữ liệu</p>
+              <button onClick={() => setShowAddEmployee(true)} className="mt-4 flex items-center gap-2 px-5 py-2 bg-primary/10 text-primary font-black rounded-xl text-[11px] uppercase tracking-widest mx-auto">
+                <Plus size={14} /> Khởi tạo bảng lương
+              </button>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {filteredData.map(item => (
+                <div
+                  key={item.id}
+                  onClick={() => {
+                    if (selectedIds.includes(item.id)) setSelectedIds(selectedIds.filter(i => i !== item.id));
+                    else setSelectedIds([...selectedIds, item.id]);
+                  }}
+                  className={clsx(
+                    "p-4 flex items-start gap-3 transition-colors cursor-pointer active:bg-slate-50",
+                    selectedIds.includes(item.id) && "bg-primary/5"
+                  )}
+                >
+                  {/* Avatar */}
+                  <div className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center text-primary font-black text-xs shadow-sm shrink-0">
+                    {item.nhan_su?.hinh_anh ? (
+                      <img src={item.nhan_su.hinh_anh} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      item.nhan_su?.ho_ten.split(' ').pop()?.charAt(0) || '?'
+                    )}
+                  </div>
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[14px] font-black text-slate-900 truncate">{item.nhan_su?.ho_ten}</span>
+                      <span className={clsx(
+                        "text-[10px] font-black uppercase px-1.5 py-0.5 rounded shrink-0 ml-2",
+                        item.trang_thai === 'Đã chi trả' ? "bg-emerald-50 text-emerald-600" :
+                        item.trang_thai === 'Đã duyệt' ? "bg-blue-50 text-blue-600" :
+                        "bg-amber-50 text-amber-600"
+                      )}>{item.trang_thai}</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 font-bold mb-2">{item.co_so} · {item.nhan_su?.vi_tri}</p>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[12px]">
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Doanh số</span>
+                        <span className="font-bold text-slate-700">{formatCurrency(item.doanh_so)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Lương ngày</span>
+                        <span className="font-bold text-slate-700">{formatCurrency(item.luong_ngay_cong)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Phụ cấp</span>
+                        <span className="font-bold text-emerald-600">+{formatCurrency(item.tong_phu_cap || 0)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Khấu trừ</span>
+                        <span className="font-bold text-rose-500">-{formatCurrency((item.bhxh || 0) + (item.thue_tncn || 0))}</span>
+                      </div>
+                    </div>
+                    <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between">
+                      <span className="text-[11px] font-black text-slate-400 uppercase">Thực lĩnh</span>
+                      <span className="text-[15px] font-black text-emerald-700">{formatCurrency(item.thuc_linh)}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
         
-        {/* Simple Footer/Summary */}
-        <div className="bg-slate-50 p-6 border-t border-slate-200 flex justify-between items-center">
-          <div className="flex items-center gap-6">
+        {/* Footer/Summary */}
+        <div className="bg-slate-50 p-4 sm:p-6 border-t border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div className="flex items-center gap-4 sm:gap-6">
             <div>
                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Tổng Thực Lĩnh</p>
-               <p className="text-xl font-black text-slate-900">{formatCurrency(filteredData.reduce((sum, item) => sum + (item.thuc_linh || 0), 0))} <span className="text-xs text-slate-400">VND</span></p>
+               <p className="text-base sm:text-xl font-black text-slate-900">{formatCurrency(filteredData.reduce((sum, item) => sum + (item.thuc_linh || 0), 0))} <span className="text-xs text-slate-400">VND</span></p>
             </div>
             <div className="w-px h-8 bg-slate-200" />
             <div>
                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Đã Chi Trả</p>
-               <p className="text-xl font-black text-emerald-600">{formatCurrency(filteredData.filter(item => item.trang_thai === 'Đã chi trả').reduce((sum, item) => sum + (item.thuc_linh || 0), 0))} <span className="text-xs text-slate-400">VND</span></p>
+               <p className="text-base sm:text-xl font-black text-emerald-600">{formatCurrency(filteredData.filter(item => item.trang_thai === 'Đã chi trả').reduce((sum, item) => sum + (item.thuc_linh || 0), 0))} <span className="text-xs text-slate-400">VND</span></p>
             </div>
           </div>
           <div className="text-right">
