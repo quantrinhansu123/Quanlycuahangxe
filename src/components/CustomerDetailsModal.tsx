@@ -1,7 +1,8 @@
 import { clsx } from 'clsx';
-import { ArrowRight, Calendar, Clock, Gauge, History, Info, Loader2, MapPin, Phone, ShoppingCart, User, X } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import { ArrowRight, Calendar, Check, Clock, Gauge, History, Info, Loader2, MapPin, MessageSquare, Phone, ShoppingCart, User, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import { getCustomerServiceHistory, type KhachHang } from '../data/customerData';
 
 interface CustomerDetailsModalProps {
@@ -22,6 +23,8 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
    const [loading, setLoading] = useState(true);
    const [history, setHistory] = useState<any[]>([]);
    const [activeTab, setActiveTab] = useState<'history' | 'info'>('history');
+   const navigate = useNavigate();
+   const [copySuccess, setCopySuccess] = useState(false);
 
    useEffect(() => {
       if (!isOpen || !customer) return;
@@ -54,6 +57,44 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
          || (card.dich_vu?.gia_ban || 0);
       return sum + cardTotal;
    }, 0);
+
+   const handleShareZalo = () => {
+      const formatDate = (date: string) => new Date(date).toLocaleDateString('vi-VN');
+      const start = formatDate(startDateStr);
+      const end = formatDate(endDateStr);
+
+      let msg = `Chào ${customer.ho_va_ten}, Gara gửi tóm tắt dịch vụ của bạn:\n`;
+      msg += `-------------------------\n`;
+      msg += `🚗 Xe: ${customer.bien_so_xe} — KM: ${customer.so_km?.toLocaleString() || '0'} Km\n`;
+      msg += `📅 Chu kỳ thay dầu: ${customer.so_ngay_thay_dau || '—'} ngày\n`;
+      msg += `-------------------------\n`;
+      msg += `📊 Thống kê (${start} - ${end}):\n`;
+      msg += `- Tổng chi tiêu: ${formatCurrency(totalSpent)}\n`;
+      msg += `- Số lần ghé: ${history.length} lần\n`;
+      msg += `-------------------------\n`;
+      msg += `🛠️ Lịch sử dịch vụ:\n`;
+
+      if (history.length === 0) {
+         msg += `Chưa có dữ liệu trong khoảng thời gian này.\n`;
+      } else {
+         history.slice(0, 5).forEach((record) => {
+            const date = formatDate(record.ngay);
+            const items = record.the_ban_hang_ct?.map((ct: any) => ct.san_pham).join(', ') || record.dich_vu?.ten_dich_vu || 'Dịch vụ';
+            const price = (record.the_ban_hang_ct || []).reduce((s: number, ct: any) => s + (ct.gia_ban * (ct.so_luong || 1)), 0) || (record.dich_vu?.gia_ban || 0);
+            msg += `• ${date}: ${items} — ${formatCurrency(price)}\n`;
+         });
+         if (history.length > 5) msg += `... và ${history.length - 5} đơn khác.\n`;
+      }
+
+      msg += `-------------------------\n`;
+      msg += `Trân trọng cảm ơn quý khách!`;
+
+      navigator.clipboard.writeText(msg).then(() => {
+         setCopySuccess(true);
+         setTimeout(() => setCopySuccess(false), 3000);
+         window.open(`https://zalo.me/${customer.so_dien_thoai}`, '_blank');
+      });
+   };
 
    return createPortal(
       <div className="fixed inset-0 z-9999 flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
@@ -256,8 +297,38 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
                )}
             </div>
 
-            <div className="px-8 py-5 border-t border-border bg-muted/10 flex justify-end shrink-0">
-               <button onClick={onClose} className="px-10 py-3 bg-muted hover:bg-muted/80 text-foreground text-sm font-black rounded-2xl border border-border transition-all active:scale-95">ĐÓNG CỬA SỔ</button>
+            <div className="px-8 py-5 border-t border-border bg-muted/10 flex items-center justify-between shrink-0 flex-wrap gap-4">
+               <div className="flex items-center gap-3">
+                  <a 
+                     href={`tel:${customer.so_dien_thoai}`}
+                     className="px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-black rounded-2xl flex items-center gap-2 transition-all active:scale-95 shadow-lg shadow-emerald-500/20"
+                  >
+                     <Phone size={18} /> GỌI ĐIỆN
+                  </a>
+                  <div className="relative">
+                     <button 
+                        onClick={handleShareZalo}
+                        className="px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white text-sm font-black rounded-2xl flex items-center gap-2 transition-all active:scale-95 shadow-lg shadow-blue-500/20"
+                     >
+                        <MessageSquare size={18} /> GỬI ZALO
+                     </button>
+                     {copySuccess && (
+                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1 bg-slate-800 text-white text-[10px] font-bold rounded-lg flex items-center gap-1.5 whitespace-nowrap animate-in fade-in slide-in-from-bottom-2 duration-300">
+                           <Check size={12} className="text-emerald-400" /> ĐÃ COPY NỘI DUNG!
+                        </div>
+                     )}
+                  </div>
+               </div>
+               
+               <button 
+                  onClick={() => {
+                     onClose();
+                     navigate('/ban-hang/phieu-ban-hang', { state: { customerId: customer.id } });
+                  }} 
+                  className="px-10 py-3 bg-primary hover:bg-primary/90 text-white text-sm font-black rounded-2xl border border-primary/20 transition-all active:scale-95 shadow-lg shadow-primary/20 uppercase tracking-widest"
+               >
+                  LÊN ĐƠN HÀNG
+               </button>
             </div>
          </div>
       </div>,

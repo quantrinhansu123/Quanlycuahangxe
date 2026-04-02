@@ -87,6 +87,35 @@ const SalesCardManagementPage: React.FC = () => {
   // Server-side filtering, so we use salesCards directly
   const displayItems = useMemo(() => salesCards, [salesCards]);
 
+  // Handle auto-open for specific customer from navigation state
+  useEffect(() => {
+    if (location.state?.customerId && !loading && customers.length > 0) {
+      const custId = location.state.customerId;
+      const customer = customers.find(c => c.id === custId);
+      
+      if (customer) {
+        // Initial data for the new card
+        const matchedUser = personnel.find(p => p.ho_ten?.toLowerCase() === currentUser?.ho_ten?.toLowerCase()) || personnel[0];
+        
+        setFormData({
+          ngay: new Date().toISOString().split('T')[0],
+          gio: new Date().toLocaleTimeString('vi-VN', { hour12: false, hour: '2-digit', minute: '2-digit' }),
+          khach_hang_id: customer.id,
+          nhan_vien_id: matchedUser ? matchedUser.id : '',
+          dich_vu_id: '',
+          dich_vu_ids: [],
+          danh_gia: 'hài lòng',
+          so_km: customer.so_km || 0,
+          ngay_nhac_thay_dau: ''
+        });
+        setIsModalOpen(true);
+        
+        // Clear state to prevent re-opening
+        window.history.replaceState({}, document.title);
+      }
+    }
+  }, [location.state, loading, customers, personnel, currentUser]);
+
   const handleOpenModal = (card?: SalesCard) => {
     if (card) {
       setEditingCard(card);
