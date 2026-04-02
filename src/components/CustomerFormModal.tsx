@@ -83,27 +83,29 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
 
   // Duplication Plate Check logic
   useEffect(() => {
-    if (!isOpen || !formData.bien_so_xe || formData.bien_so_xe.trim() === '' || customer || redirecting) return;
+    if (!isOpen || !formData.bien_so_xe || formData.bien_so_xe.trim() === '' || redirecting) return;
 
     const timer = setTimeout(async () => {
       try {
         const plate = formData.bien_so_xe!.trim();
-        // Basic validation: at least 4 chars
         if (plate.length < 4) return;
 
         const existing: KhachHang | null = await getCustomerByPlate(plate);
-        if (existing && existing.id !== (customer?.id ?? '')) {
-          setRedirecting(true);
-          const confirmOrder = window.confirm(`Biển số [${plate}] đã tồn tại cho khách hàng: ${existing.ho_va_ten}.\nBạn có muốn chuyển sang LẬP HÓA ĐƠN cho khách hàng này không?`);
-          
-          if (confirmOrder) {
-            onClose();
-            navigate('/ban-hang/phieu-ban-hang', { state: { customerId: existing.id } });
+        if (existing && existing.id !== (customer ? customer.id : '')) {
+          if (!customer) {
+            // Only redirect if creating a NEW customer
+            setRedirecting(true);
+            const confirmOrder = window.confirm(`Biển số [${plate}] đã tồn tại cho khách hàng: ${existing.ho_va_ten}.\nBạn có muốn chuyển sang LẬP HÓA ĐƠN cho khách hàng này không?`);
+            
+            if (confirmOrder) {
+              onClose();
+              navigate('/ban-hang/phieu-ban-hang', { state: { customerId: existing.id } });
+            } else {
+              setRedirecting(false);
+            }
           } else {
-            // If they cancel, don't keep redirecting on every keystroke
-            // We might want to keep redirecting false but maybe add a flag to ignore this plate?
-            // For now, just reset redirecting so they can continue editing if they want.
-            setRedirecting(false);
+             // If editing, just warn
+             alert(`Lưu ý: Biển số [${plate}] đang bị trùng với khách hàng: ${existing.ho_va_ten}`);
           }
         }
       } catch (err) {
