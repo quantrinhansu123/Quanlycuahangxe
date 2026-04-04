@@ -51,12 +51,23 @@ const AttendanceManagementPage: React.FC = () => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(null);
+  const [isQuickAction, setIsQuickAction] = useState(false);
   const [formData, setFormData] = useState<Partial<AttendanceRecord>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [visibleColumns, setVisibleColumns] = useState<string[]>([
-    'id_cham_cong', 'anh', 'nhan_su', 'ngay', 'checkin', 'checkout', 'vi_tri', 'actions'
-  ]);
+  const STORAGE_KEY_COLUMNS = 'attendance_visible_columns';
+  const [visibleColumns, setVisibleColumns] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_COLUMNS);
+      return saved ? JSON.parse(saved) : ['id_cham_cong', 'anh', 'nhan_su', 'ngay', 'checkin', 'checkout', 'vi_tri', 'actions'];
+    } catch {
+      return ['id_cham_cong', 'anh', 'nhan_su', 'ngay', 'checkin', 'checkout', 'vi_tri', 'actions'];
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_COLUMNS, JSON.stringify(visibleColumns));
+  }, [visibleColumns]);
 
   const allColumns = [
     { id: 'id_cham_cong', label: 'Mã CC' },
@@ -129,14 +140,19 @@ const AttendanceManagementPage: React.FC = () => {
 
   const handleOpenModal = async (record?: AttendanceRecord) => {
     if (record) {
+      setIsQuickAction(false);
       setEditingRecord(record);
       setFormData({ ...record });
       setIsModalOpen(true);
     } else {
+      setIsQuickAction(true);
       setEditingRecord(null);
       // Khi nhấn "Thêm chấm công", phát hiện xem hôm nay đã có bản ghi nào chưa
       const todayStr = new Date().toISOString().split('T')[0];
-      const fallbackName = currentUser?.ho_ten || 'Tài khoản đăng nhập';
+
+      // Smart match current user against DB personnel
+      const matchedUser = personnel.find(p => p.ho_ten?.toLowerCase() === currentUser?.ho_ten?.toLowerCase());
+      const fallbackName = matchedUser?.ho_ten || currentUser?.ho_ten || 'Tài khoản đăng nhập';
 
       const autoId = await getNextAttendanceId();
 
@@ -357,10 +373,10 @@ const AttendanceManagementPage: React.FC = () => {
           };
 
           const rawId = norm["id"] ? String(norm["id"]).trim() : '';
-          
+
           if (rawId) {
             record.id_cham_cong = rawId;
-            
+
             // Nếu là UUID hợp lệ, dùng làm khóa chính để cập nhật thay vì thêm mới
             const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
             if (uuidRegex.test(rawId)) {
@@ -412,7 +428,7 @@ const AttendanceManagementPage: React.FC = () => {
     <div className="w-full flex-1 animate-in fade-in slide-in-from-bottom-4 duration-500 text-muted-foreground font-sans">
       <div className="space-y-4">
         {/* Toolbar */}
-        <div className="bg-card p-3 rounded-lg border border-border shadow-sm flex flex-wrap items-center justify-between gap-4" ref={dropdownRef}>
+        <div className="bg-card p-3 rounded-lg border border-border shadow-sm flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3 flex-1 flex-wrap">
             <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors">
               <ArrowLeft size={18} /> Quay lại
@@ -514,7 +530,7 @@ const AttendanceManagementPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="relative">
+            <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => toggleDropdown('columns')}
                 className={clsx(
@@ -720,7 +736,7 @@ const AttendanceManagementPage: React.FC = () => {
             <div className="px-8 py-5 border-b border-border flex items-center justify-between bg-muted/30 shrink-0">
               <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
                 {editingRecord ? <Edit2 size={20} className="text-primary" /> : <Plus size={20} className="text-primary" />}
-                {editingRecord ? 'Chỉnh sửa bản ghi' : 'Thêm bản ghi chấm công'}
+                {isQuickAction ? 'Chấm công' : 'Chỉnh sửa bản ghi'}
               </h3>
               <button onClick={handleCloseModal} className="p-2 rounded-full hover:bg-muted transition-colors text-muted-foreground"><X size={20} /></button>
             </div>
@@ -771,6 +787,9 @@ const AttendanceManagementPage: React.FC = () => {
                       className="w-full px-4 py-2.5 bg-card border border-border rounded-xl font-bold text-[14px] text-foreground focus:ring-2 focus:ring-primary/20 outline-none transition-all"
                     >
                       <option value="">Chọn nhân sự</option>
+                      {formData.nhan_su && !personnel.some(p => p.ho_ten === formData.nhan_su) && (
+                        <option value={formData.nhan_su}>{formData.nhan_su}</option>
+                      )}
                       {personnel.map(p => (
                         <option key={p.id} value={p.ho_ten}>{p.ho_ten}</option>
                       ))}
@@ -837,48 +856,52 @@ const AttendanceManagementPage: React.FC = () => {
                 )}
 
                 {/* Hành động Chấm Công Nhanh (1 Trạm) */}
-                <div className="flex flex-col gap-4 mt-6">
-                  {formData.checkin && formData.checkout ? (
-                    <div className="p-5 bg-emerald-50 border border-emerald-200 rounded-xl text-center shadow-inner">
-                      <p className="text-emerald-700 font-bold mb-2 text-lg">🎉 Hoàn tất chấm công hôm nay!</p>
-                      <p className="text-emerald-600 font-semibold text-[15px]">Giờ vào: {formData.checkin} — Giờ ra: {formData.checkout}</p>
-                    </div>
-                  ) : formData.checkin ? (
-                    <div className="flex flex-col gap-3">
-                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-center shadow-sm">
-                        <p className="text-[13px] text-blue-700 font-semibold mb-1">Đã chấm công VÀO lúc: <span className="font-bold text-lg leading-tight block text-blue-800">{formData.checkin}</span></p>
+                {isQuickAction && (
+                  <div className="flex flex-col gap-4 mt-6">
+                    {formData.checkin && formData.checkout ? (
+                      <div className="p-5 bg-emerald-50 border border-emerald-200 rounded-xl text-center shadow-inner">
+                        <p className="text-emerald-700 font-bold mb-2 text-lg">🎉 Hoàn tất chấm công hôm nay!</p>
+                        <p className="text-emerald-600 font-semibold text-[15px]">Giờ vào: {formData.checkin} — Giờ ra: {formData.checkout}</p>
                       </div>
+                    ) : formData.checkin ? (
+                      <div className="flex flex-col gap-3">
+                        <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-center shadow-sm">
+                          <p className="text-[13px] text-blue-700 font-semibold mb-1">Đã chấm công VÀO lúc: <span className="font-bold text-lg leading-tight block text-blue-800">{formData.checkin}</span></p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleQuickSubmit('checkout')}
+                          className="w-full py-2.5 sm:py-4 rounded-xl text-sm sm:text-lg font-bold text-white bg-orange-500 hover:bg-orange-600 shadow-lg shadow-orange-500/30 transition-all active:scale-95 flex items-center justify-center gap-2"
+                        >
+                          <Clock size={18} className="sm:hidden" /><Clock size={24} className="hidden sm:block" /> CHẤM CÔNG RA NGAY
+                        </button>
+                      </div>
+                    ) : (
                       <button
                         type="button"
-                        onClick={() => handleQuickSubmit('checkout')}
-                        className="w-full py-2.5 sm:py-4 rounded-xl text-sm sm:text-lg font-bold text-white bg-orange-500 hover:bg-orange-600 shadow-lg shadow-orange-500/30 transition-all active:scale-95 flex items-center justify-center gap-2"
+                        onClick={() => handleQuickSubmit('checkin')}
+                        className="w-full py-2.5 sm:py-4 rounded-xl text-sm sm:text-lg font-bold text-white bg-emerald-500 hover:bg-emerald-600 shadow-lg shadow-emerald-500/30 transition-all active:scale-95 flex items-center justify-center gap-2"
                       >
-                        <Clock size={18} className="sm:hidden" /><Clock size={24} className="hidden sm:block" /> CHẤM CÔNG RA NGAY
+                        <Clock size={18} className="sm:hidden" /><Clock size={24} className="hidden sm:block" /> CHẤM CÔNG VÀO NGAY
                       </button>
-                    </div>
-                  ) : (
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {!isQuickAction && (
+                <div className="mt-10 flex items-center justify-end gap-3 pt-6 border-t border-border">
+                  <button type="button" onClick={handleCloseModal} className="px-6 py-2.5 rounded-xl text-sm font-bold text-muted-foreground hover:bg-muted border border-border">Đóng lại</button>
+                  {isAdmin && (
                     <button
-                      type="button"
-                      onClick={() => handleQuickSubmit('checkin')}
-                      className="w-full py-2.5 sm:py-4 rounded-xl text-sm sm:text-lg font-bold text-white bg-emerald-500 hover:bg-emerald-600 shadow-lg shadow-emerald-500/30 transition-all active:scale-95 flex items-center justify-center gap-2"
+                      type="submit"
+                      className="flex items-center gap-2 px-8 py-2.5 rounded-xl text-sm font-bold text-white bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all active:scale-95"
                     >
-                      <Clock size={18} className="sm:hidden" /><Clock size={24} className="hidden sm:block" /> CHẤM CÔNG VÀO NGAY
+                      <Edit2 size={16} /> Lưu thay đổi
                     </button>
                   )}
                 </div>
-              </div>
-
-              <div className="mt-10 flex items-center justify-end gap-3 pt-6 border-t border-border">
-                <button type="button" onClick={handleCloseModal} className="px-6 py-2.5 rounded-xl text-sm font-bold text-muted-foreground hover:bg-muted border border-border">Đóng lại</button>
-                {isAdmin && (
-                  <button
-                    type="submit"
-                    className="flex items-center gap-2 px-8 py-2.5 rounded-xl text-sm font-bold text-white bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all active:scale-95"
-                  >
-                    <Edit2 size={16} /> Lưu thay đổi
-                  </button>
-                )}
-              </div>
+              )}
             </form>
           </div>
         </div>,

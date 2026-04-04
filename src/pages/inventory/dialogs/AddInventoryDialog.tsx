@@ -14,6 +14,7 @@ const AddInventoryDialog: React.FC<AddInventoryDialogProps> = ({ isOpen, onClose
   const [error, setError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
+    id_xuat_nhap_kho: '',
     loai_phieu: 'Nhập kho',
     id_don_hang: '',
     co_so: 'Cơ sở Bắc Giang',
@@ -91,6 +92,18 @@ const AddInventoryDialog: React.FC<AddInventoryDialogProps> = ({ isOpen, onClose
                 <option value="Nhập kho">Nhập kho</option>
                 <option value="Phiếu nhập">Phiếu nhập</option>
               </select>
+            </div>
+
+            {/* Mã Phiếu */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">Mã Phiếu Xuất/Nhập</label>
+              <input
+                type="text"
+                placeholder="VD: NK-001"
+                className="w-full bg-background border border-border rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-sm font-bold text-blue-600"
+                value={formData.id_xuat_nhap_kho}
+                onChange={(e) => setFormData(prev => ({ ...prev, id_xuat_nhap_kho: e.target.value }))}
+              />
             </div>
 
             {/* Cơ sở */}
