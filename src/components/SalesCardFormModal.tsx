@@ -61,32 +61,47 @@ const SalesCardFormModal: React.FC<{
   const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
   const [isCollecting, setIsCollecting] = useState(false);
 
+  // Sync formData with initialData when modal opens or initialData changes (for new cards)
+  React.useEffect(() => {
+    if (isOpen) {
+      setFormData(initialData);
+    }
+  }, [isOpen, initialData]);
+
   // Memoize heavy options so dropdowns don't re-render on every keystroke
   const customerOptions = React.useMemo(() => customers.map(c => ({
-    value: c.id,
+    value: c.ma_khach_hang || c.id,
     label: `${c.ho_va_ten}${c.so_dien_thoai ? ' - ' + c.so_dien_thoai : ''}`
   })), [customers]);
 
-  // Sync service information based on dich_vu_id (which is now TEXT/Name)
+  // Sync service information based on dich_vu_ids (Multi-select support)
   React.useEffect(() => {
-    if (formData.dich_vu_id) {
-      const service = services.find(s => s.ten_dich_vu === formData.dich_vu_id || s.id_dich_vu === formData.dich_vu_id);
-      if (service) {
-          // Update the localized service data if not already set correctly
-          if (!formData.dich_vu || formData.dich_vu.ten_dich_vu !== service.ten_dich_vu) {
-              setFormData(prev => ({
-                  ...prev,
-                  dich_vu: {
-                      ten_dich_vu: service.ten_dich_vu,
-                      gia_ban: service.gia_ban,
-                      gia_nhap: service.gia_nhap,
-                      co_so: service.co_so
-                  }
-              }));
-          }
+    if (formData.dich_vu_ids && formData.dich_vu_ids.length > 0) {
+      const currentItems = formData.service_items || [];
+      const newItems = formData.dich_vu_ids.map(id => {
+        // Find existing edited item or create new from service master
+        const existing = currentItems.find(it => it.id === id);
+        if (existing) return existing;
+
+        const s = services.find(serv => serv.id === id || serv.ten_dich_vu === id);
+        return {
+          id: s?.id || id,
+          ten_dich_vu: s?.ten_dich_vu || id,
+          gia_ban: s?.gia_ban || 0
+        };
+      });
+
+      // Update if changed
+      if (JSON.stringify(newItems) !== JSON.stringify(currentItems)) {
+        setFormData(prev => ({ ...prev, service_items: newItems }));
       }
+    } else if (!formData.dich_vu_id && (!formData.service_items || formData.service_items.length === 0)) {
+        // Clear if nothing
+        if (formData.service_items && formData.service_items.length > 0) {
+            setFormData(prev => ({ ...prev, service_items: [] }));
+        }
     }
-  }, [formData.dich_vu_id, services]);
+  }, [formData.dich_vu_ids, services]);
 
   // Auto-generate id_bh for new cards
   React.useEffect(() => {
@@ -107,8 +122,23 @@ const SalesCardFormModal: React.FC<{
     }
   };
 
-  const handleServiceChange = (val: string) => {
-    setFormData(prev => ({ ...prev, dich_vu_id: val }));
+  const handleServiceChange = (vals: string[]) => {
+    setFormData(prev => ({ ...prev, dich_vu_ids: vals }));
+  };
+
+  const handleItemPriceChange = (id: string, newPrice: number) => {
+    setFormData(prev => ({
+      ...prev,
+      service_items: prev.service_items?.map(it => it.id === id ? { ...it, gia_ban: newPrice } : it)
+    }));
+  };
+
+  const handleRemoveItem = (id: string) => {
+    setFormData(prev => ({
+      ...prev,
+      dich_vu_ids: prev.dich_vu_ids?.filter(val => val !== id),
+      service_items: prev.service_items?.filter(it => it.id !== id)
+    }));
   };
 
   const formatNumber = (num: number | undefined) => {
@@ -188,14 +218,72 @@ const SalesCardFormModal: React.FC<{
                   <Wrench size={14} className="text-primary/70" />
                   Dịch vụ sử dụng <span className="text-red-500">*</span>
                 </label>
-                <SearchableSelect
-                  options={services.map(s => ({ value: s.ten_dich_vu, label: `${s.ten_dich_vu} (${s.gia_ban.toLocaleString()}đ)` }))}
-                  value={formData.dich_vu_id || undefined}
-                  onValueChange={(val: string) => !isReadOnly && handleServiceChange(val)}
-                  placeholder="-- Chọn hoặc tìm dịch vụ --"
-                  searchPlaceholder="Tìm tên dịch vụ..."
-                  className={clsx("font-bold", isReadOnly && "pointer-events-none opacity-80")}
-                />
+                {isReadOnly ? (
+                  <div className="space-y-2 p-3 bg-muted/30 rounded-xl border border-border">
+                    {(formData.the_ban_hang_ct || formData.service_items || []).map((item: any, idx) => (
+                      <div key={idx} className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0">
+                        <div className="flex items-center gap-3">
+                          <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary">
+                            {idx + 1}
+                          </div>
+                          <span className="font-bold text-[14px] text-foreground">{item.san_pham || item.ten_dich_vu}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="font-mono text-[13px] font-bold text-primary">{(item.gia_ban || 0).toLocaleString()}đ</span>
+                          {(item.so_luong || 1) > 1 && <span className="text-[11px] text-muted-foreground ml-1.5">x{item.so_luong}</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <MultiSearchableSelect
+                      options={services.map(s => ({ value: s.id, label: `${s.ten_dich_vu} (${s.gia_ban.toLocaleString()}đ)` }))}
+                      value={formData.dich_vu_ids || []}
+                      onValueChange={handleServiceChange}
+                      placeholder="-- Chọn hoặc tìm dịch vụ --"
+                      searchPlaceholder="Tìm tên dịch vụ..."
+                      className="font-bold"
+                    />
+                    
+                    {formData.service_items && formData.service_items.length > 0 && (
+                      <div className="space-y-3 bg-muted/20 p-4 rounded-2xl border border-border/50">
+                        <p className="text-[11px] font-bold text-muted-foreground uppercase opacity-70 mb-2">Điều chỉnh giá bán (nếu cần)</p>
+                        {formData.service_items.map((item, idx) => (
+                          <div key={item.id} className="flex flex-col sm:flex-row sm:items-center gap-3 bg-card p-3 rounded-xl border border-border shadow-sm animate-in fade-in zoom-in-95 duration-200">
+                             <div className="flex-1 flex items-center gap-3 overflow-hidden">
+                               <div className="shrink-0 w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary">
+                                 {idx + 1}
+                               </div>
+                               <span className="font-bold text-[14px] truncate" title={item.ten_dich_vu}>{item.ten_dich_vu}</span>
+                             </div>
+                             <div className="flex items-center gap-2 shrink-0">
+                               <div className="relative flex-1 sm:w-32">
+                                 <input
+                                   type="text"
+                                   className="w-full pl-3 pr-8 py-1.5 bg-background border border-border rounded-lg text-right font-mono text-[13px] font-bold focus:ring-1 focus:ring-primary outline-none"
+                                   value={(item.gia_ban || 0).toLocaleString('vi-VN')}
+                                   onChange={(e) => {
+                                      const val = parseInt(e.target.value.replace(/\D/g, ''), 10) || 0;
+                                      handleItemPriceChange(item.id, val);
+                                   }}
+                                 />
+                                 <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-muted-foreground">đ</span>
+                               </div>
+                               <button 
+                                 type="button"
+                                 onClick={() => handleRemoveItem(item.id)}
+                                 className="p-1.5 hover:bg-red-50 hover:text-red-500 text-muted-foreground rounded-lg transition-colors"
+                               >
+                                 <X size={16} />
+                               </button>
+                             </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <InputField label="Số Km" name="so_km" value={formatNumber(formData.so_km)} onChange={handleInputChange} icon={History} placeholder="12.000" disabled={isReadOnly} />
@@ -203,14 +291,26 @@ const SalesCardFormModal: React.FC<{
               <InputField label="Ngày nhắc thay dầu" name="ngay_nhac_thay_dau" type="date" value={formData.ngay_nhac_thay_dau || ''} onChange={handleInputChange} icon={Calendar} disabled={isReadOnly} />
             </div>
 
-            {formData.dich_vu && (
+            {((formData.service_items && formData.service_items.length > 0) || (formData.the_ban_hang_ct && formData.the_ban_hang_ct.length > 0) || formData.dich_vu) && (
               <div className="mt-8 bg-primary/5 p-5 rounded-2xl border border-primary/20 border-dashed flex justify-between items-center animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="space-y-0.5">
-                  <div className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider">Tổng chi phí dịch vụ</div>
-                  <div className="text-[11px] text-muted-foreground">({formData.dich_vu.ten_dich_vu})</div>
+                  <div className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider">Tổng giá trị phiếu</div>
+                  <div className="text-[11px] text-muted-foreground font-medium">
+                    {formData.service_items && formData.service_items.length > 0 
+                      ? `${formData.service_items.length} hạng mục dịch vụ` 
+                      : formData.the_ban_hang_ct && formData.the_ban_hang_ct.length > 0 
+                      ? `${formData.the_ban_hang_ct.length} hạng mục`
+                      : `1 hạng mục (${formData.dich_vu?.ten_dich_vu})`}
+                  </div>
                 </div>
                 <div className="text-2xl font-black text-primary tracking-tight">
-                  {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(formData.dich_vu.gia_ban || 0)}
+                  {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
+                    formData.service_items && formData.service_items.length > 0
+                      ? formData.service_items.reduce((sum, it) => sum + (it.gia_ban || 0), 0)
+                      : formData.the_ban_hang_ct && formData.the_ban_hang_ct.length > 0
+                      ? formData.the_ban_hang_ct.reduce((sum, it) => sum + (it.thanh_tien || (it.gia_ban * it.so_luong)), 0)
+                      : (formData.dich_vu?.gia_ban || 0)
+                  )}
                 </div>
               </div>
             )}

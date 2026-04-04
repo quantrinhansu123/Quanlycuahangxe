@@ -1,6 +1,7 @@
 -- Create the the_ban_hang (Sales Card) table
 CREATE TABLE IF NOT EXISTS public.the_ban_hang (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id_bh TEXT UNIQUE, -- Mã phiếu bán hàng (Ví dụ: BH-000001)
     ngay DATE NOT NULL DEFAULT CURRENT_DATE,
     gio TIME NOT NULL DEFAULT CURRENT_TIME,
     khach_hang_id TEXT, -- Mã khách hàng (ma_khach_hang), không phải UUID

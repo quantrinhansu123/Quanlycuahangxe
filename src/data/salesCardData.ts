@@ -3,6 +3,15 @@ import type { KhachHang } from './customerData';
 import type { NhanSu } from './personnelData';
 import type { DichVu } from './serviceData';
 import type { SalesCardCT } from './salesCardCTData';
+ 
+// Helper to split array into chunks to avoid "URL too long" (400 Bad Request)
+export function chunkArray<T>(array: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < array.length; i += size) {
+    chunks.push(array.slice(i, i + size));
+  }
+  return chunks;
+}
 
 export interface SalesCard {
   id: string;
@@ -26,41 +35,79 @@ export interface SalesCard {
   the_ban_hang_ct?: SalesCardCT[]; // Related detail items
 }
 
+export async function enrichSalesCards(cards: SalesCard[]) {
+  await Promise.all([
+    attachDetails(cards),
+    attachCustomer(cards),
+    attachPersonnel(cards),
+    attachService(cards)
+  ]);
+}
+
 async function attachDetails(cards: SalesCard[]) {
-  const bhIds = [...new Set(cards.map(c => c.id_bh).filter(Boolean))];
-  if (bhIds.length > 0) {
-    const { data: details } = await supabase
-      .from('the_ban_hang_ct')
-      .select('*')
-      .in('id_don_hang', bhIds);
+  const bhIds = [...new Set(cards.map(c => c.id_bh).filter(Boolean))] as string[];
+  const uuids = [...new Set(cards.map(c => c.id))];
+  
+  const allSearchIds = [...new Set([...bhIds, ...uuids])];
+  
+  if (allSearchIds.length > 0) {
+    const chunks = chunkArray(allSearchIds, 50);
+    const allDetails: SalesCardCT[] = [];
     
-    if (details) {
+    await Promise.all(chunks.map(async (chunk) => {
+      const { data: details } = await supabase
+        .from('the_ban_hang_ct')
+        .select('*')
+        .in('id_don_hang', chunk);
+      if (details) allDetails.push(...details);
+    }));
+    
+    if (allDetails.length > 0) {
       const detailMap = new Map<string, SalesCardCT[]>();
-      details.forEach((d: SalesCardCT) => {
+      allDetails.forEach((d: SalesCardCT) => {
         if (d.id_don_hang) {
-          const list = detailMap.get(d.id_don_hang) || [];
+          const lowerId = d.id_don_hang.toLowerCase();
+          const list = detailMap.get(lowerId) || [];
           list.push(d);
-          detailMap.set(d.id_don_hang, list);
+          detailMap.set(lowerId, list);
         }
       });
       cards.forEach(card => {
-        if (card.id_bh) card.the_ban_hang_ct = detailMap.get(card.id_bh) || [];
+        // Try linking by id_bh first, then by internal UUID
+        const detailsForBh = card.id_bh ? detailMap.get(card.id_bh.toLowerCase()) : null;
+        const detailsForUuid = detailMap.get(card.id.toLowerCase());
+        card.the_ban_hang_ct = detailsForBh || detailsForUuid || [];
       });
     }
   }
 }
 
 async function attachCustomer(cards: SalesCard[]) {
-  const custIds = [...new Set(cards.map(c => c.khach_hang_id).filter(Boolean))];
+  const custIds = [...new Set(cards.map(c => c.khach_hang_id).filter(Boolean))] as string[];
   if (custIds.length > 0) {
-    const { data: customers } = await supabase
-      .from('khach_hang')
-      .select('ma_khach_hang, ho_va_ten, so_dien_thoai')
-      .in('ma_khach_hang', custIds as string[]);
-    const custMap = new Map((customers || []).map(c => [c.ma_khach_hang, c]));
+    const chunks = chunkArray(custIds, 50);
+    const allCustomers: any[] = [];
+
+    await Promise.all(chunks.map(async (chunk) => {
+      // Filter the chunk into ma_khach_hang candidates and UUID candidates
+      const maIds = chunk;
+      const uuidIds = chunk.filter(id => id.length === 36);
+      
+      const { data: customers } = await supabase
+        .from('khach_hang')
+        .select('id, ma_khach_hang, ho_va_ten, so_dien_thoai')
+        .or(`ma_khach_hang.in.(${maIds.map(id => `"${id}"`).join(',')}),id.in.(${uuidIds.map(id => `"${id}"`).join(',')})`);
+      
+      if (customers) allCustomers.push(...customers);
+    }));
+    
+    const maMap = new Map(allCustomers.filter(c => !!c.ma_khach_hang).map(c => [c.ma_khach_hang!.toLowerCase(), c]));
+    const idMap = new Map(allCustomers.map(c => [c.id.toLowerCase(), c]));
+
     cards.forEach(card => {
       if (card.khach_hang_id) {
-        const cust = custMap.get(card.khach_hang_id);
+        const key = card.khach_hang_id.toLowerCase();
+        const cust = maMap.get(key) || idMap.get(key);
         if (cust) card.khach_hang = { ho_va_ten: cust.ho_va_ten, so_dien_thoai: cust.so_dien_thoai };
       }
     });
@@ -71,13 +118,19 @@ async function attachPersonnel(cards: SalesCard[]) {
   const allStaffIdsRaw = cards.map(c => c.nhan_vien_id).filter(Boolean) as string[];
   const staffIds = [...new Set(allStaffIdsRaw.flatMap(id => id.split(',').map(s => s.trim())))];
   if (staffIds.length > 0) {
-    const { data: personnel } = await supabase
-      .from('nhan_su')
-      .select('ho_ten, id_nhan_su, vi_tri, co_so')
-      .or(`ho_ten.in.(${staffIds.map(id => `"${id}"`).join(',')}),id_nhan_su.in.(${staffIds.map(id => `"${id}"`).join(',')})`);
+    const chunks = chunkArray(staffIds, 50);
+    const allPersonnel: any[] = [];
+
+    await Promise.all(chunks.map(async (chunk) => {
+      const { data: personnel } = await supabase
+        .from('nhan_su')
+        .select('ho_ten, id_nhan_su, vi_tri, co_so')
+        .or(`ho_ten.in.(${chunk.map(id => `"${id}"`).join(',')}),id_nhan_su.in.(${chunk.map(id => `"${id}"`).join(',')})`);
+      if (personnel) allPersonnel.push(...personnel);
+    }));
     
-    const nameMap = new Map((personnel || []).map(p => [p.ho_ten.toLowerCase(), p]));
-    const idMap = new Map((personnel || []).filter(p => !!p.id_nhan_su).map(p => [p.id_nhan_su!.toLowerCase(), p]));
+    const nameMap = new Map(allPersonnel.map(p => [p.ho_ten.toLowerCase(), p]));
+    const idMap = new Map(allPersonnel.filter(p => !!p.id_nhan_su).map(p => [p.id_nhan_su!.toLowerCase(), p]));
 
     cards.forEach(card => {
       if (card.nhan_vien_id) {
@@ -97,15 +150,21 @@ async function attachPersonnel(cards: SalesCard[]) {
 }
 
 async function attachService(cards: SalesCard[]) {
-  const serviceIds = [...new Set(cards.map(c => c.dich_vu_id).filter(Boolean))];
+  const serviceIds = [...new Set(cards.map(c => c.dich_vu_id).filter(Boolean))] as string[];
   if (serviceIds.length > 0) {
-    const { data: services } = await supabase
-      .from('dich_vu')
-      .select('ten_dich_vu, id_dich_vu, gia_ban, gia_nhap, co_so')
-      .or(`ten_dich_vu.in.(${serviceIds.map(id => `"${id}"`).join(',')}),id_dich_vu.in.(${serviceIds.map(id => `"${id}"`).join(',')})`);
+    const chunks = chunkArray(serviceIds, 50);
+    const allServices: any[] = [];
+
+    await Promise.all(chunks.map(async (chunk) => {
+      const { data: services } = await supabase
+        .from('dich_vu')
+        .select('ten_dich_vu, id_dich_vu, gia_ban, gia_nhap, co_so')
+        .or(`ten_dich_vu.in.(${chunk.map(id => `"${id}"`).join(',')}),id_dich_vu.in.(${chunk.map(id => `"${id}"`).join(',')})`);
+      if (services) allServices.push(...services);
+    }));
     
-    const serviceNameMap = new Map((services || []).map(s => [s.ten_dich_vu.toLowerCase(), s]));
-    const serviceIdMap = new Map((services || []).filter(s => !!s.id_dich_vu).map(s => [s.id_dich_vu!.toLowerCase(), s]));
+    const serviceNameMap = new Map(allServices.map(s => [s.ten_dich_vu.toLowerCase(), s]));
+    const serviceIdMap = new Map(allServices.filter(s => !!s.id_dich_vu).map(s => [s.id_dich_vu!.toLowerCase(), s]));
 
     cards.forEach(card => {
       if (card.dich_vu_id) {
@@ -126,12 +185,7 @@ export const getSalesCards = async (): Promise<SalesCard[]> => {
 
   const cards = (data as SalesCard[]) || [];
   
-  await Promise.all([
-    attachDetails(cards),
-    attachCustomer(cards),
-    attachPersonnel(cards),
-    attachService(cards)
-  ]);
+  await enrichSalesCards(cards);
 
   return cards;
 };
@@ -189,17 +243,32 @@ export const getSalesCardsPaginated = async (
 
   const cards = (data as SalesCard[]) || [];
   
-  await Promise.all([
-    attachDetails(cards),
-    attachCustomer(cards),
-    attachPersonnel(cards),
-    attachService(cards)
-  ]);
+  await enrichSalesCards(cards);
 
   return {
     data: cards,
     totalCount: count || 0
   };
+};
+
+export const normalizeSalesCards = async () => {
+  // 1. Fetch all cards missing id_bh
+  const { data: cards } = await supabase
+    .from('the_ban_hang')
+    .select('*')
+    .is('id_bh', null);
+  
+  if (!cards || cards.length === 0) return;
+
+  for (const card of cards) {
+    const idBh = `BH-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    
+    // Update main card
+    await supabase.from('the_ban_hang').update({ id_bh: idBh }).eq('id', card.id);
+    
+    // Update details linked by UUID
+    await supabase.from('the_ban_hang_ct').update({ id_don_hang: idBh }).eq('id_don_hang', card.id);
+  }
 };
 
 export const createSalesCard = async (card: Partial<SalesCard>): Promise<SalesCard> => {
@@ -231,45 +300,6 @@ export const updateSalesCard = async (id: string, card: Partial<SalesCard>): Pro
   return data as SalesCard;
 };
 
-export const deleteSalesCard = async (id: string): Promise<void> => {
-  const { error } = await supabase
-    .from('the_ban_hang')
-    .delete()
-    .eq('id', id);
-
-  if (error) {
-    console.error('Error deleting sales card:', error);
-    throw error;
-  }
-};
-
-export const getNextSalesCardCode = async (): Promise<string> => {
-  const { data, error } = await supabase
-    .from('the_ban_hang')
-    .select('id_bh')
-    .order('id_bh', { ascending: false })
-    .limit(1);
-
-  if (error) {
-    console.error('Error fetching next sales card code:', error);
-    return 'BH-000001';
-  }
-
-  if (!data || data.length === 0 || !data[0].id_bh) {
-    return 'BH-000001';
-  }
-
-  const lastCode = data[0].id_bh;
-  const match = lastCode.match(/^BH-(\d+)$/);
-  
-  if (match) {
-    const nextNumber = parseInt(match[1]) + 1;
-    return `BH-${nextNumber.toString().padStart(6, '0')}`;
-  }
-
-  return `BH-000001`;
-};
-
 export const upsertSalesCard = async (card: Partial<SalesCard>): Promise<SalesCard> => {
   const { data, error } = await supabase
     .from('the_ban_hang')
@@ -295,6 +325,18 @@ export const bulkUpsertSalesCards = async (cards: Partial<SalesCard>[]): Promise
   }
 };
 
+export const deleteSalesCard = async (id: string): Promise<void> => {
+  const { error } = await supabase
+    .from('the_ban_hang')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting sales card:', error);
+    throw error;
+  }
+};
+
 export const deleteAllSalesCards = async (): Promise<void> => {
   const { error } = await supabase
     .from('the_ban_hang')
@@ -305,4 +347,32 @@ export const deleteAllSalesCards = async (): Promise<void> => {
     console.error('Error deleting all sales cards:', error);
     throw error;
   }
+};
+
+export const getNextSalesCardCode = async (): Promise<string> => {
+  const { data, error } = await supabase
+    .from('the_ban_hang')
+    .select('id_bh')
+    .is('id_bh', 'not.null')
+    .order('id_bh', { ascending: false })
+    .limit(1);
+
+  if (error) {
+    console.error('Error fetching next sales card code:', error);
+    return 'BH-000001';
+  }
+
+  if (!data || data.length === 0 || !data[0].id_bh) {
+    return 'BH-000001';
+  }
+
+  const lastCode = data[0].id_bh;
+  const match = lastCode.match(/^BH-(\d+)$/);
+  
+  if (match) {
+    const nextNumber = parseInt(match[1]) + 1;
+    return `BH-${nextNumber.toString().padStart(6, '0')}`;
+  }
+
+  return `BH-000001`;
 };

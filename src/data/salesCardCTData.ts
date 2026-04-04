@@ -102,6 +102,18 @@ export const deleteSalesCardCT = async (id: string): Promise<void> => {
   }
 };
 
+export const deleteSalesCardCTsByOrderId = async (orderId: string): Promise<void> => {
+  const { error } = await supabase
+    .from('the_ban_hang_ct')
+    .delete()
+    .eq('id_don_hang', orderId);
+
+  if (error) {
+    console.error('Error deleting sales card CTs by order ID:', error);
+    throw error;
+  }
+};
+
 export const deleteAllSalesCardCTs = async (): Promise<void> => {
   const { error } = await supabase
     .from('the_ban_hang_ct')

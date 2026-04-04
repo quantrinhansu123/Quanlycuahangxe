@@ -407,7 +407,7 @@ const SalesCardCTManagementPage: React.FC = () => {
                     <th className="px-4 py-3 font-semibold">Mã Đơn</th>
                     <th className="px-4 py-3 font-semibold">Ngày</th>
                     <th className="px-4 py-3 font-semibold">Tên đơn hàng</th>
-                    <th className="px-4 py-3 font-semibold">Sản phẩm/Dịch vụ</th>
+                    <th className="px-4 py-3 font-semibold">Sản phẩm</th>
                     <th className="px-4 py-3 font-semibold">Cơ sở</th>
                     <th className="px-4 py-3 font-semibold text-right">Giá bán</th>
                     <th className="px-4 py-3 font-semibold text-right">Giá vốn</th>

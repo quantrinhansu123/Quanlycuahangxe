@@ -29,9 +29,15 @@ export const getServices = async (): Promise<DichVu[]> => {
 };
 
 export const upsertService = async (service: Partial<DichVu>): Promise<DichVu> => {
+  const cleanData = { ...service };
+  
+  // Sanitize date fields to prevent "invalid input syntax for type date: ''" error
+  if (cleanData.tu_ngay === '') cleanData.tu_ngay = null;
+  if (cleanData.toi_ngay === '') cleanData.toi_ngay = null;
+
   const { data, error } = await supabase
     .from('dich_vu')
-    .upsert(service)
+    .upsert(cleanData)
     .select()
     .single();
 

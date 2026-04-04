@@ -5,6 +5,7 @@ import type { SalesCardCT } from '../data/salesCardCTData';
 import { upsertSalesCardCT } from '../data/salesCardCTData';
 import type { SalesCard } from '../data/salesCardData';
 import type { DichVu } from '../data/serviceData';
+import { SearchableSelect } from './ui/SearchableSelect';
 
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
@@ -29,6 +30,35 @@ const SalesCardCTFormModal: React.FC<SalesCardCTFormModalProps> = React.memo(({
   const [formData, setFormData] = useState<Partial<SalesCardCT>>({});
 
   const branchOptions = ["Cơ sở Bắc Giang", "Cơ sở Bắc Ninh"];
+
+  const salesCardOptions = React.useMemo(() => {
+    return salesCards.map(c => ({
+      value: c.id_bh || c.id,
+      label: `${c.id_bh || c.id.slice(0,8)} - ${new Date(c.ngay).toLocaleDateString()} - ${c.khach_hang?.ho_va_ten || 'Khách lẻ'}`
+    }));
+  }, [salesCards]);
+
+  const serviceOptions = React.useMemo(() => {
+    return services.map(s => ({
+      value: s.ten_dich_vu,
+      label: `${s.ten_dich_vu} (${formatCurrency(s.gia_ban)})`
+    }));
+  }, [services]);
+
+  const handleOrderChange = (val: string) => {
+    setFormData(prev => ({ ...prev, id_don_hang: val }));
+  };
+
+  const handleProductChange = (val: string) => {
+    const selectedService = services.find(s => s.ten_dich_vu === val);
+    setFormData(prev => ({
+      ...prev,
+      san_pham: val,
+      gia_ban: selectedService?.gia_ban || prev.gia_ban,
+      gia_von: selectedService?.gia_nhap || prev.gia_von,
+      ten_don_hang: prev.ten_don_hang || (val ? `Bán ${val}` : '')
+    }));
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -117,13 +147,14 @@ const SalesCardCTFormModal: React.FC<SalesCardCTFormModalProps> = React.memo(({
 
               <div className="space-y-1.5 md:col-span-2">
                 <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider">Hoặc Chọn Đơn hàng từ danh sách</label>
-                <select
-                  name="id_don_hang" value={formData.id_don_hang || ''} onChange={handleInputChange}
-                  className="w-full px-4 py-2 bg-background border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary/20 text-[14px]"
-                >
-                  <option value="">-- Chọn đơn hàng gốc --</option>
-                  {salesCards.map(c => <option key={c.id} value={c.id_bh || c.id}>{c.id_bh || c.id.slice(0,8)} - {new Date(c.ngay).toLocaleDateString()} - {c.khach_hang?.ho_va_ten}</option>)}
-                </select>
+                <SearchableSelect
+                  options={salesCardOptions}
+                  value={formData.id_don_hang || undefined}
+                  onValueChange={handleOrderChange}
+                  placeholder="-- Chọn đơn hàng gốc --"
+                  searchPlaceholder="Tìm theo mã phiếu, ngày, tên khách..."
+                  className="font-bold"
+                />
               </div>
 
               <div className="space-y-1.5">
@@ -138,27 +169,16 @@ const SalesCardCTFormModal: React.FC<SalesCardCTFormModalProps> = React.memo(({
               <div className="space-y-1.5 md:col-span-2">
                 <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                   <Package size={14} className="text-blue-600" />
-                  Sản phẩm / Dịch vụ chi tiết
+                  Sản phẩm
                 </label>
-                <select
-                  name="san_pham" value={formData.san_pham || ''}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    const selectedService = services.find(s => s.ten_dich_vu === val);
-                    setFormData(prev => ({
-                      ...prev,
-                      san_pham: val,
-                      gia_ban: selectedService?.gia_ban || prev.gia_ban,
-                      gia_von: selectedService?.gia_nhap || prev.gia_von,
-                      ten_don_hang: prev.ten_don_hang || (val ? `Bán ${val}` : '')
-                    }));
-                  }}
-                  required
-                  className="w-full px-4 py-2 bg-background border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary/20 text-[14px] font-bold"
-                >
-                  <option value="">-- Chọn sản phẩm/dịch vụ --</option>
-                  {services.map(s => <option key={s.id} value={s.ten_dich_vu}>{s.ten_dich_vu} ({formatCurrency(s.gia_ban)})</option>)}
-                </select>
+                <SearchableSelect
+                  options={serviceOptions}
+                  value={formData.san_pham || undefined}
+                  onValueChange={handleProductChange}
+                  placeholder="-- Chọn sản phẩm/dịch vụ --"
+                  searchPlaceholder="Tìm tên sản phẩm..."
+                  className="font-bold"
+                />
               </div>
 
               <div className="space-y-1.5">

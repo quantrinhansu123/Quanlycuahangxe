@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { enrichSalesCards, type SalesCard } from './salesCardData';
 
 export interface OilChangeEntry {
   ngay: string;
@@ -36,10 +37,10 @@ export const getCustomers = async (): Promise<KhachHang[]> => {
 };
 
 // Lightweight version for dropdown selects - excludes heavy columns like 'anh' (Base64)
-export const getCustomersForSelect = async (): Promise<Pick<KhachHang, 'id' | 'ho_va_ten' | 'so_dien_thoai' | 'bien_so_xe' | 'ma_khach_hang'>[]> => {
+export const getCustomersForSelect = async (): Promise<Pick<KhachHang, 'id' | 'ho_va_ten' | 'so_dien_thoai' | 'bien_so_xe' | 'ma_khach_hang' | 'so_km'>[]> => {
   const { data, error } = await supabase
     .from('khach_hang')
-    .select('id, ho_va_ten, so_dien_thoai, bien_so_xe, ma_khach_hang')
+    .select('id, ho_va_ten, so_dien_thoai, bien_so_xe, ma_khach_hang, so_km')
     .order('ho_va_ten', { ascending: true });
 
   if (error) {
@@ -156,15 +157,10 @@ export const getCustomerServiceHistory = async (
   customerId: string,
   startDate?: string,
   endDate?: string
-): Promise<any[]> => {
+): Promise<SalesCard[]> => {
   let query = supabase
     .from('the_ban_hang')
-    .select(`
-      *,
-      nhan_su:nhan_vien_id(ho_ten),
-      dich_vu:dich_vu_id(ten_dich_vu, gia_ban),
-      the_ban_hang_ct(san_pham, gia_ban, so_luong)
-    `)
+    .select('*')
     .eq('khach_hang_id', customerId);
 
   if (startDate) {
@@ -182,20 +178,47 @@ export const getCustomerServiceHistory = async (
     console.error('Error fetching customer service history:', error);
     throw error;
   }
-  return data || [];
+  
+  const cards = (data as SalesCard[]) || [];
+  await enrichSalesCards(cards);
+  return cards;
 };
 
 export const getCustomerByPlate = async (plate: string): Promise<KhachHang | null> => {
-  if (!plate || plate.trim() === '') return null;
-  const { data, error } = await supabase
+  if (!plate || plate.trim().length < 4) return null;
+  const rawPlate = plate.trim();
+  const normalizedPlate = rawPlate.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+
+  // 1. Try exact match (fast)
+  const { data: exactMatch } = await supabase
     .from('khach_hang')
     .select('*')
-    .eq('bien_so_xe', plate.trim())
+    .eq('bien_so_xe', rawPlate)
     .maybeSingle();
+
+  if (exactMatch) return exactMatch as KhachHang;
+
+  // 2. Try matching without special characters if exact fails
+  // We fetch a broader set of potentially matching records and refine in JS
+  // to avoid complex SQL in the middleware
+  const { data: potentialMatches, error } = await supabase
+    .from('khach_hang')
+    .select('*')
+    .ilike('bien_so_xe', `%${normalizedPlate.slice(-4)}%`); // Search last 4 digits as a hint
 
   if (error) {
     console.error('Error fetching customer by plate:', error);
     return null;
   }
-  return data as KhachHang;
+
+  if (potentialMatches && potentialMatches.length > 0) {
+    // Find the best match by normalizing both sides
+    const bestMatch = potentialMatches.find(c => {
+      const dbPlate = (c.bien_so_xe || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+      return dbPlate === normalizedPlate;
+    });
+    return (bestMatch as KhachHang) || null;
+  }
+
+  return null;
 };

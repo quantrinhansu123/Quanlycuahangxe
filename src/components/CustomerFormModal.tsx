@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import type { KhachHang, OilChangeEntry } from '../data/customerData';
 import { getCustomerByPlate, uploadCustomerImage, upsertCustomer } from '../data/customerData';
 
@@ -33,7 +33,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
-  const [redirecting, setRedirecting] = useState(false);
+  const location = useLocation();
 
   const formatDateForInput = (dateStr: string | undefined) => {
     if (!dateStr) return '';
@@ -83,7 +83,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
 
   // Duplication Plate Check logic
   useEffect(() => {
-    if (!isOpen || !formData.bien_so_xe || formData.bien_so_xe.trim() === '' || redirecting) return;
+    if (!isOpen || !formData.bien_so_xe || formData.bien_so_xe.trim() === '') return;
 
     const timer = setTimeout(async () => {
       try {
@@ -93,28 +93,32 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
         const existing: KhachHang | null = await getCustomerByPlate(plate);
         if (existing && existing.id !== (customer ? customer.id : '')) {
           if (!customer) {
-            // Only redirect if creating a NEW customer
-            setRedirecting(true);
-            const confirmOrder = window.confirm(`Biển số [${plate}] đã tồn tại cho khách hàng: ${existing.ho_va_ten}.\nBạn có muốn chuyển sang LẬP HÓA ĐƠN cho khách hàng này không?`);
+            // Determine if we should navigate or just return result to parent
+            const isOnSalesPage = location.pathname.includes('/ban-hang/phieu-ban-hang');
             
-            if (confirmOrder) {
+            if (!isOnSalesPage) {
+              // Always use UUID (existing.id) — guaranteed to match
+              console.log('[DEBUG] Saving pendingCustomerId to sessionStorage:', existing.id);
+              sessionStorage.setItem('pendingCustomerId', existing.id);
+              navigate('/ban-hang/phieu-ban-hang');
               onClose();
-              navigate('/ban-hang/phieu-ban-hang', { state: { customerId: existing.id } });
             } else {
-              setRedirecting(false);
+              // If already on sales page (in a modal), just select the customer
+              onSuccess(existing);
+              onClose();
             }
           } else {
-             // If editing, just warn
-             alert(`Lưu ý: Biển số [${plate}] đang bị trùng với khách hàng: ${existing.ho_va_ten}`);
+             // If editing, just warn or log
+             console.warn(`Biển số [${plate}] trùng với khách hàng: ${existing.ho_va_ten}`);
           }
         }
       } catch (err) {
         console.error('Lỗi kiểm tra biển số:', err);
       }
-    }, 800);
+    }, 600);
 
     return () => clearTimeout(timer);
-  }, [formData.bien_so_xe, isOpen, customer, navigate, onClose, redirecting]);
+  }, [formData.bien_so_xe, isOpen, customer, navigate, onClose]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;

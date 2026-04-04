@@ -23,9 +23,9 @@ import type { ThuChi } from '../data/financialData';
 import { deleteTransactionByOrderId, getTransactionByOrderId, upsertTransaction } from '../data/financialData';
 import type { NhanSu } from '../data/personnelData';
 import { getPersonnel } from '../data/personnelData';
-import { bulkUpsertSalesCardCTs } from '../data/salesCardCTData';
+import { bulkUpsertSalesCardCTs, deleteSalesCardCTsByOrderId } from '../data/salesCardCTData';
 import type { SalesCard } from '../data/salesCardData';
-import { bulkUpsertSalesCards, deleteAllSalesCards, deleteSalesCard, getSalesCardsPaginated, upsertSalesCard } from '../data/salesCardData';
+import { bulkUpsertSalesCards, deleteAllSalesCards, deleteSalesCard, getSalesCardsPaginated, upsertSalesCard, normalizeSalesCards } from '../data/salesCardData';
 import { deleteSalesTransactions } from '../data/financialData';
 import type { DichVu } from '../data/serviceData';
 import { getServices } from '../data/serviceData';
@@ -72,6 +72,9 @@ const SalesCardManagementPage: React.FC = () => {
         getPersonnel(),
         getServices()
       ]);
+
+      // One-time data normalization to fix legacy data (missing id_bh, etc.)
+      await normalizeSalesCards();
       setSalesCards(cardsResult.data);
       setTotalCount(cardsResult.totalCount);
       setCustomers(custData as KhachHang[]);
@@ -91,33 +94,53 @@ const SalesCardManagementPage: React.FC = () => {
   // Server-side filtering, so we use salesCards directly
   const displayItems = useMemo(() => salesCards, [salesCards]);
 
-  // Handle auto-open for specific customer from navigation state
+  // ---- AUTO-OPEN MODAL WHEN REDIRECTED FROM CUSTOMER PAGE ----
+  // Fetch the single customer directly by UUID — no need to wait for full list
   useEffect(() => {
-    if (location.state?.customerId && !loading && customers.length > 0) {
-      const custId = location.state.customerId;
-      const customer = customers.find(c => c.id === custId);
+    const pendingId = sessionStorage.getItem('pendingCustomerId');
+    if (!pendingId) return;
 
-      if (customer) {
-        // Initial data for the new card
-        const matchedUser = personnel.find(p => p.ho_ten?.toLowerCase() === currentUser?.ho_ten?.toLowerCase()) || personnel[0];
+    sessionStorage.removeItem('pendingCustomerId');
 
+    const openFormForCustomer = async () => {
+      try {
+        const { data: customer } = await supabase
+          .from('khach_hang')
+          .select('id, ma_khach_hang, ho_va_ten, so_dien_thoai, so_km')
+          .eq('id', pendingId)
+          .maybeSingle();
+
+        if (!customer) {
+          console.warn('[DEBUG] Customer not found for id:', pendingId);
+          return;
+        }
+
+        // Wait for personnel to load (lightweight, fast)
+        const persData = personnel.length > 0 ? personnel : await getPersonnel();
+        const matchedUser = persData.find(
+          p => p.ho_ten?.toLowerCase() === currentUser?.ho_ten?.toLowerCase()
+        ) || persData[0];
+
+        setEditingCard(null);
+        setIsReadOnlyModal(false);
         setFormData({
           ngay: new Date().toISOString().split('T')[0],
           gio: new Date().toLocaleTimeString('vi-VN', { hour12: false, hour: '2-digit', minute: '2-digit' }),
-          khach_hang_id: customer.id,
-          nhan_vien_id: matchedUser ? matchedUser.ho_ten : '', // TEXT ID (ho_ten)
+          khach_hang_id: customer.ma_khach_hang || customer.id,
+          nhan_vien_id: matchedUser ? matchedUser.ho_ten : '',
           dich_vu_id: '',
           dich_vu_ids: [],
           so_km: customer.so_km || 0,
           ngay_nhac_thay_dau: ''
         });
         setIsModalOpen(true);
-
-        // Clear state to prevent re-opening
-        window.history.replaceState({}, document.title);
+      } catch (err) {
+        console.error('Error auto-opening form:', err);
       }
-    }
-  }, [location.state, loading, customers, personnel, currentUser]);
+    };
+
+    openFormForCustomer();
+  }, []); // Runs once on mount
 
   const handleOpenModal = (card?: SalesCard) => {
     setIsReadOnlyModal(false);
@@ -186,7 +209,17 @@ const SalesCardManagementPage: React.FC = () => {
 
   const handleSubmit = async (formDataHeader: Partial<SalesCard & { dich_vu_ids?: string[], service_items?: { id: string, ten_dich_vu: string, gia_ban: number, so_luong?: number }[] }>) => {
     try {
-      const { khach_hang, nhan_su, dich_vu, dich_vu_ids, service_items, ...cleanData } = formDataHeader as any;
+      // Exclude all virtual/joined fields that don't exist in the database
+      const { 
+        khach_hang, 
+        nhan_su, 
+        nhan_su_list, 
+        dich_vu, 
+        dich_vu_ids, 
+        service_items, 
+        the_ban_hang_ct,
+        ...cleanData 
+      } = formDataHeader as any;
 
       // Sanitize date fields to avoid "invalid input syntax for type date" error in Supabase
       if (cleanData.ngay_nhac_thay_dau === '') cleanData.ngay_nhac_thay_dau = null;
@@ -198,13 +231,16 @@ const SalesCardManagementPage: React.FC = () => {
 
       const savedCard = await upsertSalesCard(cleanData);
 
-      // Automatically create detail records for all selected services
+      // 1. Clear OLD detail records for this specific order to prevent duplication
+      await deleteSalesCardCTsByOrderId(savedCard.id_bh || savedCard.id);
+
+      // 2. Automatically create NEW detail records for all selected services
       if (formDataHeader.service_items && formDataHeader.service_items.length > 0) {
         const detailRecords = formDataHeader.service_items.map((item) => {
           const service = services.find(s => s.id === item.id);
           return {
-            don_hang_id: savedCard.id,
-            ten_don_hang: `Phiếu bán hàng ${savedCard.id.slice(0, 8)}`,
+            id_don_hang: savedCard.id_bh || savedCard.id,
+            ten_don_hang: formDataHeader.id_bh || `Đơn hàng ${savedCard.id_bh || savedCard.id.slice(0, 8)}`,
             san_pham: item.ten_dich_vu,
             co_so: service?.co_so || 'Cơ sở chính',
             gia_ban: item.gia_ban,
@@ -219,8 +255,8 @@ const SalesCardManagementPage: React.FC = () => {
         const detailRecords = dich_vu_ids.map((sId: string) => {
           const service = services.find(s => s.id === sId);
           return {
-            don_hang_id: savedCard.id,
-            ten_don_hang: `Phiếu bán hàng ${savedCard.id.slice(0, 8)}`,
+            id_don_hang: savedCard.id_bh || savedCard.id,
+            ten_don_hang: formDataHeader.id_bh || `Đơn hàng ${savedCard.id_bh || savedCard.id.slice(0, 8)}`,
             san_pham: service?.ten_dich_vu || 'Dịch vụ',
             co_so: service?.co_so || 'Cơ sở chính',
             gia_ban: service?.gia_ban || 0,
