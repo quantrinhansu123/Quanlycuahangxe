@@ -33,7 +33,12 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
       const loadHistory = async () => {
          try {
             setLoading(true);
-            const data = await getCustomerServiceHistory(customer.id, startDateStr, endDateStr);
+            const data = await getCustomerServiceHistory(
+               customer.id, 
+               startDateStr, 
+               endDateStr, 
+               customer.ma_khach_hang || undefined
+            );
             if (isMounted) setHistory(data);
          } catch (error) {
             console.error('Lỗi khi tải lịch sử:', error);
@@ -322,7 +327,7 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
                <button 
                   onClick={() => {
                      onClose();
-                     navigate('/ban-hang/phieu-ban-hang', { state: { pendingCustomerId: customer.id } });
+                     navigate('/ban-hang/phieu-ban-hang', { state: { pendingCustomerId: customer.id, pendingMaKhachHang: customer.ma_khach_hang } });
                   }} 
                   className="px-5 py-2 sm:px-10 sm:py-3 bg-primary hover:bg-primary/90 text-white text-[11px] sm:text-sm font-black rounded-xl sm:rounded-2xl border border-primary/20 transition-all active:scale-95 shadow-lg shadow-primary/20 uppercase tracking-widest"
                >

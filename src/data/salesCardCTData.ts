@@ -25,7 +25,9 @@ export const getSalesCardCTs = async (idDonHang?: string): Promise<SalesCardCT[]
     query = query.eq('id_don_hang', idDonHang);
   }
   
-  const { data, error } = await query.order('created_at', { ascending: false });
+  const { data, error } = await query
+    .order('ngay', { ascending: false })
+    .order('created_at', { ascending: false });
 
   if (error) {
     console.error('Error fetching sales card CTs:', error);
@@ -51,6 +53,7 @@ export const getSalesCardCTsPaginated = async (
   }
 
   const { data, count, error } = await query
+    .order('ngay', { ascending: false })
     .order('created_at', { ascending: false })
     .range(from, to);
 

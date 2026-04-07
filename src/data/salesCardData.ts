@@ -193,7 +193,11 @@ export const getSalesCards = async (): Promise<SalesCard[]> => {
 export const getSalesCardsPaginated = async (
   page: number, 
   pageSize: number, 
-  searchQuery?: string
+  searchQuery?: string,
+  startDate?: string,
+  endDate?: string,
+  staffId?: string,
+  branch?: string
 ): Promise<{ data: SalesCard[], totalCount: number }> => {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
@@ -231,9 +235,37 @@ export const getSalesCardsPaginated = async (
     }
   }
 
+  if (startDate) {
+    query = query.gte('ngay', startDate);
+  }
+  if (endDate) {
+    query = query.lte('ngay', endDate);
+  }
+
+  if (staffId) {
+    query = query.ilike('nhan_vien_id', `%${staffId}%`);
+  }
+
+  if (branch) {
+    const { data: matchedDetailIds } = await supabase
+      .from('the_ban_hang_ct')
+      .select('id_don_hang')
+      .eq('co_so', branch);
+    
+    const matchedIds = [...new Set((matchedDetailIds || []).map(d => d.id_don_hang).filter(Boolean))] as string[];
+    
+    if (matchedIds.length > 0) {
+      query = query.in('id', matchedIds);
+    } else {
+      // If no details match the branch, return no results
+      query = query.eq('id', '00000000-0000-0000-0000-000000000000');
+    }
+  }
+
   const { data, count, error } = await query
     .order('ngay', { ascending: false })
     .order('gio', { ascending: false })
+    .order('created_at', { ascending: false })
     .range(from, to);
 
   if (error) {
@@ -270,7 +302,8 @@ export const getSalesCardsByCustomer = async (
 
   const { data, error } = await query
     .order('ngay', { ascending: false })
-    .order('gio', { ascending: false });
+    .order('gio', { ascending: false })
+    .order('created_at', { ascending: false });
 
   if (error) {
     console.error('Error fetching customer sales cards:', error);

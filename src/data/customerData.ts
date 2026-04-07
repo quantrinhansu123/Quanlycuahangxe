@@ -156,12 +156,18 @@ export const uploadCustomerImage = async (file: File): Promise<string> => {
 export const getCustomerServiceHistory = async (
   customerId: string,
   startDate?: string,
-  endDate?: string
+  endDate?: string,
+  maKhachHang?: string
 ): Promise<SalesCard[]> => {
   let query = supabase
     .from('the_ban_hang')
-    .select('*')
-    .eq('khach_hang_id', customerId);
+    .select('*');
+
+  if (maKhachHang) {
+    query = query.or(`khach_hang_id.eq.${customerId},khach_hang_id.eq.${maKhachHang}`);
+  } else {
+    query = query.eq('khach_hang_id', customerId);
+  }
 
   if (startDate) {
     query = query.gte('ngay', startDate);

@@ -9,7 +9,11 @@ import {
   Search,
   ShoppingCart,
   Trash2,
-  Upload
+  Upload,
+  X,
+  ChevronDown,
+  User,
+  Building
 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -30,6 +34,7 @@ import { deleteSalesTransactions } from '../data/financialData';
 import type { DichVu } from '../data/serviceData';
 import { getServices } from '../data/serviceData';
 import { supabase } from '../lib/supabase';
+import { cn } from '../lib/utils';
 
 const SalesCardManagementPage: React.FC = () => {
   const { currentUser } = useAuth();
@@ -55,6 +60,14 @@ const SalesCardManagementPage: React.FC = () => {
   const [editingCard, setEditingCard] = useState<SalesCard | null>(null);
   const [formData, setFormData] = useState<Partial<SalesCard & { dich_vu_ids?: string[], service_items?: any[] }>>({});
 
+  // Date filtering states
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [activeQuickFilter, setActiveQuickFilter] = useState<'all' | 'today' | 'yesterday' | 'this_week' | 'this_month' | 'custom'>('all');
+  const [selectedMonth, setSelectedMonth] = useState('');
+  const [selectedStaff, setSelectedStaff] = useState('');
+  const [selectedBranch, setSelectedBranch] = useState('');
+
   // Debounce search
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -67,7 +80,15 @@ const SalesCardManagementPage: React.FC = () => {
     try {
       setLoading(true);
       const [cardsResult, custData, persData, servData] = await Promise.all([
-        getSalesCardsPaginated(currentPage, pageSize, debouncedSearch),
+        getSalesCardsPaginated(
+          currentPage, 
+          pageSize, 
+          debouncedSearch, 
+          startDate || undefined, 
+          endDate || undefined,
+          selectedStaff || undefined,
+          selectedBranch || undefined
+        ),
         getCustomersForSelect(), // Lightweight: only id, name, phone, plate, legacy_id
         getPersonnel(),
         getServices()
@@ -85,7 +106,7 @@ const SalesCardManagementPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, pageSize, debouncedSearch, location.pathname]);
+  }, [currentPage, pageSize, debouncedSearch, startDate, endDate, selectedStaff, selectedBranch, location.pathname]);
 
   useEffect(() => {
     loadData();
@@ -97,12 +118,15 @@ const SalesCardManagementPage: React.FC = () => {
   // ---- AUTO-OPEN MODAL WHEN REDIRECTED FROM CUSTOMER PAGE ----
   // Use a ref to store the pending customer ID so it survives re-renders
   const pendingCustomerRef = React.useRef<string | null>(null);
+  const pendingMaRef = React.useRef<string | null>(null);
 
   // Capture pending ID immediately on first render (before any async work)
   if (pendingCustomerRef.current === null) {
     const state = location.state as any;
     const id = state?.pendingCustomerId || sessionStorage.getItem('pendingCustomerId');
+    const ma = state?.pendingMaKhachHang || '';
     pendingCustomerRef.current = id || '';
+    pendingMaRef.current = ma || '';
     // Clear storage immediately (without re-triggering location change)
     if (id) {
       sessionStorage.removeItem('pendingCustomerId');
@@ -114,23 +138,32 @@ const SalesCardManagementPage: React.FC = () => {
   // After loadData completes and lists are ready, auto-open the modal
   useEffect(() => {
     const pendingId = pendingCustomerRef.current;
+    const pendingMa = pendingMaRef.current;
     if (!pendingId || loading) return; // Wait until loading is done
     if (customers.length === 0) return; // Wait until customers list is loaded
 
     // Reset the ref so this only runs once
     pendingCustomerRef.current = '';
+    pendingMaRef.current = '';
 
     const openFormForCustomer = async () => {
       try {
         // 1. Find the customer in the already-loaded list or fetch directly
-        let customer = customers.find(c => c.id === pendingId || c.ma_khach_hang === pendingId);
+        let customer = customers.find(c => {
+          const optionValue = c.ma_khach_hang || c.id;
+          return c.id === pendingId || c.ma_khach_hang === pendingId || optionValue === pendingId
+            || (pendingMa && (c.ma_khach_hang === pendingMa || optionValue === pendingMa));
+        });
         
         if (!customer) {
-          // Fallback: fetch from Supabase if not in list
-          const { data: fetchedCustomer } = await supabase
+          // Fallback: fetch from Supabase if not in list — try UUID first, then ma_khach_hang
+          let query = supabase
             .from('khach_hang')
-            .select('id, ma_khach_hang, ho_va_ten, so_dien_thoai, so_km, bien_so_xe')
-            .eq('id', pendingId)
+            .select('id, ma_khach_hang, ho_va_ten, so_dien_thoai, so_km, bien_so_xe');
+
+          const { data: fetchedCustomer } = await query
+            .or(`id.eq.${pendingId}${pendingMa ? `,ma_khach_hang.eq.${pendingMa}` : ''}`)
+            .limit(1)
             .maybeSingle();
 
           if (!fetchedCustomer) {
@@ -180,7 +213,8 @@ const SalesCardManagementPage: React.FC = () => {
           so_km: customer.so_km || 0,
           ngay_nhac_thay_dau: ''
         });
-        setIsModalOpen(true);
+        // Delay modal open to ensure customers list state is flushed before dropdown renders
+        setTimeout(() => setIsModalOpen(true), 50);
       } catch (err) {
         console.error('[CRITICAL] Error auto-opening form:', err);
       }
@@ -594,6 +628,86 @@ const SalesCardManagementPage: React.FC = () => {
     }
   };
 
+  const handleQuickFilter = (type: typeof activeQuickFilter) => {
+    setActiveQuickFilter(type);
+    setSelectedMonth('');
+    const today = new Date();
+    
+    // Set time to midnight for consistent calculations if needed, 
+    // but here we just need YYYY-MM-DD
+    
+    let start = '';
+    let end = '';
+
+    switch (type) {
+      case 'today':
+        start = today.toISOString().split('T')[0];
+        end = start;
+        break;
+      case 'yesterday':
+        const yesterday = new Date(today);
+        yesterday.setDate(today.getDate() - 1);
+        start = yesterday.toISOString().split('T')[0];
+        end = start;
+        break;
+      case 'this_week':
+        const dayOfWeek = today.getDay(); // 0 (Sun) to 6 (Sat)
+        const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+        const monday = new Date(today);
+        monday.setDate(today.getDate() + diffToMonday);
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        start = monday.toISOString().split('T')[0];
+        end = sunday.toISOString().split('T')[0];
+        break;
+      case 'this_month':
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+        const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        start = firstDay.toISOString().split('T')[0];
+        end = lastDay.toISOString().split('T')[0];
+        break;
+      case 'all':
+        start = '';
+        end = '';
+        break;
+      default:
+        return;
+    }
+    
+    setStartDate(start);
+    setEndDate(end);
+    setCurrentPage(1);
+  };
+
+  const handleMonthChange = (monthStr: string) => {
+    if (!monthStr) {
+      handleQuickFilter('all');
+      return;
+    }
+    
+    setSelectedMonth(monthStr);
+    setActiveQuickFilter('custom');
+    
+    const [year, month] = monthStr.split('-').map(Number);
+    const firstDay = new Date(year, month - 1, 1);
+    const lastDay = new Date(year, month, 0);
+    
+    setStartDate(firstDay.toISOString().split('T')[0]);
+    setEndDate(lastDay.toISOString().split('T')[0]);
+    setCurrentPage(1);
+  };
+
+  const handleClearFilters = () => {
+    setSearchQuery('');
+    setStartDate('');
+    setEndDate('');
+    setActiveQuickFilter('all');
+    setSelectedMonth('');
+    setSelectedStaff('');
+    setSelectedBranch('');
+    setCurrentPage(1);
+  };
+
   const handleDeleteAll = async () => {
     const confirm1 = window.confirm('⚠️ CẢNH BÁO: Bạn có chắc chắn muốn xóa TOÀN BỘ dữ liệu phiếu bán hàng không?\n(Dữ liệu chi tiết và phiếu thu tiền liên quan cũng sẽ bị xóa sạch)');
     if (!confirm1) return;
@@ -698,6 +812,137 @@ const SalesCardManagementPage: React.FC = () => {
               </button>
             </div>
           </div>
+
+        {/* Filter Bar */}
+        <div className="flex flex-col gap-4 bg-card p-4 rounded-xl border border-border shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 sm:pb-0">
+              <div className="flex bg-muted p-1 rounded-lg shrink-0">
+                {[
+                  { id: 'all', label: 'Tất cả' },
+                  { id: 'today', label: 'Hôm nay' },
+                  { id: 'yesterday', label: 'Hôm qua' },
+                  { id: 'this_week', label: 'Tuần này' },
+                  { id: 'this_month', label: 'Tháng này' },
+                ].map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => handleQuickFilter(f.id as any)}
+                    className={cn(
+                      "px-3 py-1.5 text-[11px] sm:text-[13px] font-bold rounded-md transition-all whitespace-nowrap",
+                      activeQuickFilter === f.id 
+                        ? "bg-background text-primary shadow-sm" 
+                        : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+                    )}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
+              {/* Branch Filter */}
+              <div className="flex items-center gap-2 text-[11px] sm:text-[13px] font-bold text-muted-foreground">
+                <Building size={16} />
+                <div className="relative">
+                  <select
+                    value={selectedBranch}
+                    onChange={(e) => {
+                      setSelectedBranch(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="appearance-none pl-3 pr-8 py-1.5 bg-muted/50 border border-border rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none cursor-pointer transition-all min-w-[120px]"
+                  >
+                    <option value="">Tất cả cơ sở</option>
+                    {[...new Set(personnel.map(p => p.co_so).filter(Boolean))].map(branch => (
+                      <option key={branch} value={branch}>{branch}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 size-4 pointer-events-none text-muted-foreground" />
+                </div>
+              </div>
+
+              {/* Staff Filter */}
+              <div className="flex items-center gap-2 text-[11px] sm:text-[13px] font-bold text-muted-foreground">
+                <User size={16} />
+                <div className="relative">
+                  <select
+                    value={selectedStaff}
+                    onChange={(e) => {
+                      setSelectedStaff(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="appearance-none pl-3 pr-8 py-1.5 bg-muted/50 border border-border rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none cursor-pointer transition-all min-w-[120px]"
+                  >
+                    <option value="">Tất cả nhân viên</option>
+                    {personnel.map((p) => (
+                      <option key={p.id} value={p.ho_ten}>{p.ho_ten}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 size-4 pointer-events-none text-muted-foreground" />
+                </div>
+              </div>
+
+              {/* Month Filter */}
+              <div className="flex items-center gap-2 text-[11px] sm:text-[13px] font-bold text-muted-foreground">
+                <span>Tháng:</span>
+                <div className="relative">
+                  <select
+                    value={selectedMonth}
+                    onChange={(e) => handleMonthChange(e.target.value)}
+                    className="appearance-none pl-3 pr-8 py-1.5 bg-muted/50 border border-border rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none cursor-pointer transition-all min-w-[120px]"
+                  >
+                    <option value="">Chọn tháng...</option>
+                    {Array.from({ length: 12 }, (_, i) => {
+                      const d = new Date();
+                      // Start from current month and go backwards
+                      d.setMonth(d.getMonth() - i);
+                      const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                      const label = `Tháng ${d.getMonth() + 1}/${d.getFullYear()}`;
+                      return <option key={val} value={val}>{label}</option>;
+                    })}
+                  </select>
+                  <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 size-4 pointer-events-none text-muted-foreground" />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-lg border border-border">
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => {
+                    setStartDate(e.target.value);
+                    setActiveQuickFilter('custom');
+                    setCurrentPage(1);
+                  }}
+                  className="bg-transparent border-none text-[11px] sm:text-[13px] font-medium outline-none p-1 w-[120px] sm:w-[130px] cursor-pointer"
+                />
+                <span className="text-muted-foreground">-</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => {
+                    setEndDate(e.target.value);
+                    setActiveQuickFilter('custom');
+                    setCurrentPage(1);
+                  }}
+                  className="bg-transparent border-none text-[11px] sm:text-[13px] font-medium outline-none p-1 w-[120px] sm:w-[130px] cursor-pointer"
+                />
+              </div>
+
+              {(startDate || endDate || searchQuery || selectedMonth) && (
+                <button
+                  onClick={handleClearFilters}
+                  className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-all border border-transparent hover:border-rose-100 shrink-0"
+                  title="Xóa bộ lọc"
+                >
+                  <X size={20} />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
 
         {/* Summary Bar - Tổng đơn & Tổng tiền */}
         {!loading && displayItems.length > 0 && (
