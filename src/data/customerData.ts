@@ -37,10 +37,10 @@ export const getCustomers = async (): Promise<KhachHang[]> => {
 };
 
 // Lightweight version for dropdown selects - excludes heavy columns like 'anh' (Base64)
-export const getCustomersForSelect = async (): Promise<Pick<KhachHang, 'id' | 'ho_va_ten' | 'so_dien_thoai' | 'bien_so_xe' | 'ma_khach_hang' | 'so_km'>[]> => {
+export const getCustomersForSelect = async (): Promise<Pick<KhachHang, 'id' | 'ho_va_ten' | 'so_dien_thoai' | 'bien_so_xe' | 'ma_khach_hang' | 'so_km' | 'dia_chi_hien_tai'>[]> => {
   const { data, error } = await supabase
     .from('khach_hang')
-    .select('id, ho_va_ten, so_dien_thoai, bien_so_xe, ma_khach_hang, so_km')
+    .select('id, ho_va_ten, so_dien_thoai, bien_so_xe, ma_khach_hang, so_km, dia_chi_hien_tai')
     .order('ho_va_ten', { ascending: true });
 
   if (error) {
@@ -99,13 +99,26 @@ export const upsertCustomer = async (customer: Partial<KhachHang>): Promise<Khac
 };
 
 export const bulkUpsertCustomers = async (customers: Partial<KhachHang>[]): Promise<void> => {
-  const { error } = await supabase
-    .from('khach_hang')
-    .upsert(customers);
+  // Split: records with id → upsert (update), records without id → insert (new)
+  const toUpdate = customers.filter(c => c.id);
+  const toInsert = customers.filter(c => !c.id);
 
-  if (error) {
-    console.error('Error bulk upserting customers:', error);
-    throw error;
+  if (toUpdate.length > 0) {
+    const { error } = await supabase.from('khach_hang').upsert(toUpdate);
+    if (error) {
+      console.error('Error upserting customers:', error);
+      throw error;
+    }
+  }
+
+  if (toInsert.length > 0) {
+    // Remove id field entirely to let DB auto-generate
+    const cleanInserts = toInsert.map(({ id, ...rest }) => rest);
+    const { error } = await supabase.from('khach_hang').insert(cleanInserts);
+    if (error) {
+      console.error('Error inserting new customers:', error);
+      throw error;
+    }
   }
 };
 

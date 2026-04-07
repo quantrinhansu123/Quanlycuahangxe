@@ -20,7 +20,7 @@ import * as XLSX from 'xlsx';
 import Pagination from '../components/Pagination';
 import ServiceFormModal from '../components/ServiceFormModal';
 import type { DichVu } from '../data/serviceData';
-import { bulkUpsertServices, deleteAllServices, deleteService, getNextServiceCode, getServicesPaginated, upsertService } from '../data/serviceData';
+import { bulkUpsertServices, deleteAllServices, deleteService, getNextServiceCode, getServices, getServicesPaginated, upsertService } from '../data/serviceData';
 
 const ServiceManagementPage: React.FC = () => {
   const navigate = useNavigate();
@@ -240,9 +240,34 @@ const ServiceManagementPage: React.FC = () => {
 
         if (formattedData.length > 0) {
           setLoading(true);
+          // Check trùng: fetch danh sách hiện có và gán ID nếu tìm thấy bản ghi trùng
+          const existingServices = await getServices();
+          // Track which existing records have already been matched
+          const claimedIds = new Set<string>();
+          let updatedCount = 0;
+          
+          formattedData.forEach(rec => {
+            const existing = existingServices.find(e => {
+              if (claimedIds.has(e.id)) return false;
+              // So sánh theo id_dich_vu
+              if (rec.id_dich_vu && e.id_dich_vu && rec.id_dich_vu === e.id_dich_vu) return true;
+              // So sánh theo ten_dich_vu + co_so
+              if (rec.ten_dich_vu && e.ten_dich_vu && rec.ten_dich_vu.toLowerCase() === e.ten_dich_vu.toLowerCase()) {
+                if (rec.co_so && e.co_so) return rec.co_so === e.co_so;
+                return true;
+              }
+              return false;
+            });
+            if (existing) {
+              rec.id = existing.id;
+              claimedIds.add(existing.id);
+              updatedCount++;
+            }
+          });
           await bulkUpsertServices(formattedData);
           await loadData();
-          alert(`Đã nhập thành công ${formattedData.length} dịch vụ!`);
+          const newCount = formattedData.length - updatedCount;
+          alert(`✅ Hoàn tất: ${newCount} dịch vụ mới, ${updatedCount} dịch vụ cập nhật.`);
         }
       } catch (error) {
         console.error(error);

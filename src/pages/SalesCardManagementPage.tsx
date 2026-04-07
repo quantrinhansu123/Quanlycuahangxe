@@ -1,6 +1,8 @@
 import {
   ArrowLeft,
+  Building,
   Calendar,
+  ChevronDown,
   Download,
   Edit2,
   Eye,
@@ -10,10 +12,8 @@ import {
   ShoppingCart,
   Trash2,
   Upload,
-  X,
-  ChevronDown,
   User,
-  Building
+  X
 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -24,13 +24,12 @@ import { useAuth } from '../context/AuthContext';
 import type { KhachHang } from '../data/customerData';
 import { getCustomersForSelect } from '../data/customerData';
 import type { ThuChi } from '../data/financialData';
-import { deleteTransactionByOrderId, getTransactionByOrderId, upsertTransaction } from '../data/financialData';
+import { deleteSalesTransactions, deleteTransactionByOrderId, getTransactionByOrderId, upsertTransaction } from '../data/financialData';
 import type { NhanSu } from '../data/personnelData';
 import { getPersonnel } from '../data/personnelData';
 import { bulkUpsertSalesCardCTs, deleteSalesCardCTsByOrderId } from '../data/salesCardCTData';
 import type { SalesCard } from '../data/salesCardData';
-import { bulkUpsertSalesCards, deleteAllSalesCards, deleteSalesCard, getSalesCardsPaginated, upsertSalesCard, normalizeSalesCards } from '../data/salesCardData';
-import { deleteSalesTransactions } from '../data/financialData';
+import { bulkUpsertSalesCards, deleteAllSalesCards, deleteSalesCard, getSalesCardsPaginated, normalizeSalesCards, upsertSalesCard } from '../data/salesCardData';
 import type { DichVu } from '../data/serviceData';
 import { getServices } from '../data/serviceData';
 import { supabase } from '../lib/supabase';
@@ -81,10 +80,10 @@ const SalesCardManagementPage: React.FC = () => {
       setLoading(true);
       const [cardsResult, custData, persData, servData] = await Promise.all([
         getSalesCardsPaginated(
-          currentPage, 
-          pageSize, 
-          debouncedSearch, 
-          startDate || undefined, 
+          currentPage,
+          pageSize,
+          debouncedSearch,
+          startDate || undefined,
           endDate || undefined,
           selectedStaff || undefined,
           selectedBranch || undefined
@@ -154,7 +153,7 @@ const SalesCardManagementPage: React.FC = () => {
           return c.id === pendingId || c.ma_khach_hang === pendingId || optionValue === pendingId
             || (pendingMa && (c.ma_khach_hang === pendingMa || optionValue === pendingMa));
         });
-        
+
         if (!customer) {
           // Fallback: fetch from Supabase if not in list — try UUID first, then ma_khach_hang
           let query = supabase
@@ -291,15 +290,15 @@ const SalesCardManagementPage: React.FC = () => {
   const handleSubmit = async (formDataHeader: Partial<SalesCard & { dich_vu_ids?: string[], service_items?: { id: string, ten_dich_vu: string, gia_ban: number, so_luong?: number }[] }>) => {
     try {
       // Exclude all virtual/joined fields that don't exist in the database
-      const { 
-        khach_hang, 
-        nhan_su, 
-        nhan_su_list, 
-        dich_vu, 
-        dich_vu_ids, 
-        service_items, 
+      const {
+        khach_hang,
+        nhan_su,
+        nhan_su_list,
+        dich_vu,
+        dich_vu_ids,
+        service_items,
         the_ban_hang_ct,
-        ...cleanData 
+        ...cleanData
       } = formDataHeader as any;
 
       // Sanitize date fields to avoid "invalid input syntax for type date" error in Supabase
@@ -519,7 +518,7 @@ const SalesCardManagementPage: React.FC = () => {
         data.forEach(row => {
           const norm: any = {};
           Object.keys(row).forEach(k => { norm[String(k).trim().toLowerCase().replace(/\s+/g, ' ')] = row[k]; });
-          
+
           const getValue = (keys: string[]) => {
             const k = keys.find(z => norm[z.toLowerCase().replace(/\s+/g, ' ')] !== undefined);
             return k ? norm[k.toLowerCase().replace(/\s+/g, ' ')] : undefined;
@@ -546,9 +545,9 @@ const SalesCardManagementPage: React.FC = () => {
         const formattedData = data.map((row) => {
           const norm: any = {};
           // Normalize keys: trim, lower case and replace multiple spaces with single space
-          Object.keys(row).forEach(k => { 
+          Object.keys(row).forEach(k => {
             const cleanKey = String(k).trim().toLowerCase().replace(/\s+/g, ' ');
-            norm[cleanKey] = row[k]; 
+            norm[cleanKey] = row[k];
           });
 
           const getValue = (keys: string[]) => {
@@ -561,7 +560,7 @@ const SalesCardManagementPage: React.FC = () => {
           const rawNhanVien = String(getValue(['người phụ trách', 'ngươi phụ trách', 'nhân viên', 'tên nhân viên', 'phụ trách', 'kỹ thuật', 'thợ']) || '').trim();
           // Normalize: replace line breaks or semicolons with commas
           const tenNhanVien = rawNhanVien.replace(/[\n\r;]+/g, ', ').replace(/\s{2,}/g, ' ');
-          
+
           const tenDichVu = String(getValue(['dịch vụ sử dụng', 'dịch vụ', 'tên dịch vụ', 'service', ' sản phẩm', 'loại', 'hạng mục']) || '').trim();
 
           let ngay = formatExcelDate(getValue(['ngày', 'ngày lập', 'ngay', 'date', 'thời gian']));
@@ -632,10 +631,10 @@ const SalesCardManagementPage: React.FC = () => {
     setActiveQuickFilter(type);
     setSelectedMonth('');
     const today = new Date();
-    
+
     // Set time to midnight for consistent calculations if needed, 
     // but here we just need YYYY-MM-DD
-    
+
     let start = '';
     let end = '';
 
@@ -673,7 +672,7 @@ const SalesCardManagementPage: React.FC = () => {
       default:
         return;
     }
-    
+
     setStartDate(start);
     setEndDate(end);
     setCurrentPage(1);
@@ -684,14 +683,14 @@ const SalesCardManagementPage: React.FC = () => {
       handleQuickFilter('all');
       return;
     }
-    
+
     setSelectedMonth(monthStr);
     setActiveQuickFilter('custom');
-    
+
     const [year, month] = monthStr.split('-').map(Number);
     const firstDay = new Date(year, month - 1, 1);
     const lastDay = new Date(year, month, 0);
-    
+
     setStartDate(firstDay.toISOString().split('T')[0]);
     setEndDate(lastDay.toISOString().split('T')[0]);
     setCurrentPage(1);
@@ -766,11 +765,12 @@ const SalesCardManagementPage: React.FC = () => {
             </div>
             <button
               onClick={() => handleOpenModal()}
-              className="px-2.5 py-1 sm:px-5 sm:py-2 bg-primary hover:bg-primary/90 text-white rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[14px] font-bold transition-all shrink-0 shadow-lg shadow-primary/20"
+              className="px-2.5 py-1 sm:px-4 sm:py-2 bg-primary hover:bg-primary/90 text-white rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[14px] font-bold transition-all shrink-0 shadow-lg shadow-primary/20"
             >
               <Plus className="size-4 sm:size-5" />
               <span>Lập hóa đơn</span>
             </button>
+
           </div>
 
           <div className="flex items-center gap-1.5 flex-wrap justify-end">
@@ -792,26 +792,26 @@ const SalesCardManagementPage: React.FC = () => {
                 <Upload className="size-4 sm:size-5" />
                 <span>Nhập Excel</span>
               </button>
-                <input
-                  id="excel-import"
-                  type="file"
-                  accept=".xlsx, .xls"
-                  className="hidden"
-                  onChange={handleImportExcel}
-                />
-              </div>
-
-              {/* Delete All Button */}
-              <button
-                onClick={handleDeleteAll}
-                className="px-2 py-1 sm:px-4 sm:py-2 bg-rose-500/5 hover:bg-rose-500/10 text-rose-600 border border-rose-500/20 rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold transition-all shrink-0"
-                title="Xóa tất cả phiếu bán hàng"
-              >
-                <Trash2 className="size-4 sm:size-5" />
-                <span>Xóa tất cả</span>
-              </button>
+              <input
+                id="excel-import"
+                type="file"
+                accept=".xlsx, .xls"
+                className="hidden"
+                onChange={handleImportExcel}
+              />
             </div>
+
+            {/* Delete All Button */}
+            <button
+              onClick={handleDeleteAll}
+              className="px-2 py-1 sm:px-4 sm:py-2 bg-rose-500/5 hover:bg-rose-500/10 text-rose-600 border border-rose-500/20 rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold transition-all shrink-0"
+              title="Xóa tất cả phiếu bán hàng"
+            >
+              <Trash2 className="size-4 sm:size-5" />
+              <span>Xóa tất cả</span>
+            </button>
           </div>
+        </div>
 
         {/* Filter Bar */}
         <div className="flex flex-col gap-4 bg-card p-4 rounded-xl border border-border shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -830,8 +830,8 @@ const SalesCardManagementPage: React.FC = () => {
                     onClick={() => handleQuickFilter(f.id as any)}
                     className={cn(
                       "px-3 py-1.5 text-[11px] sm:text-[13px] font-bold rounded-md transition-all whitespace-nowrap",
-                      activeQuickFilter === f.id 
-                        ? "bg-background text-primary shadow-sm" 
+                      activeQuickFilter === f.id
+                        ? "bg-background text-primary shadow-sm"
                         : "text-muted-foreground hover:text-foreground hover:bg-background/50"
                     )}
                   >
@@ -994,7 +994,7 @@ const SalesCardManagementPage: React.FC = () => {
                       {card.khach_hang?.ho_va_ten || 'N/A'}
                     </div>
                     <div className="text-[13px] text-muted-foreground flex items-center gap-1.5 font-medium">
-                      📱 {card.khach_hang?.so_dien_thoai || 'N/A'}
+                      📱 {card.khach_hang?.so_dien_thoai || 'N/A'} {card.khach_hang?.dia_chi_hien_tai && <span className="opacity-60">• 🏢 {card.khach_hang.dia_chi_hien_tai}</span>}
                     </div>
                   </div>
 
@@ -1100,6 +1100,7 @@ const SalesCardManagementPage: React.FC = () => {
                   <th className="px-4 py-3 font-semibold text-center">Giờ</th>
                   <th className="px-4 py-3 font-semibold">Tên khách hàng</th>
                   <th className="px-4 py-3 font-semibold">SĐT</th>
+                  <th className="px-4 py-3 font-semibold">Địa chỉ lưu trú hiện tại</th>
                   <th className="px-4 py-3 font-semibold">Người phụ trách</th>
                   <th className="px-4 py-3 font-semibold text-center">ĐÁNH GIÁ DỊCH VỤ</th>
                   <th className="px-4 py-3 font-semibold">Dịch vụ sử dụng</th>
@@ -1112,7 +1113,7 @@ const SalesCardManagementPage: React.FC = () => {
               <tbody className="divide-y divide-slate-100 text-[14px]">
                 {loading ? (
                   <tr>
-                    <td colSpan={12} className="px-4 py-12 text-center text-muted-foreground">
+                    <td colSpan={13} className="px-4 py-12 text-center text-muted-foreground">
                       <Loader2 className="animate-spin inline-block mr-2" size={20} />
                       Đang tải dữ liệu phiếu bán hàng...
                     </td>
@@ -1130,6 +1131,7 @@ const SalesCardManagementPage: React.FC = () => {
                     </td>
                     <td className="px-4 py-4 font-bold text-primary">{card.khach_hang?.ho_va_ten || 'N/A'}</td>
                     <td className="px-4 py-4 text-muted-foreground">{card.khach_hang?.so_dien_thoai || 'N/A'}</td>
+                    <td className="px-4 py-4 text-muted-foreground text-[13px]">{card.khach_hang?.dia_chi_hien_tai || '—'}</td>
                     <td className="px-4 py-4">
                       <div className="flex flex-col gap-1">
                         {card.nhan_su_list && card.nhan_su_list.length > 0 ? (
@@ -1187,13 +1189,13 @@ const SalesCardManagementPage: React.FC = () => {
                 ))}
                 {!loading && displayItems.length === 0 && (
                   <tr>
-                    <td colSpan={11} className="px-4 py-8 text-center text-muted-foreground">Chưa có phiếu bán hàng nào được lập.</td>
+                    <td colSpan={13} className="px-4 py-8 text-center text-muted-foreground">Chưa có phiếu bán hàng nào được lập.</td>
                   </tr>
                 )}
                 {!loading && displayItems.length > 0 && (
                   <tr className="bg-primary/5 font-black border-t-2 border-primary/20">
-                    <td colSpan={9} className="px-4 py-4 text-right text-muted-foreground text-[11px] tracking-widest">Tổng cộng trang này:</td>
-                    <td colSpan={2} className="px-4 py-4 text-right text-primary text-lg">
+                    <td colSpan={10} className="px-4 py-4 text-right text-muted-foreground text-[11px] tracking-widest">Tổng cộng trang này:</td>
+                    <td colSpan={3} className="px-4 py-4 text-right text-primary text-lg">
                       {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
                         displayItems.reduce((grandSum, card) => {
                           const items = (card as any).the_ban_hang_ct || [];
@@ -1217,22 +1219,19 @@ const SalesCardManagementPage: React.FC = () => {
         />
       </div>
 
-      {/* Modal */}
-      {isModalOpen && (
-        <SalesCardFormModal
-          isOpen={isModalOpen}
-          editingCard={editingCard}
-          initialData={formData}
-          customers={customers}
-          personnel={personnel}
-          services={services}
-          onClose={handleCloseModal}
-          onSubmit={handleSubmit}
-          onCustomerAdded={loadData}
-          isReadOnly={isReadOnlyModal}
-          onCollectPayment={handleCollectPayment}
-        />
-      )}
+      {/* Modals */}
+      <SalesCardFormModal
+        isOpen={isModalOpen}
+        editingCard={editingCard}
+        initialData={formData}
+        customers={customers}
+        personnel={personnel}
+        services={services}
+        onClose={handleCloseModal}
+        onSubmit={handleSubmit}
+        isReadOnly={isReadOnlyModal}
+        onCollectPayment={handleCollectPayment}
+      />
     </div>
   );
 };

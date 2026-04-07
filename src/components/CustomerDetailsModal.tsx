@@ -115,7 +115,7 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
                      <h2 className="text-base sm:text-xl font-black text-foreground">{customer.ho_va_ten}</h2>
                      <div className="flex items-center gap-2 sm:gap-3 text-[10px] sm:text-[11px] text-muted-foreground font-bold uppercase tracking-wider mt-0.5">
                         <span className="flex items-center gap-1"><Phone size={11} /> {customer.so_dien_thoai}</span>
-                        <span className="flex items-center gap-1"><MapPin size={11} /> {customer.dia_chi_hien_tai || 'N/A'}</span>
+                        <span className="flex items-center gap-1"><MapPin size={11} /> {customer.dia_chi_hien_tai || 'Chưa rõ'}</span>
                      </div>
                   </div>
                </div>
@@ -293,7 +293,7 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
                            <div className="grid grid-cols-1 gap-4">
                               <InfoRow icon={Info} label="Mã Khách hàng" value={customer.ma_khach_hang || customer.id.slice(0, 8)} valueClass="font-mono" />
                               <InfoRow icon={Calendar} label="Ngày đăng ký" value={customer.ngay_dang_ky ? new Date(customer.ngay_dang_ky).toLocaleDateString('vi-VN') : '—'} />
-                              <InfoRow icon={MapPin} label="Địa chỉ ghi nhận" value={customer.dia_chi_hien_tai || 'Chưa rõ'} />
+                              <InfoRow icon={MapPin} label="Địa chỉ lưu trú hiện tại" value={customer.dia_chi_hien_tai || 'Chưa rõ'} />
                            </div>
                         </div>
                      </div>

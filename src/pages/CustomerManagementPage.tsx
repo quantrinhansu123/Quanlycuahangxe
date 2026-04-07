@@ -22,8 +22,12 @@ import * as XLSX from 'xlsx';
 import CustomerDetailsModal from '../components/CustomerDetailsModal';
 import CustomerFormModal from '../components/CustomerFormModal';
 import Pagination from '../components/Pagination';
+import SalesCardFormModal from '../components/SalesCardFormModal';
 import type { KhachHang } from '../data/customerData';
 import { bulkDeleteCustomers, bulkUpsertCustomers, deleteCustomer, getCustomersForSelect, getCustomersPaginated } from '../data/customerData';
+import { getPersonnel, type NhanSu } from '../data/personnelData';
+import { createSalesCard, type SalesCard } from '../data/salesCardData';
+import { getServices, type DichVu } from '../data/serviceData';
 
 const CustomerManagementPage: React.FC = () => {
   const navigate = useNavigate();
@@ -48,6 +52,12 @@ const CustomerManagementPage: React.FC = () => {
 
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<KhachHang | null>(null);
+
+  // Sales Modal states
+  const [isSalesModalOpen, setIsSalesModalOpen] = useState(false);
+  const [salesInitialData, setSalesInitialData] = useState<Partial<SalesCard>>({});
+  const [personnel, setPersonnel] = useState<NhanSu[]>([]);
+  const [services, setServices] = useState<DichVu[]>([]);
 
   const [visibleColumns, setVisibleColumns] = useState<string[]>([
     'anh', 'ma_khach_hang', 'ho_va_ten', 'so_dien_thoai', 'dia_chi_hien_tai', 'bien_so_xe',
@@ -99,6 +109,11 @@ const CustomerManagementPage: React.FC = () => {
 
   useEffect(() => {
     loadCustomers();
+    // Pre-load data for sales modal
+    Promise.all([getPersonnel(), getServices()]).then(([p, s]) => {
+      setPersonnel(p);
+      setServices(s);
+    });
   }, [currentPage, pageSize]); // Re-load when page or size changes
 
   // Reset page when searching
@@ -143,6 +158,31 @@ const CustomerManagementPage: React.FC = () => {
     setIsModalOpen(false);
     setEditingCustomer(null);
   }, []);
+
+  const handleCustomerSuccess = useCallback(async (customer: KhachHang, shouldCreateOrder?: boolean) => {
+    await loadCustomers();
+    setIsModalOpen(false);
+    setEditingCustomer(null);
+
+    if (shouldCreateOrder) {
+      setSalesInitialData({
+        khach_hang_id: customer.ma_khach_hang || customer.id,
+        ngay: new Date().toISOString().split('T')[0],
+        gio: new Date().toLocaleTimeString('vi-VN', { hour12: false, hour: '2-digit', minute: '2-digit' })
+      });
+      setIsSalesModalOpen(true);
+    }
+  }, [loadCustomers]);
+
+  const handleSalesSubmit = async (data: Partial<SalesCard>) => {
+    try {
+      await createSalesCard(data);
+      setIsSalesModalOpen(false);
+      alert('Đã lập phiếu bán hàng thành công!');
+    } catch (error) {
+      alert('Lỗi: Không thể lập phiếu bán hàng.');
+    }
+  };
 
   const handleOpenDetails = useCallback((customer: KhachHang) => {
     setSelectedCustomer(customer);
@@ -218,12 +258,12 @@ const CustomerManagementPage: React.FC = () => {
 
           // In Excel, 'id' is mapped to 'ma_khach_hang' (id_kh)
           const excelId = String(getValue(['id', 'id_kh', 'mã khách hàng', 'mã', 'mã định danh']) || '').trim();
-          
+
           const res: Partial<KhachHang> = {
             ho_va_ten: String(getValue(['họ và tên', 'tên', 'tên khách hàng', 'họ tên']) || '').trim(),
             so_dien_thoai: String(getValue(['số điện thoại', 'sđt', 'phone']) || '').trim(),
             anh: getValue(['ảnh', 'hình ảnh', 'image', 'avatar']) || '',
-            dia_chi_hien_tai: String(getValue(['địa chỉ', 'địa chỉ lưu trú hiện tại', 'địa chỉ hiện tại', 'address']) || '').trim(),
+            dia_chi_hien_tai: String(getValue(['địa chỉ', 'địa chỉ lưu trú hiện tại', 'địa chỉ hiện tại', 'địa chỉ lưu trú', 'address', 'cơ sở', 'chi nhánh']) || '').trim(),
             bien_so_xe: String(getValue(['biển số xe', 'biển số', 'plate']) || '').trim(),
             ngay_dang_ky: formatExcelDate(getValue(['ngày đăng ký', 'ngay dang ky'])),
             so_km: Number(getValue(['số km', 'số km hiện tại', 'km'])) || 0,
@@ -253,6 +293,8 @@ const CustomerManagementPage: React.FC = () => {
 
           if (existing) {
             res.id = existing.id; // Map to internal UUID for update
+          } else {
+            delete res.id; // Ensure no null id is sent — let DB auto-generate
           }
 
           return res;
@@ -630,7 +672,7 @@ const CustomerManagementPage: React.FC = () => {
               <thead>
                 <tr className="bg-muted border-b border-border text-muted-foreground text-[13px] font-bold uppercase tracking-tight">
                   <th className="px-4 py-3 w-8 text-center"><input className="rounded border-border text-primary size-4" type="checkbox" /></th>
-                  {visibleColumns.includes('ma_khach_hang') && <th className="px-4 py-3 font-semibold">id</th>}
+                  {visibleColumns.includes('ma_khach_hang') && <th className="px-4 py-3 font-semibold">Mã KH</th>}
                   {visibleColumns.includes('anh') && <th className="px-4 py-3 font-semibold text-center">Ảnh</th>}
                   {visibleColumns.includes('ho_va_ten') && <th className="px-4 py-3 font-semibold">Họ và tên</th>}
                   {visibleColumns.includes('so_dien_thoai') && <th className="px-4 py-3 font-semibold">SĐT</th>}
@@ -684,8 +726,20 @@ const CustomerManagementPage: React.FC = () => {
       <CustomerFormModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
-        onSuccess={loadCustomers}
+        onSuccess={handleCustomerSuccess}
         customer={editingCustomer}
+      />
+
+      {/* Modal - Sales Form when "Lên đơn" is clicked */}
+      <SalesCardFormModal
+        isOpen={isSalesModalOpen}
+        editingCard={null}
+        initialData={salesInitialData}
+        customers={customers}
+        personnel={personnel}
+        services={services}
+        onClose={() => setIsSalesModalOpen(false)}
+        onSubmit={handleSalesSubmit}
       />
 
       {/* Modal - Customer Details & History */}

@@ -95,7 +95,7 @@ async function attachCustomer(cards: SalesCard[]) {
       
       const { data: customers } = await supabase
         .from('khach_hang')
-        .select('id, ma_khach_hang, ho_va_ten, so_dien_thoai')
+        .select('id, ma_khach_hang, ho_va_ten, so_dien_thoai, dia_chi_hien_tai')
         .or(`ma_khach_hang.in.(${maIds.map(id => `"${id}"`).join(',')}),id.in.(${uuidIds.map(id => `"${id}"`).join(',')})`);
       
       if (customers) allCustomers.push(...customers);
@@ -108,7 +108,11 @@ async function attachCustomer(cards: SalesCard[]) {
       if (card.khach_hang_id) {
         const key = card.khach_hang_id.toLowerCase();
         const cust = maMap.get(key) || idMap.get(key);
-        if (cust) card.khach_hang = { ho_va_ten: cust.ho_va_ten, so_dien_thoai: cust.so_dien_thoai };
+        if (cust) card.khach_hang = { 
+          ho_va_ten: cust.ho_va_ten, 
+          so_dien_thoai: cust.so_dien_thoai,
+          dia_chi_hien_tai: cust.dia_chi_hien_tai
+        };
       }
     });
   }
@@ -381,13 +385,17 @@ export const upsertSalesCard = async (card: Partial<SalesCard>): Promise<SalesCa
 };
 
 export const bulkUpsertSalesCards = async (cards: Partial<SalesCard>[]): Promise<void> => {
-  const { error } = await supabase
-    .from('the_ban_hang')
-    .upsert(cards);
+  const toUpdate = cards.filter(c => c.id);
+  const toInsert = cards.filter(c => !c.id);
 
-  if (error) {
-    console.error('Error bulk upserting sales cards:', error);
-    throw error;
+  if (toUpdate.length > 0) {
+    const { error } = await supabase.from('the_ban_hang').upsert(toUpdate);
+    if (error) { console.error('Error upserting sales cards:', error); throw error; }
+  }
+  if (toInsert.length > 0) {
+    const cleanInserts = toInsert.map(({ id, ...rest }) => rest);
+    const { error } = await supabase.from('the_ban_hang').insert(cleanInserts);
+    if (error) { console.error('Error inserting sales cards:', error); throw error; }
   }
 };
 

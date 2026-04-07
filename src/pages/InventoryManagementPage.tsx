@@ -10,7 +10,7 @@ import {
 import * as XLSX from 'xlsx';
 import { useNavigate } from 'react-router-dom';
 import { clsx } from 'clsx';
-import { deleteInventoryRecord, bulkInsertInventoryRecords, deleteAllInventoryRecords, getInventoryPaginated } from '../data/inventoryData';
+import { deleteInventoryRecord, bulkUpsertInventoryRecords, deleteAllInventoryRecords, getInventoryPaginated, getInventoryRecords } from '../data/inventoryData';
 import type { InventoryRecord } from '../data/inventoryData';
 import { getServices } from '../data/serviceData';
 import Pagination from '../components/Pagination';
@@ -292,9 +292,28 @@ const InventoryManagementPage: React.FC = () => {
 
         if (formattedData.length > 0) {
           setLoading(true);
-          await bulkInsertInventoryRecords(formattedData);
+          // Check trùng: fetch danh sách hiện có và gán ID nếu tìm thấy bản ghi trùng
+          const existingRecords = await getInventoryRecords();
+          let updatedCount = 0;
+          formattedData.forEach((rec: any) => {
+            const existing = existingRecords.find(e => {
+              // So sánh theo id_xuat_nhap_kho
+              if (rec.id_xuat_nhap_kho && e.id_xuat_nhap_kho && rec.id_xuat_nhap_kho === e.id_xuat_nhap_kho) return true;
+              // So sánh theo tổ hợp id_don_hang + ten_mat_hang + ngay
+              if (rec.id_don_hang && e.id_don_hang && rec.ten_mat_hang && e.ten_mat_hang && rec.ngay && e.ngay) {
+                return rec.id_don_hang === e.id_don_hang && rec.ten_mat_hang === e.ten_mat_hang && rec.ngay === e.ngay;
+              }
+              return false;
+            });
+            if (existing) {
+              rec.id = existing.id;
+              updatedCount++;
+            }
+          });
+          await bulkUpsertInventoryRecords(formattedData);
           await loadRecords();
-          alert(`Đã nhập thành công ${formattedData.length} bản ghi kho!`);
+          const newCount = formattedData.length - updatedCount;
+          alert(`✅ Hoàn tất: ${newCount} bản ghi mới, ${updatedCount} bản ghi cập nhật.`);
         }
       } catch (error) {
         console.error(error);

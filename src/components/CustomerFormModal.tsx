@@ -10,6 +10,7 @@ import {
   Plus,
   PlusCircle,
   Save,
+  ShoppingCart,
   Tag,
   Trash2,
   User,
@@ -19,12 +20,12 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import type { KhachHang, OilChangeEntry } from '../data/customerData';
-import { getCustomerByPlate, getCustomerByPhone, uploadCustomerImage, upsertCustomer } from '../data/customerData';
+import { getCustomerByPhone, getCustomerByPlate, uploadCustomerImage, upsertCustomer } from '../data/customerData';
 
 interface CustomerFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (customer: KhachHang) => void;
+  onSuccess: (customer: KhachHang, shouldCreateOrder?: boolean) => void;
   customer: KhachHang | null;
 }
 
@@ -70,7 +71,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
         setFormData({
           ho_va_ten: '',
           so_dien_thoai: '',
-          dia_chi_hien_tai: '',
+          dia_chi_hien_tai: 'Cơ sở Bắc Giang',
           anh: '',
           ngay_dang_ky: new Date().toISOString().split('T')[0],
           bien_so_xe: '',
@@ -95,7 +96,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
           if (!customer) {
             // Determine if we should navigate or just return result to parent
             const isOnSalesPage = location.pathname.includes('/ban-hang/phieu-ban-hang');
-            
+
             if (!isOnSalesPage) {
               const confirmed = window.confirm(
                 `⚠️ Biển số "${plate}" đã thuộc về khách hàng: ${existing.ho_va_ten}\n\n` +
@@ -111,8 +112,8 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
               onClose();
             }
           } else {
-             // If editing, just warn or log
-             console.warn(`Biển số [${plate}] trùng với khách hàng: ${existing.ho_va_ten}`);
+            // If editing, just warn or log
+            console.warn(`Biển số [${plate}] trùng với khách hàng: ${existing.ho_va_ten}`);
           }
         }
       } catch (err) {
@@ -136,7 +137,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
         if (existing && existing.id !== (customer ? customer.id : '')) {
           if (!customer) {
             const isOnSalesPage = location.pathname.includes('/ban-hang/phieu-ban-hang');
-            
+
             if (!isOnSalesPage) {
               const confirmed = window.confirm(
                 `⚠️ Số điện thoại "${phone}" đã thuộc về khách hàng: ${existing.ho_va_ten}\n\n` +
@@ -242,7 +243,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, shouldOrder: boolean = false) => {
     e.preventDefault();
     if (uploadingImage) return;
     try {
@@ -252,7 +253,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
       if (!dataToSave.id) delete dataToSave.id;
 
       const savedCustomer = await upsertCustomer(dataToSave);
-      onSuccess(savedCustomer);
+      onSuccess(savedCustomer, shouldOrder);
       onClose();
     } catch (error: any) {
       alert(`Lỗi: ${error.message || 'Không thể lưu.'}`);
@@ -292,7 +293,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
             <InputField label="Họ và tên" name="ho_va_ten" value={formData.ho_va_ten} onChange={handleInputChange} icon={User} placeholder="Nhập họ tên đầy đủ..." required />
             <InputField label="Số điện thoại" name="so_dien_thoai" value={formData.so_dien_thoai} onChange={handleInputChange} icon={Phone} placeholder="09xx..." required />
             <InputField label="Mã khách hàng" name="ma_khach_hang" value={formData.ma_khach_hang} onChange={handleInputChange} icon={Tag} placeholder="KH-XXXXXX" />
-            <InputField label="Địa chỉ hiện tại" name="dia_chi_hien_tai" value={formData.dia_chi_hien_tai} onChange={handleInputChange} icon={MapPin} placeholder="Bắc Giang, Hà Nội..." />
+            <InputField label="Địa chỉ lưu trú hiện tại" name="dia_chi_hien_tai" value={formData.dia_chi_hien_tai} onChange={handleInputChange} icon={MapPin} type="select" options={["", "Cơ sở Bắc Giang", "Cơ sở Bắc Ninh"]} />
             <InputField label="Biển số xe" name="bien_so_xe" value={formData.bien_so_xe} onChange={handleInputChange} icon={CreditCard} placeholder="98A-xxx.xx" />
             <InputField label="Ngày đăng ký" name="ngay_dang_ky" type="date" value={formData.ngay_dang_ky} onChange={handleInputChange} icon={Calendar} />
 
@@ -378,19 +379,35 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
             </div>
           </div>
 
-          <div className="mt-10 flex items-center justify-end gap-3 pt-6 border-t border-border">
-            <button type="button" onClick={onClose} className="px-6 py-2.5 rounded-xl text-sm font-bold text-muted-foreground hover:bg-muted border border-border transition-all">Hủy bỏ</button>
-            <button
-              type="submit"
-              disabled={uploadingImage}
-              className={clsx(
-                "px-8 py-2.5 rounded-xl text-sm font-bold text-white shadow-lg transition-all flex items-center gap-2 active:scale-95",
-                uploadingImage ? "bg-primary/50 cursor-not-allowed" : "bg-primary hover:bg-primary/90 shadow-primary/25"
-              )}
-            >
-              {uploadingImage ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
-              <span>{customer ? 'Lưu thay đổi' : 'Thêm mới'}</span>
-            </button>
+          <div className="mt-10 flex items-center justify-end gap-3 pt-6 border-t border-border flex-wrap sm:flex-nowrap">
+            <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-xl text-sm font-bold text-muted-foreground hover:bg-muted border border-border transition-all">Hủy bỏ</button>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              {/* Nút Lên đơn (Chỉ hiện khi thêm mới hoặc nếu cần thiết khi sửa) */}
+              <button
+                type="button"
+                disabled={uploadingImage}
+                onClick={(e) => handleSubmit(e as any, true)}
+                className={clsx(
+                  "flex-1 sm:flex-none px-6 py-2.5 rounded-xl text-sm font-bold text-white shadow-lg transition-all flex items-center justify-center gap-2 active:scale-95",
+                  uploadingImage ? "bg-emerald-500/50 cursor-not-allowed" : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200"
+                )}
+              >
+                {uploadingImage ? <Loader2 className="animate-spin" size={18} /> : <ShoppingCart size={18} />}
+                <span>Lên đơn</span>
+              </button>
+
+              <button
+                type="submit"
+                disabled={uploadingImage}
+                className={clsx(
+                  "flex-1 sm:flex-none px-6 py-2.5 rounded-xl text-sm font-bold text-white shadow-lg transition-all flex items-center justify-center gap-2 active:scale-95",
+                  uploadingImage ? "bg-primary/50 cursor-not-allowed" : "bg-primary hover:bg-primary/90 shadow-primary/25"
+                )}
+              >
+                {uploadingImage ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
+                <span>{customer ? 'Lưu thay đổi' : 'Lưu'}</span>
+              </button>
+            </div>
           </div>
         </form>
       </div>
@@ -403,26 +420,40 @@ const InputField: React.FC<{
   label: string,
   name: string,
   value?: string | number,
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void,
+  onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void,
   icon: React.ElementType,
   type?: string,
+  options?: string[],
   placeholder?: string,
   disabled?: boolean,
   required?: boolean,
   className?: string
-}> = ({ label, name, value, onChange, icon: Icon, type = 'text', placeholder, disabled, required, className }) => {
+}> = ({ label, name, value, onChange, icon: Icon, type = 'text', options, placeholder, disabled, required, className }) => {
   return (
     <div className={clsx("space-y-1.5", className)}>
       <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
         <Icon size={14} className="text-primary/70" />
         {label} {required && <span className="text-red-500">*</span>}
       </label>
-      <input
-        type={type} name={name} value={value ?? ''} onChange={onChange}
-        onFocus={(e) => e.target.select()}
-        placeholder={placeholder} disabled={disabled} required={required}
-        className={clsx("w-full px-4 py-2.5 bg-background border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-[14px]", disabled && "opacity-60 cursor-not-allowed bg-muted/20")}
-      />
+      {type === 'select' ? (
+        <select
+          name={name}
+          value={value ?? ''}
+          onChange={onChange}
+          disabled={disabled}
+          required={required}
+          className={clsx("w-full px-4 py-2.5 bg-background border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-[14px]", disabled && "opacity-60 cursor-not-allowed bg-muted/20")}
+        >
+          {options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+        </select>
+      ) : (
+        <input
+          type={type} name={name} value={value ?? ''} onChange={onChange}
+          onFocus={(e) => e.target.select()}
+          placeholder={placeholder} disabled={disabled} required={required}
+          className={clsx("w-full px-4 py-2.5 bg-background border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-[14px]", disabled && "opacity-60 cursor-not-allowed bg-muted/20")}
+        />
+      )}
     </div>
   );
 };

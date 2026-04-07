@@ -75,6 +75,21 @@ export const bulkInsertInventoryRecords = async (records: Omit<InventoryRecord, 
   }
 };
 
+export const bulkUpsertInventoryRecords = async (records: (Partial<InventoryRecord> & { id?: string })[]): Promise<void> => {
+  const toUpdate = records.filter(r => r.id);
+  const toInsert = records.filter(r => !r.id);
+
+  if (toUpdate.length > 0) {
+    const { error } = await supabase.from('nhap_xuat_kho').upsert(toUpdate);
+    if (error) { console.error('Error upserting inventory:', error); throw error; }
+  }
+  if (toInsert.length > 0) {
+    const cleanInserts = toInsert.map(({ id, ...rest }) => rest);
+    const { error } = await supabase.from('nhap_xuat_kho').insert(cleanInserts);
+    if (error) { console.error('Error inserting inventory:', error); throw error; }
+  }
+};
+
 export const deleteInventoryRecord = async (id: string): Promise<void> => {
   const { error } = await supabase
     .from('nhap_xuat_kho')

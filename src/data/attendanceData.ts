@@ -62,13 +62,19 @@ export const upsertAttendanceRecord = async (record: Partial<AttendanceRecord>):
 };
 
 export const bulkUpsertAttendanceRecords = async (records: Partial<AttendanceRecord>[]): Promise<void> => {
-  const { error } = await supabase
-    .from('cham_cong')
-    .upsert(records);
+  const toUpdate = records.filter(r => r.id);
+  const toInsert = records.filter(r => !r.id);
 
-  if (error) {
-    console.error('Error bulk upserting attendance records:', error);
-    throw error;
+  if (toUpdate.length > 0) {
+    // Deduplicate by ID: if multiple items have the same ID, take the last one
+    const uniqueRecords = Array.from(new Map(toUpdate.map(item => [item.id, item])).values());
+    const { error } = await supabase.from('cham_cong').upsert(uniqueRecords);
+    if (error) { console.error('Error upserting attendance:', error); throw error; }
+  }
+  if (toInsert.length > 0) {
+    const cleanInserts = toInsert.map(({ id, ...rest }) => rest);
+    const { error } = await supabase.from('cham_cong').insert(cleanInserts);
+    if (error) { console.error('Error inserting attendance:', error); throw error; }
   }
 };
 

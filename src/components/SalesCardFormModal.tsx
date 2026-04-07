@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Calendar, Clock, History, Loader2, Plus, Save, ShoppingCart, User, Wrench, X } from 'lucide-react';
+import { Calendar, Clock, History, Loader2, Save, ShoppingCart, User, Wrench, X } from 'lucide-react';
 import type { SalesCard } from '../data/salesCardData';
 import type { KhachHang } from '../data/customerData';
 import type { NhanSu } from '../data/personnelData';
 import type { DichVu } from '../data/serviceData';
 import { SearchableSelect } from './ui/SearchableSelect';
 import { MultiSearchableSelect } from './ui/MultiSearchableSelect';
-import CustomerFormModal from './CustomerFormModal';
 
 // Helper for dynamic classes
 const clsx = (...classes: any[]) => classes.filter(Boolean).join(' ');
@@ -53,12 +52,10 @@ const SalesCardFormModal: React.FC<{
   services: DichVu[];
   onClose: () => void;
   onSubmit: (data: Partial<SalesCard>) => Promise<void>;
-  onCustomerAdded: () => Promise<void>;
   onCollectPayment?: (data: any) => Promise<void>;
   isReadOnly?: boolean;
-}> = React.memo(({ isOpen, editingCard, initialData, customers, personnel, services, onClose, onSubmit, onCustomerAdded, isReadOnly, onCollectPayment }) => {
+}> = React.memo(({ isOpen, editingCard, initialData, customers, personnel, services, onClose, onSubmit, isReadOnly, onCollectPayment }) => {
   const [formData, setFormData] = useState<Partial<SalesCard & { service_items?: { id: string, ten_dich_vu: string, gia_ban: number }[] }>>(initialData);
-  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
   const [isCollecting, setIsCollecting] = useState(false);
 
   // Sync formData with initialData when modal opens or initialData changes (for new cards)
@@ -73,6 +70,8 @@ const SalesCardFormModal: React.FC<{
     value: c.ma_khach_hang || c.id,
     label: `${c.ho_va_ten}${c.so_dien_thoai ? ' - ' + c.so_dien_thoai : ''}`
   })), [customers]);
+  
+  // Removed unused selectedCustomer memo
 
   // Sync service information based on dich_vu_ids (Multi-select support)
   React.useEffect(() => {
@@ -178,15 +177,6 @@ const SalesCardFormModal: React.FC<{
                     <User size={14} className="text-primary/70" />
                     Khách hàng <span className="text-red-500">*</span>
                   </div>
-                  {!isReadOnly && (
-                    <button 
-                      type="button"
-                      onClick={() => setIsCustomerModalOpen(true)}
-                      className="text-primary hover:text-primary/80 flex items-center gap-1 normal-case font-bold transition-all px-2 py-0.5 rounded-lg hover:bg-primary/5"
-                    >
-                      <Plus size={14} /> Thêm mới
-                    </button>
-                  )}
                 </label>
                 <SearchableSelect
                   options={customerOptions}
@@ -348,16 +338,6 @@ const SalesCardFormModal: React.FC<{
         </form>
       </div>
 
-      <CustomerFormModal 
-        isOpen={isCustomerModalOpen}
-        onClose={() => setIsCustomerModalOpen(false)}
-        customer={null}
-        onSuccess={async (newCust: KhachHang) => {
-          await onCustomerAdded();
-          setFormData(prev => ({ ...prev, khach_hang_id: newCust.ma_khach_hang || newCust.id }));
-          setIsCustomerModalOpen(false);
-        }}
-      />
     </div>,
     document.body
   );

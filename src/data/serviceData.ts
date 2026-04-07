@@ -49,13 +49,19 @@ export const upsertService = async (service: Partial<DichVu>): Promise<DichVu> =
 };
 
 export const bulkUpsertServices = async (services: Partial<DichVu>[]): Promise<void> => {
-  const { error } = await supabase
-    .from('dich_vu')
-    .upsert(services);
+  const toUpdate = services.filter(s => s.id);
+  const toInsert = services.filter(s => !s.id);
 
-  if (error) {
-    console.error('Error bulk upserting services:', error);
-    throw error;
+  if (toUpdate.length > 0) {
+    // Deduplicate by ID: if multiple items have the same ID, take the last one
+    const uniqueToUpdate = Array.from(new Map(toUpdate.map(item => [item.id, item])).values());
+    const { error } = await supabase.from('dich_vu').upsert(uniqueToUpdate);
+    if (error) { console.error('Error upserting services:', error); throw error; }
+  }
+  if (toInsert.length > 0) {
+    const cleanInserts = toInsert.map(({ id, ...rest }) => rest);
+    const { error } = await supabase.from('dich_vu').insert(cleanInserts);
+    if (error) { console.error('Error inserting services:', error); throw error; }
   }
 };
 

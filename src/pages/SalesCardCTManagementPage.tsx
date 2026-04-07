@@ -15,7 +15,7 @@ import * as XLSX from 'xlsx';
 import Pagination from '../components/Pagination';
 import SalesCardCTFormModal from '../components/SalesCardCTFormModal';
 import type { SalesCardCT } from '../data/salesCardCTData';
-import { bulkUpsertSalesCardCTs, deleteAllSalesCardCTs, deleteSalesCardCT, getSalesCardCTsPaginated } from '../data/salesCardCTData';
+import { bulkUpsertSalesCardCTs, deleteAllSalesCardCTs, deleteSalesCardCT, getSalesCardCTs, getSalesCardCTsPaginated } from '../data/salesCardCTData';
 import type { SalesCard } from '../data/salesCardData';
 import { getSalesCards } from '../data/salesCardData'; // Header cards
 import type { DichVu } from '../data/serviceData';
@@ -200,9 +200,33 @@ const SalesCardCTManagementPage: React.FC = () => {
 
         if (formattedData.length > 0) {
           setLoading(true);
+          // Fetch existing records to check for duplicates
+          const existingCTs = await getSalesCardCTs();
+          // Track which existing records have already been matched
+          const claimedIds = new Set<string>();
+          let updatedCount = 0;
+          
+          formattedData.forEach((rec: any) => {
+            const existing = existingCTs.find((e: any) => {
+              if (claimedIds.has(e.id)) return false;
+              // So sánh theo id_ban_hang_ct
+              if (rec.id_ban_hang_ct && e.id_ban_hang_ct && rec.id_ban_hang_ct === e.id_ban_hang_ct) return true;
+              // So sánh theo tổ hợp id_don_hang + san_pham + ngay
+              if (rec.id_don_hang && e.id_don_hang && rec.san_pham && e.san_pham && rec.ngay && e.ngay) {
+                return rec.id_don_hang === e.id_don_hang && rec.san_pham === e.san_pham && rec.ngay === e.ngay;
+              }
+              return false;
+            });
+            if (existing) {
+              rec.id = existing.id;
+              claimedIds.add(existing.id);
+              updatedCount++;
+            }
+          });
           await bulkUpsertSalesCardCTs(formattedData);
           await loadData();
-          alert(`🚀 THÀNH CÔNG: Đã nhập ${formattedData.length} hạng mục chi tiết.`);
+          const newCount = formattedData.length - updatedCount;
+          alert(`✅ Hoàn tất: ${newCount} hạng mục mới, ${updatedCount} hạng mục cập nhật.`);
         } else {
           alert(`❌ Không tìm thấy dữ liệu hợp lệ (Thiếu liên kết Đơn hàng gốc).`);
         }

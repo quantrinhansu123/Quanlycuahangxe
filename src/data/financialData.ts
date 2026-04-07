@@ -50,13 +50,17 @@ export const upsertTransaction = async (transaction: Partial<ThuChi>): Promise<T
 };
 
 export const bulkUpsertTransactions = async (transactions: Partial<ThuChi>[]): Promise<void> => {
-  const { error } = await supabase
-    .from('thu_chi')
-    .upsert(transactions);
+  const toUpdate = transactions.filter(t => t.id);
+  const toInsert = transactions.filter(t => !t.id);
 
-  if (error) {
-    console.error('Error bulk upserting transactions:', error);
-    throw error;
+  if (toUpdate.length > 0) {
+    const { error } = await supabase.from('thu_chi').upsert(toUpdate);
+    if (error) { console.error('Error upserting transactions:', error); throw error; }
+  }
+  if (toInsert.length > 0) {
+    const cleanInserts = toInsert.map(({ id, ...rest }) => rest);
+    const { error } = await supabase.from('thu_chi').insert(cleanInserts);
+    if (error) { console.error('Error inserting transactions:', error); throw error; }
   }
 };
 

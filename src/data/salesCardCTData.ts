@@ -83,13 +83,19 @@ export const upsertSalesCardCT = async (item: Partial<SalesCardCT>): Promise<Sal
 };
 
 export const bulkUpsertSalesCardCTs = async (items: Partial<SalesCardCT>[]): Promise<void> => {
-  const { error } = await supabase
-    .from('the_ban_hang_ct')
-    .upsert(items);
+  const toUpdate = items.filter(i => i.id);
+  const toInsert = items.filter(i => !i.id);
 
-  if (error) {
-    console.error('Error bulk upserting sales card CTs:', error);
-    throw error;
+  if (toUpdate.length > 0) {
+    // Deduplicate by ID: if multiple items have the same ID, take the last one
+    const uniqueToUpdate = Array.from(new Map(toUpdate.map(item => [item.id, item])).values());
+    const { error } = await supabase.from('the_ban_hang_ct').upsert(uniqueToUpdate);
+    if (error) { console.error('Error upserting sales card CTs:', error); throw error; }
+  }
+  if (toInsert.length > 0) {
+    const cleanInserts = toInsert.map(({ id, ...rest }) => rest);
+    const { error } = await supabase.from('the_ban_hang_ct').insert(cleanInserts);
+    if (error) { console.error('Error inserting sales card CTs:', error); throw error; }
   }
 };
 

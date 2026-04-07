@@ -21,7 +21,7 @@ import Pagination from '../components/Pagination';
 import PersonnelDailyStatsModal from '../components/PersonnelDailyStatsModal';
 import PersonnelFormModal from '../components/PersonnelFormModal';
 import type { NhanSu } from '../data/personnelData';
-import { bulkUpsertPersonnel, deletePersonnel, getNextPersonnelCode, getPersonnelPaginated, upsertPersonnel } from '../data/personnelData';
+import { bulkUpsertPersonnel, deletePersonnel, getNextPersonnelCode, getPersonnel, getPersonnelPaginated, upsertPersonnel } from '../data/personnelData';
 
 const PersonnelManagementPage: React.FC = () => {
   const navigate = useNavigate();
@@ -222,9 +222,29 @@ const PersonnelManagementPage: React.FC = () => {
         if (formattedData.length > 0) {
           setLoading(true);
           try {
+            // Check trùng: fetch danh sách hiện có và gán ID nếu tìm thấy bản ghi trùng
+            const existingPersonnel = await getPersonnel();
+            let updatedCount = 0;
+            formattedData.forEach(rec => {
+              const existing = existingPersonnel.find(e => {
+                // So sánh theo id_nhan_su
+                if (rec.id_nhan_su && e.id_nhan_su && rec.id_nhan_su === e.id_nhan_su) return true;
+                // So sánh theo ho_ten + sdt
+                if (rec.ho_ten && e.ho_ten && rec.ho_ten.toLowerCase() === e.ho_ten.toLowerCase()) {
+                  if (rec.sdt && e.sdt) return rec.sdt === e.sdt;
+                  return true; // Same name, no phone to distinguish
+                }
+                return false;
+              });
+              if (existing) {
+                rec.id = existing.id;
+                updatedCount++;
+              }
+            });
             await bulkUpsertPersonnel(formattedData);
             await loadData();
-            alert(`Đã nhập thành công ${formattedData.length} bản ghi nhân sự!`);
+            const newCount = formattedData.length - updatedCount;
+            alert(`✅ Hoàn tất: ${newCount} bản ghi mới, ${updatedCount} bản ghi cập nhật.`);
           } catch (err: any) {
             console.error('Full Error Object:', err);
             alert(`Lỗi khi lưu dữ liệu: ${err.message || 'Kiểm tra console để biết chi tiết'}`);

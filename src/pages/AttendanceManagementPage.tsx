@@ -23,7 +23,7 @@ import * as XLSX from 'xlsx';
 import Pagination from '../components/Pagination';
 import { useAuth } from '../context/AuthContext';
 import type { AttendanceRecord } from '../data/attendanceData';
-import { bulkUpsertAttendanceRecords, deleteAttendanceRecord, getAttendancePaginated, getNextAttendanceId, upsertAttendanceRecord } from '../data/attendanceData';
+import { bulkUpsertAttendanceRecords, deleteAttendanceRecord, getAttendancePaginated, getAttendanceRecords, getNextAttendanceId, upsertAttendanceRecord } from '../data/attendanceData';
 import { getPersonnel, type NhanSu } from '../data/personnelData';
 
 const AttendanceManagementPage: React.FC = () => {
@@ -392,9 +392,33 @@ const AttendanceManagementPage: React.FC = () => {
         if (formattedData.length > 0) {
           setLoading(true);
           try {
+            // Check trùng: fetch danh sách hiện có và gán ID nếu tìm thấy bản ghi trùng
+            const existingRecords = await getAttendanceRecords();
+            // Track which existing records have already been matched
+            const claimedIds = new Set<string>();
+            let updatedCount = 0;
+            
+            formattedData.forEach(rec => {
+              const existing = existingRecords.find(e => {
+                if (claimedIds.has(e.id)) return false;
+                // So sánh theo id_cham_cong
+                if (rec.id_cham_cong && e.id_cham_cong && rec.id_cham_cong === e.id_cham_cong) return true;
+                // So sánh theo nhan_su + ngay (1 người chỉ có 1 bản ghi/ngày)
+                if (rec.nhan_su && e.nhan_su && rec.ngay && e.ngay) {
+                  return rec.nhan_su.toLowerCase() === e.nhan_su.toLowerCase() && rec.ngay === e.ngay;
+                }
+                return false;
+              });
+              if (existing) {
+                rec.id = existing.id;
+                claimedIds.add(existing.id);
+                updatedCount++;
+              }
+            });
             await bulkUpsertAttendanceRecords(formattedData);
             await loadRecords(false);
-            alert(`Đã nhập thành công ${formattedData.length} bản ghi chấm công!`);
+            const newCount = formattedData.length - updatedCount;
+            alert(`✅ Hoàn tất: ${newCount} bản ghi mới, ${updatedCount} bản ghi cập nhật.`);
           } catch (err: any) {
             console.error('Database Error details:', err);
             alert(`Lỗi khi lưu dữ liệu chấm công: ${err.message || 'Lỗi DB'}`);

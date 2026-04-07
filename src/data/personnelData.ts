@@ -41,13 +41,17 @@ export const upsertPersonnel = async (personnel: Partial<NhanSu>): Promise<NhanS
 };
 
 export const bulkUpsertPersonnel = async (personnel: Partial<NhanSu>[]): Promise<void> => {
-  const { error } = await supabase
-    .from('nhan_su')
-    .upsert(personnel);
+  const toUpdate = personnel.filter(p => p.id);
+  const toInsert = personnel.filter(p => !p.id);
 
-  if (error) {
-    console.error('Error bulk upserting personnel:', error);
-    throw error;
+  if (toUpdate.length > 0) {
+    const { error } = await supabase.from('nhan_su').upsert(toUpdate);
+    if (error) { console.error('Error upserting personnel:', error); throw error; }
+  }
+  if (toInsert.length > 0) {
+    const cleanInserts = toInsert.map(({ id, ...rest }) => rest);
+    const { error } = await supabase.from('nhan_su').insert(cleanInserts);
+    if (error) { console.error('Error inserting personnel:', error); throw error; }
   }
 };
 
