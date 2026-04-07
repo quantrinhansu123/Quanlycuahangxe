@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import MainLayout from './components/layout/MainLayout';
 import TopProgressBar from './components/ui/TopProgressBar';
+import ProtectedRoute from './components/layout/ProtectedRoute';
 
 // Lazy load all pages for optimal performance
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -34,11 +35,11 @@ function App() {
               <Route path="phieu-ban-hang-ct" element={<SalesCardCTManagementPage />} />
             </Route>
 
-            <Route path="/thu-chi" element={<FinancialManagementPage />} />
+            <Route path="/thu-chi" element={<ProtectedRoute adminOnly><FinancialManagementPage /></ProtectedRoute>} />
             <Route path="/dich-vu" element={<ServiceManagementPage />} />
 
             <Route path="/nhan-su" element={<ModulePage />}>
-              <Route path="ung-vien" element={<PersonnelManagementPage />} />
+              <Route path="ung-vien" element={<ProtectedRoute adminOnly><PersonnelManagementPage /></ProtectedRoute>} />
               <Route path="bang-cham-cong" element={<AttendanceManagementPage />} />
             </Route>
 
@@ -48,7 +49,7 @@ function App() {
               <Route path="xuat-nhap-kho" element={<InventoryManagementPage />} />
             </Route>
 
-            <Route path="/tien-luong" element={<ModulePage />}>
+            <Route path="/tien-luong" element={<ProtectedRoute adminOnly><ModulePage /></ProtectedRoute>}>
               <Route path="bang-luong" element={<PayrollPage />} />
               <Route path="thong-so" element={<PayrollSettingsPage />} />
               <Route path="thanh-phan" element={<SalaryComponentPage />} />

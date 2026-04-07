@@ -180,12 +180,18 @@ async function attachService(cards: SalesCard[]) {
   }
 }
 
-export const getSalesCards = async (): Promise<SalesCard[]> => {
-  const { data } = await supabase
+export const getSalesCards = async (staffId?: string): Promise<SalesCard[]> => {
+  let query = supabase
     .from('the_ban_hang')
     .select(`*`)
     .order('ngay', { ascending: false })
     .order('gio', { ascending: false });
+
+  if (staffId) {
+    query = query.ilike('nhan_vien_id', `%${staffId}%`);
+  }
+
+  const { data } = await query;
 
   const cards = (data as SalesCard[]) || [];
   

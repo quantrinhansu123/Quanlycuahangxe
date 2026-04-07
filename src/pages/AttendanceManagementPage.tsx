@@ -27,8 +27,7 @@ import { bulkUpsertAttendanceRecords, deleteAttendanceRecord, getAttendancePagin
 import { getPersonnel, type NhanSu } from '../data/personnelData';
 
 const AttendanceManagementPage: React.FC = () => {
-  const { currentUser } = useAuth();
-  const isAdmin = currentUser?.vi_tri === 'Quản trị viên';
+  const { currentUser, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [personnel, setPersonnel] = useState<NhanSu[]>([]);
@@ -92,7 +91,7 @@ const AttendanceManagementPage: React.FC = () => {
     try {
       if (showLoading) setLoading(true);
       const [attendanceResult, personnelData] = await Promise.all([
-        getAttendancePaginated(currentPage, pageSize, debouncedSearch, {
+        getAttendancePaginated(currentPage, pageSize, isAdmin ? undefined : currentUser?.ho_ten, debouncedSearch, {
           nhan_su: selectedStaff,
           startDate,
           endDate
@@ -168,7 +167,7 @@ const AttendanceManagementPage: React.FC = () => {
 
       setLoading(true);
       try {
-        const { data } = await getAttendancePaginated(1, 1, undefined, {
+        const { data } = await getAttendancePaginated(1, 1, undefined, undefined, {
           nhan_su: fallbackName,
           ngay: todayStr
         });
@@ -468,24 +467,26 @@ const AttendanceManagementPage: React.FC = () => {
                   setCurrentPage(1);
                 }}
                 className="w-full pl-9 pr-4 py-1.5 border border-border rounded text-[13px] focus:ring-1 focus:ring-primary focus:border-primary placeholder-slate-400 outline-none"
-                placeholder="Tìm nhân viên, vị trí..."
+                placeholder="Tìm nhân sự, vị trí..."
                 type="text"
               />
             </div>
 
-            <select
-              value={selectedStaff}
-              onChange={(e) => {
-                setSelectedStaff(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="px-3 py-1.5 border border-border rounded text-[13px] bg-card outline-none focus:ring-1 focus:ring-primary min-w-[150px]"
-            >
-              <option value="">Tất cả nhân sự</option>
-              {personnel.map(p => (
-                <option key={p.id} value={p.ho_ten}>{p.ho_ten}</option>
-              ))}
-            </select>
+            {isAdmin && (
+              <select
+                value={selectedStaff}
+                onChange={(e) => {
+                  setSelectedStaff(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="px-3 py-1.5 border border-border rounded text-[13px] bg-card outline-none focus:ring-1 focus:ring-primary min-w-[150px]"
+              >
+                <option value="">Tất cả nhân sự</option>
+                {personnel.map(p => (
+                  <option key={p.id} value={p.id_nhan_su || p.ho_ten}>{p.ho_ten}</option>
+                ))}
+              </select>
+            )}
 
             <input
               type="date"
@@ -527,31 +528,35 @@ const AttendanceManagementPage: React.FC = () => {
 
           <div className="flex items-center gap-2 sm:gap-3">
             <div className="flex items-center gap-1.5 sm:gap-2">
-              <button
-                onClick={handleDownloadTemplate}
-                className="flex items-center gap-2 px-2 sm:px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
-                title="Tải mẫu Excel"
-              >
-                <Download size={18} />
-                <span className="hidden sm:inline">Tải mẫu</span>
-              </button>
-              <div className="relative">
-                <button
-                  onClick={() => document.getElementById('excel-import')?.click()}
-                  className="flex items-center gap-2 px-2 sm:px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
-                  title="Nhập chấm công từ Excel"
-                >
-                  <Upload size={18} />
-                  <span className="hidden sm:inline">Nhập Excel</span>
-                </button>
-                <input
-                  id="excel-import"
-                  type="file"
-                  accept=".xlsx, .xls"
-                  className="hidden"
-                  onChange={handleImportExcel}
-                />
-              </div>
+              {isAdmin && (
+                <>
+                  <button
+                    onClick={handleDownloadTemplate}
+                    className="flex items-center gap-2 px-2 sm:px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
+                    title="Tải mẫu Excel"
+                  >
+                    <Download size={18} />
+                    <span className="hidden sm:inline">Tải mẫu</span>
+                  </button>
+                  <div className="relative">
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex items-center gap-2 px-2 sm:px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
+                      title="Nhập chấm công từ Excel"
+                    >
+                      <Upload size={18} />
+                      <span className="hidden sm:inline">Nhập Excel</span>
+                    </button>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleImportExcel}
+                      accept=".xlsx, .xls"
+                      className="hidden"
+                    />
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="relative" ref={dropdownRef}>
@@ -593,9 +598,10 @@ const AttendanceManagementPage: React.FC = () => {
                 </div>
               )}
             </div>
+            
             <button
               onClick={() => handleOpenModal()}
-              className="bg-primary hover:bg-primary/90 text-white px-3 sm:px-5 py-1.5 rounded flex items-center gap-2 text-[13px] sm:text-[14px] font-semibold transition-colors"
+              className="bg-primary hover:bg-primary/90 text-white px-3 sm:px-5 py-1.5 rounded flex items-center gap-2 text-[13px] sm:text-[14px] font-semibold transition-colors shadow-lg shadow-primary/20"
             >
               <Plus size={20} /> <span className="hidden sm:inline">Thêm chấm công</span>
             </button>

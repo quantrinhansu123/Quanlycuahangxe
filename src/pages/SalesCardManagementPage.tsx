@@ -36,7 +36,7 @@ import { supabase } from '../lib/supabase';
 import { cn } from '../lib/utils';
 
 const SalesCardManagementPage: React.FC = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [salesCards, setSalesCards] = useState<SalesCard[]>([]);
   const [customers, setCustomers] = useState<KhachHang[]>([]);
@@ -85,8 +85,8 @@ const SalesCardManagementPage: React.FC = () => {
           debouncedSearch,
           startDate || undefined,
           endDate || undefined,
-          selectedStaff || undefined,
-          selectedBranch || undefined
+          isAdmin ? (selectedStaff || undefined) : (currentUser?.ho_ten || undefined),
+          isAdmin ? (selectedBranch || undefined) : undefined
         ),
         getCustomersForSelect(), // Lightweight: only id, name, phone, plate, legacy_id
         getPersonnel(),
@@ -744,7 +744,7 @@ const SalesCardManagementPage: React.FC = () => {
         </div>
 
         {/* Toolbar */}
-        <div className="bg-card p-2 rounded-xl border border-border shadow-sm flex flex-wrap items-center justify-between gap-1.5 sm:gap-4">
+        <div className="bg-card p-2 rounded-xl border border-border shadow-sm flex flex-wrap items-center justify-between gap-1.5 sm:gap-4 font-sans">
           <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap">
             <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 px-2 py-1 sm:px-4 sm:py-2 hover:bg-muted rounded-lg text-muted-foreground transition-all border border-transparent hover:border-border shrink-0">
               <ArrowLeft className="size-4 sm:size-5" />
@@ -759,10 +759,52 @@ const SalesCardManagementPage: React.FC = () => {
                   setCurrentPage(1);
                 }}
                 className="pl-7 sm:pl-9 pr-3 sm:pr-4 py-1 sm:py-2 bg-muted/50 border-border rounded-lg text-[11px] sm:text-[13px] focus:ring-1 focus:ring-primary focus:border-primary transition-all w-[120px] sm:w-[220px] lg:w-[300px] outline-none"
-                placeholder="Tìm khách, dịch vụ..."
+                placeholder="Tìm mã phiếu, khách hàng..."
                 type="text"
               />
             </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 flex-wrap justify-end">
+            {isAdmin && (
+              <>
+                <button
+                  onClick={handleDownloadTemplate}
+                  className="px-2 py-1 sm:px-4 sm:py-2 bg-muted/50 hover:bg-muted border border-border rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold text-muted-foreground transition-all shrink-0"
+                  title="Tải mẫu Excel"
+                >
+                  <Download className="size-4 sm:size-5" />
+                  <span className="hidden lg:inline">Tải mẫu</span>
+                </button>
+
+                <div className="relative shrink-0">
+                  <button
+                    onClick={() => document.getElementById('excel-import-main')?.click()}
+                    className="px-2 py-1 sm:px-4 sm:py-2 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold transition-all shrink-0"
+                    title="Nhập dữ liệu Excel"
+                  >
+                    <Upload className="size-4 sm:size-5" />
+                    <span>Nhập Excel</span>
+                  </button>
+                  <input
+                    id="excel-import-main"
+                    type="file"
+                    accept=".xlsx, .xls"
+                    className="hidden"
+                    onChange={handleImportExcel}
+                  />
+                </div>
+
+                <button
+                  onClick={handleDeleteAll}
+                  className="px-2 py-1 sm:px-2.5 sm:py-2 bg-rose-500/5 hover:bg-rose-500/10 text-rose-600 border border-rose-500/20 rounded-lg flex items-center gap-1.5 transition-all shrink-0"
+                  title="Xóa tất cả phiếu bán hàng"
+                >
+                  <Trash2 className="size-4 sm:size-5" />
+                </button>
+              </>
+            )}
+
             <button
               onClick={() => handleOpenModal()}
               className="px-2.5 py-1 sm:px-4 sm:py-2 bg-primary hover:bg-primary/90 text-white rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[14px] font-bold transition-all shrink-0 shadow-lg shadow-primary/20"
@@ -770,51 +812,11 @@ const SalesCardManagementPage: React.FC = () => {
               <Plus className="size-4 sm:size-5" />
               <span>Lập hóa đơn</span>
             </button>
-
-          </div>
-
-          <div className="flex items-center gap-1.5 flex-wrap justify-end">
-            <button
-              onClick={handleDownloadTemplate}
-              className="px-2 py-1 sm:px-4 sm:py-2 bg-muted/50 hover:bg-muted border border-border rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold text-muted-foreground transition-all shrink-0"
-              title="Tải mẫu Excel"
-            >
-              <Download className="size-4 sm:size-5" />
-              <span>Tải mẫu</span>
-            </button>
-
-            <div className="relative shrink-0">
-              <button
-                onClick={() => document.getElementById('excel-import')?.click()}
-                className="px-2 py-1 sm:px-4 sm:py-2 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold transition-all shrink-0"
-                title="Nhập dữ liệu Excel"
-              >
-                <Upload className="size-4 sm:size-5" />
-                <span>Nhập Excel</span>
-              </button>
-              <input
-                id="excel-import"
-                type="file"
-                accept=".xlsx, .xls"
-                className="hidden"
-                onChange={handleImportExcel}
-              />
-            </div>
-
-            {/* Delete All Button */}
-            <button
-              onClick={handleDeleteAll}
-              className="px-2 py-1 sm:px-4 sm:py-2 bg-rose-500/5 hover:bg-rose-500/10 text-rose-600 border border-rose-500/20 rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold transition-all shrink-0"
-              title="Xóa tất cả phiếu bán hàng"
-            >
-              <Trash2 className="size-4 sm:size-5" />
-              <span>Xóa tất cả</span>
-            </button>
           </div>
         </div>
 
         {/* Filter Bar */}
-        <div className="flex flex-col gap-4 bg-card p-4 rounded-xl border border-border shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <div className="bg-card p-4 rounded-xl border border-border shadow-sm font-sans flex flex-col gap-4">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 sm:pb-0">
               <div className="flex bg-muted p-1 rounded-lg shrink-0">
@@ -842,47 +844,51 @@ const SalesCardManagementPage: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
-              {/* Branch Filter */}
-              <div className="flex items-center gap-2 text-[11px] sm:text-[13px] font-bold text-muted-foreground">
-                <Building size={16} />
-                <div className="relative">
-                  <select
-                    value={selectedBranch}
-                    onChange={(e) => {
-                      setSelectedBranch(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    className="appearance-none pl-3 pr-8 py-1.5 bg-muted/50 border border-border rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none cursor-pointer transition-all min-w-[120px]"
-                  >
-                    <option value="">Tất cả cơ sở</option>
-                    {[...new Set(personnel.map(p => p.co_so).filter(Boolean))].map(branch => (
-                      <option key={branch} value={branch}>{branch}</option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 size-4 pointer-events-none text-muted-foreground" />
-                </div>
-              </div>
+              {isAdmin && (
+                <>
+                  {/* Branch Filter */}
+                  <div className="flex items-center gap-2 text-[11px] sm:text-[13px] font-bold text-muted-foreground">
+                    <Building size={16} />
+                    <div className="relative">
+                      <select
+                        value={selectedBranch}
+                        onChange={(e) => {
+                          setSelectedBranch(e.target.value);
+                          setCurrentPage(1);
+                        }}
+                        className="appearance-none pl-3 pr-8 py-1.5 bg-muted/50 border border-border rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none cursor-pointer transition-all min-w-[120px]"
+                      >
+                        <option value="">Tất cả cơ sở</option>
+                        {[...new Set(personnel.map(p => p.co_so).filter(Boolean))].map(branch => (
+                          <option key={branch} value={branch}>{branch}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 size-4 pointer-events-none text-muted-foreground" />
+                    </div>
+                  </div>
 
-              {/* Staff Filter */}
-              <div className="flex items-center gap-2 text-[11px] sm:text-[13px] font-bold text-muted-foreground">
-                <User size={16} />
-                <div className="relative">
-                  <select
-                    value={selectedStaff}
-                    onChange={(e) => {
-                      setSelectedStaff(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    className="appearance-none pl-3 pr-8 py-1.5 bg-muted/50 border border-border rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none cursor-pointer transition-all min-w-[120px]"
-                  >
-                    <option value="">Tất cả nhân viên</option>
-                    {personnel.map((p) => (
-                      <option key={p.id} value={p.ho_ten}>{p.ho_ten}</option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 size-4 pointer-events-none text-muted-foreground" />
-                </div>
-              </div>
+                  {/* Staff Filter */}
+                  <div className="flex items-center gap-2 text-[11px] sm:text-[13px] font-bold text-muted-foreground">
+                    <User size={16} />
+                    <div className="relative">
+                      <select
+                        value={selectedStaff}
+                        onChange={(e) => {
+                          setSelectedStaff(e.target.value);
+                          setCurrentPage(1);
+                        }}
+                        className="appearance-none pl-3 pr-8 py-1.5 bg-muted/50 border border-border rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none cursor-pointer transition-all min-w-[120px]"
+                      >
+                        <option value="">Tất cả nhân viên</option>
+                        {personnel.map((p) => (
+                          <option key={p.id} value={p.ho_ten}>{p.ho_ten}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 size-4 pointer-events-none text-muted-foreground" />
+                    </div>
+                  </div>
+                </>
+              )}
 
               {/* Month Filter */}
               <div className="flex items-center gap-2 text-[11px] sm:text-[13px] font-bold text-muted-foreground">
@@ -896,7 +902,6 @@ const SalesCardManagementPage: React.FC = () => {
                     <option value="">Chọn tháng...</option>
                     {Array.from({ length: 12 }, (_, i) => {
                       const d = new Date();
-                      // Start from current month and go backwards
                       d.setMonth(d.getMonth() - i);
                       const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
                       const label = `Tháng ${d.getMonth() + 1}/${d.getFullYear()}`;
@@ -931,7 +936,7 @@ const SalesCardManagementPage: React.FC = () => {
                 />
               </div>
 
-              {(startDate || endDate || searchQuery || selectedMonth) && (
+              {(startDate || endDate || searchQuery || selectedMonth || (isAdmin && (selectedStaff || selectedBranch))) && (
                 <button
                   onClick={handleClearFilters}
                   className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-all border border-transparent hover:border-rose-100 shrink-0"

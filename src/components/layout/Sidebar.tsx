@@ -3,6 +3,7 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import type { SidebarItem } from '../../data/sidebarMenu';
 import { extraMenuItems, sidebarMenu } from '../../data/sidebarMenu';
+import { useAuth } from '../../context/AuthContext';
 
 
 interface SidebarProps {
@@ -11,6 +12,15 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = React.memo(({ isOpen, setIsOpen }) => {
+  const { isAdmin } = useAuth();
+  
+  const filteredMenu = React.useMemo(() => 
+    sidebarMenu.filter(item => !item.adminOnly || isAdmin),
+  [isAdmin]);
+
+  const filteredExtraItems = React.useMemo(() => 
+    extraMenuItems.filter(item => !item.adminOnly || isAdmin),
+  [isAdmin]);
   return (
     <>
       {/* Overlay - visible whenever sidebar is open ON MOBILE */}
@@ -55,7 +65,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({ isOpen, setIsOpen }) => {
 
         {/* Navigation Links */}
         <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-2 custom-scrollbar flex flex-col items-center lg:items-stretch">
-          {sidebarMenu.map((item) => (
+          {filteredMenu.map((item) => (
             <NavItem key={item.path} item={item} isOpen={isOpen} onClick={() => {
               if (window.innerWidth < 1024) setIsOpen(false);
             }} />
@@ -63,7 +73,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({ isOpen, setIsOpen }) => {
 
           <div className="my-4 border-t border-border w-full"></div>
 
-          {extraMenuItems.map((item) => (
+          {filteredExtraItems.map((item) => (
             <NavItem key={item.path} item={item} isOpen={isOpen} onClick={() => {
               if (window.innerWidth < 1024) setIsOpen(false);
             }} />

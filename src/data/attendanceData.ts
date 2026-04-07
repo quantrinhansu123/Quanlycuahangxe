@@ -33,12 +33,18 @@ export interface AttendanceRecord {
   created_at?: string;
 }
 
-export const getAttendanceRecords = async (): Promise<AttendanceRecord[]> => {
-  const { data, error } = await supabase
+export const getAttendanceRecords = async (staffName?: string): Promise<AttendanceRecord[]> => {
+  let query = supabase
     .from('cham_cong')
     .select('*')
     .order('ngay', { ascending: false })
     .order('created_at', { ascending: false });
+
+  if (staffName) {
+    query = query.eq('nhan_su', staffName);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error('Error fetching attendance records:', error);
@@ -100,6 +106,7 @@ export interface AttendanceFilters {
 export const getAttendancePaginated = async (
   page: number,
   pageSize: number,
+  staffName?: string,
   searchQuery?: string,
   filters?: AttendanceFilters
 ): Promise<{ data: AttendanceRecord[], totalCount: number }> => {
@@ -109,6 +116,11 @@ export const getAttendancePaginated = async (
   let query = supabase
     .from('cham_cong')
     .select('*', { count: 'exact' });
+
+  // RBAC: If staffName is provided, restrict to their records
+  if (staffName) {
+    query = query.eq('nhan_su', staffName);
+  }
 
   if (searchQuery) {
     // Search in personnel name or location
