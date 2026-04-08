@@ -163,8 +163,12 @@ const SalesCardFormModal: React.FC<{
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <InputField label="Ngày lập" name="ngay" type="date" value={formData.ngay || ''} onChange={handleInputChange} icon={Calendar} required disabled={isReadOnly} />
               <InputField label="Giờ lập" name="gio" type="time" value={formData.gio || ''} onChange={handleInputChange} icon={Clock} required disabled={isReadOnly} />
-              <InputField label="Mã phiếu" name="id_bh" value={formData.id_bh || ''} onChange={handleInputChange} icon={ShoppingCart} required placeholder="BH-XXXXXX" disabled={isReadOnly} />
-              <div className="hidden md:block"></div>
+              {editingCard && (
+                <>
+                  <InputField label="Mã phiếu" name="id_bh" value={formData.id_bh || ''} onChange={handleInputChange} icon={ShoppingCart} required placeholder="BH-XXXXXX" disabled={isReadOnly} />
+                  <div className="hidden md:block"></div>
+                </>
+              )}
 
               <div className="space-y-1.5">
                 <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
