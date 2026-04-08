@@ -376,7 +376,23 @@ export const updateSalesCard = async (id: string, card: Partial<SalesCard>): Pro
   return data as SalesCard;
 };
 
-export const upsertSalesCard = async (card: Partial<SalesCard>): Promise<SalesCard> => {
+export const upsertSalesCard = async (card: Partial<SalesCard>, isNew: boolean = false): Promise<SalesCard> => {
+  if (isNew || !card.id) {
+    // For new records, use insert to prevent accidental overwrites if the generated ID somehow exists
+    const { data, error } = await supabase
+      .from('the_ban_hang')
+      .insert(card)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating sales card (Insert):', error);
+      throw error;
+    }
+    return data as SalesCard;
+  }
+
+  // Update mode or standard upsert
   const { data, error } = await supabase
     .from('the_ban_hang')
     .upsert(card, { onConflict: 'id_bh' })
@@ -430,29 +446,46 @@ export const deleteAllSalesCards = async (): Promise<void> => {
 };
 
 export const getNextSalesCardCode = async (): Promise<string> => {
+  // Fetch top 50 records to ensure we find the true numeric maximum 
+  // even if lexicographical sorting is confused by inconsistent padding
   const { data, error } = await supabase
     .from('the_ban_hang')
     .select('id_bh')
-    .is('id_bh', 'not.null')
-    .order('id_bh', { ascending: false })
-    .limit(1);
+    .order('created_at', { ascending: false })
+    .limit(100);
 
   if (error) {
-    console.error('Error fetching next sales card code:', error);
+    console.error('Error fetching sales card codes:', error);
     return 'BH-000001';
   }
 
-  if (!data || data.length === 0 || !data[0].id_bh) {
+  if (!data || data.length === 0) {
     return 'BH-000001';
   }
 
-  const lastCode = data[0].id_bh;
-  const match = lastCode.match(/^BH-(\d+)$/);
-  
-  if (match) {
-    const nextNumber = parseInt(match[1]) + 1;
-    return `BH-${nextNumber.toString().padStart(6, '0')}`;
+  // Find the highest numeric value from valid BH-xxxxxx patterns
+  let maxNum = 0;
+  let hasValidCode = false;
+
+  data.forEach(item => {
+    if (item.id_bh) {
+      const match = item.id_bh.match(/^BH-(\d+)$/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNum) {
+          maxNum = num;
+          hasValidCode = true;
+        }
+      }
+    }
+  });
+
+  if (!hasValidCode) {
+    // If no records match the pattern, check if there are ANY records
+    // If yes, we might need a default format or just start from 1
+    return 'BH-000001';
   }
 
-  return `BH-000001`;
+  const nextNumber = maxNum + 1;
+  return `BH-${nextNumber.toString().padStart(6, '0')}`;
 };

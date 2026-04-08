@@ -313,7 +313,7 @@ const SalesCardManagementPage: React.FC = () => {
         cleanData.dich_vu_id = dich_vu_ids[0];
       }
 
-      const savedCard = await upsertSalesCard(cleanData);
+      const savedCard = await upsertSalesCard(cleanData, !editingCard);
 
       // 1. Clear OLD detail records for this specific order to prevent duplication
       await deleteSalesCardCTsByOrderId(savedCard.id_bh || savedCard.id);
