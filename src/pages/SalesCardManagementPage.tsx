@@ -381,6 +381,9 @@ const SalesCardManagementPage: React.FC = () => {
 
       await loadData();
       handleCloseModal();
+      
+      // Automatically navigate back to Customer Management after successful order creation
+      navigate('/ban-hang/khach-hang');
     } catch (error) {
       console.error(error);
       alert('Lỗi: Không thể lưu phiếu bán hàng.');
@@ -421,6 +424,7 @@ const SalesCardManagementPage: React.FC = () => {
       alert(`✅ Đã thu tiền thành công: ${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalAmount)}`);
       await loadData();
       handleCloseModal();
+      navigate('/ban-hang/khach-hang');
     } catch (error) {
       console.error(error);
       alert('Lỗi: Không thể thực hiện thu tiền.');
