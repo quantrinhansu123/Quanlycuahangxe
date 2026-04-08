@@ -29,7 +29,7 @@ import type { NhanSu } from '../data/personnelData';
 import { getPersonnel } from '../data/personnelData';
 import { bulkUpsertSalesCardCTs, deleteSalesCardCTsByOrderId } from '../data/salesCardCTData';
 import type { SalesCard } from '../data/salesCardData';
-import { bulkUpsertSalesCards, deleteAllSalesCards, deleteSalesCard, getSalesCardsPaginated, normalizeSalesCards, upsertSalesCard } from '../data/salesCardData';
+import { bulkUpsertSalesCards, deleteAllSalesCards, deleteSalesCard, getNextSalesCardCode, getSalesCardsPaginated, normalizeSalesCards, upsertSalesCard } from '../data/salesCardData';
 import type { DichVu } from '../data/serviceData';
 import { getServices } from '../data/serviceData';
 import { supabase } from '../lib/supabase';
@@ -200,11 +200,13 @@ const SalesCardManagementPage: React.FC = () => {
         }
 
         // 3. Set form data and open modal
+        const nextCode = await getNextSalesCardCode();
         setEditingCard(null);
         setIsReadOnlyModal(false);
         setFormData({
           ngay: new Date().toISOString().split('T')[0],
           gio: new Date().toLocaleTimeString('vi-VN', { hour12: false, hour: '2-digit', minute: '2-digit' }),
+          id_bh: nextCode,
           khach_hang_id: customer.ma_khach_hang || customer.id,
           nhan_vien_id: targetNhanVien,
           dich_vu_id: '',
@@ -222,7 +224,7 @@ const SalesCardManagementPage: React.FC = () => {
     openFormForCustomer();
   }, [loading, customers.length]); // Runs when loading finishes and customers are ready
 
-  const handleOpenModal = (card?: SalesCard) => {
+  const handleOpenModal = async (card?: SalesCard) => {
     setIsReadOnlyModal(false);
     if (card) {
       setEditingCard(card);
@@ -245,10 +247,12 @@ const SalesCardManagementPage: React.FC = () => {
 
       // Tự động gán người phụ trách là tên user đăng nhập hiện tại từ AuthContext
       const matchedUser = personnel.find(p => p.ho_ten?.toLowerCase() === currentUser?.ho_ten?.toLowerCase()) || personnel[0];
+      const nextCode = await getNextSalesCardCode();
 
       setFormData({
         ngay: new Date().toISOString().split('T')[0],
         gio: new Date().toLocaleTimeString('vi-VN', { hour12: false, hour: '2-digit', minute: '2-digit' }),
+        id_bh: nextCode,
         khach_hang_id: '',
         nhan_vien_id: matchedUser ? matchedUser.ho_ten : '', // TEXT ID (ho_ten)
         dich_vu_id: '',

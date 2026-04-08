@@ -102,13 +102,8 @@ const SalesCardFormModal: React.FC<{
     }
   }, [formData.dich_vu_ids, services]);
 
-  // Auto-generate id_bh for new cards
-  React.useEffect(() => {
-    if (!editingCard && !formData.id_bh && isOpen) {
-      const randomId = 'BH-' + Math.random().toString(36).substring(2, 8).toUpperCase();
-      setFormData(prev => ({ ...prev, id_bh: randomId }));
-    }
-  }, [editingCard, isOpen, formData.id_bh]);
+  // Note: id_bh is now managed by the parent component (SalesCardManagementPage)
+  // to ensure sequential and unique values via getNextSalesCardCode()
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;

@@ -379,7 +379,7 @@ export const updateSalesCard = async (id: string, card: Partial<SalesCard>): Pro
 export const upsertSalesCard = async (card: Partial<SalesCard>): Promise<SalesCard> => {
   const { data, error } = await supabase
     .from('the_ban_hang')
-    .upsert(card)
+    .upsert(card, { onConflict: 'id_bh' })
     .select()
     .single();
 
