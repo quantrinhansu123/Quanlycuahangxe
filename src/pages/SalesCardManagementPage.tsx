@@ -19,8 +19,9 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import Pagination from '../components/Pagination';
-import SalesCardFormModal from '../components/SalesCardFormModal';
 import { useAuth } from '../context/AuthContext';
+
+const SalesCardFormModal = React.lazy(() => import('../components/SalesCardFormModal'));
 import type { KhachHang } from '../data/customerData';
 import { getCustomersForSelect } from '../data/customerData';
 import type { ThuChi } from '../data/financialData';
@@ -77,44 +78,77 @@ const SalesCardManagementPage: React.FC = () => {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const loadData = useCallback(async () => {
+  const hasLoadedRefData = React.useRef(false);
+
+  const loadReferenceData = useCallback(async () => {
+    if (hasLoadedRefData.current) return;
     try {
-      setLoading(true);
-      const [cardsResult, custData, persData, servData] = await Promise.all([
-        getSalesCardsPaginated(
-          currentPage,
-          pageSize,
-          debouncedSearch,
-          startDate || undefined,
-          endDate || undefined,
-          isAdmin ? (selectedStaff || undefined) : (currentUser?.ho_ten || undefined),
-          isAdmin ? (selectedBranch || undefined) : undefined
-        ),
+      const [custData, persData, servData] = await Promise.all([
         getCustomersForSelect(), // Lightweight: only id, name, phone, plate, legacy_id
         getPersonnel(),
         getServices()
       ]);
-
-      // One-time data normalization to fix legacy data (missing id_bh, etc.)
-      await normalizeSalesCards();
-      setSalesCards(cardsResult.data);
-      setTotalCount(cardsResult.totalCount);
       setCustomers(custData as KhachHang[]);
       setPersonnel(persData);
       setServices(servData);
+      hasLoadedRefData.current = true;
     } catch (error) {
-      console.error(error);
+      console.error('Error loading reference data:', error);
+    }
+  }, []);
+
+  const loadSalesCards = useCallback(async () => {
+    try {
+      setLoading(true);
+      const cardsResult = await getSalesCardsPaginated(
+        currentPage,
+        pageSize,
+        debouncedSearch,
+        startDate || undefined,
+        endDate || undefined,
+        isAdmin ? (selectedStaff || undefined) : (currentUser?.ho_ten || undefined),
+        isAdmin ? (selectedBranch || undefined) : undefined
+      );
+
+      setSalesCards(cardsResult.data);
+      setTotalCount(cardsResult.totalCount);
+    } catch (error) {
+      console.error('Error loading sales cards:', error);
     } finally {
       setLoading(false);
     }
-  }, [currentPage, pageSize, debouncedSearch, startDate, endDate, selectedStaff, selectedBranch, location.pathname]);
+  }, [currentPage, pageSize, debouncedSearch, startDate, endDate, selectedStaff, selectedBranch, isAdmin, currentUser]);
+
+  const loadData = useCallback(async () => {
+    loadReferenceData(); // Non-blocking background load for dropdowns
+    await loadSalesCards();
+  }, [loadReferenceData, loadSalesCards]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    // Luồng chạy ngầm để chuẩn hóa mã trống
+    normalizeSalesCards().catch(err => console.error("Error normalizing sales cards:", err));
+  }, []);
+
   // Server-side filtering, so we use salesCards directly
   const displayItems = useMemo(() => salesCards, [salesCards]);
+
+  // Giải tỏa Mobile UI: Tính toán 10.000 customer string ở Parent 1 lần rồi share cho Modal
+  const customerOptions = useMemo(() => customers.map(c => {
+    const searchParts = [c.ho_va_ten];
+    if (c.so_dien_thoai) searchParts.push(c.so_dien_thoai);
+    if (c.bien_so_xe) searchParts.push(c.bien_so_xe);
+    if (c.ma_khach_hang) searchParts.push(c.ma_khach_hang);
+    
+    return {
+      value: c.ma_khach_hang || c.id,
+      label: `${c.ho_va_ten}${c.so_dien_thoai ? ` - ${c.so_dien_thoai}` : ''}`,
+      searchKey: searchParts.join(' ')
+    };
+  }), [customers]);
 
   // ---- AUTO-OPEN MODAL WHEN REDIRECTED FROM CUSTOMER PAGE ----
   // Use a ref to store the pending customer ID so it survives re-renders
@@ -315,14 +349,15 @@ const SalesCardManagementPage: React.FC = () => {
         cleanData.dich_vu_id = dich_vu_ids[0];
       }
 
+      // Cổ chai 4 & 5: Các bước lưu data độc lập có thể chạy song song (Promise.all)
+      // Bước 1 & 2: Sinh/Cập nhật phiếu gốc và xóa chi tiết cũ phải chạy trước vì phần dưới phụ thuộc nó
       const savedCard = await upsertSalesCard(cleanData, !editingCard);
-
-      // 1. Clear OLD detail records for this specific order to prevent duplication
       await deleteSalesCardCTsByOrderId(savedCard.id_bh || savedCard.id);
 
-      // 2. Automatically create NEW detail records for all selected services
+      // Định hình chi tiết dịch vụ mới
+      let detailRecords: any[] = [];
       if (formDataHeader.service_items && formDataHeader.service_items.length > 0) {
-        const detailRecords = formDataHeader.service_items.map((item) => {
+        detailRecords = formDataHeader.service_items.map((item) => {
           const service = services.find(s => s.id === item.id);
           return {
             id_don_hang: savedCard.id_bh || savedCard.id,
@@ -336,9 +371,8 @@ const SalesCardManagementPage: React.FC = () => {
             ngay: savedCard.ngay
           };
         });
-        await bulkUpsertSalesCardCTs(detailRecords);
       } else if (dich_vu_ids && dich_vu_ids.length > 0) {
-        const detailRecords = dich_vu_ids.map((sId: string) => {
+        detailRecords = dich_vu_ids.map((sId: string) => {
           const service = services.find(s => s.id === sId);
           return {
             id_don_hang: savedCard.id_bh || savedCard.id,
@@ -352,48 +386,46 @@ const SalesCardManagementPage: React.FC = () => {
             ngay: savedCard.ngay
           };
         });
-        await bulkUpsertSalesCardCTs(detailRecords);
       }
 
-      // AUTOMATION: Create or Update Finance Record (Phiếu thu)
+      // AUTOMATION: Định hình dòng tài chính
       const itemsToCalc = (formDataHeader.service_items && formDataHeader.service_items.length > 0)
         ? formDataHeader.service_items
         : ((formDataHeader as any).the_ban_hang_ct || []);
       const totalAmount = itemsToCalc.reduce((sum: number, item: any) => sum + ((item.gia_ban || 0) * (item.so_luong || 1)), 0);
 
-      const existingTx = await getTransactionByOrderId(savedCard.id);
+      // Bước 3: Đẩy đồng thời TẤT CẢ TÁC VỤ còn lại không phụ thuộc nhau
+      await Promise.all([
+        detailRecords.length > 0 ? bulkUpsertSalesCardCTs(detailRecords) : Promise.resolve(),
+        (async () => {
+          const existingTx = await getTransactionByOrderId(savedCard.id);
+          const financialRecord: Partial<ThuChi> = {
+            id: existingTx?.id, 
+            loai_phieu: 'phiếu thu',
+            id_don: savedCard.id,
+            so_tien: totalAmount,
+            ngay: savedCard.ngay,
+            gio: savedCard.gio,
+            co_so: (formDataHeader.service_items && formDataHeader.service_items.length > 0)
+              ? (services.find(s => s.id === formDataHeader.service_items![0].id)?.co_so || 'Cơ sở chính')
+              : 'Cơ sở chính',
+            id_khach_hang: savedCard.khach_hang_id,
+            danh_muc: 'Doanh thu dịch vụ',
+            trang_thai: 'Hoàn thành',
+            ghi_chu: `Hệ thống tự động: Thu tiền đơn hàng ${savedCard.id.slice(0, 8)}`
+          };
+          await upsertTransaction(financialRecord);
+        })(),
+        savedCard.khach_hang_id ? (() => {
+          const idCol = savedCard.khach_hang_id.length === 36 ? 'id' : 'ma_khach_hang';
+          return supabase.from('khach_hang').update({ created_at: new Date().toISOString() }).eq(idCol, savedCard.khach_hang_id);
+        })() : Promise.resolve()
+      ]);
 
-      const financialRecord: Partial<ThuChi> = {
-        id: existingTx?.id, // If it exists, update it
-        loai_phieu: 'phiếu thu',
-        id_don: savedCard.id,
-        so_tien: totalAmount,
-        ngay: savedCard.ngay,
-        gio: savedCard.gio,
-        co_so: (formDataHeader.service_items && formDataHeader.service_items.length > 0)
-          ? (services.find(s => s.id === formDataHeader.service_items![0].id)?.co_so || 'Cơ sở chính')
-          : 'Cơ sở chính',
-        id_khach_hang: savedCard.khach_hang_id,
-        danh_muc: 'Doanh thu dịch vụ',
-        trang_thai: 'Hoàn thành',
-        ghi_chu: `Hệ thống tự động: Thu tiền đơn hàng ${savedCard.id.slice(0, 8)}`
-      };
-
-      await upsertTransaction(financialRecord);
-
-      // AUTOMATION: Bump customer to top by updating 'created_at' timestamp
-      // (Used as secondary/primary sort for recent interactions)
-      if (savedCard.khach_hang_id) {
-        const idCol = savedCard.khach_hang_id.length === 36 ? 'id' : 'ma_khach_hang';
-        await supabase.from('khach_hang').update({ created_at: new Date().toISOString() }).eq(idCol, savedCard.khach_hang_id);
-      }
-
-      await loadData();
+      await loadSalesCards();
       handleCloseModal();
       
       showToast('Lập phiếu bán hàng thành công!', 'success');
-      
-      // Removed automatic navigation back to Customer Management
     } catch (error) {
       console.error(error);
       showToast('Lỗi: Không thể lưu phiếu bán hàng.', 'error');
@@ -435,13 +467,13 @@ const SalesCardManagementPage: React.FC = () => {
       // AUTOMATION: Bump customer to top
       if (editingCard.khach_hang_id) {
         const idCol = editingCard.khach_hang_id.length === 36 ? 'id' : 'ma_khach_hang';
+        // Note: we can omit await here to save time for user, but keeping it ensures consistency
         await supabase.from('khach_hang').update({ created_at: new Date().toISOString() }).eq(idCol, editingCard.khach_hang_id);
       }
 
       showToast(`Đã thu tiền thành công: ${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalAmount)}`, 'success');
-      await loadData();
+      await loadSalesCards();
       handleCloseModal();
-      // Removed automatic navigation back to Customer Management
     } catch (error) {
       console.error(error);
       showToast('Lỗi: Không thể thực hiện thu tiền.', 'error');
@@ -623,7 +655,7 @@ const SalesCardManagementPage: React.FC = () => {
         if (formattedData.length > 0) {
           setLoading(true);
           await bulkUpsertSalesCards(formattedData);
-          await loadData();
+          await loadSalesCards();
           alert(`🚀 THÀNH CÔNG: Đã nhập ${formattedData.length} phiếu bán hàng.`);
         } else {
           alert(`❌ Không tìm thấy dữ liệu hợp lệ trong file Excel.`);
@@ -643,9 +675,11 @@ const SalesCardManagementPage: React.FC = () => {
     if (window.confirm('Bạn có chắc chắn muốn xóa phiếu này?')) {
       try {
         await deleteSalesCard(id);
-        // Delete linked finance record automatically
-        await deleteTransactionByOrderId(id);
-        await loadData();
+        // Delete linked finance record automatically (no need to await if we want to release UI faster, but safe to do parallel)
+        await Promise.all([
+          deleteTransactionByOrderId(id)
+        ]);
+        await loadSalesCards();
       } catch (error) {
         alert('Lỗi: Không thể xóa phiếu.');
       }
@@ -746,7 +780,7 @@ const SalesCardManagementPage: React.FC = () => {
       if (window.confirm('Bạn có muốn xóa luôn các Phiếu Thu liên quan trong mục Tài chính không?')) {
         await deleteSalesTransactions();
       }
-      await loadData();
+      await loadSalesCards();
       alert('🚀 Đã xóa sạch toàn bộ dữ liệu bán hàng.');
     } catch (error) {
       console.error(error);
@@ -1250,18 +1284,22 @@ const SalesCardManagementPage: React.FC = () => {
       </div>
 
       {/* Modals */}
-      <SalesCardFormModal
-        isOpen={isModalOpen}
-        editingCard={editingCard}
-        initialData={formData}
-        customers={customers}
-        personnel={personnel}
-        services={services}
-        onClose={handleCloseModal}
-        onSubmit={handleSubmit}
-        isReadOnly={isReadOnlyModal}
-        onCollectPayment={handleCollectPayment}
-      />
+      {isModalOpen && (
+        <React.Suspense fallback={null}>
+          <SalesCardFormModal
+            isOpen={isModalOpen}
+            editingCard={editingCard}
+            initialData={formData}
+            customerOptions={customerOptions}
+            personnel={personnel}
+            services={services}
+            onClose={handleCloseModal}
+            onSubmit={handleSubmit}
+            isReadOnly={isReadOnlyModal}
+            onCollectPayment={handleCollectPayment}
+          />
+        </React.Suspense>
+      )}
     </div>
   );
 };

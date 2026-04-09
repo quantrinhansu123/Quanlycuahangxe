@@ -20,7 +20,8 @@ import { getCustomers } from '../data/customerData';
 import type { KhachHang } from '../data/customerData';
 import Pagination from '../components/Pagination';
 import FinancialFormModal from '../components/FinancialFormModal';
-import FinancialCharts from '../components/FinancialCharts';
+
+const FinancialCharts = React.lazy(() => import('../components/FinancialCharts'));
 
 const FinancialManagementPage: React.FC = () => {
   const location = useLocation();
@@ -644,7 +645,9 @@ const FinancialManagementPage: React.FC = () => {
           </>
         ) : (
           <div className="w-full">
-             <FinancialCharts transactions={allTransactions} />
+             <React.Suspense fallback={<div className="p-12 text-center text-muted-foreground"><Loader2 className="animate-spin inline-block mr-2" /> Đang tải biểu đồ...</div>}>
+               <FinancialCharts transactions={allTransactions} />
+             </React.Suspense>
           </div>
         )}
       </div>

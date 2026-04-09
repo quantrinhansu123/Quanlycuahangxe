@@ -5,7 +5,7 @@ import {
   Plus, ArrowLeft, MoreHorizontal, MessageSquare, User, Check
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getPayrollBatch, updatePayrollStatus, bulkCreatePayrollItems } from '../data/payrollData';
+import { getPayrollBatch, updatePayrollStatus, bulkCreatePayrollItems, deletePayrollBatch } from '../data/payrollData';
 import type { BangLuong } from '../data/payrollData';
 import { getAllowancePolicies } from '../data/allowancePolicyData';
 import SelectPayrollEmployeeModal from '../components/SelectPayrollEmployeeModal';
@@ -175,7 +175,6 @@ const PayrollPage: React.FC = () => {
 
     try {
       setLoading(true);
-      const { deletePayrollBatch } = await import('../data/payrollData');
       await deletePayrollBatch(selectedMonth, selectedYear, selectedCoSo);
       await fetchData();
       alert('Đã xóa toàn bộ bảng lương tháng này thành công!');

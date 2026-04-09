@@ -22,7 +22,7 @@ import * as XLSX from 'xlsx';
 import CustomerDetailsModal from '../components/CustomerDetailsModal';
 import CustomerFormModal from '../components/CustomerFormModal';
 import Pagination from '../components/Pagination';
-import SalesCardFormModal from '../components/SalesCardFormModal';
+const SalesCardFormModal = React.lazy(() => import('../components/SalesCardFormModal'));
 import type { KhachHang } from '../data/customerData';
 import { bulkDeleteCustomers, bulkUpsertCustomers, deleteCustomer, getCustomersForSelect, getCustomersPaginated } from '../data/customerData';
 import { getPersonnel, type NhanSu } from '../data/personnelData';
@@ -151,6 +151,19 @@ const CustomerManagementPage: React.FC = () => {
 
   // Since we use Server-side pagination, 'customers' IS already the filtered list for the current page
   const displayCustomers = customers;
+
+  const allCustomerOptions = useMemo(() => allCustomers.map(c => {
+    const searchParts = [c.ho_va_ten];
+    if (c.so_dien_thoai) searchParts.push(c.so_dien_thoai);
+    if (c.bien_so_xe) searchParts.push(c.bien_so_xe);
+    if (c.ma_khach_hang) searchParts.push(c.ma_khach_hang);
+    
+    return {
+      value: c.ma_khach_hang || c.id,
+      label: `${c.ho_va_ten}${c.so_dien_thoai ? ` - ${c.so_dien_thoai}` : ''}`,
+      searchKey: searchParts.join(' ')
+    };
+  }), [allCustomers]);
 
 
 
@@ -747,16 +760,20 @@ const CustomerManagementPage: React.FC = () => {
       />
 
       {/* Modal - Sales Form when "Lên đơn" is clicked */}
-      <SalesCardFormModal
-        isOpen={isSalesModalOpen}
-        editingCard={null}
-        initialData={salesInitialData}
-        customers={allCustomers}
-        personnel={personnel}
-        services={services}
-        onClose={() => setIsSalesModalOpen(false)}
-        onSubmit={handleSalesSubmit}
-      />
+      {isSalesModalOpen && (
+        <React.Suspense fallback={null}>
+          <SalesCardFormModal
+            isOpen={isSalesModalOpen}
+            editingCard={null}
+            initialData={salesInitialData}
+            customerOptions={allCustomerOptions}
+            personnel={personnel}
+            services={services}
+            onClose={() => setIsSalesModalOpen(false)}
+            onSubmit={handleSalesSubmit}
+          />
+        </React.Suspense>
+      )}
 
       {/* Modal - Customer Details & History */}
       <CustomerDetailsModal

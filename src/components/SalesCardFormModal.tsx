@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Calendar, Clock, History, Loader2, Save, ShoppingCart, User, Wrench, X } from 'lucide-react';
 import type { SalesCard } from '../data/salesCardData';
-import type { KhachHang } from '../data/customerData';
 import type { NhanSu } from '../data/personnelData';
 import type { DichVu } from '../data/serviceData';
 import { SearchableSelect } from './ui/SearchableSelect';
@@ -47,14 +46,14 @@ const SalesCardFormModal: React.FC<{
   isOpen: boolean;
   editingCard: SalesCard | null;
   initialData: Partial<SalesCard>;
-  customers: KhachHang[];
+  customerOptions: any[];
   personnel: NhanSu[];
   services: DichVu[];
   onClose: () => void;
   onSubmit: (data: Partial<SalesCard>) => Promise<void>;
   onCollectPayment?: (data: any) => Promise<void>;
   isReadOnly?: boolean;
-}> = React.memo(({ isOpen, editingCard, initialData, customers, personnel, services, onClose, onSubmit, isReadOnly, onCollectPayment }) => {
+}> = React.memo(({ isOpen, editingCard, initialData, customerOptions, personnel, services, onClose, onSubmit, isReadOnly, onCollectPayment }) => {
   const [formData, setFormData] = useState<Partial<SalesCard & { service_items?: { id: string, ten_dich_vu: string, gia_ban: number }[] }>>(initialData);
   const [isCollecting, setIsCollecting] = useState(false);
 
@@ -65,22 +64,8 @@ const SalesCardFormModal: React.FC<{
     }
   }, [isOpen, initialData]);
 
-  // Memoize heavy options so dropdowns don't re-render on every keystroke
-  const customerOptions = React.useMemo(() => customers.map(c => {
-    // For search string: combine all possible fields
-    const searchParts = [c.ho_va_ten];
-    if (c.so_dien_thoai) searchParts.push(c.so_dien_thoai);
-    if (c.bien_so_xe) searchParts.push(c.bien_so_xe);
-    if (c.ma_khach_hang) searchParts.push(c.ma_khach_hang);
-    
-    return {
-      value: c.ma_khach_hang || c.id,
-      label: `${c.ho_va_ten}${c.so_dien_thoai ? ` - ${c.so_dien_thoai}` : ''}`,
-      searchKey: searchParts.join(' ')
-    };
-  }), [customers]);
-  
-  // Removed unused selectedCustomer memo
+  // Dùng customerOptions được parent tính toán sẵn 1 lần thay vì map lại gây đơ Mobile CPU
+  // Removed heavy 10k items mapping here.
 
   // Sync service information based on dich_vu_ids (Multi-select support)
   React.useEffect(() => {

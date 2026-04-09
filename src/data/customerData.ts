@@ -37,11 +37,11 @@ export const getCustomers = async (): Promise<KhachHang[]> => {
   return data as KhachHang[];
 };
 
-// Lightweight version for dropdown selects - excludes heavy columns like 'anh' (Base64)
-export const getCustomersForSelect = async (): Promise<Pick<KhachHang, 'id' | 'ho_va_ten' | 'so_dien_thoai' | 'bien_so_xe' | 'ma_khach_hang' | 'so_km' | 'dia_chi_hien_tai'>[]> => {
+// Lightweight version for dropdown selects - excludes heavy columns like 'anh' (Base64), 'dia_chi_hien_tai', 'so_km'
+export const getCustomersForSelect = async (): Promise<Pick<KhachHang, 'id' | 'ho_va_ten' | 'so_dien_thoai' | 'bien_so_xe' | 'ma_khach_hang'>[]> => {
   const { data, error } = await supabase
     .from('khach_hang')
-    .select('id, ho_va_ten, so_dien_thoai, bien_so_xe, ma_khach_hang, so_km, dia_chi_hien_tai')
+    .select('id, ho_va_ten, so_dien_thoai, bien_so_xe, ma_khach_hang')
     .order('created_at', { ascending: false })
     .limit(10000);
 
