@@ -1,5 +1,6 @@
 import { Check, ChevronDown, Search, X } from "lucide-react"
 import * as React from "react"
+import { createPortal } from "react-dom"
 
 import { cn } from "../../lib/utils"
 
@@ -59,12 +60,30 @@ export const MultiSearchableSelect = React.memo(function MultiSearchableSelect({
     });
   }, [value, options]);
 
+  const [isMobile, setIsMobile] = React.useState(false);
+
+  React.useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 640);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   React.useEffect(() => {
     if (open) {
       setSearch("");
       setTimeout(() => inputRef.current?.focus(), 50);
+
+      // Scroll lock on mobile
+      if (isMobile) {
+        const originalStyle = window.getComputedStyle(document.body).overflow;
+        document.body.style.overflow = "hidden";
+        return () => {
+          document.body.style.overflow = originalStyle;
+        };
+      }
     }
-  }, [open]);
+  }, [open, isMobile]);
 
   const handleToggle = React.useCallback((optionValue: string) => {
     const isSelected = value.includes(optionValue);
@@ -75,6 +94,104 @@ export const MultiSearchableSelect = React.memo(function MultiSearchableSelect({
     }
   }, [value, onValueChange]);
 
+  const dropdownContent = (
+    <>
+      {/* Backdrop to close */}
+      <div
+        className="fixed inset-0 bg-black/40 backdrop-blur-[2px] sm:bg-transparent sm:backdrop-blur-none"
+        style={{ zIndex: 1999 }}
+        onClick={() => setOpen(false)}
+      />
+
+      <div
+        className={cn(
+          "fixed inset-0 flex flex-col bg-background sm:absolute sm:inset-auto sm:left-0 sm:right-0 sm:top-full sm:mt-1 sm:bg-popover sm:border sm:border-border sm:rounded-xl sm:shadow-xl sm:overflow-hidden",
+          isMobile ? "z-2000" : "z-1100"
+        )}
+      >
+        {/* Mobile Header - Improved */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border sm:hidden bg-muted/30">
+          <div className="flex flex-col">
+            <span className="font-bold text-base text-foreground">{placeholder}</span>
+            <span className="text-[11px] text-muted-foreground font-medium">Đã chọn {value.length} mục</span>
+          </div>
+          <button
+            type="button"
+            className="p-2 -mr-2 bg-primary/10 text-primary rounded-full hover:bg-primary/20 transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen(false);
+            }}
+          >
+            <Check size={20} />
+          </button>
+        </div>
+
+
+        {/* Search input */}
+        <div className="flex items-center border-b border-border/40 px-3 bg-muted/5">
+
+          <Search className="mr-2 h-5 w-5 sm:h-4 sm:w-4 shrink-0 opacity-40" />
+          <input
+            ref={inputRef}
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={searchPlaceholder}
+            className="flex h-12 sm:h-10 w-full bg-transparent py-3 text-[15px] sm:text-[13px] outline-none placeholder:text-muted-foreground"
+          />
+        </div>
+
+        {/* Options list */}
+        <div className="flex-1 overflow-y-auto sm:max-h-60 p-1 sm:flex-none">
+          {filteredOptions.length === 0 ? (
+            <div className="py-6 text-center text-[12px] text-muted-foreground">
+              {emptyMessage}
+            </div>
+          ) : (
+            <>
+              {filteredOptions.map((option) => {
+                const isSelected = value.includes(option.value);
+                return (
+                  <div
+                    key={option.value}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleToggle(option.value);
+                    }}
+                    className={cn(
+                      "flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-[13px] font-bold transition-colors text-popover-foreground",
+                      isSelected ? "bg-primary text-white" : "hover:bg-primary/10"
+                    )}
+                  >
+                    <div className="flex flex-col">
+                      <span>{option.label}</span>
+                      {option.price && (
+                        <span className={cn(
+                          "text-[11px] font-medium",
+                          isSelected ? "text-white/80" : "text-emerald-600"
+                        )}>
+                          {option.price}
+                        </span>
+                      )}
+                    </div>
+                    {isSelected && (
+                      <Check className="h-4 w-4 text-white" />
+                    )}
+                  </div>
+                );
+              })}
+              {remainingCount > 0 && (
+                <div className="py-2 px-3 text-center text-[11px] text-muted-foreground italic border-t border-border/30 mt-1">
+                  Còn {remainingCount} kết quả khác. Gõ thêm để thu hẹp...
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </>
+  );
   return (
     <div className="relative">
       <div
@@ -114,78 +231,7 @@ export const MultiSearchableSelect = React.memo(function MultiSearchableSelect({
         />
       </div>
 
-      {open && (
-        <>
-          {/* Backdrop to close */}
-          <div className="fixed inset-0" style={{ zIndex: 1099 }} onClick={() => setOpen(false)} />
-
-          <div 
-            className="absolute left-0 right-0 top-full mt-1 bg-popover border border-border rounded-xl shadow-xl overflow-hidden"
-            style={{ zIndex: 1100 }}
-          >
-            {/* Search input */}
-            <div className="flex items-center border-b border-border/40 px-3 bg-muted/5">
-              <Search className="mr-2 h-4 w-4 shrink-0 opacity-40" />
-              <input
-                ref={inputRef}
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder={searchPlaceholder}
-                className="flex h-10 w-full bg-transparent py-3 text-[13px] outline-none placeholder:text-muted-foreground"
-              />
-            </div>
-
-            {/* Options list */}
-            <div className="max-h-60 overflow-y-auto p-1">
-              {filteredOptions.length === 0 ? (
-                <div className="py-6 text-center text-[12px] text-muted-foreground">
-                  {emptyMessage}
-                </div>
-              ) : (
-                <>
-                  {filteredOptions.map((option) => {
-                    const isSelected = value.includes(option.value);
-                    return (
-                      <div
-                        key={option.value}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleToggle(option.value);
-                        }}
-                        className={cn(
-                          "flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-[13px] font-bold transition-colors text-popover-foreground",
-                          isSelected ? "bg-primary text-white" : "hover:bg-primary/10"
-                        )}
-                      >
-                        <div className="flex flex-col">
-                          <span>{option.label}</span>
-                          {option.price && (
-                            <span className={cn(
-                              "text-[11px] font-medium",
-                              isSelected ? "text-white/80" : "text-emerald-600"
-                            )}>
-                              {option.price}
-                            </span>
-                          )}
-                        </div>
-                        {isSelected && (
-                          <Check className="h-4 w-4 text-white" />
-                        )}
-                      </div>
-                    );
-                  })}
-                  {remainingCount > 0 && (
-                    <div className="py-2 px-3 text-center text-[11px] text-muted-foreground italic border-t border-border/30 mt-1">
-                      Còn {remainingCount} kết quả khác. Gõ thêm để thu hẹp...
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-        </>
-      )}
+      {open && (isMobile ? createPortal(dropdownContent, document.body) : dropdownContent)}
     </div>
   )
 })
