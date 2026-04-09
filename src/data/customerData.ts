@@ -42,7 +42,8 @@ export const getCustomersForSelect = async (): Promise<Pick<KhachHang, 'id' | 'h
   const { data, error } = await supabase
     .from('khach_hang')
     .select('id, ho_va_ten, so_dien_thoai, bien_so_xe, ma_khach_hang, so_km, dia_chi_hien_tai')
-    .order('ho_va_ten', { ascending: true });
+    .order('created_at', { ascending: false })
+    .limit(10000);
 
   if (error) {
     console.error('Error fetching customers for select:', error);

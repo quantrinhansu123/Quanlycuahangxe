@@ -5,7 +5,8 @@ import { cn } from "../../lib/utils"
 
 interface Option {
   value: string
-  label: string
+  label: React.ReactNode | string
+  searchKey?: string
 }
 
 interface SearchableSelectProps {
@@ -44,14 +45,20 @@ export const SearchableSelect = React.memo(function SearchableSelect({
   const filteredOptions = React.useMemo(() => {
     if (!search) return options.slice(0, MAX_VISIBLE_ITEMS);
     const q = search.toLowerCase();
-    const matched = options.filter(o => o.label.toLowerCase().includes(q));
+    const matched = options.filter(o => {
+      const targetStr = o.searchKey ? o.searchKey.toLowerCase() : (typeof o.label === 'string' ? o.label.toLowerCase() : '');
+      return targetStr.includes(q);
+    });
     return matched.slice(0, MAX_VISIBLE_ITEMS);
   }, [options, search]);
 
   const remainingCount = React.useMemo(() => {
     if (!search) return Math.max(0, options.length - MAX_VISIBLE_ITEMS);
     const q = search.toLowerCase();
-    const totalMatched = options.filter(o => o.label.toLowerCase().includes(q)).length;
+    const totalMatched = options.filter(o => {
+      const targetStr = o.searchKey ? o.searchKey.toLowerCase() : (typeof o.label === 'string' ? o.label.toLowerCase() : '');
+      return targetStr.includes(q);
+    }).length;
     return Math.max(0, totalMatched - MAX_VISIBLE_ITEMS);
   }, [options, search]);
 

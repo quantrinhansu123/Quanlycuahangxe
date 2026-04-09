@@ -66,10 +66,19 @@ const SalesCardFormModal: React.FC<{
   }, [isOpen, initialData]);
 
   // Memoize heavy options so dropdowns don't re-render on every keystroke
-  const customerOptions = React.useMemo(() => customers.map(c => ({
-    value: c.ma_khach_hang || c.id,
-    label: `${c.ho_va_ten}${c.so_dien_thoai ? ' - ' + c.so_dien_thoai : ''}`
-  })), [customers]);
+  const customerOptions = React.useMemo(() => customers.map(c => {
+    // For search string: combine all possible fields
+    const searchParts = [c.ho_va_ten];
+    if (c.so_dien_thoai) searchParts.push(c.so_dien_thoai);
+    if (c.bien_so_xe) searchParts.push(c.bien_so_xe);
+    if (c.ma_khach_hang) searchParts.push(c.ma_khach_hang);
+    
+    return {
+      value: c.ma_khach_hang || c.id,
+      label: `${c.ho_va_ten}${c.so_dien_thoai ? ` - ${c.so_dien_thoai}` : ''}`,
+      searchKey: searchParts.join(' ')
+    };
+  }), [customers]);
   
   // Removed unused selectedCustomer memo
 

@@ -34,9 +34,11 @@ import type { DichVu } from '../data/serviceData';
 import { getServices } from '../data/serviceData';
 import { supabase } from '../lib/supabase';
 import { cn } from '../lib/utils';
+import { useToast } from '../context/ToastContext';
 
 const SalesCardManagementPage: React.FC = () => {
   const { currentUser, isAdmin } = useAuth();
+  const { showToast } = useToast();
   const navigate = useNavigate();
   const [salesCards, setSalesCards] = useState<SalesCard[]>([]);
   const [customers, setCustomers] = useState<KhachHang[]>([]);
@@ -382,11 +384,15 @@ const SalesCardManagementPage: React.FC = () => {
       await loadData();
       handleCloseModal();
       
+      showToast('Lập phiếu bán hàng thành công!', 'success');
+      
       // Automatically navigate back to Customer Management after successful order creation
-      navigate('/ban-hang/khach-hang');
+      setTimeout(() => {
+        navigate('/ban-hang/khach-hang');
+      }, 1000);
     } catch (error) {
       console.error(error);
-      alert('Lỗi: Không thể lưu phiếu bán hàng.');
+      showToast('Lỗi: Không thể lưu phiếu bán hàng.', 'error');
     }
   };
 
@@ -421,13 +427,13 @@ const SalesCardManagementPage: React.FC = () => {
       };
 
       await upsertTransaction(financialRecord);
-      alert(`✅ Đã thu tiền thành công: ${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalAmount)}`);
+      showToast(`Đã thu tiền thành công: ${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalAmount)}`, 'success');
       await loadData();
       handleCloseModal();
       navigate('/ban-hang/khach-hang');
     } catch (error) {
       console.error(error);
-      alert('Lỗi: Không thể thực hiện thu tiền.');
+      showToast('Lỗi: Không thể thực hiện thu tiền.', 'error');
     }
   };
 

@@ -6,6 +6,7 @@ import MobileBottomNav from './MobileBottomNav';
 import { clsx } from 'clsx';
 import { AnimatePresence, motion } from 'framer-motion';
 import { moduleData } from '../../data/moduleData';
+import { ToastContainer } from '../ui/Toast';
 
 const MainLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -77,6 +78,8 @@ const MainLayout: React.FC = () => {
         {/* Mobile Bottom Navigation - Always show on mobile */}
         <MobileBottomNav />
       </div>
+
+      <ToastContainer />
     </div>
   );
 };

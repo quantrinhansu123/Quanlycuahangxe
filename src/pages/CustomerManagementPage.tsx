@@ -28,9 +28,11 @@ import { bulkDeleteCustomers, bulkUpsertCustomers, deleteCustomer, getCustomersF
 import { getPersonnel, type NhanSu } from '../data/personnelData';
 import { createSalesCard, type SalesCard } from '../data/salesCardData';
 import { getServices, type DichVu } from '../data/serviceData';
+import { useToast } from '../context/ToastContext';
 
 const CustomerManagementPage: React.FC = () => {
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [customers, setCustomers] = useState<KhachHang[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -58,6 +60,7 @@ const CustomerManagementPage: React.FC = () => {
   const [salesInitialData, setSalesInitialData] = useState<Partial<SalesCard>>({});
   const [personnel, setPersonnel] = useState<NhanSu[]>([]);
   const [services, setServices] = useState<DichVu[]>([]);
+  const [allCustomers, setAllCustomers] = useState<KhachHang[]>([]);
 
   const [visibleColumns, setVisibleColumns] = useState<string[]>([
     'anh', 'ma_khach_hang', 'ho_va_ten', 'so_dien_thoai', 'dia_chi_hien_tai', 'bien_so_xe',
@@ -114,6 +117,8 @@ const CustomerManagementPage: React.FC = () => {
       setPersonnel(p);
       setServices(s);
     });
+    // Load full customer list independently for the dropdown
+    getCustomersForSelect().then(c => setAllCustomers(c as KhachHang[]));
   }, [currentPage, pageSize]); // Re-load when page or size changes
 
   // Reset page when searching
@@ -161,6 +166,8 @@ const CustomerManagementPage: React.FC = () => {
 
   const handleCustomerSuccess = useCallback(async (customer: KhachHang, shouldCreateOrder?: boolean) => {
     await loadCustomers();
+    // Force refresh the full list for the dropdown
+    getCustomersForSelect().then(c => setAllCustomers(c as KhachHang[]));
     setIsModalOpen(false);
     setEditingCustomer(null);
 
@@ -178,9 +185,9 @@ const CustomerManagementPage: React.FC = () => {
     try {
       await createSalesCard(data);
       setIsSalesModalOpen(false);
-      alert('Đã lập phiếu bán hàng thành công!');
+      showToast('Đã lập phiếu bán hàng thành công!', 'success');
     } catch (error) {
-      alert('Lỗi: Không thể lập phiếu bán hàng.');
+      showToast('Lỗi: Không thể lập phiếu bán hàng.', 'error');
     }
   };
 
@@ -304,11 +311,13 @@ const CustomerManagementPage: React.FC = () => {
           setLoading(true);
           await bulkUpsertCustomers(formattedData);
           await loadCustomers();
-          alert(`Đã xử lý thành công ${formattedData.length} khách hàng!`);
+          // Keep dropdown fresh
+          getCustomersForSelect().then(c => setAllCustomers(c as KhachHang[]));
+          showToast(`Đã xử lý thành công ${formattedData.length} khách hàng!`, 'success');
         }
       } catch (error) {
         console.error("Lỗi khi nhập Excel:", error);
-        alert("Lỗi khi đọc file Excel. Vui lòng kiểm tra lại định dạng file.");
+        showToast("Lỗi khi đọc file Excel. Vui lòng kiểm tra lại định dạng file.", "error");
       } finally {
         setLoading(false);
         if (e.target) e.target.value = '';
@@ -322,8 +331,9 @@ const CustomerManagementPage: React.FC = () => {
       try {
         await deleteCustomer(id);
         await loadCustomers();
+        getCustomersForSelect().then(c => setAllCustomers(c as KhachHang[]));
       } catch (error) {
-        alert('Lỗi: Không thể xóa khách hàng.');
+        showToast('Lỗi: Không thể xóa khách hàng.', 'error');
       }
     }
   }, [loadCustomers]);
@@ -335,9 +345,9 @@ const CustomerManagementPage: React.FC = () => {
           setLoading(true);
           await bulkDeleteCustomers();
           await loadCustomers();
-          alert('Đã xóa sạch toàn bộ danh sách khách hàng.');
+          showToast('Đã xóa sạch toàn bộ danh sách khách hàng.', 'info');
         } catch (error) {
-          alert('Lỗi khi xóa dữ liệu.');
+          showToast('Lỗi khi xóa dữ liệu.', 'error');
         } finally {
           setLoading(false);
         }
@@ -735,7 +745,7 @@ const CustomerManagementPage: React.FC = () => {
         isOpen={isSalesModalOpen}
         editingCard={null}
         initialData={salesInitialData}
-        customers={customers}
+        customers={allCustomers}
         personnel={personnel}
         services={services}
         onClose={() => setIsSalesModalOpen(false)}
