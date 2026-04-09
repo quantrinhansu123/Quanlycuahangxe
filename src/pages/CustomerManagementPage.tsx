@@ -22,13 +22,9 @@ import * as XLSX from 'xlsx';
 import CustomerDetailsModal from '../components/CustomerDetailsModal';
 import CustomerFormModal from '../components/CustomerFormModal';
 import Pagination from '../components/Pagination';
-const SalesCardFormModal = React.lazy(() => import('../components/SalesCardFormModal'));
 import type { KhachHang } from '../data/customerData';
 import { bulkDeleteCustomers, bulkUpsertCustomers, deleteCustomer, getCustomersForSelect, getCustomersPaginated } from '../data/customerData';
-import { getPersonnel, type NhanSu } from '../data/personnelData';
-import { createSalesCard, type SalesCard } from '../data/salesCardData';
 import { supabase } from '../lib/supabase';
-import { getServices, type DichVu } from '../data/serviceData';
 import { useToast } from '../context/ToastContext';
 
 const CustomerManagementPage: React.FC = () => {
@@ -56,11 +52,6 @@ const CustomerManagementPage: React.FC = () => {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<KhachHang | null>(null);
 
-  // Sales Modal states
-  const [isSalesModalOpen, setIsSalesModalOpen] = useState(false);
-  const [salesInitialData, setSalesInitialData] = useState<Partial<SalesCard>>({});
-  const [personnel, setPersonnel] = useState<NhanSu[]>([]);
-  const [services, setServices] = useState<DichVu[]>([]);
   const [allCustomers, setAllCustomers] = useState<KhachHang[]>([]);
 
   const [visibleColumns, setVisibleColumns] = useState<string[]>([
@@ -113,11 +104,6 @@ const CustomerManagementPage: React.FC = () => {
 
   useEffect(() => {
     loadCustomers();
-    // Pre-load data for sales modal
-    Promise.all([getPersonnel(), getServices()]).then(([p, s]) => {
-      setPersonnel(p);
-      setServices(s);
-    });
     // Load full customer list independently for the dropdown
     getCustomersForSelect().then(c => setAllCustomers(c as KhachHang[]));
   }, [currentPage, pageSize]); // Re-load when page or size changes
@@ -152,18 +138,6 @@ const CustomerManagementPage: React.FC = () => {
   // Since we use Server-side pagination, 'customers' IS already the filtered list for the current page
   const displayCustomers = customers;
 
-  const allCustomerOptions = useMemo(() => allCustomers.map(c => {
-    const searchParts = [c.ho_va_ten];
-    if (c.so_dien_thoai) searchParts.push(c.so_dien_thoai);
-    if (c.bien_so_xe) searchParts.push(c.bien_so_xe);
-    if (c.ma_khach_hang) searchParts.push(c.ma_khach_hang);
-    
-    return {
-      value: c.ma_khach_hang || c.id,
-      label: `${c.ho_va_ten}${c.so_dien_thoai ? ` - ${c.so_dien_thoai}` : ''}`,
-      searchKey: searchParts.join(' ')
-    };
-  }), [allCustomers]);
 
 
 
@@ -186,29 +160,9 @@ const CustomerManagementPage: React.FC = () => {
     setEditingCustomer(null);
 
     if (shouldCreateOrder) {
-      setSalesInitialData({
-        khach_hang_id: customer.ma_khach_hang || customer.id,
-        ngay: new Date().toISOString().split('T')[0],
-        gio: new Date().toLocaleTimeString('vi-VN', { hour12: false, hour: '2-digit', minute: '2-digit' })
-      });
-      setIsSalesModalOpen(true);
+      navigate('/ban-hang/phieu-ban-hang', { state: { pendingCustomerId: customer.id, pendingMaKhachHang: customer.ma_khach_hang } });
     }
-  }, [loadCustomers]);
-
-  const handleSalesSubmit = async (data: Partial<SalesCard>) => {
-    try {
-      await createSalesCard(data);
-      if (data.khach_hang_id) {
-        const idCol = data.khach_hang_id.length === 36 ? 'id' : 'ma_khach_hang';
-        await supabase.from('khach_hang').update({ created_at: new Date().toISOString() }).eq(idCol, data.khach_hang_id);
-      }
-      setIsSalesModalOpen(false);
-      showToast('Đã lập phiếu bán hàng thành công!', 'success');
-      await loadCustomers(); // Reload so they jump to the top
-    } catch (error) {
-      showToast('Lỗi: Không thể lập phiếu bán hàng.', 'error');
-    }
-  };
+  }, [loadCustomers, navigate]);
 
   const handleOpenDetails = useCallback((customer: KhachHang) => {
     setSelectedCustomer(customer);
@@ -759,21 +713,6 @@ const CustomerManagementPage: React.FC = () => {
         customer={editingCustomer}
       />
 
-      {/* Modal - Sales Form when "Lên đơn" is clicked */}
-      {isSalesModalOpen && (
-        <React.Suspense fallback={null}>
-          <SalesCardFormModal
-            isOpen={isSalesModalOpen}
-            editingCard={null}
-            initialData={salesInitialData}
-            customerOptions={allCustomerOptions}
-            personnel={personnel}
-            services={services}
-            onClose={() => setIsSalesModalOpen(false)}
-            onSubmit={handleSalesSubmit}
-          />
-        </React.Suspense>
-      )}
 
       {/* Modal - Customer Details & History */}
       <CustomerDetailsModal
