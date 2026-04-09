@@ -23,8 +23,7 @@ import CustomerDetailsModal from '../components/CustomerDetailsModal';
 import CustomerFormModal from '../components/CustomerFormModal';
 import Pagination from '../components/Pagination';
 import type { KhachHang } from '../data/customerData';
-import { bulkDeleteCustomers, bulkUpsertCustomers, deleteCustomer, getCustomersForSelect, getCustomersPaginated } from '../data/customerData';
-import { supabase } from '../lib/supabase';
+import { bulkDeleteCustomers, bulkUpsertCustomers, deleteCustomer, getCustomersPaginated, getCustomersForSelect } from '../data/customerData';
 import { useToast } from '../context/ToastContext';
 
 const CustomerManagementPage: React.FC = () => {
@@ -52,7 +51,6 @@ const CustomerManagementPage: React.FC = () => {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<KhachHang | null>(null);
 
-  const [allCustomers, setAllCustomers] = useState<KhachHang[]>([]);
 
   const [visibleColumns, setVisibleColumns] = useState<string[]>([
     'anh', 'ma_khach_hang', 'ho_va_ten', 'so_dien_thoai', 'dia_chi_hien_tai', 'bien_so_xe',
@@ -104,8 +102,6 @@ const CustomerManagementPage: React.FC = () => {
 
   useEffect(() => {
     loadCustomers();
-    // Load full customer list independently for the dropdown
-    getCustomersForSelect().then(c => setAllCustomers(c as KhachHang[]));
   }, [currentPage, pageSize]); // Re-load when page or size changes
 
   // Reset page when searching
@@ -154,8 +150,6 @@ const CustomerManagementPage: React.FC = () => {
 
   const handleCustomerSuccess = useCallback(async (customer: KhachHang, shouldCreateOrder?: boolean) => {
     await loadCustomers();
-    // Force refresh the full list for the dropdown
-    getCustomersForSelect().then(c => setAllCustomers(c as KhachHang[]));
     setIsModalOpen(false);
     setEditingCustomer(null);
 
@@ -284,8 +278,6 @@ const CustomerManagementPage: React.FC = () => {
           setLoading(true);
           await bulkUpsertCustomers(formattedData);
           await loadCustomers();
-          // Keep dropdown fresh
-          getCustomersForSelect().then(c => setAllCustomers(c as KhachHang[]));
           showToast(`Đã xử lý thành công ${formattedData.length} khách hàng!`, 'success');
         }
       } catch (error) {
@@ -304,7 +296,6 @@ const CustomerManagementPage: React.FC = () => {
       try {
         await deleteCustomer(id);
         await loadCustomers();
-        getCustomersForSelect().then(c => setAllCustomers(c as KhachHang[]));
       } catch (error) {
         showToast('Lỗi: Không thể xóa khách hàng.', 'error');
       }
