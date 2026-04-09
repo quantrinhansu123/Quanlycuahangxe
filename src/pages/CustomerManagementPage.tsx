@@ -27,6 +27,7 @@ import type { KhachHang } from '../data/customerData';
 import { bulkDeleteCustomers, bulkUpsertCustomers, deleteCustomer, getCustomersForSelect, getCustomersPaginated } from '../data/customerData';
 import { getPersonnel, type NhanSu } from '../data/personnelData';
 import { createSalesCard, type SalesCard } from '../data/salesCardData';
+import { supabase } from '../lib/supabase';
 import { getServices, type DichVu } from '../data/serviceData';
 import { useToast } from '../context/ToastContext';
 
@@ -184,8 +185,13 @@ const CustomerManagementPage: React.FC = () => {
   const handleSalesSubmit = async (data: Partial<SalesCard>) => {
     try {
       await createSalesCard(data);
+      if (data.khach_hang_id) {
+        const idCol = data.khach_hang_id.length === 36 ? 'id' : 'ma_khach_hang';
+        await supabase.from('khach_hang').update({ created_at: new Date().toISOString() }).eq(idCol, data.khach_hang_id);
+      }
       setIsSalesModalOpen(false);
       showToast('Đã lập phiếu bán hàng thành công!', 'success');
+      await loadCustomers(); // Reload so they jump to the top
     } catch (error) {
       showToast('Lỗi: Không thể lập phiếu bán hàng.', 'error');
     }

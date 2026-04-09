@@ -381,15 +381,19 @@ const SalesCardManagementPage: React.FC = () => {
 
       await upsertTransaction(financialRecord);
 
+      // AUTOMATION: Bump customer to top by updating 'created_at' timestamp
+      // (Used as secondary/primary sort for recent interactions)
+      if (savedCard.khach_hang_id) {
+        const idCol = savedCard.khach_hang_id.length === 36 ? 'id' : 'ma_khach_hang';
+        await supabase.from('khach_hang').update({ created_at: new Date().toISOString() }).eq(idCol, savedCard.khach_hang_id);
+      }
+
       await loadData();
       handleCloseModal();
       
       showToast('Lập phiếu bán hàng thành công!', 'success');
       
-      // Automatically navigate back to Customer Management after successful order creation
-      setTimeout(() => {
-        navigate('/ban-hang/khach-hang');
-      }, 1000);
+      // Removed automatic navigation back to Customer Management
     } catch (error) {
       console.error(error);
       showToast('Lỗi: Không thể lưu phiếu bán hàng.', 'error');
@@ -427,10 +431,17 @@ const SalesCardManagementPage: React.FC = () => {
       };
 
       await upsertTransaction(financialRecord);
+
+      // AUTOMATION: Bump customer to top
+      if (editingCard.khach_hang_id) {
+        const idCol = editingCard.khach_hang_id.length === 36 ? 'id' : 'ma_khach_hang';
+        await supabase.from('khach_hang').update({ created_at: new Date().toISOString() }).eq(idCol, editingCard.khach_hang_id);
+      }
+
       showToast(`Đã thu tiền thành công: ${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalAmount)}`, 'success');
       await loadData();
       handleCloseModal();
-      navigate('/ban-hang/khach-hang');
+      // Removed automatic navigation back to Customer Management
     } catch (error) {
       console.error(error);
       showToast('Lỗi: Không thể thực hiện thu tiền.', 'error');

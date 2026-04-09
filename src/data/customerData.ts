@@ -27,8 +27,8 @@ export const getCustomers = async (): Promise<KhachHang[]> => {
   const { data, error } = await supabase
     .from('khach_hang')
     .select('*')
-    .order('ngay_dang_ky', { ascending: false })
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .order('ngay_dang_ky', { ascending: false });
 
   if (error) {
     console.error('Error fetching customers:', error);
@@ -71,8 +71,8 @@ export const getCustomersPaginated = async (
   }
 
   const { data, count, error } = await query
-    .order('ngay_dang_ky', { ascending: false })
     .order('created_at', { ascending: false })
+    .order('ngay_dang_ky', { ascending: false })
     .range(from, to);
 
   if (error) {

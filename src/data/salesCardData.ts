@@ -348,17 +348,8 @@ export const normalizeSalesCards = async () => {
 };
 
 export const createSalesCard = async (card: Partial<SalesCard>): Promise<SalesCard> => {
-  const { data, error } = await supabase
-    .from('the_ban_hang')
-    .insert(card)
-    .select()
-    .single();
-
-  if (error) {
-    console.error('Error creating sales card:', error);
-    throw error;
-  }
-  return data as SalesCard;
+  // Use `upsertSalesCard` which has retry logic built-in to prevent unique key violations
+  return await upsertSalesCard(card, true);
 };
 
 export const updateSalesCard = async (id: string, card: Partial<SalesCard>): Promise<SalesCard> => {
@@ -377,33 +368,48 @@ export const updateSalesCard = async (id: string, card: Partial<SalesCard>): Pro
 };
 
 export const upsertSalesCard = async (card: Partial<SalesCard>, isNew: boolean = false): Promise<SalesCard> => {
-  if (isNew || !card.id) {
-    // For new records, use insert to prevent accidental overwrites if the generated ID somehow exists
+  let attempts = 0;
+  const maxAttempts = 3;
+
+  while (attempts < maxAttempts) {
+    if (isNew || !card.id) {
+      // For new records, use insert to prevent accidental overwrites if the generated ID somehow exists
+      const { data, error } = await supabase
+        .from('the_ban_hang')
+        .insert(card)
+        .select()
+        .single();
+
+      if (error) {
+        if (error.code === '23505' && attempts < maxAttempts - 1) { // Unique violation
+          console.warn(`Unique constraint violation for ID ${card.id_bh}. Retrying...`);
+          card.id_bh = await getNextSalesCardCode();
+          attempts++;
+          continue;
+        }
+        console.error('Error creating sales card (Insert):', error);
+        throw error;
+      }
+      return data as SalesCard;
+    }
+
+    // Update mode
+    // We already know it has an ID because `!card.id` is handled above
     const { data, error } = await supabase
       .from('the_ban_hang')
-      .insert(card)
+      .update(card)
+      .eq('id', card.id as string)
       .select()
       .single();
 
     if (error) {
-      console.error('Error creating sales card (Insert):', error);
+      console.error('Error upserting sales card:', error);
       throw error;
     }
     return data as SalesCard;
   }
-
-  // Update mode or standard upsert
-  const { data, error } = await supabase
-    .from('the_ban_hang')
-    .upsert(card, { onConflict: 'id_bh' })
-    .select()
-    .single();
-
-  if (error) {
-    console.error('Error upserting sales card:', error);
-    throw error;
-  }
-  return data as SalesCard;
+  
+  throw new Error("Failed to insert after multiple attempts due to ID collision.");
 };
 
 export const bulkUpsertSalesCards = async (cards: Partial<SalesCard>[]): Promise<void> => {
@@ -446,17 +452,17 @@ export const deleteAllSalesCards = async (): Promise<void> => {
 };
 
 export const getNextSalesCardCode = async (): Promise<string> => {
-  // Fetch top 50 records to ensure we find the true numeric maximum 
-  // even if lexicographical sorting is confused by inconsistent padding
+  // Fetch newest 1000 records to ensure we find the latest numeric maximum
+  // sorted by created_at so we don't just fetch old alphanumeric IDs
   const { data, error } = await supabase
     .from('the_ban_hang')
     .select('id_bh')
     .order('created_at', { ascending: false })
-    .limit(100);
+    .limit(1000);
 
   if (error) {
     console.error('Error fetching sales card codes:', error);
-    return 'BH-000001';
+    return `BH-${Date.now().toString().slice(-6)}`; // Fallback to timestamp to avoid collision
   }
 
   if (!data || data.length === 0) {
@@ -481,8 +487,7 @@ export const getNextSalesCardCode = async (): Promise<string> => {
   });
 
   if (!hasValidCode) {
-    // If no records match the pattern, check if there are ANY records
-    // If yes, we might need a default format or just start from 1
+    // If no records match the pattern, it's the first one
     return 'BH-000001';
   }
 
