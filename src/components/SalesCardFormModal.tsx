@@ -308,7 +308,7 @@ const SalesCardFormModal: React.FC<{
                       try { await onCollectPayment(formData); } finally { setIsCollecting(false); }
                     }}
                     disabled={isCollecting}
-                    className="px-6 py-2 rounded-xl text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all flex items-center gap-2 disabled:opacity-50"
+                    className="px-4 py-1.5 sm:px-6 sm:py-2 rounded-xl text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all flex items-center gap-2 disabled:opacity-50"
                   >
                     {isCollecting ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
                     <span>THU TIỀN</span>
@@ -317,11 +317,11 @@ const SalesCardFormModal: React.FC<{
               </div>
 
               <div className="flex items-center gap-3">
-                <button type="button" onClick={onClose} className="px-6 py-2 rounded-xl text-sm font-bold border border-border hover:bg-muted transition-all">
+                <button type="button" onClick={onClose} className="px-4 py-1.5 sm:px-6 sm:py-2 rounded-xl text-sm font-bold border border-border hover:bg-muted transition-all">
                   {isReadOnly ? 'Đóng' : 'Hủy'}
                 </button>
                 {!isReadOnly && (
-                  <button type="submit" className="px-8 py-2 rounded-xl text-sm font-bold text-white bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 transition-all flex items-center gap-2">
+                  <button type="submit" className="px-4 py-1.5 sm:px-8 sm:py-2 rounded-xl text-sm font-bold text-white bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 transition-all flex items-center gap-2">
                     <Save size={18} /> <span>{editingCard ? 'Lưu thay đổi' : 'Lập phiếu'}</span>
                   </button>
                 )}
