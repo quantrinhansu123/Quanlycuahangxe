@@ -1,4 +1,4 @@
-import { Calendar, Clock, History, Loader2, Save, ShoppingCart, User, Wrench, X } from 'lucide-react';
+import { Calendar, Clock, FileText, History, Loader2, Save, ShoppingCart, User, Wrench, X } from 'lucide-react';
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { NhanSu } from '../data/personnelData';
@@ -280,6 +280,24 @@ const SalesCardFormModal: React.FC<{
               <InputField label="Số Km" name="so_km" value={formatNumber(formData.so_km)} onChange={handleInputChange} icon={History} placeholder="12.000" disabled={isReadOnly} />
 
               <InputField label="Ngày nhắc thay dầu" name="ngay_nhac_thay_dau" type="date" value={formData.ngay_nhac_thay_dau || ''} onChange={handleInputChange} icon={Calendar} disabled={isReadOnly} />
+
+              <div className="space-y-1.5 md:col-span-2">
+                <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                  <FileText size={14} className="text-primary/70" />
+                  Chú thích
+                </label>
+                <textarea
+                  name="ghi_chu"
+                  value={formData.ghi_chu || ''}
+                  onChange={handleInputChange}
+                  placeholder="Nhập thông tin ghi chú, lưu ý..."
+                  disabled={isReadOnly}
+                  className={clsx(
+                    "w-full px-4 py-3 bg-background border border-border rounded-2xl outline-none focus:ring-2 focus:ring-primary/20 text-[14px] min-h-[100px] resize-none",
+                    isReadOnly && "bg-muted/30 cursor-not-allowed opacity-80"
+                  )}
+                />
+              </div>
             </div>
 
             {((formData.service_items && formData.service_items.length > 0) || (formData.the_ban_hang_ct && formData.the_ban_hang_ct.length > 0) || formData.dich_vu) && (

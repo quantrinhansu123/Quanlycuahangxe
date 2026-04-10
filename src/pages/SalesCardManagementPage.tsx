@@ -6,6 +6,7 @@ import {
   Download,
   Edit2,
   Eye,
+  FileText,
   Loader2,
   Plus,
   Search,
@@ -1118,6 +1119,13 @@ const SalesCardManagementPage: React.FC = () => {
                     )}
                   </div>
 
+                  {card.ghi_chu && (
+                    <div className="mt-2 flex items-start gap-1.5 p-2.5 bg-amber-50/50 rounded-xl border border-amber-100/50">
+                      <FileText size={14} className="text-amber-600/70 mt-0.5 shrink-0" />
+                      <p className="text-[12px] text-amber-900/70 italic leading-relaxed line-clamp-2">{card.ghi_chu}</p>
+                    </div>
+                  )}
+
                   {/* Actions Bar for Mobile Card */}
                   <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/30">
                     <button onClick={() => handleViewCard(card)} className="flex items-center gap-1 px-3 py-1.5 text-blue-600 hover:bg-blue-50 rounded-lg text-[12px] font-bold border border-blue-100 transition-colors">
@@ -1168,8 +1176,7 @@ const SalesCardManagementPage: React.FC = () => {
               <thead>
                 <tr className="bg-muted border-b border-border text-muted-foreground text-[13px] font-bold tracking-tight">
                   <th className="px-4 py-3 font-semibold text-center">id</th>
-                  <th className="px-4 py-3 font-semibold text-center">Ngày</th>
-                  <th className="px-4 py-3 font-semibold text-center">Giờ</th>
+                  <th className="px-4 py-3 font-semibold text-center">Thời gian</th>
                   <th className="px-4 py-3 font-semibold">Tên khách hàng</th>
                   <th className="px-4 py-3 font-semibold">SĐT</th>
                   <th className="px-4 py-3 font-semibold">Địa chỉ lưu trú hiện tại</th>
@@ -1179,6 +1186,7 @@ const SalesCardManagementPage: React.FC = () => {
                   <th className="px-4 py-3 font-semibold text-right">Tổng tiền</th>
                   <th className="px-4 py-3 font-semibold text-right">Số Km</th>
                   <th className="px-4 py-3 font-semibold text-center">Ngày nhắc thay dầu</th>
+                  <th className="px-4 py-3 font-semibold">Ghi chú</th>
                   <th className="px-4 py-3 text-center font-semibold">Thao tác</th>
                 </tr>
               </thead>
@@ -1195,13 +1203,13 @@ const SalesCardManagementPage: React.FC = () => {
                     <td className="px-4 py-4 text-center font-mono text-[12px] font-bold text-muted-foreground">
                       {card.id_bh || card.id.slice(0, 8)}
                     </td>
-                    <td className="px-4 py-4 text-center font-bold text-foreground">
-                      {new Date(card.ngay).toLocaleDateString('vi-VN')}
+                    <td className="px-4 py-4 text-center">
+                      <div className="font-bold text-foreground whitespace-nowrap">{new Date(card.ngay).toLocaleDateString('vi-VN')}</div>
+                      <div className="text-[11px] text-muted-foreground font-mono">{card.gio}</div>
                     </td>
-                    <td className="px-4 py-4 text-center text-muted-foreground">
-                      {card.gio}
+                    <td className="px-4 py-4">
+                      <div className="font-bold text-primary">{card.khach_hang?.ho_va_ten || 'N/A'}</div>
                     </td>
-                    <td className="px-4 py-4 font-bold text-primary">{card.khach_hang?.ho_va_ten || 'N/A'}</td>
                     <td className="px-4 py-4 text-muted-foreground">{card.khach_hang?.so_dien_thoai || 'N/A'}</td>
                     <td className="px-4 py-4 text-muted-foreground text-[13px]">{card.khach_hang?.dia_chi_hien_tai || '—'}</td>
                     <td className="px-4 py-4">
@@ -1249,6 +1257,16 @@ const SalesCardManagementPage: React.FC = () => {
                           {new Date(card.ngay_nhac_thay_dau).toLocaleDateString('vi-VN')}
                         </div>
                       ) : '—'}
+                    </td>
+                    <td className="px-4 py-4 max-w-[200px]">
+                      {card.ghi_chu ? (
+                        <div className="flex items-start gap-1.5 text-amber-600/70 italic text-[12px] leading-relaxed line-clamp-2" title={card.ghi_chu}>
+                          <FileText size={14} className="shrink-0 mt-0.5" />
+                          <span>{card.ghi_chu}</span>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground/30">—</span>
+                      )}
                     </td>
                     <td className="px-4 py-4 text-center">
                       <div className="flex items-center justify-center gap-2">

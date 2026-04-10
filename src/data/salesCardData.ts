@@ -24,6 +24,7 @@ export interface SalesCard {
   danh_gia: string | null;
   so_km: number;
   ngay_nhac_thay_dau: string | null;
+  ghi_chu: string | null;
   created_at?: string;
   
   // Joined fields
