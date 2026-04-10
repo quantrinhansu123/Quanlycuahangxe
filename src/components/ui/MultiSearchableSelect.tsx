@@ -36,6 +36,8 @@ export const MultiSearchableSelect = React.memo(function MultiSearchableSelect({
   const [open, setOpen] = React.useState(false)
   const [search, setSearch] = React.useState("")
   const inputRef = React.useRef<HTMLInputElement>(null)
+  const triggerRef = React.useRef<HTMLDivElement>(null)
+  const [dropdownPos, setDropdownPos] = React.useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 })
 
   // Filter + limit items for performance
   const filteredOptions = React.useMemo(() => {
@@ -72,6 +74,11 @@ export const MultiSearchableSelect = React.memo(function MultiSearchableSelect({
   React.useEffect(() => {
     if (open) {
       setSearch("");
+      // Calculate trigger position for desktop dropdown
+      if (triggerRef.current) {
+        const rect = triggerRef.current.getBoundingClientRect();
+        setDropdownPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+      }
       setTimeout(() => inputRef.current?.focus(), 50);
 
       // Scroll lock on mobile
@@ -94,107 +101,130 @@ export const MultiSearchableSelect = React.memo(function MultiSearchableSelect({
     }
   }, [value, onValueChange]);
 
+  const optionsList = (compact: boolean) => (
+    <>
+      {filteredOptions.map((option) => {
+        const isSelected = value.includes(option.value);
+        return (
+          <div
+            key={option.value}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleToggle(option.value);
+            }}
+            className={cn(
+              "flex items-center justify-between rounded-lg cursor-pointer font-bold transition-colors text-popover-foreground",
+              compact ? "px-3 py-2 text-[13px]" : "px-3 py-2 text-[13px]",
+              isSelected ? "bg-primary text-white" : "hover:bg-primary/10"
+            )}
+          >
+            <div className="flex flex-col">
+              <span>{option.label}</span>
+              {option.price && (
+                <span className={cn(
+                  "text-[11px] font-medium",
+                  isSelected ? "text-white/80" : "text-emerald-600"
+                )}>
+                  {option.price}
+                </span>
+              )}
+            </div>
+            {isSelected && (
+              <Check className="h-4 w-4 text-white" />
+            )}
+          </div>
+        );
+      })}
+      {remainingCount > 0 && (
+        <div className="py-2 px-3 text-center text-[11px] text-muted-foreground italic border-t border-border/30 mt-1">
+          Còn {remainingCount} kết quả khác. Gõ thêm để thu hẹp...
+        </div>
+      )}
+    </>
+  );
+
   const dropdownContent = (
     <>
-      {/* Backdrop to close */}
       <div
-        className="fixed inset-0 bg-black/40 backdrop-blur-[2px] sm:bg-transparent sm:backdrop-blur-none"
+        className={cn("fixed inset-0", isMobile ? "bg-black/40 backdrop-blur-[2px]" : "bg-transparent")}
         style={{ zIndex: 1999 }}
         onClick={() => setOpen(false)}
       />
 
-      <div
-        className={cn(
-          "fixed inset-0 flex flex-col bg-background sm:absolute sm:inset-auto sm:left-0 sm:right-0 sm:top-full sm:mt-1 sm:bg-popover sm:border sm:border-border sm:rounded-xl sm:shadow-xl sm:overflow-hidden",
-          isMobile ? "z-2000" : "z-1100"
-        )}
-      >
-        {/* Mobile Header - Improved */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border sm:hidden bg-muted/30">
-          <div className="flex flex-col">
-            <span className="font-bold text-base text-foreground">{placeholder}</span>
-            <span className="text-[11px] text-muted-foreground font-medium">Đã chọn {value.length} mục</span>
-          </div>
-          <button
-            type="button"
-            className="p-2 -mr-2 bg-primary/10 text-primary rounded-full hover:bg-primary/20 transition-colors"
-            onClick={(e) => {
-              e.stopPropagation();
-              setOpen(false);
-            }}
-          >
-            <Check size={20} />
-          </button>
-        </div>
-
-
-        {/* Search input */}
-        <div className="flex items-center border-b border-border/40 px-3 bg-muted/5">
-
-          <Search className="mr-2 h-5 w-5 sm:h-4 sm:w-4 shrink-0 opacity-40" />
-          <input
-            ref={inputRef}
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={searchPlaceholder}
-            className="flex h-12 sm:h-10 w-full bg-transparent py-3 text-[15px] sm:text-[13px] outline-none placeholder:text-muted-foreground"
-          />
-        </div>
-
-        {/* Options list */}
-        <div className="flex-1 overflow-y-auto sm:max-h-60 p-1 sm:flex-none">
-          {filteredOptions.length === 0 ? (
-            <div className="py-6 text-center text-[12px] text-muted-foreground">
-              {emptyMessage}
+      {isMobile ? (
+        // Mobile: fullscreen overlay
+        <div className="fixed inset-0 flex flex-col bg-background z-2000">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/30">
+            <div className="flex flex-col">
+              <span className="font-bold text-base text-foreground">{placeholder}</span>
+              <span className="text-[11px] text-muted-foreground font-medium">Đã chọn {value.length} mục</span>
             </div>
-          ) : (
-            <>
-              {filteredOptions.map((option) => {
-                const isSelected = value.includes(option.value);
-                return (
-                  <div
-                    key={option.value}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleToggle(option.value);
-                    }}
-                    className={cn(
-                      "flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-[13px] font-bold transition-colors text-popover-foreground",
-                      isSelected ? "bg-primary text-white" : "hover:bg-primary/10"
-                    )}
-                  >
-                    <div className="flex flex-col">
-                      <span>{option.label}</span>
-                      {option.price && (
-                        <span className={cn(
-                          "text-[11px] font-medium",
-                          isSelected ? "text-white/80" : "text-emerald-600"
-                        )}>
-                          {option.price}
-                        </span>
-                      )}
-                    </div>
-                    {isSelected && (
-                      <Check className="h-4 w-4 text-white" />
-                    )}
-                  </div>
-                );
-              })}
-              {remainingCount > 0 && (
-                <div className="py-2 px-3 text-center text-[11px] text-muted-foreground italic border-t border-border/30 mt-1">
-                  Còn {remainingCount} kết quả khác. Gõ thêm để thu hẹp...
-                </div>
-              )}
-            </>
-          )}
+            <button
+              type="button"
+              className="p-2 -mr-2 bg-primary/10 text-primary rounded-full hover:bg-primary/20 transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpen(false);
+              }}
+            >
+              <Check size={20} />
+            </button>
+          </div>
+
+          <div className="flex items-center border-b border-border/40 px-3 bg-muted/5">
+            <Search className="mr-2 h-5 w-5 shrink-0 opacity-40" />
+            <input
+              ref={inputRef}
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={searchPlaceholder}
+              className="flex h-12 w-full bg-transparent py-3 text-[15px] outline-none placeholder:text-muted-foreground"
+            />
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-1">
+            {filteredOptions.length === 0 ? (
+              <div className="py-6 text-center text-[12px] text-muted-foreground">
+                {emptyMessage}
+              </div>
+            ) : optionsList(false)}
+          </div>
         </div>
-      </div>
+      ) : (
+        // Desktop: positioned dropdown below trigger
+        <div
+          className="fixed bg-popover border border-border rounded-xl shadow-xl overflow-hidden z-2000"
+          style={{ top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width }}
+        >
+          <div className="flex items-center border-b border-border/40 px-3 bg-muted/5">
+            <Search className="mr-2 h-4 w-4 shrink-0 opacity-40" />
+            <input
+              ref={inputRef}
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={searchPlaceholder}
+              className="flex h-10 w-full bg-transparent py-3 text-[13px] outline-none placeholder:text-muted-foreground"
+            />
+          </div>
+
+          <div className="max-h-60 overflow-y-auto p-1">
+            {filteredOptions.length === 0 ? (
+              <div className="py-6 text-center text-[12px] text-muted-foreground">
+                {emptyMessage}
+              </div>
+            ) : optionsList(true)}
+          </div>
+        </div>
+      )}
     </>
   );
+
   return (
     <div className="relative">
       <div
+        ref={triggerRef}
         className={cn(
           "flex min-h-10 w-full flex-wrap items-center justify-between gap-1 px-4 py-2.5 bg-background border border-border rounded-xl outline-none focus-within:ring-2 focus-within:ring-primary/20 text-[14px] font-bold transition-all cursor-pointer",
           open && "ring-2 ring-primary/20 border-primary/50",
@@ -231,7 +261,7 @@ export const MultiSearchableSelect = React.memo(function MultiSearchableSelect({
         />
       </div>
 
-      {open && (isMobile ? createPortal(dropdownContent, document.body) : dropdownContent)}
+      {open && createPortal(dropdownContent, document.body)}
     </div>
   )
 })

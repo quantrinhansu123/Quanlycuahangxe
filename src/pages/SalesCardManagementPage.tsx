@@ -20,8 +20,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import Pagination from '../components/Pagination';
 import { useAuth } from '../context/AuthContext';
-
-const SalesCardFormModal = React.lazy(() => import('../components/SalesCardFormModal'));
+import { useToast } from '../context/ToastContext';
 import type { KhachHang } from '../data/customerData';
 import { getCustomersForSelect } from '../data/customerData';
 import type { ThuChi } from '../data/financialData';
@@ -35,7 +34,8 @@ import type { DichVu } from '../data/serviceData';
 import { getServices } from '../data/serviceData';
 import { supabase } from '../lib/supabase';
 import { cn } from '../lib/utils';
-import { useToast } from '../context/ToastContext';
+
+const SalesCardFormModal = React.lazy(() => import('../components/SalesCardFormModal'));
 
 const SalesCardManagementPage: React.FC = () => {
   const { currentUser, isAdmin } = useAuth();
@@ -142,7 +142,7 @@ const SalesCardManagementPage: React.FC = () => {
     if (c.so_dien_thoai) searchParts.push(c.so_dien_thoai);
     if (c.bien_so_xe) searchParts.push(c.bien_so_xe);
     if (c.ma_khach_hang) searchParts.push(c.ma_khach_hang);
-    
+
     return {
       value: c.ma_khach_hang || c.id,
       label: `${c.ho_va_ten}${c.so_dien_thoai ? ` - ${c.so_dien_thoai}` : ''}`,
@@ -261,17 +261,29 @@ const SalesCardManagementPage: React.FC = () => {
   }, [loading, customers.length]); // Runs when loading finishes and customers are ready
 
   const handleOpenModal = async (card?: SalesCard) => {
+    if (card && !isAdmin) {
+      showToast('Bạn không có quyền chỉnh sửa phiếu này.', 'error');
+      return;
+    }
     setIsReadOnlyModal(false);
     if (card) {
       setEditingCard(card);
 
-      const mappedServiceItems = ((card as any).the_ban_hang_ct || []).map((ct: any) => ({
-        id: ct.dich_vu_id || ct.san_pham_vat_tu_id || Math.random().toString(),
-        ten_dich_vu: ct.san_pham || 'Dịch vụ',
-        gia_ban: ct.gia_ban || 0,
-        so_luong: ct.so_luong || 1
-      }));
-      const mappedIds = mappedServiceItems.map((item: any) => item.id).filter((id: any) => !id.startsWith('0.'));
+      const mappedServiceItems = ((card as any).the_ban_hang_ct || []).map((ct: any) => {
+        // Try to find the master service by name to get a valid UUID if ct.dich_vu_id is missing or random
+        const masterService = services.find(s => 
+          (ct.dich_vu_id && s.id === ct.dich_vu_id) || 
+          (s.ten_dich_vu && ct.san_pham && s.ten_dich_vu.toLowerCase() === ct.san_pham.toLowerCase())
+        );
+
+        return {
+          id: masterService?.id || ct.dich_vu_id || ct.san_pham_vat_tu_id || Math.random().toString(),
+          ten_dich_vu: ct.san_pham || 'Dịch vụ',
+          gia_ban: ct.gia_ban || 0,
+          so_luong: ct.so_luong || 1
+        };
+      });
+      const mappedIds = mappedServiceItems.map((item: any) => item.id);
 
       setFormData({
         ...card,
@@ -329,6 +341,10 @@ const SalesCardManagementPage: React.FC = () => {
 
   const handleSubmit = async (formDataHeader: Partial<SalesCard & { dich_vu_ids?: string[], service_items?: { id: string, ten_dich_vu: string, gia_ban: number, so_luong?: number }[] }>) => {
     try {
+      if (editingCard && !isAdmin) {
+        showToast('Bạn không có quyền cập nhật dữ liệu.', 'error');
+        return;
+      }
       // Exclude all virtual/joined fields that don't exist in the database
       const {
         khach_hang,
@@ -352,47 +368,31 @@ const SalesCardManagementPage: React.FC = () => {
       // Cổ chai 4 & 5: Các bước lưu data độc lập có thể chạy song song (Promise.all)
       // Bước 1 & 2: Sinh/Cập nhật phiếu gốc và xóa chi tiết cũ phải chạy trước vì phần dưới phụ thuộc nó
       const savedCard = await upsertSalesCard(cleanData, !editingCard);
-      await deleteSalesCardCTsByOrderId(savedCard.id_bh || savedCard.id);
+      // 'Deep Clean': Clear ALL old records (both by UUID and by Order Code) to prevent phantom duplicates
+      await deleteSalesCardCTsByOrderId(savedCard.id, savedCard.id_bh || undefined);
 
-      // Định hình chi tiết dịch vụ mới
-      let detailRecords: any[] = [];
-      if (formDataHeader.service_items && formDataHeader.service_items.length > 0) {
-        detailRecords = formDataHeader.service_items.map((item) => {
-          const service = services.find(s => s.id === item.id);
-          return {
-            id_don_hang: savedCard.id_bh || savedCard.id,
-            ten_don_hang: formDataHeader.id_bh || `Đơn hàng ${savedCard.id_bh || savedCard.id.slice(0, 8)}`,
-            san_pham: item.ten_dich_vu,
-            co_so: service?.co_so || 'Cơ sở chính',
-            gia_ban: item.gia_ban,
-            gia_von: service?.gia_nhap || 0,
-            so_luong: 1,
-            chi_phi: 0,
-            ngay: savedCard.ngay
-          };
-        });
-      } else if (dich_vu_ids && dich_vu_ids.length > 0) {
-        detailRecords = dich_vu_ids.map((sId: string) => {
-          const service = services.find(s => s.id === sId);
-          return {
-            id_don_hang: savedCard.id_bh || savedCard.id,
-            ten_don_hang: formDataHeader.id_bh || `Đơn hàng ${savedCard.id_bh || savedCard.id.slice(0, 8)}`,
-            san_pham: service?.ten_dich_vu || 'Dịch vụ',
-            co_so: service?.co_so || 'Cơ sở chính',
-            gia_ban: service?.gia_ban || 0,
-            gia_von: service?.gia_nhap || 0,
-            so_luong: 1,
-            chi_phi: 0,
-            ngay: savedCard.ngay
-          };
-        });
-      }
+      // Robust Service Mapping: Always use dich_vu_ids as the source of truth for ADD/DELETE,
+      // and lookup in service_items ONLY for price overrides.
+      const detailRecords = (dich_vu_ids || []).map((sId: string) => {
+        const service = services.find(s => s.id === sId);
+        // Look for a manual price override from the modal's state
+        const override = (formDataHeader.service_items || []).find(it => it.id === sId);
+        
+        return {
+          id_don_hang: savedCard.id,
+          ten_don_hang: formDataHeader.id_bh || `Đơn hàng ${savedCard.id_bh || savedCard.id.slice(0, 8)}`,
+          san_pham: service?.ten_dich_vu || override?.ten_dich_vu || 'Dịch vụ',
+          co_so: service?.co_so || 'Cơ sở chính',
+          gia_ban: override?.gia_ban ?? (service?.gia_ban || 0),
+          gia_von: service?.gia_nhap || 0,
+          so_luong: 1,
+          chi_phi: 0,
+          ngay: savedCard.ngay
+        };
+      });
 
-      // AUTOMATION: Định hình dòng tài chính
-      const itemsToCalc = (formDataHeader.service_items && formDataHeader.service_items.length > 0)
-        ? formDataHeader.service_items
-        : ((formDataHeader as any).the_ban_hang_ct || []);
-      const totalAmount = itemsToCalc.reduce((sum: number, item: any) => sum + ((item.gia_ban || 0) * (item.so_luong || 1)), 0);
+      // AUTOMATION: Định hình dòng tài chính - Dựa trên detailRecords vừa tính ở trên cho chính xác
+      const totalAmount = detailRecords.reduce((sum: number, item: any) => sum + (item.gia_ban * (item.so_luong || 1)), 0);
 
       // Bước 3: Đẩy đồng thời TẤT CẢ TÁC VỤ còn lại không phụ thuộc nhau
       await Promise.all([
@@ -400,7 +400,7 @@ const SalesCardManagementPage: React.FC = () => {
         (async () => {
           const existingTx = await getTransactionByOrderId(savedCard.id);
           const financialRecord: Partial<ThuChi> = {
-            id: existingTx?.id, 
+            id: existingTx?.id,
             loai_phieu: 'phiếu thu',
             id_don: savedCard.id,
             so_tien: totalAmount,
@@ -424,7 +424,7 @@ const SalesCardManagementPage: React.FC = () => {
 
       await loadSalesCards();
       handleCloseModal();
-      
+
       showToast('Lập phiếu bán hàng thành công!', 'success');
     } catch (error) {
       console.error(error);
@@ -672,6 +672,10 @@ const SalesCardManagementPage: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
+    if (!isAdmin) {
+      showToast('Bạn không có quyền xóa dữ liệu.', 'error');
+      return;
+    }
     if (window.confirm('Bạn có chắc chắn muốn xóa phiếu này?')) {
       try {
         await deleteSalesCard(id);
@@ -1119,12 +1123,16 @@ const SalesCardManagementPage: React.FC = () => {
                     <button onClick={() => handleViewCard(card)} className="flex items-center gap-1 px-3 py-1.5 text-blue-600 hover:bg-blue-50 rounded-lg text-[12px] font-bold border border-blue-100 transition-colors">
                       <Eye size={14} /> Xem
                     </button>
-                    <button onClick={() => handleOpenModal(card)} className="flex items-center gap-1 px-3 py-1.5 text-primary hover:bg-primary/10 rounded-lg text-[12px] font-bold border border-primary/20 transition-colors">
-                      <Edit2 size={14} /> Sửa
-                    </button>
-                    <button onClick={() => handleDelete(card.id)} className="flex items-center gap-1 px-3 py-1.5 text-destructive hover:bg-destructive/10 rounded-lg text-[12px] font-bold border border-destructive/20 transition-colors">
-                      <Trash2 size={14} /> Xóa
-                    </button>
+                    {isAdmin && (
+                      <>
+                        <button onClick={() => handleOpenModal(card)} className="flex items-center gap-1 px-3 py-1.5 text-primary hover:bg-primary/10 rounded-lg text-[12px] font-bold border border-primary/20 transition-colors">
+                          <Edit2 size={14} /> Sửa
+                        </button>
+                        <button onClick={() => handleDelete(card.id)} className="flex items-center gap-1 px-3 py-1.5 text-destructive hover:bg-destructive/10 rounded-lg text-[12px] font-bold border border-destructive/20 transition-colors">
+                          <Trash2 size={14} /> Xóa
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               );
@@ -1245,8 +1253,12 @@ const SalesCardManagementPage: React.FC = () => {
                     <td className="px-4 py-4 text-center">
                       <div className="flex items-center justify-center gap-2">
                         <button onClick={() => handleViewCard(card)} className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Xem chi tiết"><Eye size={18} /></button>
-                        <button onClick={() => handleOpenModal(card)} className="p-2 text-primary hover:bg-primary/10 rounded transition-colors" title="Chỉnh sửa"><Edit2 size={18} /></button>
-                        <button onClick={() => handleDelete(card.id)} className="p-2 text-destructive hover:bg-destructive/10 rounded transition-colors" title="Xóa"><Trash2 size={18} /></button>
+                        {isAdmin && (
+                          <>
+                            <button onClick={() => handleOpenModal(card)} className="p-2 text-primary hover:bg-primary/10 rounded transition-colors" title="Chỉnh sửa"><Edit2 size={18} /></button>
+                            <button onClick={() => handleDelete(card.id)} className="p-2 text-destructive hover:bg-destructive/10 rounded transition-colors" title="Xóa"><Trash2 size={18} /></button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>

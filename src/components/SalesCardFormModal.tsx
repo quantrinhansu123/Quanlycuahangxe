@@ -1,11 +1,11 @@
+import { Calendar, Clock, History, Loader2, Save, ShoppingCart, User, Wrench, X } from 'lucide-react';
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Calendar, Clock, History, Loader2, Save, ShoppingCart, User, Wrench, X } from 'lucide-react';
-import type { SalesCard } from '../data/salesCardData';
 import type { NhanSu } from '../data/personnelData';
+import type { SalesCard } from '../data/salesCardData';
 import type { DichVu } from '../data/serviceData';
-import { SearchableSelect } from './ui/SearchableSelect';
 import { MultiSearchableSelect } from './ui/MultiSearchableSelect';
+import { SearchableSelect } from './ui/SearchableSelect';
 
 // Helper for dynamic classes
 const clsx = (...classes: any[]) => classes.filter(Boolean).join(' ');
@@ -89,10 +89,10 @@ const SalesCardFormModal: React.FC<{
         setFormData(prev => ({ ...prev, service_items: newItems }));
       }
     } else if (!formData.dich_vu_id && (!formData.service_items || formData.service_items.length === 0)) {
-        // Clear if nothing
-        if (formData.service_items && formData.service_items.length > 0) {
-            setFormData(prev => ({ ...prev, service_items: [] }));
-        }
+      // Clear if nothing
+      if (formData.service_items && formData.service_items.length > 0) {
+        setFormData(prev => ({ ...prev, service_items: [] }));
+      }
     }
   }, [formData.dich_vu_ids, services]);
 
@@ -136,6 +136,14 @@ const SalesCardFormModal: React.FC<{
 
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    const hasServices = (formData.dich_vu_ids && formData.dich_vu_ids.length > 0) ||
+                        (formData.service_items && formData.service_items.length > 0);
+    if (!hasServices) {
+      alert('Vui lòng chọn ít nhất một dịch vụ trước khi lập phiếu.');
+      return;
+    }
+
     onSubmit(formData);
   };
 
@@ -228,39 +236,39 @@ const SalesCardFormModal: React.FC<{
                       searchPlaceholder="Tìm tên dịch vụ..."
                       className="font-bold"
                     />
-                    
+
                     {formData.service_items && formData.service_items.length > 0 && (
                       <div className="space-y-3 bg-muted/20 p-4 rounded-2xl border border-border/50">
                         <p className="text-[11px] font-bold text-muted-foreground uppercase opacity-70 mb-2">Điều chỉnh giá bán (nếu cần)</p>
                         {formData.service_items.map((item, idx) => (
                           <div key={item.id} className="flex flex-col sm:flex-row sm:items-center gap-3 bg-card p-3 rounded-xl border border-border shadow-sm animate-in fade-in zoom-in-95 duration-200">
-                             <div className="flex-1 flex items-center gap-3 overflow-hidden">
-                               <div className="shrink-0 w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary">
-                                 {idx + 1}
-                               </div>
-                               <span className="font-bold text-[14px] truncate" title={item.ten_dich_vu}>{item.ten_dich_vu}</span>
-                             </div>
-                             <div className="flex items-center gap-2 shrink-0">
-                               <div className="relative flex-1 sm:w-32">
-                                 <input
-                                   type="text"
-                                   className="w-full pl-3 pr-8 py-1.5 bg-background border border-border rounded-lg text-right font-mono text-[13px] font-bold focus:ring-1 focus:ring-primary outline-none"
-                                   value={(item.gia_ban || 0).toLocaleString('vi-VN')}
-                                   onChange={(e) => {
-                                      const val = parseInt(e.target.value.replace(/\D/g, ''), 10) || 0;
-                                      handleItemPriceChange(item.id, val);
-                                   }}
-                                 />
-                                 <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-muted-foreground">đ</span>
-                               </div>
-                               <button 
-                                 type="button"
-                                 onClick={() => handleRemoveItem(item.id)}
-                                 className="p-1.5 hover:bg-red-50 hover:text-red-500 text-muted-foreground rounded-lg transition-colors"
-                               >
-                                 <X size={16} />
-                               </button>
-                             </div>
+                            <div className="flex-1 flex items-center gap-3 overflow-hidden">
+                              <div className="shrink-0 w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary">
+                                {idx + 1}
+                              </div>
+                              <span className="font-bold text-[14px] truncate" title={item.ten_dich_vu}>{item.ten_dich_vu}</span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <div className="relative flex-1 sm:w-32">
+                                <input
+                                  type="text"
+                                  className="w-full pl-3 pr-8 py-1.5 bg-background border border-border rounded-lg text-right font-mono text-[13px] font-bold focus:ring-1 focus:ring-primary outline-none"
+                                  value={(item.gia_ban || 0).toLocaleString('vi-VN')}
+                                  onChange={(e) => {
+                                    const val = parseInt(e.target.value.replace(/\D/g, ''), 10) || 0;
+                                    handleItemPriceChange(item.id, val);
+                                  }}
+                                />
+                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-muted-foreground">đ</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveItem(item.id)}
+                                className="p-1.5 hover:bg-red-50 hover:text-red-500 text-muted-foreground rounded-lg transition-colors"
+                              >
+                                <X size={16} />
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -279,11 +287,11 @@ const SalesCardFormModal: React.FC<{
                 <div className="space-y-0.5">
                   <div className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider">Tổng giá trị phiếu</div>
                   <div className="text-[11px] text-muted-foreground font-medium">
-                    {formData.service_items && formData.service_items.length > 0 
-                      ? `${formData.service_items.length} hạng mục dịch vụ` 
-                      : formData.the_ban_hang_ct && formData.the_ban_hang_ct.length > 0 
-                      ? `${formData.the_ban_hang_ct.length} hạng mục`
-                      : `1 hạng mục (${formData.dich_vu?.ten_dich_vu})`}
+                    {formData.service_items && formData.service_items.length > 0
+                      ? `${formData.service_items.length} hạng mục dịch vụ`
+                      : formData.the_ban_hang_ct && formData.the_ban_hang_ct.length > 0
+                        ? `${formData.the_ban_hang_ct.length} hạng mục`
+                        : `1 hạng mục (${formData.dich_vu?.ten_dich_vu})`}
                   </div>
                 </div>
                 <div className="text-2xl font-black text-primary tracking-tight">
@@ -291,8 +299,8 @@ const SalesCardFormModal: React.FC<{
                     formData.service_items && formData.service_items.length > 0
                       ? formData.service_items.reduce((sum, it) => sum + (it.gia_ban || 0), 0)
                       : formData.the_ban_hang_ct && formData.the_ban_hang_ct.length > 0
-                      ? formData.the_ban_hang_ct.reduce((sum, it) => sum + (it.thanh_tien || (it.gia_ban * it.so_luong)), 0)
-                      : (formData.dich_vu?.gia_ban || 0)
+                        ? formData.the_ban_hang_ct.reduce((sum, it) => sum + (it.thanh_tien || (it.gia_ban * it.so_luong)), 0)
+                        : (formData.dich_vu?.gia_ban || 0)
                   )}
                 </div>
               </div>
@@ -301,8 +309,8 @@ const SalesCardFormModal: React.FC<{
             <div className="mt-8 flex items-center justify-between gap-3 pt-6 border-t border-border">
               <div className="flex items-center gap-3">
                 {editingCard && onCollectPayment && (
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={async () => {
                       setIsCollecting(true);
                       try { await onCollectPayment(formData); } finally { setIsCollecting(false); }

@@ -36,6 +36,8 @@ export const SearchableSelect = React.memo(function SearchableSelect({
   const [open, setOpen] = React.useState(false)
   const [search, setSearch] = React.useState("")
   const inputRef = React.useRef<HTMLInputElement>(null)
+  const triggerRef = React.useRef<HTMLButtonElement>(null)
+  const [dropdownPos, setDropdownPos] = React.useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 })
 
   const selectedOption = React.useMemo(
     () => options.find((option) => option.value === value),
@@ -75,6 +77,11 @@ export const SearchableSelect = React.memo(function SearchableSelect({
   React.useEffect(() => {
     if (open) {
       setSearch("");
+      // Calculate trigger position for desktop dropdown
+      if (triggerRef.current) {
+        const rect = triggerRef.current.getBoundingClientRect();
+        setDropdownPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+      }
       setTimeout(() => inputRef.current?.focus(), 50);
 
       // Scroll lock on mobile
@@ -91,83 +98,134 @@ export const SearchableSelect = React.memo(function SearchableSelect({
   const dropdownContent = (
     <>
       <div
-        className="fixed inset-0 bg-black/40 backdrop-blur-[2px] sm:bg-transparent sm:backdrop-blur-none"
+        className={cn("fixed inset-0", isMobile ? "bg-black/40 backdrop-blur-[2px]" : "bg-transparent")}
         style={{ zIndex: 1999 }}
         onClick={() => setOpen(false)}
       />
 
-      <div
-        className={cn(
-          "fixed inset-0 flex flex-col bg-background sm:absolute sm:inset-auto sm:left-0 sm:right-0 sm:top-full sm:mt-1 sm:bg-popover sm:border sm:border-border sm:rounded-xl sm:shadow-xl sm:overflow-hidden",
-          isMobile ? "z-2000" : "z-1100"
-        )}
-      >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border sm:hidden bg-muted/30">
-          <span className="font-bold text-base text-foreground">{placeholder}</span>
-          <button
-            type="button"
-            className="p-2 -mr-2 bg-muted text-muted-foreground rounded-full hover:bg-muted-foreground hover:text-white transition-colors"
-            onClick={(e) => {
-              e.stopPropagation();
-              setOpen(false);
-            }}
-          >
-            <X size={20} />
-          </button>
-        </div>
+      {isMobile ? (
+        // Mobile: fullscreen overlay
+        <div className="fixed inset-0 flex flex-col bg-background z-2000">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/30">
+            <span className="font-bold text-base text-foreground">{placeholder}</span>
+            <button
+              type="button"
+              className="p-2 -mr-2 bg-muted text-muted-foreground rounded-full hover:bg-muted-foreground hover:text-white transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpen(false);
+              }}
+            >
+              <X size={20} />
+            </button>
+          </div>
 
-        <div className="flex items-center border-b border-border/40 px-3 bg-muted/5">
-          <Search className="mr-2 h-5 w-5 sm:h-4 sm:w-4 shrink-0 opacity-40" />
-          <input
-            ref={inputRef}
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={searchPlaceholder}
-            className="flex h-12 sm:h-10 w-full bg-transparent py-3 text-[15px] sm:text-[13px] outline-none placeholder:text-muted-foreground"
-          />
-        </div>
+          <div className="flex items-center border-b border-border/40 px-3 bg-muted/5">
+            <Search className="mr-2 h-5 w-5 shrink-0 opacity-40" />
+            <input
+              ref={inputRef}
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={searchPlaceholder}
+              className="flex h-12 w-full bg-transparent py-3 text-[15px] outline-none placeholder:text-muted-foreground"
+            />
+          </div>
 
-        <div className="flex-1 overflow-y-auto sm:max-h-60 p-1 sm:flex-none">
-          {filteredOptions.length === 0 ? (
-            <div className="py-6 text-center text-[12px] text-muted-foreground">
-              {emptyMessage}
-            </div>
-          ) : (
-            <>
-              {filteredOptions.map((option) => (
-                <div
-                  key={option.value}
-                  onClick={() => {
-                    onValueChange(option.value)
-                    setOpen(false)
-                  }}
-                  className={cn(
-                    "flex items-center justify-between px-4 py-3 sm:px-3 sm:py-2 rounded-lg cursor-pointer text-[14px] sm:text-[13px] font-bold transition-colors hover:bg-primary hover:text-white text-popover-foreground",
-                    value === option.value && "bg-primary text-white"
-                  )}
-                >
-                  {option.label}
-                  {value === option.value && (
-                    <Check className="h-4 w-4 text-white" />
-                  )}
-                </div>
-              ))}
-              {remainingCount > 0 && (
-                <div className="py-2 px-3 text-center text-[11px] text-muted-foreground italic border-t border-border/30 mt-1">
-                  Còn {remainingCount} kết quả khác. Gõ thêm để thu hẹp...
-                </div>
-              )}
-            </>
-          )}
+          <div className="flex-1 overflow-y-auto p-1">
+            {filteredOptions.length === 0 ? (
+              <div className="py-6 text-center text-[12px] text-muted-foreground">
+                {emptyMessage}
+              </div>
+            ) : (
+              <>
+                {filteredOptions.map((option) => (
+                  <div
+                    key={option.value}
+                    onClick={() => {
+                      onValueChange(option.value)
+                      setOpen(false)
+                    }}
+                    className={cn(
+                      "flex items-center justify-between px-4 py-3 rounded-lg cursor-pointer text-[14px] font-bold transition-colors hover:bg-primary hover:text-white text-popover-foreground",
+                      value === option.value && "bg-primary text-white"
+                    )}
+                  >
+                    {option.label}
+                    {value === option.value && (
+                      <Check className="h-4 w-4 text-white" />
+                    )}
+                  </div>
+                ))}
+                {remainingCount > 0 && (
+                  <div className="py-2 px-3 text-center text-[11px] text-muted-foreground italic border-t border-border/30 mt-1">
+                    Còn {remainingCount} kết quả khác. Gõ thêm để thu hẹp...
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
-      </div>
+      ) : (
+        // Desktop: positioned dropdown below trigger
+        <div
+          className="fixed bg-popover border border-border rounded-xl shadow-xl overflow-hidden z-2000"
+          style={{ top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width }}
+        >
+          <div className="flex items-center border-b border-border/40 px-3 bg-muted/5">
+            <Search className="mr-2 h-4 w-4 shrink-0 opacity-40" />
+            <input
+              ref={inputRef}
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={searchPlaceholder}
+              className="flex h-10 w-full bg-transparent py-3 text-[13px] outline-none placeholder:text-muted-foreground"
+            />
+          </div>
+
+          <div className="max-h-60 overflow-y-auto p-1">
+            {filteredOptions.length === 0 ? (
+              <div className="py-6 text-center text-[12px] text-muted-foreground">
+                {emptyMessage}
+              </div>
+            ) : (
+              <>
+                {filteredOptions.map((option) => (
+                  <div
+                    key={option.value}
+                    onClick={() => {
+                      onValueChange(option.value)
+                      setOpen(false)
+                    }}
+                    className={cn(
+                      "flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-[13px] font-bold transition-colors hover:bg-primary hover:text-white text-popover-foreground",
+                      value === option.value && "bg-primary text-white"
+                    )}
+                  >
+                    {option.label}
+                    {value === option.value && (
+                      <Check className="h-4 w-4 text-white" />
+                    )}
+                  </div>
+                ))}
+                {remainingCount > 0 && (
+                  <div className="py-2 px-3 text-center text-[11px] text-muted-foreground italic border-t border-border/30 mt-1">
+                    Còn {remainingCount} kết quả khác. Gõ thêm để thu hẹp...
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 
   return (
     <div className="relative">
       <button
+        ref={triggerRef}
         type="button"
         disabled={disabled}
         onClick={() => setOpen(!open)}
@@ -202,7 +260,7 @@ export const SearchableSelect = React.memo(function SearchableSelect({
         </div>
       </button>
 
-      {open && (isMobile ? createPortal(dropdownContent, document.body) : dropdownContent)}
+      {open && createPortal(dropdownContent, document.body)}
     </div>
   )
 })
