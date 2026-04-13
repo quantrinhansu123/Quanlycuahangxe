@@ -149,7 +149,7 @@ const SalesCardManagementPage: React.FC = () => {
     let list = customers;
     // Đảm bảo pendingNewCustomer không bị xoá mất khi loadReferenceData fetched xong từ DB
     if (pendingNewCustomer && !list.some(c => c.ma_khach_hang === pendingNewCustomer.ma_khach_hang)) {
-      list = [{ ...pendingNewCustomer, ho_va_ten: `[MỚI] ${pendingNewCustomer.ho_va_ten}` } as KhachHang, ...list];
+      list = [{ ...pendingNewCustomer, ho_va_ten: `${pendingNewCustomer.ho_va_ten}` } as KhachHang, ...list];
     }
     return list.map(c => {
       const searchParts = [c.ho_va_ten];
