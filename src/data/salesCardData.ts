@@ -1,9 +1,9 @@
 import { supabase } from '../lib/supabase';
 import type { KhachHang } from './customerData';
 import type { NhanSu } from './personnelData';
-import type { DichVu } from './serviceData';
 import type { SalesCardCT } from './salesCardCTData';
- 
+import type { DichVu } from './serviceData';
+
 // Helper to split array into chunks to avoid "URL too long" (400 Bad Request)
 export function chunkArray<T>(array: T[], size: number): T[][] {
   const chunks: T[][] = [];
@@ -25,8 +25,10 @@ export interface SalesCard {
   so_km: number;
   ngay_nhac_thay_dau: string | null;
   ghi_chu: string | null;
+  ten_khach_hang: string | null;
+  so_dien_thoai: string | null;
   created_at?: string;
-  
+
   // Joined fields
   khach_hang?: Partial<KhachHang>;
   nhan_su?: Partial<NhanSu>;
@@ -48,13 +50,13 @@ export async function enrichSalesCards(cards: SalesCard[]) {
 async function attachDetails(cards: SalesCard[]) {
   const bhIds = [...new Set(cards.map(c => c.id_bh).filter(Boolean))] as string[];
   const uuids = [...new Set(cards.map(c => c.id))];
-  
+
   const allSearchIds = [...new Set([...bhIds, ...uuids])];
-  
+
   if (allSearchIds.length > 0) {
     const chunks = chunkArray(allSearchIds, 50);
     const allDetails: SalesCardCT[] = [];
-    
+
     await Promise.all(chunks.map(async (chunk) => {
       const { data: details } = await supabase
         .from('the_ban_hang_ct')
@@ -62,7 +64,7 @@ async function attachDetails(cards: SalesCard[]) {
         .in('id_don_hang', chunk);
       if (details) allDetails.push(...details);
     }));
-    
+
     if (allDetails.length > 0) {
       const detailMap = new Map<string, SalesCardCT[]>();
       allDetails.forEach((d: SalesCardCT) => {
@@ -93,15 +95,15 @@ async function attachCustomer(cards: SalesCard[]) {
       // Filter the chunk into ma_khach_hang candidates and UUID candidates
       const maIds = chunk;
       const uuidIds = chunk.filter(id => id.length === 36);
-      
+
       const { data: customers } = await supabase
         .from('khach_hang')
         .select('id, ma_khach_hang, ho_va_ten, so_dien_thoai, dia_chi_hien_tai')
         .or(`ma_khach_hang.in.(${maIds.map(id => `"${id}"`).join(',')}),id.in.(${uuidIds.map(id => `"${id}"`).join(',')})`);
-      
+
       if (customers) allCustomers.push(...customers);
     }));
-    
+
     const maMap = new Map(allCustomers.filter(c => !!c.ma_khach_hang).map(c => [c.ma_khach_hang!.toLowerCase(), c]));
     const idMap = new Map(allCustomers.map(c => [c.id.toLowerCase(), c]));
 
@@ -109,8 +111,8 @@ async function attachCustomer(cards: SalesCard[]) {
       if (card.khach_hang_id) {
         const key = card.khach_hang_id.toLowerCase();
         const cust = maMap.get(key) || idMap.get(key);
-        if (cust) card.khach_hang = { 
-          ho_va_ten: cust.ho_va_ten, 
+        if (cust) card.khach_hang = {
+          ho_va_ten: cust.ho_va_ten,
           so_dien_thoai: cust.so_dien_thoai,
           dia_chi_hien_tai: cust.dia_chi_hien_tai
         };
@@ -133,7 +135,7 @@ async function attachPersonnel(cards: SalesCard[]) {
         .or(`ho_ten.in.(${chunk.map(id => `"${id}"`).join(',')}),id_nhan_su.in.(${chunk.map(id => `"${id}"`).join(',')})`);
       if (personnel) allPersonnel.push(...personnel);
     }));
-    
+
     const nameMap = new Map(allPersonnel.map(p => [p.ho_ten.toLowerCase(), p]));
     const idMap = new Map(allPersonnel.filter(p => !!p.id_nhan_su).map(p => [p.id_nhan_su!.toLowerCase(), p]));
 
@@ -167,7 +169,7 @@ async function attachService(cards: SalesCard[]) {
         .or(`ten_dich_vu.in.(${chunk.map(id => `"${id}"`).join(',')}),id_dich_vu.in.(${chunk.map(id => `"${id}"`).join(',')})`);
       if (services) allServices.push(...services);
     }));
-    
+
     const serviceNameMap = new Map(allServices.map(s => [s.ten_dich_vu.toLowerCase(), s]));
     const serviceIdMap = new Map(allServices.filter(s => !!s.id_dich_vu).map(s => [s.id_dich_vu!.toLowerCase(), s]));
 
@@ -195,15 +197,15 @@ export const getSalesCards = async (staffId?: string): Promise<SalesCard[]> => {
   const { data } = await query;
 
   const cards = (data as SalesCard[]) || [];
-  
+
   await enrichSalesCards(cards);
 
   return cards;
 };
 
 export const getSalesCardsPaginated = async (
-  page: number, 
-  pageSize: number, 
+  page: number,
+  pageSize: number,
   searchQuery?: string,
   startDate?: string,
   endDate?: string,
@@ -219,12 +221,12 @@ export const getSalesCardsPaginated = async (
 
   if (searchQuery && searchQuery.trim()) {
     const term = searchQuery.trim();
-    
+
     const { data: matchedCustomers } = await supabase
       .from('khach_hang')
       .select('ma_khach_hang')
       .or(`ho_va_ten.ilike.%${term}%,so_dien_thoai.ilike.%${term}%,ma_khach_hang.ilike.%${term}%`);
-    
+
     const customerCodes = (matchedCustomers || []).slice(0, 50).map(c => c.ma_khach_hang).filter(Boolean);
 
     // Find matching services
@@ -262,9 +264,9 @@ export const getSalesCardsPaginated = async (
       .from('the_ban_hang_ct')
       .select('id_don_hang')
       .eq('co_so', branch);
-    
+
     const matchedIds = [...new Set((matchedDetailIds || []).map(d => d.id_don_hang).filter(Boolean))] as string[];
-    
+
     if (matchedIds.length > 0) {
       query = query.in('id', matchedIds);
     } else {
@@ -280,12 +282,16 @@ export const getSalesCardsPaginated = async (
     .range(from, to);
 
   if (error) {
+    // PGRST103: Range Not Satisfiable. Occurs when pagination offset exceeds total rows.
+    if (error.code === 'PGRST103') {
+      return { data: [], totalCount: count || 0 };
+    }
     console.error('Error fetching paginated sales cards:', error);
     throw error;
   }
 
   const cards = (data as SalesCard[]) || [];
-  
+
   await enrichSalesCards(cards);
 
   return {
@@ -322,7 +328,7 @@ export const getSalesCardsByCustomer = async (
   }
 
   const cards = (data as SalesCard[]) || [];
-  
+
   await enrichSalesCards(cards);
 
   return cards;
@@ -334,15 +340,15 @@ export const normalizeSalesCards = async () => {
     .from('the_ban_hang')
     .select('*')
     .is('id_bh', null);
-  
+
   if (!cards || cards.length === 0) return;
 
   for (const card of cards) {
     const idBh = `BH-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-    
+
     // Update main card
     await supabase.from('the_ban_hang').update({ id_bh: idBh }).eq('id', card.id);
-    
+
     // Update details linked by UUID
     await supabase.from('the_ban_hang_ct').update({ id_don_hang: idBh }).eq('id_don_hang', card.id);
   }
@@ -409,7 +415,7 @@ export const upsertSalesCard = async (card: Partial<SalesCard>, isNew: boolean =
     }
     return data as SalesCard;
   }
-  
+
   throw new Error("Failed to insert after multiple attempts due to ID collision.");
 };
 

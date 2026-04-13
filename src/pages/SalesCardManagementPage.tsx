@@ -272,8 +272,8 @@ const SalesCardManagementPage: React.FC = () => {
 
       const mappedServiceItems = ((card as any).the_ban_hang_ct || []).map((ct: any) => {
         // Try to find the master service by name to get a valid UUID if ct.dich_vu_id is missing or random
-        const masterService = services.find(s => 
-          (ct.dich_vu_id && s.id === ct.dich_vu_id) || 
+        const masterService = services.find(s =>
+          (ct.dich_vu_id && s.id === ct.dich_vu_id) ||
           (s.ten_dich_vu && ct.san_pham && s.ten_dich_vu.toLowerCase() === ct.san_pham.toLowerCase())
         );
 
@@ -378,7 +378,7 @@ const SalesCardManagementPage: React.FC = () => {
         const service = services.find(s => s.id === sId);
         // Look for a manual price override from the modal's state
         const override = (formDataHeader.service_items || []).find(it => it.id === sId);
-        
+
         return {
           id_don_hang: savedCard.id,
           ten_don_hang: formDataHeader.id_bh || `Đơn hàng ${savedCard.id_bh || savedCard.id.slice(0, 8)}`,
@@ -570,10 +570,29 @@ const SalesCardManagementPage: React.FC = () => {
           return str;
         };
 
+        setLoading(true);
+
         const toUpsertServicesLoc: Partial<DichVu>[] = [];
         const seenServiceKeys = new Set<string>();
 
-        data.forEach(row => {
+        // Pre-fetch all customers to match SDT / Ten KH locally
+        const { data: allCustomers } = await supabase.from('khach_hang').select('id, ma_khach_hang, ho_va_ten, so_dien_thoai');
+        const dbCustomers = allCustomers || [];
+        const custById = new Map();
+        const custByPhone = new Map();
+        const custByName = new Map();
+
+        dbCustomers.forEach(c => {
+          if (c.id) custById.set(c.id.toLowerCase(), c);
+          if (c.ma_khach_hang) custById.set(c.ma_khach_hang.toLowerCase(), c);
+          if (c.so_dien_thoai) custByPhone.set(c.so_dien_thoai.replace(/\D/g, ''), c);
+          if (c.ho_va_ten) custByName.set(c.ho_va_ten.toLowerCase().trim(), c);
+        });
+
+        const resolvedCustomerIds = new Map<number, string>(); // row index -> db cust id
+
+        for (let i = 0; i < data.length; i++) {
+          const row = data[i];
           const norm: any = {};
           Object.keys(row).forEach(k => { norm[String(k).trim().toLowerCase().replace(/\s+/g, ' ')] = row[k]; });
 
@@ -595,12 +614,37 @@ const SalesCardManagementPage: React.FC = () => {
               });
             }
           }
-        });
+
+          // Customer Resolution
+          const excelCustId = String(getValue(['id khách hàng', 'mã khách hàng', 'cust id', 'khách hàng id']) || '').trim();
+          const tenKH = String(getValue(['tên kh', 'tên khách hàng', 'khách hàng', 'tên']) || '').trim();
+          const sdtRaw = String(getValue(['sđt', 'số điện thoại', 'điện thoại']) || '');
+          const sdt = sdtRaw.replace(/[^0-9+]/g, '').trim();
+
+          let matched = null;
+
+          if (sdt && custByPhone.has(sdt)) {
+            matched = custByPhone.get(sdt);
+          } else if (tenKH && custByName.has(tenKH.toLowerCase())) {
+            matched = custByName.get(tenKH.toLowerCase());
+          } else if (excelCustId && custById.has(excelCustId.toLowerCase())) {
+            matched = custById.get(excelCustId.toLowerCase());
+          } else if (excelCustId && custByPhone.has(excelCustId.replace(/[^0-9+]/g, ''))) {
+            matched = custByPhone.get(excelCustId.replace(/[^0-9+]/g, ''));
+          }
+
+          if (matched) {
+            resolvedCustomerIds.set(i, matched.ma_khach_hang || matched.id);
+          } else if (excelCustId) {
+            // Fallback lưu mã nếu không tìm thấy khách
+            resolvedCustomerIds.set(i, excelCustId);
+          }
+        }
 
         await loadData(); // Ensure base data is current
         const { data: salesCards } = await supabase.from('the_ban_hang').select('id, id_bh');
 
-        const formattedData = data.map((row) => {
+        const formattedData = data.map((row, rowIndex) => {
           const norm: any = {};
           // Normalize keys: trim, lower case and replace multiple spaces with single space
           Object.keys(row).forEach(k => {
@@ -614,9 +658,7 @@ const SalesCardManagementPage: React.FC = () => {
           };
 
           const rawSalesId = String(getValue(['id', 'mã phiếu', 'id_bh', 'mã', 'uuid']) || '').trim();
-          const excelCustId = String(getValue(['id khách hàng', 'mã khách hàng', 'cust id', 'khách hàng id']) || '').trim();
           const rawNhanVien = String(getValue(['người phụ trách', 'ngươi phụ trách', 'nhân viên', 'tên nhân viên', 'phụ trách', 'kỹ thuật', 'thợ']) || '').trim();
-          // Normalize: replace line breaks or semicolons with commas
           const tenNhanVien = rawNhanVien.replace(/[\n\r;]+/g, ', ').replace(/\s{2,}/g, ' ');
 
           const tenDichVu = String(getValue(['dịch vụ sử dụng', 'dịch vụ', 'tên dịch vụ', 'service', ' sản phẩm', 'loại', 'hạng mục']) || '').trim();
@@ -635,13 +677,19 @@ const SalesCardManagementPage: React.FC = () => {
             return cleanDbId === cleanRawId || cleanDbBh === cleanRawId;
           });
 
+          const tenKH = String(getValue(['tên kh', 'tên khách hàng', 'khách hàng', 'tên']) || '').trim();
+          const sdtRaw = String(getValue(['sđt', 'số điện thoại', 'điện thoại']) || '').trim();
+
           const res: any = {
             ngay,
             gio,
             id_bh: rawSalesId || undefined,
-            khach_hang_id: excelCustId || null,
+            khach_hang_id: resolvedCustomerIds.get(rowIndex) || null,
             nhan_vien_id: tenNhanVien || null,
-            dich_vu_id: tenDichVu || null, // Lưu trực tiếp tên dịch vụ (TEXT)
+            dich_vu_id: tenDichVu || null,
+            ten_khach_hang: tenKH || null,
+            so_dien_thoai: sdtRaw || null,
+            danh_gia: String(getValue(['đánh giá dịch vụ', 'đánh giá', 'nhận xét', 'danh gia']) || '').trim() || null,
             so_km: Number(getValue(['số km', 'km', 'kilometer', 'số ki lô mét'])) || 0,
             ngay_nhac_thay_dau: formatExcelDate(getValue(['ngày nhắc thay dầu', 'nhắc thay dầu', 'hạn thay dầu', 'ngay nhac', 'ngày thay', 'hẹn thay dầu', 'thay dầu tiếp']))
           };
@@ -1060,10 +1108,10 @@ const SalesCardManagementPage: React.FC = () => {
                   {/* Row 2: Khách hàng / SĐT */}
                   <div className="space-y-1">
                     <div className="text-[16px] font-black text-foreground">
-                      {card.khach_hang?.ho_va_ten || 'N/A'}
+                      {card.khach_hang?.ho_va_ten || card.ten_khach_hang || 'N/A'}
                     </div>
                     <div className="text-[13px] text-muted-foreground flex items-center gap-1.5 font-medium">
-                      📱 {card.khach_hang?.so_dien_thoai || 'N/A'} {card.khach_hang?.dia_chi_hien_tai && <span className="opacity-60">• 🏢 {card.khach_hang.dia_chi_hien_tai}</span>}
+                      📱 {card.khach_hang?.so_dien_thoai || card.so_dien_thoai || 'N/A'} {card.khach_hang?.dia_chi_hien_tai && <span className="opacity-60">• 🏢 {card.khach_hang.dia_chi_hien_tai}</span>}
                     </div>
                   </div>
 
@@ -1208,9 +1256,9 @@ const SalesCardManagementPage: React.FC = () => {
                       <div className="text-[11px] text-muted-foreground font-mono">{card.gio}</div>
                     </td>
                     <td className="px-4 py-4">
-                      <div className="font-bold text-primary">{card.khach_hang?.ho_va_ten || 'N/A'}</div>
+                      <div className="font-bold text-primary">{card.khach_hang?.ho_va_ten || card.ten_khach_hang || 'N/A'}</div>
                     </td>
-                    <td className="px-4 py-4 text-muted-foreground">{card.khach_hang?.so_dien_thoai || 'N/A'}</td>
+                    <td className="px-4 py-4 text-muted-foreground">{card.khach_hang?.so_dien_thoai || card.so_dien_thoai || 'N/A'}</td>
                     <td className="px-4 py-4 text-muted-foreground text-[13px]">{card.khach_hang?.dia_chi_hien_tai || '—'}</td>
                     <td className="px-4 py-4">
                       <div className="flex flex-col gap-1">

@@ -237,7 +237,7 @@ const CustomerManagementPage: React.FC = () => {
             ho_va_ten: String(getValue(['họ và tên', 'tên', 'tên khách hàng', 'họ tên']) || '').trim(),
             so_dien_thoai: String(getValue(['số điện thoại', 'sđt', 'phone']) || '').trim(),
             anh: getValue(['ảnh', 'hình ảnh', 'image', 'avatar']) || '',
-            dia_chi_hien_tai: String(getValue(['địa chỉ', 'địa chỉ lưu trú hiện tại', 'địa chỉ hiện tại', 'địa chỉ lưu trú', 'address', 'cơ sở', 'chi nhánh']) || '').trim(),
+            dia_chi_hien_tai: String(getValue(['địa chỉ lưu trú hiện tại', 'địa chỉ hiện tại', 'địa chỉ lưu trú', 'địa chỉ', 'address', 'cơ sở', 'chi nhánh']) || '').trim(),
             bien_so_xe: String(getValue(['biển số xe', 'biển số', 'plate']) || '').trim(),
             ngay_dang_ky: formatExcelDate(getValue(['ngày đăng ký', 'ngay dang ky'])),
             so_km: Number(getValue(['số km', 'số km hiện tại', 'km'])) || 0,
