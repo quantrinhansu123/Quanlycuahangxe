@@ -254,7 +254,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
 
       if (shouldOrder && !customer) {
         // Deferred Save: Đẩy data tạm sang bên kia để chờ xử lý cùng với hoá đơn
-        dataToSave.id = dataToSave.ma_khach_hang || ('PENDING-' + Math.random().toString(36).substring(2, 8).toUpperCase());
+        dataToSave.id = 'PENDING-' + (dataToSave.ma_khach_hang || Math.random().toString(36).substring(2, 8).toUpperCase());
         onSuccess(dataToSave as KhachHang, true, true);
         onClose();
       } else {

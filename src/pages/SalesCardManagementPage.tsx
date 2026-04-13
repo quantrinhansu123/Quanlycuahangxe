@@ -387,7 +387,8 @@ const SalesCardManagementPage: React.FC = () => {
       // Deferred Save execution: if there is a pending new customer and it's the one selected
       if (pendingNewCustomer && (cleanData.khach_hang_id === pendingNewCustomer.ma_khach_hang || cleanData.khach_hang_id === pendingNewCustomer.id)) {
         const dataToSave: any = { ...pendingNewCustomer };
-        if (dataToSave.id?.startsWith('PENDING-') || !dataToSave.id) {
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!dataToSave.id || !uuidRegex.test(dataToSave.id)) {
           delete dataToSave.id;
         }
         const savedCustomer = await upsertCustomer(dataToSave);
