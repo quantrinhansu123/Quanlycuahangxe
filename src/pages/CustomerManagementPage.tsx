@@ -22,9 +22,9 @@ import * as XLSX from 'xlsx';
 import CustomerDetailsModal from '../components/CustomerDetailsModal';
 import CustomerFormModal from '../components/CustomerFormModal';
 import Pagination from '../components/Pagination';
-import type { KhachHang } from '../data/customerData';
-import { bulkDeleteCustomers, bulkUpsertCustomers, deleteCustomer, getCustomersPaginated, getCustomersForSelect } from '../data/customerData';
 import { useToast } from '../context/ToastContext';
+import type { KhachHang } from '../data/customerData';
+import { bulkDeleteCustomers, bulkUpsertCustomers, deleteCustomer, getCustomersForSelect, getCustomersPaginated } from '../data/customerData';
 
 const CustomerManagementPage: React.FC = () => {
   const navigate = useNavigate();
@@ -87,10 +87,17 @@ const CustomerManagementPage: React.FC = () => {
   const loadCustomers = async () => {
     try {
       setLoading(true);
-      // If we have local filters (Dept or Cycle), we still fetch all for now 
-      // OR we can implement server-side filtering for those too.
-      // For now, let's prioritize Search + Range.
-      const { data, totalCount } = await getCustomersPaginated(currentPage, pageSize, searchQuery);
+
+      // Map selected cycle strings (e.g., "30 ngày") to numbers (e.g., 30)
+      const numericCycles = selectedCycles.map(c => parseInt(c.replace(/\D/g, ''))).filter(n => !isNaN(n));
+
+      const { data, totalCount } = await getCustomersPaginated(
+        currentPage,
+        pageSize,
+        searchQuery,
+        selectedDepts,
+        numericCycles
+      );
       setCustomers(data);
       setTotalCount(totalCount);
     } catch (error) {
@@ -102,7 +109,7 @@ const CustomerManagementPage: React.FC = () => {
 
   useEffect(() => {
     loadCustomers();
-  }, [currentPage, pageSize]); // Re-load when page or size changes
+  }, [currentPage, pageSize, selectedDepts, selectedCycles]); // Re-load when page, size, or filters change
 
   // Reset page when searching
   useEffect(() => {
@@ -319,13 +326,22 @@ const CustomerManagementPage: React.FC = () => {
     }
   };
 
-  const deptOptions = useMemo(() => Array.from(new Set(customers.map(c => c.dia_chi_hien_tai).filter(Boolean))), [customers]);
+  // We'll use a larger pool of customers to populate the branch filter list
+  const [allDepts, setAllDepts] = useState<string[]>([]);
+  useEffect(() => {
+    getCustomersForSelect().then(data => {
+      const depts = Array.from(new Set(data.map(c => c.dia_chi_hien_tai).filter(Boolean))).sort();
+      setAllDepts(depts);
+    });
+  }, []);
+
+  const deptOptions = allDepts;
 
   return (
     <div className="w-full flex-1 animate-in fade-in slide-in-from-bottom-4 duration-500 text-muted-foreground font-sans">
       <div className="space-y-4">
         {/* Toolbar */}
-        <div className="bg-card p-2 rounded-xl border border-border shadow-sm flex flex-wrap items-center gap-1.5 sm:gap-4 justify-between" ref={dropdownRef}>
+        <div className="bg-card p-2 rounded-xl border border-border shadow-sm flex flex-wrap items-center gap-1.5 sm:gap-4 justify-between relative z-50" ref={dropdownRef}>
           {/* Group 1: Navigation, Search, Filters, Add Button */}
           <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap">
             <button
@@ -362,7 +378,7 @@ const CustomerManagementPage: React.FC = () => {
                   <ChevronDown className={clsx("size-3.5 sm:size-4 transition-transform", openDropdown === 'dept' && "rotate-180")} />
                 </button>
                 {openDropdown === 'dept' && (
-                  <div className="absolute top-full left-0 z-50 mt-1 min-w-[200px] bg-card border border-border rounded-lg shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                  <div className="absolute top-full left-0 z-100 mt-1 min-w-[200px] bg-card border border-border rounded-lg shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
                     <div className="px-3 py-2 bg-muted border-b border-border/50 flex items-center justify-between">
                       <label className="flex items-center gap-2 font-bold text-primary text-[11px] cursor-pointer">
                         <input
@@ -398,7 +414,7 @@ const CustomerManagementPage: React.FC = () => {
                   <ChevronDown className={clsx("size-3.5 sm:size-4 transition-transform", openDropdown === 'cycle' && "rotate-180")} />
                 </button>
                 {openDropdown === 'cycle' && (
-                  <div className="absolute top-full left-0 mt-1 min-w-[180px] bg-card border border-border rounded-lg shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                  <div className="absolute top-full left-0 z-100 mt-1 min-w-[180px] bg-card border border-border rounded-lg shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
                     <div className="px-3 py-2 bg-muted border-b border-border/50 flex items-center justify-between">
                       <label className="flex items-center gap-2 font-bold text-primary text-[11px] cursor-pointer">
                         <input

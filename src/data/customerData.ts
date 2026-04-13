@@ -37,13 +37,14 @@ export const getCustomers = async (): Promise<KhachHang[]> => {
   return data as KhachHang[];
 };
 
-// Lightweight version for dropdown selects - excludes heavy columns like 'anh' (Base64), 'dia_chi_hien_tai', 'so_km'
-export const getCustomersForSelect = async (): Promise<Pick<KhachHang, 'id' | 'ho_va_ten' | 'so_dien_thoai' | 'bien_so_xe' | 'ma_khach_hang'>[]> => {
+// Lightweight version for dropdown selects - excludes heavy columns like 'anh' (Base64), 'so_km'
+export const getCustomersForSelect = async (): Promise<Pick<KhachHang, 'id' | 'ho_va_ten' | 'so_dien_thoai' | 'bien_so_xe' | 'ma_khach_hang' | 'dia_chi_hien_tai'>[]> => {
   const { data, error } = await supabase
     .from('khach_hang')
-    .select('id, ho_va_ten, so_dien_thoai, bien_so_xe, ma_khach_hang')
+    .select('id, ho_va_ten, so_dien_thoai, bien_so_xe, ma_khach_hang, dia_chi_hien_tai')
     .order('created_at', { ascending: false })
     .limit(10000);
+
 
   if (error) {
     console.error('Error fetching customers for select:', error);
@@ -55,7 +56,9 @@ export const getCustomersForSelect = async (): Promise<Pick<KhachHang, 'id' | 'h
 export const getCustomersPaginated = async (
   page: number,
   pageSize: number,
-  searchQuery?: string
+  searchQuery?: string,
+  depts?: string[],
+  cycles?: number[]
 ): Promise<{ data: KhachHang[], totalCount: number }> => {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
@@ -69,6 +72,15 @@ export const getCustomersPaginated = async (
     // accent-insensitive search handled via .or() and .ilike() in Supabase
     query = query.or(`ho_va_ten.ilike.%${searchQuery}%,so_dien_thoai.ilike.%${searchQuery}%,bien_so_xe.ilike.%${searchQuery}%,ma_khach_hang.ilike.%${searchQuery}%`);
   }
+
+  if (depts && depts.length > 0) {
+    query = query.in('dia_chi_hien_tai', depts);
+  }
+
+  if (cycles && cycles.length > 0) {
+    query = query.in('so_ngay_thay_dau', cycles);
+  }
+
 
   const { data, count, error } = await query
     .order('created_at', { ascending: false })
