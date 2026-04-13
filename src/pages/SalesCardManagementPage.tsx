@@ -23,7 +23,7 @@ import Pagination from '../components/Pagination';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import type { KhachHang } from '../data/customerData';
-import { getCustomersForSelect } from '../data/customerData';
+import { getCustomersForSelect, upsertCustomer } from '../data/customerData';
 import type { ThuChi } from '../data/financialData';
 import { deleteSalesTransactions, deleteTransactionByOrderId, getTransactionByOrderId, upsertTransaction } from '../data/financialData';
 import type { NhanSu } from '../data/personnelData';
@@ -137,34 +137,47 @@ const SalesCardManagementPage: React.FC = () => {
   // Server-side filtering, so we use salesCards directly
   const displayItems = useMemo(() => salesCards, [salesCards]);
 
-  // Giải tỏa Mobile UI: Tính toán 10.000 customer string ở Parent 1 lần rồi share cho Modal
-  const customerOptions = useMemo(() => customers.map(c => {
-    const searchParts = [c.ho_va_ten];
-    if (c.so_dien_thoai) searchParts.push(c.so_dien_thoai);
-    if (c.bien_so_xe) searchParts.push(c.bien_so_xe);
-    if (c.ma_khach_hang) searchParts.push(c.ma_khach_hang);
-
-    return {
-      value: c.ma_khach_hang || c.id,
-      label: `${c.ho_va_ten}${c.so_dien_thoai ? ` - ${c.so_dien_thoai}` : ''}`,
-      searchKey: searchParts.join(' ')
-    };
-  }), [customers]);
-
   // ---- AUTO-OPEN MODAL WHEN REDIRECTED FROM CUSTOMER PAGE ----
   // Use a ref to store the pending customer ID so it survives re-renders
   const pendingCustomerRef = React.useRef<string | null>(null);
   const pendingMaRef = React.useRef<string | null>(null);
+  const pendingCustomerDataRef = React.useRef<KhachHang | null>(null);
+  const [pendingNewCustomer, setPendingNewCustomer] = useState<KhachHang | null>(null);
+
+  // Giải tỏa Mobile UI: Tính toán 10.000 customer string ở Parent 1 lần rồi share cho Modal
+  const customerOptions = useMemo(() => {
+    let list = customers;
+    // Đảm bảo pendingNewCustomer không bị xoá mất khi loadReferenceData fetched xong từ DB
+    if (pendingNewCustomer && !list.some(c => c.ma_khach_hang === pendingNewCustomer.ma_khach_hang)) {
+      list = [{ ...pendingNewCustomer, ho_va_ten: `[MỚI] ${pendingNewCustomer.ho_va_ten}` } as KhachHang, ...list];
+    }
+    return list.map(c => {
+      const searchParts = [c.ho_va_ten];
+      if (c.so_dien_thoai) searchParts.push(c.so_dien_thoai);
+      if (c.bien_so_xe) searchParts.push(c.bien_so_xe);
+      if (c.ma_khach_hang) searchParts.push(c.ma_khach_hang);
+
+      return {
+        value: c.ma_khach_hang || c.id,
+        label: `${c.ho_va_ten}${c.so_dien_thoai ? ` - ${c.so_dien_thoai}` : ''}`,
+        searchKey: searchParts.join(' ')
+      };
+    });
+  }, [customers, pendingNewCustomer]);
 
   // Capture pending ID immediately on first render (before any async work)
   if (pendingCustomerRef.current === null) {
     const state = location.state as any;
-    const id = state?.pendingCustomerId || sessionStorage.getItem('pendingCustomerId');
+    const pendingData = state?.pendingCustomerData;
+    const id = pendingData ? pendingData.ma_khach_hang : (state?.pendingCustomerId || sessionStorage.getItem('pendingCustomerId'));
     const ma = state?.pendingMaKhachHang || '';
+
     pendingCustomerRef.current = id || '';
     pendingMaRef.current = ma || '';
+    pendingCustomerDataRef.current = pendingData || null;
+
     // Clear storage immediately (without re-triggering location change)
-    if (id) {
+    if (id || pendingData) {
       sessionStorage.removeItem('pendingCustomerId');
       // Clear location.state via history API directly — does NOT trigger React Router re-render
       window.history.replaceState({}, '');
@@ -175,40 +188,49 @@ const SalesCardManagementPage: React.FC = () => {
   useEffect(() => {
     const pendingId = pendingCustomerRef.current;
     const pendingMa = pendingMaRef.current;
-    if (!pendingId || loading) return; // Wait until loading is done
-    if (customers.length === 0) return; // Wait until customers list is loaded
+    const pendingData = pendingCustomerDataRef.current;
+    if ((!pendingId && !pendingData) || loading) return; // Wait until loading is done
+    if (customers.length === 0 && !pendingData) return; // Wait until customers list is loaded
 
     // Reset the ref so this only runs once
     pendingCustomerRef.current = '';
     pendingMaRef.current = '';
+    pendingCustomerDataRef.current = null;
 
     const openFormForCustomer = async () => {
       try {
-        // 1. Find the customer in the already-loaded list or fetch directly
-        let customer = customers.find(c => {
-          const optionValue = c.ma_khach_hang || c.id;
-          return c.id === pendingId || c.ma_khach_hang === pendingId || optionValue === pendingId
-            || (pendingMa && (c.ma_khach_hang === pendingMa || optionValue === pendingMa));
-        });
+        let customer: KhachHang | null = null;
+        if (pendingData) {
+          customer = pendingData as KhachHang;
+          setPendingNewCustomer(customer);
+          setCustomers(prev => [{ ...customer!, ho_va_ten: `${customer!.ho_va_ten}` } as KhachHang, ...prev]);
+        } else {
+          // 1. Find the customer in the already-loaded list or fetch directly
+          customer = customers.find(c => {
+            const optionValue = c.ma_khach_hang || c.id;
+            return c.id === pendingId || c.ma_khach_hang === pendingId || optionValue === pendingId
+              || (pendingMa && (c.ma_khach_hang === pendingMa || optionValue === pendingMa));
+          }) || null;
 
-        if (!customer) {
-          // Fallback: fetch from Supabase if not in list — try UUID first, then ma_khach_hang
-          let query = supabase
-            .from('khach_hang')
-            .select('id, ma_khach_hang, ho_va_ten, so_dien_thoai, so_km, bien_so_xe');
+          if (!customer) {
+            // Fallback: fetch from Supabase if not in list — try UUID first, then ma_khach_hang
+            let query = supabase
+              .from('khach_hang')
+              .select('id, ma_khach_hang, ho_va_ten, so_dien_thoai, so_km, bien_so_xe');
 
-          const { data: fetchedCustomer } = await query
-            .or(`id.eq.${pendingId}${pendingMa ? `,ma_khach_hang.eq.${pendingMa}` : ''}`)
-            .limit(1)
-            .maybeSingle();
+            const { data: fetchedCustomer } = await query
+              .or(`id.eq.${pendingId}${pendingMa ? `,ma_khach_hang.eq.${pendingMa}` : ''}`)
+              .limit(1)
+              .maybeSingle();
 
-          if (!fetchedCustomer) {
-            console.warn('[DEBUG] Customer not found for id:', pendingId);
-            return;
+            if (!fetchedCustomer) {
+              console.warn('[DEBUG] Customer not found for id:', pendingId);
+              return;
+            }
+            customer = fetchedCustomer as KhachHang;
+            // Add to customers list so dropdown can resolve it
+            setCustomers(prev => [customer!, ...prev]);
           }
-          customer = fetchedCustomer as KhachHang;
-          // Add to customers list so dropdown can resolve it
-          setCustomers(prev => [customer!, ...prev]);
         }
 
         // 2. Find last person in charge from sales history
@@ -338,6 +360,7 @@ const SalesCardManagementPage: React.FC = () => {
     setIsReadOnlyModal(false);
     setEditingCard(null);
     setFormData({});
+    setPendingNewCustomer(null);
   };
 
   const handleSubmit = async (formDataHeader: Partial<SalesCard & { dich_vu_ids?: string[], service_items?: { id: string, ten_dich_vu: string, gia_ban: number, so_luong?: number }[] }>) => {
@@ -360,6 +383,21 @@ const SalesCardManagementPage: React.FC = () => {
 
       // Sanitize date fields to avoid "invalid input syntax for type date" error in Supabase
       if (cleanData.ngay_nhac_thay_dau === '') cleanData.ngay_nhac_thay_dau = null;
+
+      // Deferred Save execution: if there is a pending new customer and it's the one selected
+      if (pendingNewCustomer && (cleanData.khach_hang_id === pendingNewCustomer.ma_khach_hang || cleanData.khach_hang_id === pendingNewCustomer.id)) {
+        const dataToSave: any = { ...pendingNewCustomer };
+        if (dataToSave.id?.startsWith('PENDING-') || !dataToSave.id) {
+          delete dataToSave.id;
+        }
+        const savedCustomer = await upsertCustomer(dataToSave);
+        cleanData.khach_hang_id = savedCustomer.id;
+
+        // Remove from pending so subsequent saves (if editing without closing) use the new real ID
+        setPendingNewCustomer(null);
+        // Also update local list to remove the "[MỚI]" prefix and update IDs
+        setCustomers(prev => prev.map(c => c.ma_khach_hang === pendingNewCustomer.ma_khach_hang ? { ...savedCustomer } : c));
+      }
 
       // Set the first service as the primary ID for the master record
       if (dich_vu_ids && dich_vu_ids.length > 0) {

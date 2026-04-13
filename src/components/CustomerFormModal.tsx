@@ -25,7 +25,7 @@ import { getCustomerByPhone, getCustomerByPlate, uploadCustomerImage, upsertCust
 interface CustomerFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (customer: KhachHang, shouldCreateOrder?: boolean) => void;
+  onSuccess: (customer: KhachHang, shouldCreateOrder?: boolean, isTemp?: boolean) => void;
   customer: KhachHang | null;
 }
 
@@ -252,9 +252,16 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
       if (!dataToSave.anh) delete dataToSave.anh;
       if (!dataToSave.id) delete dataToSave.id;
 
-      const savedCustomer = await upsertCustomer(dataToSave);
-      onSuccess(savedCustomer, shouldOrder);
-      onClose();
+      if (shouldOrder && !customer) {
+        // Deferred Save: Đẩy data tạm sang bên kia để chờ xử lý cùng với hoá đơn
+        dataToSave.id = dataToSave.ma_khach_hang || ('PENDING-' + Math.random().toString(36).substring(2, 8).toUpperCase());
+        onSuccess(dataToSave as KhachHang, true, true);
+        onClose();
+      } else {
+        const savedCustomer = await upsertCustomer(dataToSave);
+        onSuccess(savedCustomer, shouldOrder, false);
+        onClose();
+      }
     } catch (error: any) {
       alert(`Lỗi: ${error.message || 'Không thể lưu.'}`);
     }

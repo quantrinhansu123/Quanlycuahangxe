@@ -155,13 +155,19 @@ const CustomerManagementPage: React.FC = () => {
     setEditingCustomer(null);
   }, []);
 
-  const handleCustomerSuccess = useCallback(async (customer: KhachHang, shouldCreateOrder?: boolean) => {
-    await loadCustomers();
+  const handleCustomerSuccess = useCallback(async (customer: KhachHang, shouldCreateOrder?: boolean, isTemp?: boolean) => {
+    if (!isTemp) {
+      await loadCustomers();
+    }
     setIsModalOpen(false);
     setEditingCustomer(null);
 
     if (shouldCreateOrder) {
-      navigate('/ban-hang/phieu-ban-hang', { state: { pendingCustomerId: customer.id, pendingMaKhachHang: customer.ma_khach_hang } });
+      if (isTemp) {
+        navigate('/ban-hang/phieu-ban-hang', { state: { pendingCustomerData: customer } });
+      } else {
+        navigate('/ban-hang/phieu-ban-hang', { state: { pendingCustomerId: customer.id, pendingMaKhachHang: customer.ma_khach_hang } });
+      }
     }
   }, [loadCustomers, navigate]);
 
