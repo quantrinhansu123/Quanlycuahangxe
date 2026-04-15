@@ -263,45 +263,47 @@ const SalesCardFormModal: React.FC<{
                       <div className="space-y-3 bg-muted/20 p-4 rounded-2xl border border-border/50">
                         <p className="text-[11px] font-bold text-muted-foreground uppercase opacity-70 mb-2">Điều chỉnh số lượng & giá bán (nếu cần)</p>
                         {formData.service_items.map((item, idx) => (
-                          <div key={item.id} className="flex flex-col sm:flex-row sm:items-center gap-3 bg-card p-3 rounded-xl border border-border shadow-sm animate-in fade-in zoom-in-95 duration-200">
-                            <div className="flex-1 flex items-center gap-3 overflow-hidden">
-                              <div className="shrink-0 w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary">
-                                {idx + 1}
+                          <div key={item.id} className="bg-card p-3 rounded-xl border border-border shadow-sm animate-in fade-in zoom-in-95 duration-200 space-y-2.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                                <div className="shrink-0 w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary">
+                                  {idx + 1}
+                                </div>
+                                <span className="font-bold text-[14px] truncate" title={item.ten_dich_vu}>{item.ten_dich_vu}</span>
                               </div>
-                              <span className="font-bold text-[14px] truncate" title={item.ten_dich_vu}>{item.ten_dich_vu}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveItem(item.id)}
+                                className="p-1.5 hover:bg-red-50 hover:text-red-500 text-muted-foreground rounded-lg transition-colors shrink-0"
+                              >
+                                <X size={16} />
+                              </button>
                             </div>
-                            <div className="flex items-center gap-2 shrink-0">
-                              <div className="relative flex-1 sm:w-32">
+                            <div className="flex items-center gap-2">
+                              <div className="relative flex-1">
                                 <input
                                   type="text"
-                                  className="w-full pl-3 pr-8 py-1.5 bg-background border border-border rounded-lg text-right font-mono text-[13px] font-bold focus:ring-1 focus:ring-primary outline-none"
+                                  className="w-full pl-3 pr-8 py-2 bg-background border border-border rounded-lg text-right font-mono text-[13px] font-bold focus:ring-1 focus:ring-primary outline-none"
                                   value={(item.gia_ban || 0).toLocaleString('vi-VN')}
                                   onChange={(e) => {
                                     const val = parseInt(e.target.value.replace(/\D/g, ''), 10) || 0;
                                     handleItemPriceChange(item.id, val);
                                   }}
                                 />
-                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-muted-foreground">đ</span>
+                                <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-muted-foreground">đ</span>
                               </div>
-                              <span className="text-[11px] text-muted-foreground font-bold">×</span>
-                              <div className="relative w-16">
+                              <span className="text-[12px] text-muted-foreground font-bold shrink-0">×</span>
+                              <div className="relative w-14 sm:w-16 shrink-0">
                                 <input
                                   type="text"
                                   inputMode="numeric"
-                                  className="w-full px-2 py-1.5 bg-background border border-border rounded-lg text-center font-mono text-[13px] font-bold focus:ring-1 focus:ring-primary outline-none"
+                                  className="w-full px-2 py-2 bg-background border border-border rounded-lg text-center font-mono text-[13px] font-bold focus:ring-1 focus:ring-primary outline-none"
                                   value={item.so_luong || ''}
                                   onFocus={(e) => e.target.select()}
                                   onChange={(e) => handleItemQuantityChange(item.id, e.target.value.replace(/\D/g, ''))}
                                   onBlur={() => handleItemQuantityBlur(item.id)}
                                 />
                               </div>
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveItem(item.id)}
-                                className="p-1.5 hover:bg-red-50 hover:text-red-500 text-muted-foreground rounded-lg transition-colors"
-                              >
-                                <X size={16} />
-                              </button>
                             </div>
                           </div>
                         ))}
