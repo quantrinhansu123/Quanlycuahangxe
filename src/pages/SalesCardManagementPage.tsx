@@ -425,7 +425,7 @@ const SalesCardManagementPage: React.FC = () => {
           co_so: service?.co_so || 'Cơ sở chính',
           gia_ban: override?.gia_ban ?? (service?.gia_ban || 0),
           gia_von: service?.gia_nhap || 0,
-          so_luong: 1,
+          so_luong: override?.so_luong ?? 1,
           chi_phi: 0,
           ngay: savedCard.ngay
         };

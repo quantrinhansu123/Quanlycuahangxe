@@ -54,7 +54,7 @@ const SalesCardFormModal: React.FC<{
   onCollectPayment?: (data: any) => Promise<void>;
   isReadOnly?: boolean;
 }> = React.memo(({ isOpen, editingCard, initialData, customerOptions, personnel, services, onClose, onSubmit, isReadOnly, onCollectPayment }) => {
-  const [formData, setFormData] = useState<Partial<SalesCard & { service_items?: { id: string, ten_dich_vu: string, gia_ban: number }[] }>>(initialData);
+  const [formData, setFormData] = useState<Partial<SalesCard & { service_items?: { id: string, ten_dich_vu: string, gia_ban: number, so_luong: number }[] }>>(initialData);
   const [isCollecting, setIsCollecting] = useState(false);
 
   // Sync formData with initialData when modal opens or initialData changes (for new cards)
@@ -80,7 +80,8 @@ const SalesCardFormModal: React.FC<{
         return {
           id: s?.id || id,
           ten_dich_vu: s?.ten_dich_vu || id,
-          gia_ban: s?.gia_ban || 0
+          gia_ban: s?.gia_ban || 0,
+          so_luong: 1
         };
       });
 
@@ -121,6 +122,21 @@ const SalesCardFormModal: React.FC<{
     }));
   };
 
+  const handleItemQuantityChange = (id: string, rawValue: string) => {
+    const parsed = rawValue === '' ? 0 : parseInt(rawValue, 10);
+    setFormData(prev => ({
+      ...prev,
+      service_items: prev.service_items?.map(it => it.id === id ? { ...it, so_luong: isNaN(parsed) ? 0 : parsed } : it)
+    }));
+  };
+
+  const handleItemQuantityBlur = (id: string) => {
+    setFormData(prev => ({
+      ...prev,
+      service_items: prev.service_items?.map(it => it.id === id ? { ...it, so_luong: Math.max(1, it.so_luong || 1) } : it)
+    }));
+  };
+
   const handleRemoveItem = (id: string) => {
     setFormData(prev => ({
       ...prev,
@@ -141,6 +157,11 @@ const SalesCardFormModal: React.FC<{
                         (formData.service_items && formData.service_items.length > 0);
     if (!hasServices) {
       alert('Vui lòng chọn ít nhất một dịch vụ trước khi lập phiếu.');
+      return;
+    }
+
+    if (!editingCard && (!formData.so_km || formData.so_km <= 0)) {
+      alert('Vui lòng nhập Số Km trước khi lập phiếu.');
       return;
     }
 
@@ -219,9 +240,10 @@ const SalesCardFormModal: React.FC<{
                           </div>
                           <span className="font-bold text-[14px] text-foreground">{item.san_pham || item.ten_dich_vu}</span>
                         </div>
-                        <div className="text-right">
+                        <div className="text-right flex items-center gap-1.5">
                           <span className="font-mono text-[13px] font-bold text-primary">{(item.gia_ban || 0).toLocaleString()}đ</span>
-                          {(item.so_luong || 1) > 1 && <span className="text-[11px] text-muted-foreground ml-1.5">x{item.so_luong}</span>}
+                          <span className="text-[11px] text-muted-foreground font-bold">×</span>
+                          <span className="font-mono text-[13px] font-bold text-foreground">{item.so_luong || 1}</span>
                         </div>
                       </div>
                     ))}
@@ -239,7 +261,7 @@ const SalesCardFormModal: React.FC<{
 
                     {formData.service_items && formData.service_items.length > 0 && (
                       <div className="space-y-3 bg-muted/20 p-4 rounded-2xl border border-border/50">
-                        <p className="text-[11px] font-bold text-muted-foreground uppercase opacity-70 mb-2">Điều chỉnh giá bán (nếu cần)</p>
+                        <p className="text-[11px] font-bold text-muted-foreground uppercase opacity-70 mb-2">Điều chỉnh số lượng & giá bán (nếu cần)</p>
                         {formData.service_items.map((item, idx) => (
                           <div key={item.id} className="flex flex-col sm:flex-row sm:items-center gap-3 bg-card p-3 rounded-xl border border-border shadow-sm animate-in fade-in zoom-in-95 duration-200">
                             <div className="flex-1 flex items-center gap-3 overflow-hidden">
@@ -260,6 +282,18 @@ const SalesCardFormModal: React.FC<{
                                   }}
                                 />
                                 <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-muted-foreground">đ</span>
+                              </div>
+                              <span className="text-[11px] text-muted-foreground font-bold">×</span>
+                              <div className="relative w-16">
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  className="w-full px-2 py-1.5 bg-background border border-border rounded-lg text-center font-mono text-[13px] font-bold focus:ring-1 focus:ring-primary outline-none"
+                                  value={item.so_luong || ''}
+                                  onFocus={(e) => e.target.select()}
+                                  onChange={(e) => handleItemQuantityChange(item.id, e.target.value.replace(/\D/g, ''))}
+                                  onBlur={() => handleItemQuantityBlur(item.id)}
+                                />
                               </div>
                               <button
                                 type="button"
@@ -315,7 +349,7 @@ const SalesCardFormModal: React.FC<{
                 <div className="text-2xl font-black text-primary tracking-tight">
                   {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
                     formData.service_items && formData.service_items.length > 0
-                      ? formData.service_items.reduce((sum, it) => sum + (it.gia_ban || 0), 0)
+                      ? formData.service_items.reduce((sum, it) => sum + ((it.gia_ban || 0) * (it.so_luong || 1)), 0)
                       : formData.the_ban_hang_ct && formData.the_ban_hang_ct.length > 0
                         ? formData.the_ban_hang_ct.reduce((sum, it) => sum + (it.thanh_tien || (it.gia_ban * it.so_luong)), 0)
                         : (formData.dich_vu?.gia_ban || 0)
