@@ -1,8 +1,10 @@
-import { Calendar, Clock, FileText, History, Loader2, Save, ShoppingCart, User, Wrench, X } from 'lucide-react';
+import { Calendar, ChevronDown, ChevronUp, Clock, FileText, History, Loader2, Save, ShoppingCart, User, Wrench, X } from 'lucide-react';
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { NhanSu } from '../data/personnelData';
 import type { SalesCard } from '../data/salesCardData';
+import type { EditHistoryRecord } from '../data/salesCardHistoryData';
+import { getEditHistory } from '../data/salesCardHistoryData';
 import type { DichVu } from '../data/serviceData';
 import { MultiSearchableSelect } from './ui/MultiSearchableSelect';
 import { SearchableSelect } from './ui/SearchableSelect';
@@ -56,6 +58,9 @@ const SalesCardFormModal: React.FC<{
 }> = React.memo(({ isOpen, editingCard, initialData, customerOptions, personnel, services, onClose, onSubmit, isReadOnly, onCollectPayment }) => {
   const [formData, setFormData] = useState<Partial<SalesCard & { service_items?: { id: string, ten_dich_vu: string, gia_ban: number, so_luong: number }[] }>>(initialData);
   const [isCollecting, setIsCollecting] = useState(false);
+  const [historyRecords, setHistoryRecords] = useState<EditHistoryRecord[]>([]);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   // Sync formData with initialData when modal opens or initialData changes (for new cards)
   React.useEffect(() => {
@@ -360,7 +365,79 @@ const SalesCardFormModal: React.FC<{
               </div>
             )}
 
-            <div className="mt-8 flex items-center justify-between gap-3 pt-6 border-t border-border">
+            <div className="mt-8 flex flex-col gap-4 pt-6 border-t border-border">
+              {/* Lịch sử chỉnh sửa */}
+              {isReadOnly && editingCard && (
+                <div className="w-full">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!isHistoryOpen && historyRecords.length === 0) {
+                        setIsLoadingHistory(true);
+                        const records = await getEditHistory(editingCard.id);
+                        setHistoryRecords(records);
+                        setIsLoadingHistory(false);
+                      }
+                      setIsHistoryOpen(prev => !prev);
+                    }}
+                    className="flex items-center gap-2 text-[12px] font-bold text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <History size={14} />
+                    <span>Lịch sử chỉnh sửa</span>
+                    {isHistoryOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                  </button>
+
+                  {isHistoryOpen && (
+                    <div className="mt-3 space-y-3 max-h-[250px] overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-2 duration-200">
+                      {isLoadingHistory ? (
+                        <div className="flex items-center justify-center py-6 text-muted-foreground">
+                          <Loader2 className="animate-spin mr-2" size={16} />
+                          <span className="text-[12px]">Đang tải...</span>
+                        </div>
+                      ) : historyRecords.length === 0 ? (
+                        <div className="text-center py-6 text-muted-foreground text-[12px]">
+                          Chưa có lịch sử chỉnh sửa nào.
+                        </div>
+                      ) : (
+                        historyRecords.map((record) => (
+                          <div key={record.id} className="bg-muted/30 p-3 rounded-xl border border-border/50 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary">
+                                  {(record.nguoi_sua || '?')[0]}
+                                </div>
+                                <span className="text-[12px] font-bold text-foreground">{record.nguoi_sua}</span>
+                              </div>
+                              <span className="text-[10px] text-muted-foreground font-mono">
+                                {new Date(record.thoi_gian).toLocaleString('vi-VN', {
+                                  day: '2-digit', month: '2-digit', year: 'numeric',
+                                  hour: '2-digit', minute: '2-digit'
+                                })}
+                              </span>
+                            </div>
+                            <div className="space-y-1">
+                              {(record.thay_doi || []).map((change, i) => (
+                                <div key={i} className="flex items-start gap-2 text-[11px] pl-8">
+                                  <span className="font-bold text-muted-foreground shrink-0 min-w-[80px]">{change.label}:</span>
+                                  <span className="text-red-500 line-through truncate max-w-[120px]" title={String(change.old_value ?? 'Trống')}>
+                                    {change.old_value || 'Trống'}
+                                  </span>
+                                  <span className="text-muted-foreground">→</span>
+                                  <span className="text-emerald-600 font-bold truncate max-w-[120px]" title={String(change.new_value ?? 'Trống')}>
+                                    {change.new_value || 'Trống'}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 {editingCard && onCollectPayment && (
                   <button
@@ -387,6 +464,7 @@ const SalesCardFormModal: React.FC<{
                     <Save size={18} /> <span>{editingCard ? 'Lưu thay đổi' : 'Lập phiếu'}</span>
                   </button>
                 )}
+              </div>
               </div>
             </div>
           </div>

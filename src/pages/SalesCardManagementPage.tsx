@@ -35,6 +35,7 @@ import type { DichVu } from '../data/serviceData';
 import { getServices } from '../data/serviceData';
 import { supabase } from '../lib/supabase';
 import { cn } from '../lib/utils';
+import { computeChanges, saveEditHistory } from '../data/salesCardHistoryData';
 
 const SalesCardFormModal = React.lazy(() => import('../components/SalesCardFormModal'));
 
@@ -408,6 +409,16 @@ const SalesCardManagementPage: React.FC = () => {
       // Cổ chai 4 & 5: Các bước lưu data độc lập có thể chạy song song (Promise.all)
       // Bước 1 & 2: Sinh/Cập nhật phiếu gốc và xóa chi tiết cũ phải chạy trước vì phần dưới phụ thuộc nó
       const savedCard = await upsertSalesCard(cleanData, !editingCard);
+
+      // Ghi lịch sử chỉnh sửa khi cập nhật phiếu cũ
+      if (editingCard) {
+        // formDataHeader.service_items chứa form mảng mới, editingCard.the_ban_hang_ct chứa mảng cũ
+        const changes = computeChanges(editingCard, cleanData, editingCard.the_ban_hang_ct || [], formDataHeader.service_items || []);
+        if (changes.length > 0) {
+          saveEditHistory(savedCard.id, currentUser?.ho_ten || 'Hệ thống', changes);
+        }
+      }
+
       // 'Deep Clean': Clear ALL old records (both by UUID and by Order Code) to prevent phantom duplicates
       await deleteSalesCardCTsByOrderId(savedCard.id, savedCard.id_bh || undefined);
 
