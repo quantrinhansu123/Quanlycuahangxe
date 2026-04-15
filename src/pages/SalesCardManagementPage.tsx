@@ -1160,7 +1160,7 @@ const SalesCardManagementPage: React.FC = () => {
                       {items.length > 0 ? (
                         items.map((ct: any, idx: number) => (
                           <span key={idx} className="px-2 py-0.5 rounded bg-primary/10 text-primary font-semibold text-[11px]">
-                            {ct.san_pham}
+                            {ct.san_pham}{(ct.so_luong || 1) > 1 && <span className="ml-1 opacity-70">×{ct.so_luong}</span>}
                           </span>
                         ))
                       ) : (
@@ -1321,7 +1321,7 @@ const SalesCardManagementPage: React.FC = () => {
                         {(card as any).the_ban_hang_ct && (card as any).the_ban_hang_ct.length > 0 ? (
                           (card as any).the_ban_hang_ct.map((ct: any, idx: number) => (
                             <span key={idx} className="px-2 py-1 rounded bg-purple-50 text-purple-700 font-medium text-[11px] flex items-center gap-1.5 w-fit">
-                              {ct.san_pham}
+                              {ct.san_pham}{(ct.so_luong || 1) > 1 && <span className="opacity-60 font-bold">×{ct.so_luong}</span>}
                             </span>
                           ))
                         ) : (

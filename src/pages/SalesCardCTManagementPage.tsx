@@ -142,11 +142,11 @@ const SalesCardCTManagementPage: React.FC = () => {
         const formattedData: Partial<SalesCardCT>[] = data.map((item) => {
           const norm: any = {};
           // Normalize keys: trim and replace multiple spaces with single space
-          Object.keys(item).forEach(k => { 
+          Object.keys(item).forEach(k => {
             const cleanKey = String(k).trim().toLowerCase().replace(/\s+/g, ' ');
-            norm[cleanKey] = item[k]; 
+            norm[cleanKey] = item[k];
           });
-          
+
           const getValue = (keys: string[]) => {
             const k = keys.find(z => norm[z.toLowerCase().replace(/\s+/g, ' ')] !== undefined);
             const val = k ? norm[k.toLowerCase().replace(/\s+/g, ' ')] : undefined;
@@ -156,7 +156,7 @@ const SalesCardCTManagementPage: React.FC = () => {
           const rawIdCT = String(getValue(['id']) || '').trim();
           const rawDonHangId = String(getValue(['id đơn hàng']) || '').trim();
           const rawProductName = String(getValue(['Sản phẩm']) || '').trim();
-          
+
           // Use exactly what's in 'Tên đơn hàng'
           const tenDonHangExcel = getValue(['Tên đơn hàng']);
 
@@ -167,7 +167,7 @@ const SalesCardCTManagementPage: React.FC = () => {
             const cleanSTen = s.ten_dich_vu.toLowerCase().replace(/\s+/g, '');
             return cleanRaw === cleanSID || cleanRaw === cleanSTen;
           });
-          
+
           const productName = serviceMatch ? serviceMatch.ten_dich_vu : rawProductName;
 
           let ngay = formatExcelDate(getValue(['Ngày']));
@@ -205,7 +205,7 @@ const SalesCardCTManagementPage: React.FC = () => {
           // Track which existing records have already been matched
           const claimedIds = new Set<string>();
           let updatedCount = 0;
-          
+
           formattedData.forEach((rec: any) => {
             const existing = existingCTs.find((e: any) => {
               if (claimedIds.has(e.id)) return false;
@@ -270,6 +270,16 @@ const SalesCardCTManagementPage: React.FC = () => {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
   };
+
+  const getDisplayOrderCode = useCallback((idDonHang: string | null) => {
+    if (!idDonHang) return '—';
+    // If it's a UUID (length 36), try to find the matching standard code (BH-XXXXXX)
+    if (idDonHang.length === 36) {
+      const matched = salesCards.find(c => c.id === idDonHang);
+      return matched?.id_bh || idDonHang.slice(0, 8);
+    }
+    return idDonHang;
+  }, [salesCards]);
 
   return (
     <div className="w-full h-full flex flex-col p-4 lg:p-6 animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-y-auto pt-8">
@@ -364,7 +374,7 @@ const SalesCardCTManagementPage: React.FC = () => {
                     </div>
                     <div className="font-mono text-primary font-bold uppercase flex flex-col items-end gap-1">
                       <span className="text-[10px] text-muted-foreground/60">ID: {item.id_ban_hang_ct || item.id.slice(0, 8)}</span>
-                      {item.id_don_hang && <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-[9px]">Đơn: {item.id_don_hang}</span>}
+                      {item.id_don_hang && <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-[9px]">Đơn: {getDisplayOrderCode(item.id_don_hang)}</span>}
                     </div>
                   </div>
 
@@ -455,7 +465,7 @@ const SalesCardCTManagementPage: React.FC = () => {
                         {item.id_ban_hang_ct || item.id.slice(0, 8)}
                       </td>
                       <td className="px-4 py-4 font-mono text-[11px] font-bold text-blue-600">
-                        {item.id_don_hang || '—'}
+                        {getDisplayOrderCode(item.id_don_hang)}
                       </td>
                       <td className="px-4 py-4">{new Date(item.ngay).toLocaleDateString('vi-VN')}</td>
                       <td className="px-4 py-4 font-bold text-foreground truncate max-w-[150px]">{item.ten_don_hang || '—'}</td>
