@@ -3,6 +3,7 @@ import { Camera, Save, X, Building2, Calendar, Clock, FileText, BadgeDollarSign,
 import { clsx } from 'clsx';
 import type { ThuChi } from '../data/financialData';
 import { uploadTransactionImage } from '../data/financialData';
+import { SearchableSelect } from './ui/SearchableSelect';
 
 interface FinancialFormModalProps {
   isOpen: boolean;
@@ -13,6 +14,7 @@ interface FinancialFormModalProps {
   branchOptions: string[];
   typeOptions: string[];
   statusOptions: string[];
+  customerOptions: { value: string; label: string; searchKey: string }[];
 }
 
 const FinancialFormModal: React.FC<FinancialFormModalProps> = React.memo(({
@@ -23,7 +25,8 @@ const FinancialFormModal: React.FC<FinancialFormModalProps> = React.memo(({
   onSubmit,
   branchOptions,
   typeOptions,
-  statusOptions
+  statusOptions,
+  customerOptions
 }) => {
   const [formData, setFormData] = useState<Partial<ThuChi>>(initialData);
   const [uploading, setUploading] = useState(false);
@@ -40,6 +43,26 @@ const FinancialFormModal: React.FC<FinancialFormModalProps> = React.memo(({
   }, [isOpen]);
 
   if (!isOpen) return null;
+
+  // Robust Fallback: Inject a customer if formData.id_khach_hang exists but is missing from the list.
+  const extendedCustomerOptions = React.useMemo(() => {
+    let options = [...customerOptions];
+    if (formData.id_khach_hang && !options.find(o => o.value === formData.id_khach_hang)) {
+      const fallbackName = 
+         (initialData as any)?.khach_hang?.ho_va_ten || 
+         'Khách hàng (Chưa tải dữ liệu)';
+      
+      options = [
+        {
+          value: formData.id_khach_hang,
+          label: fallbackName,
+          searchKey: fallbackName
+        },
+        ...options
+      ];
+    }
+    return options;
+  }, [customerOptions, formData.id_khach_hang, initialData]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -123,7 +146,21 @@ const FinancialFormModal: React.FC<FinancialFormModalProps> = React.memo(({
               {formData.loai_phieu !== 'phiếu chi' && (
                 <>
                   <InputField label="ID Đơn hàng" name="id_don" value={formData.id_don || ''} onChange={handleInputChange} icon={FileText} placeholder="Mã đơn hàng liên quan..." tabIndex={8} />
-                  <InputField label="ID Khách hàng" name="id_khach_hang" value={formData.id_khach_hang || ''} onChange={handleInputChange} icon={User} placeholder="Số điện thoại hoặc tên KH..." tabIndex={9} />
+                  <div className="space-y-1.5 focus-within:ring-2 focus-within:ring-primary/20 rounded-xl transition-all">
+                    <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                      <User size={14} className="text-primary/70" />
+                      Khách hàng liên kết
+                    </label>
+                    <div tabIndex={9}>
+                      <SearchableSelect
+                        options={extendedCustomerOptions}
+                        value={formData.id_khach_hang || undefined}
+                        onValueChange={(val: string) => setFormData(prev => ({ ...prev, id_khach_hang: val }))}
+                        placeholder="-- Chọn hoặc tìm khách hàng --"
+                        searchPlaceholder="Tìm tên, SĐT, mã KH..."
+                      />
+                    </div>
+                  </div>
                 </>
               )}
               

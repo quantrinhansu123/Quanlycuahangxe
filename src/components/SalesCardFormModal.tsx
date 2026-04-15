@@ -53,11 +53,12 @@ const SalesCardFormModal: React.FC<{
   services: DichVu[];
   onClose: () => void;
   onSubmit: (data: Partial<SalesCard>) => Promise<void>;
-  onCollectPayment?: (data: any) => Promise<void>;
+  onCollectPayment?: (data: any, method: string) => Promise<void>;
   isReadOnly?: boolean;
 }> = React.memo(({ isOpen, editingCard, initialData, customerOptions, personnel, services, onClose, onSubmit, isReadOnly, onCollectPayment }) => {
-  const [formData, setFormData] = useState<Partial<SalesCard & { service_items?: { id: string, ten_dich_vu: string, gia_ban: number, so_luong: number }[] }>>(initialData);
+  const [formData, setFormData] = useState<Partial<SalesCard & { service_items?: { id: string, ten_dich_vu: string, gia_ban: number, so_luong: number }[], thu_chi?: any }>>(initialData);
   const [isCollecting, setIsCollecting] = useState(false);
+  const [showPaymentOptions, setShowPaymentOptions] = useState(false);
   const [historyRecords, setHistoryRecords] = useState<EditHistoryRecord[]>([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
@@ -155,6 +156,29 @@ const SalesCardFormModal: React.FC<{
     return num.toLocaleString('vi-VN');
   };
 
+  // Robust Fallback: If formData has a khach_hang_id that is NOT in the customerOptions,
+  // we dynamically inject a fallback option using the name from initialData so the dropdown isn't blank.
+  const extendedCustomerOptions = React.useMemo(() => {
+    let options = [...customerOptions];
+    if (formData.khach_hang_id && !options.find(o => o.value === formData.khach_hang_id)) {
+      const fallbackName = 
+         initialData?.khach_hang?.ho_va_ten || 
+         (initialData as any)?.ten_khach_hang || 
+         'Khách hàng (Chưa tải dữ liệu)';
+      const fallbackPhone = initialData?.khach_hang?.so_dien_thoai || (initialData as any)?.so_dien_thoai || '';
+      
+      options = [
+        {
+          value: formData.khach_hang_id,
+          label: `${fallbackName}${fallbackPhone ? ` - ${fallbackPhone}` : ''}`,
+          searchKey: fallbackName
+        },
+        ...options
+      ];
+    }
+    return options;
+  }, [customerOptions, formData.khach_hang_id, initialData]);
+
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -206,7 +230,7 @@ const SalesCardFormModal: React.FC<{
                   </div>
                 </label>
                 <SearchableSelect
-                  options={customerOptions}
+                  options={extendedCustomerOptions}
                   value={formData.khach_hang_id || undefined}
                   onValueChange={(val: string) => !isReadOnly && setFormData(prev => ({ ...prev, khach_hang_id: val }))}
                   placeholder="-- Chọn hoặc tìm khách hàng --"
@@ -439,19 +463,65 @@ const SalesCardFormModal: React.FC<{
 
               <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                {editingCard && onCollectPayment && (
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      setIsCollecting(true);
-                      try { await onCollectPayment(formData); } finally { setIsCollecting(false); }
-                    }}
-                    disabled={isCollecting}
-                    className="px-4 py-1.5 sm:px-6 sm:py-2 rounded-xl text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all flex items-center gap-2 disabled:opacity-50"
-                  >
-                    {isCollecting ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
-                    <span>THU TIỀN</span>
-                  </button>
+                {editingCard && onCollectPayment && formData.thu_chi ? (
+                  <div className="px-4 py-1.5 sm:px-6 sm:py-2 rounded-xl text-sm font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 flex items-center justify-center gap-2 select-none opacity-80"
+                       title={`Đơn hàng đã thanh toán bằng ${formData.thu_chi.phuong_thuc || 'Tiền mặt'}`}>
+                    <Save size={18} />
+                    <span>ĐÃ THU ({formData.thu_chi.phuong_thuc || 'Tiền mặt'})</span>
+                  </div>
+                ) : (
+                  editingCard && onCollectPayment && (
+                    showPaymentOptions ? (
+                      <div className="flex bg-emerald-50 rounded-xl overflow-hidden shadow-sm border border-emerald-200 animate-in fade-in zoom-in-95 duration-200">
+                        {isCollecting ? (
+                           <div className="px-6 py-2 text-sm font-bold text-emerald-700 flex items-center gap-2 bg-emerald-100">
+                             <Loader2 className="animate-spin" size={18} />
+                             <span>Đang lưu...</span>
+                           </div>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                setIsCollecting(true);
+                                try { await onCollectPayment(formData, 'Tiền mặt'); } finally { setIsCollecting(false); setShowPaymentOptions(false); }
+                              }}
+                              className="px-3 sm:px-4 py-2 text-[13px] font-bold text-emerald-800 hover:bg-emerald-100 transition-colors flex items-center gap-1.5 border-r border-emerald-200/50"
+                            >
+                              <span>💵 Tiền mặt</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                setIsCollecting(true);
+                                try { await onCollectPayment(formData, 'Chuyển khoản'); } finally { setIsCollecting(false); setShowPaymentOptions(false); }
+                              }}
+                              className="px-3 sm:px-4 py-2 text-[13px] font-bold text-emerald-800 hover:bg-emerald-100 transition-colors flex items-center gap-1.5 border-r border-emerald-200/50"
+                            >
+                              <span>💳 Chuyển khoản</span>
+                            </button>
+                            <button 
+                              type="button" 
+                              onClick={() => setShowPaymentOptions(false)}
+                              className="px-2 py-2 bg-emerald-100 text-emerald-700 hover:bg-rose-100 hover:text-rose-600 transition-colors flex items-center justify-center p-2"
+                              title="Hủy thao tác"
+                            >
+                              <X size={16} />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setShowPaymentOptions(true)}
+                        className="px-4 py-1.5 sm:px-6 sm:py-2 rounded-xl text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all flex items-center gap-2"
+                      >
+                        <Save size={18} />
+                        <span>THU TIỀN</span>
+                      </button>
+                    )
+                  )
                 )}
               </div>
 

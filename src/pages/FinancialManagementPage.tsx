@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Search, Plus, Edit2, Trash2, Camera, Loader2, ChevronDown, 
   Building2, Wallet, BadgeDollarSign, Download, Upload
@@ -18,6 +18,8 @@ import {
 import type { ThuChi } from '../data/financialData';
 import { getCustomers } from '../data/customerData';
 import type { KhachHang } from '../data/customerData';
+import { getSalesCards } from '../data/salesCardData';
+import type { SalesCard } from '../data/salesCardData';
 import Pagination from '../components/Pagination';
 import FinancialFormModal from '../components/FinancialFormModal';
 
@@ -27,6 +29,7 @@ const FinancialManagementPage: React.FC = () => {
   const location = useLocation();
   const [transactions, setTransactions] = useState<ThuChi[]>([]);
   const [customers, setCustomers] = useState<KhachHang[]>([]);
+  const [salesCards, setSalesCards] = useState<SalesCard[]>([]);
   const [stats, setStats] = useState({ income: 0, expense: 0, balance: 0 });
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'list' | 'charts'>('list');
@@ -66,18 +69,20 @@ const FinancialManagementPage: React.FC = () => {
   const loadData = React.useCallback(async () => {
     try {
       setLoading(true);
-      const [transactionsData, statsData, customersData] = await Promise.all([
+      const [transactionsData, statsData, customersData, salesCardsData] = await Promise.all([
         getTransactionsPaginated(currentPage, pageSize, debouncedSearch, {
           branches: selectedBranches,
           types: selectedTypes
         }),
         getTransactionStats(),
-        getCustomers()
+        getCustomers(),
+        getSalesCards()
       ]);
       setTransactions(transactionsData.data);
       setTotalCount(transactionsData.totalCount);
       setStats(statsData);
       setCustomers(customersData);
+      setSalesCards(salesCardsData);
     } catch (error) {
       console.error(error);
     } finally {
@@ -131,10 +136,37 @@ const FinancialManagementPage: React.FC = () => {
     });
   };
 
+  const customerOptions = useMemo(() => {
+    return customers.map(c => {
+      const searchParts = [c.ho_va_ten];
+      if (c.so_dien_thoai) searchParts.push(c.so_dien_thoai);
+      if (c.ma_khach_hang) searchParts.push(c.ma_khach_hang);
+
+      return {
+        value: c.ma_khach_hang || c.id,
+        label: `${c.ho_va_ten}${c.so_dien_thoai ? ` - ${c.so_dien_thoai}` : ''}`,
+        searchKey: searchParts.join(' ')
+      };
+    });
+  }, [customers]);
+
   const handleOpenModal = (transaction?: ThuChi) => {
     if (transaction) {
       setEditingTransaction(transaction);
-      setFormData({ ...transaction });
+
+      let mappedKhId = transaction.id_khach_hang;
+      const order = salesCards.find(o => o.id === transaction.id_don);
+
+      if (!mappedKhId && order?.khach_hang_id) {
+         mappedKhId = order.khach_hang_id;
+      }
+
+      if (mappedKhId) {
+        let c = customers.find(x => x.id === mappedKhId || x.ma_khach_hang === mappedKhId);
+        if (c) mappedKhId = c.ma_khach_hang || c.id;
+      }
+
+      setFormData({ ...transaction, id_khach_hang: mappedKhId });
     } else {
       const now = new Date();
       setEditingTransaction(null);
@@ -521,7 +553,7 @@ const FinancialManagementPage: React.FC = () => {
                     </div>
                     <div className="text-[13px] font-bold text-foreground truncate">{transaction.danh_muc || 'Không tiêu đề'}</div>
                     <div className="text-[11px] text-muted-foreground truncate">
-                      {transaction.nguoi_chi || transaction.nguoi_nhan || 'N/A'} • {transaction.co_so.replace('Cơ sở', 'CS')}
+                      {transaction.nguoi_chi || transaction.nguoi_nhan || 'N/A'} • {transaction.co_so.replace('Cơ sở', 'CS')} • {transaction.phuong_thuc || (transaction.loai_phieu === 'phiếu thu' ? 'Tiền mặt' : '—')}
                     </div>
                   </div>
                   <div className="text-right shrink-0">
@@ -558,6 +590,7 @@ const FinancialManagementPage: React.FC = () => {
                       <th className="px-4 py-3 font-semibold">Loại</th>
                       <th className="px-4 py-3 font-semibold">Nghiệp vụ</th>
                       <th className="px-4 py-3 font-semibold">Khách hàng</th>
+                      <th className="px-4 py-3 font-semibold">Hình thức</th>
                       <th className="px-4 py-3 font-semibold">Cơ sở</th>
                       <th className="px-4 py-3 font-semibold text-right">Số tiền</th>
                       <th className="px-4 py-3 font-semibold">Trạng thái</th>
@@ -574,7 +607,9 @@ const FinancialManagementPage: React.FC = () => {
                       </tr>
                     ) : transactions.map(transaction => (
                       <tr key={transaction.id} className="hover:bg-muted/80 transition-colors border-b border-border/50">
-                        <td className="px-4 py-3 font-mono text-[13px] truncate max-w-[100px]">{transaction.id_don || '—'}</td>
+                        <td className="px-4 py-3 font-mono text-[13px] font-medium text-emerald-900 truncate max-w-[100px]">
+                          {transaction.id_don ? (transaction.id_don.length === 36 ? `HD-${transaction.id_don.slice(0, 6).toUpperCase()}` : transaction.id_don) : '—'}
+                        </td>
                         <td className="px-4 py-3">
                           {transaction.anh ? (
                             <div className="w-8 h-8 rounded-lg border border-border overflow-hidden">
@@ -587,8 +622,8 @@ const FinancialManagementPage: React.FC = () => {
                         <td className="px-4 py-3 whitespace-nowrap text-center font-medium text-foreground">
                           {new Date(transaction.ngay).toLocaleDateString('vi-VN')}
                         </td>
-                        <td className="px-4 py-3 font-mono text-[11px] text-muted-foreground truncate" title={transaction.id}>
-                          {transaction.id.slice(0, 12)}
+                        <td className="px-4 py-3 font-mono text-[12px] text-muted-foreground truncate" title={transaction.id}>
+                          {transaction.id.length === 36 ? `TC-${transaction.id.slice(0, 8).toUpperCase()}` : transaction.id.slice(0, 12)}
                         </td>
                         <td className="px-4 py-3 text-center text-muted-foreground/60">{transaction.gio}</td>
                         <td className="px-4 py-3">
@@ -600,7 +635,27 @@ const FinancialManagementPage: React.FC = () => {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-foreground font-bold truncate max-w-[150px]">{transaction.danh_muc || '—'}</td>
-                        <td className="px-4 py-3 truncate max-w-[140px]">{transaction.khach_hang?.ho_va_ten || customers.find(c => c.id === transaction.id_khach_hang)?.ho_va_ten || transaction.id_khach_hang || '—'}</td>
+                        <td className="px-4 py-3 truncate max-w-[140px]">
+                          {(() => {
+                            // 1. Prioritize person who paid (nguoi_chi) or received (nguoi_nhan) stored directly in transaction
+                            const explicitName = transaction.nguoi_chi || transaction.nguoi_nhan;
+                            
+                            // 2. Try looking up in the loaded salesCards
+                            const order = salesCards.find(o => o.id === transaction.id_don);
+                            
+                            // 3. Try finding in global customers list
+                            const customerIdToFind = transaction.id_khach_hang || order?.khach_hang_id;
+                            const foundCustomer = customers.find(c => c.id === customerIdToFind || c.ma_khach_hang === customerIdToFind);
+                            
+                            // Return the best available name
+                            const displayName = explicitName || transaction.khach_hang?.ho_va_ten || foundCustomer?.ho_va_ten || order?.khach_hang?.ho_va_ten || order?.ten_khach_hang;
+                            
+                            if (displayName) return displayName;
+                            if (customerIdToFind && customerIdToFind.length > 20) return `KH-${customerIdToFind.slice(0, 6).toUpperCase()}`;
+                            return customerIdToFind || 'Khách lẻ';
+                          })()}
+                        </td>
+                        <td className="px-4 py-3 text-[12px] font-medium text-foreground">{transaction.phuong_thuc || (transaction.loai_phieu === 'phiếu thu' ? 'Tiền mặt' : '—')}</td>
                         <td className="px-4 py-3 text-[12px] text-muted-foreground">{transaction.co_so}</td>
                         <td className={clsx(
                           "px-4 py-3 text-right font-black",
@@ -627,7 +682,7 @@ const FinancialManagementPage: React.FC = () => {
                     ))}
                   {!loading && transactions.length === 0 && (
                     <tr>
-                      <td colSpan={12} className="px-2 py-8 text-center text-muted-foreground">Không có dữ liệu giao dịch.</td>
+                      <td colSpan={13} className="px-2 py-8 text-center text-muted-foreground">Không có dữ liệu giao dịch.</td>
                     </tr>
                   )}
                 </tbody>
@@ -656,12 +711,16 @@ const FinancialManagementPage: React.FC = () => {
         <FinancialFormModal
           isOpen={isModalOpen}
           editingTransaction={editingTransaction}
-          initialData={formData}
+          initialData={{
+            ...formData,
+            id_khach_hang: editingTransaction?.id_khach_hang || formData?.id_khach_hang || ""
+          }}
           onClose={handleCloseModal}
           onSubmit={handleSubmit}
           branchOptions={branchOptions}
           typeOptions={typeOptions}
           statusOptions={statusOptions}
+          customerOptions={customerOptions}
         />
       )}
     </div>

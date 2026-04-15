@@ -3,6 +3,8 @@ import type { KhachHang } from './customerData';
 import type { NhanSu } from './personnelData';
 import type { SalesCardCT } from './salesCardCTData';
 import type { DichVu } from './serviceData';
+import type { ThuChi } from './financialData';
+import { getTransactionsByOrderIds } from './financialData';
 
 // Helper to split array into chunks to avoid "URL too long" (400 Bad Request)
 export function chunkArray<T>(array: T[], size: number): T[][] {
@@ -36,6 +38,7 @@ export interface SalesCard {
   dich_vu?: Partial<DichVu>;
   dich_vu_ids?: string[]; // Frontend helper for multi-selection
   the_ban_hang_ct?: SalesCardCT[]; // Related detail items
+  thu_chi?: Partial<ThuChi>;
 }
 
 export async function enrichSalesCards(cards: SalesCard[]) {
@@ -43,7 +46,8 @@ export async function enrichSalesCards(cards: SalesCard[]) {
     attachDetails(cards),
     attachCustomer(cards),
     attachPersonnel(cards),
-    attachService(cards)
+    attachService(cards),
+    attachFinancialRecord(cards)
   ]);
 }
 
@@ -178,6 +182,28 @@ async function attachService(cards: SalesCard[]) {
         const key = card.dich_vu_id.toLowerCase();
         const s = serviceIdMap.get(key) || serviceNameMap.get(key);
         if (s) card.dich_vu = { ten_dich_vu: s.ten_dich_vu, gia_ban: s.gia_ban, gia_nhap: s.gia_nhap, co_so: s.co_so };
+      }
+    });
+  }
+}
+
+async function attachFinancialRecord(cards: SalesCard[]) {
+  const ids = cards.map(c => c.id).filter(Boolean);
+  if (ids.length > 0) {
+    const chunks = chunkArray(ids, 50);
+    const allFinancials: ThuChi[] = [];
+    
+    await Promise.all(chunks.map(async (chunk) => {
+      const records = await getTransactionsByOrderIds(chunk);
+      if (records && records.length > 0) allFinancials.push(...records);
+    }));
+
+    const finMap = new Map(allFinancials.map(f => [f.id_don, f]));
+
+    cards.forEach(card => {
+      const fin = finMap.get(card.id);
+      if (fin) {
+        card.thu_chi = fin;
       }
     });
   }

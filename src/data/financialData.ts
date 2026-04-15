@@ -17,6 +17,7 @@ export interface ThuChi {
   trang_thai: string;
   ngay: string;
   gio: string;
+  phuong_thuc?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -108,6 +109,24 @@ export const getTransactionByOrderId = async (orderId: string): Promise<ThuChi |
     return null;
   }
   return data as ThuChi | null;
+};
+
+export const getTransactionsByOrderIds = async (orderIds: string[]): Promise<ThuChi[]> => {
+  if (!orderIds || orderIds.length === 0) return [];
+  
+  // Use chunking if needed for very large lists, using a helper or just running directly 
+  // if length is likely small. For safety, let's just query up to 50 items safely.
+  const { data, error } = await supabase
+    .from('thu_chi')
+    .select('*')
+    .in('id_don', orderIds)
+    .eq('trang_thai', 'Hoàn thành');
+
+  if (error) {
+    console.error('Error fetching transactions by order IDs:', error);
+    return [];
+  }
+  return data as ThuChi[];
 };
 
 export const deleteTransactionByOrderId = async (orderId: string): Promise<void> => {

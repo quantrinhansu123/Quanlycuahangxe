@@ -293,6 +293,21 @@ const SalesCardManagementPage: React.FC = () => {
     if (card) {
       setEditingCard(card);
 
+      let mappedKhId = card.khach_hang_id;
+      if (mappedKhId) {
+        let c = customers.find(x => x.id === mappedKhId || x.ma_khach_hang === mappedKhId);
+        if (!c && card.khach_hang) {
+          c = {
+            id: mappedKhId.length === 36 ? mappedKhId : '',
+            ma_khach_hang: card.khach_hang.ma_khach_hang || (mappedKhId.length !== 36 ? mappedKhId : ''),
+            ho_va_ten: card.khach_hang.ho_va_ten || 'Khách hàng',
+            so_dien_thoai: card.khach_hang.so_dien_thoai || ''
+          } as KhachHang;
+          setCustomers(prev => [c!, ...prev]);
+        }
+        if (c) mappedKhId = c.ma_khach_hang || c.id;
+      }
+
       const mappedServiceItems = ((card as any).the_ban_hang_ct || []).map((ct: any) => {
         // Try to find the master service by name to get a valid UUID if ct.dich_vu_id is missing or random
         const masterService = services.find(s =>
@@ -311,6 +326,7 @@ const SalesCardManagementPage: React.FC = () => {
 
       setFormData({
         ...card,
+        khach_hang_id: mappedKhId,
         dich_vu_ids: mappedIds,
         service_items: mappedServiceItems
       } as any);
@@ -340,6 +356,21 @@ const SalesCardManagementPage: React.FC = () => {
     setIsReadOnlyModal(true);
     setEditingCard(card);
 
+    let mappedKhId = card.khach_hang_id;
+    if (mappedKhId) {
+      let c = customers.find(x => x.id === mappedKhId || x.ma_khach_hang === mappedKhId);
+      if (!c && card.khach_hang) {
+        c = {
+          id: mappedKhId.length === 36 ? mappedKhId : '',
+          ma_khach_hang: card.khach_hang.ma_khach_hang || (mappedKhId.length !== 36 ? mappedKhId : ''),
+          ho_va_ten: card.khach_hang.ho_va_ten || 'Khách hàng',
+          so_dien_thoai: card.khach_hang.so_dien_thoai || ''
+        } as KhachHang;
+        setCustomers(prev => [c!, ...prev]);
+      }
+      if (c) mappedKhId = c.ma_khach_hang || c.id;
+    }
+
     const mappedServiceItems = ((card as any).the_ban_hang_ct || []).map((ct: any) => ({
       id: ct.dich_vu_id || ct.san_pham_vat_tu_id || Math.random().toString(),
       ten_dich_vu: ct.san_pham || 'Dịch vụ',
@@ -350,6 +381,7 @@ const SalesCardManagementPage: React.FC = () => {
 
     setFormData({
       ...card,
+      khach_hang_id: mappedKhId,
       dich_vu_ids: mappedIds,
       service_items: mappedServiceItems
     } as any);
@@ -453,6 +485,7 @@ const SalesCardManagementPage: React.FC = () => {
           const financialRecord: Partial<ThuChi> = {
             id: existingTx?.id,
             loai_phieu: 'phiếu thu',
+            phuong_thuc: 'Tiền mặt',
             id_don: savedCard.id,
             so_tien: totalAmount,
             ngay: savedCard.ngay,
@@ -483,7 +516,7 @@ const SalesCardManagementPage: React.FC = () => {
     }
   };
 
-  const handleCollectPayment = async (data: any) => {
+  const handleCollectPayment = async (data: any, method: string = 'Tiền mặt') => {
     if (!editingCard) return;
 
     try {
@@ -497,9 +530,12 @@ const SalesCardManagementPage: React.FC = () => {
 
       const existingTx = await getTransactionByOrderId(editingCard.id);
 
+      const currentCustomer = customers.find(c => c.id === editingCard.khach_hang_id || c.ma_khach_hang === editingCard.khach_hang_id);
+
       const financialRecord: Partial<ThuChi> = {
         id: existingTx?.id,
         loai_phieu: 'phiếu thu',
+        phuong_thuc: method,
         id_don: editingCard.id,
         so_tien: totalAmount,
         ngay: data.ngay || new Date().toISOString().split('T')[0],
@@ -508,9 +544,10 @@ const SalesCardManagementPage: React.FC = () => {
           ? (services.find(s => s.id === items[0].id)?.co_so || 'Cơ sở chính')
           : 'Cơ sở chính',
         id_khach_hang: editingCard.khach_hang_id,
+        nguoi_chi: currentCustomer?.ho_va_ten || data.khach_hang?.ho_va_ten || editingCard.khach_hang?.ho_va_ten || editingCard.ten_khach_hang || 'Khách vãng lai',
         danh_muc: 'Doanh thu dịch vụ',
         trang_thai: 'Hoàn thành',
-        ghi_chu: `Thu tiền đơn hàng ${editingCard.id.slice(0, 8)} (Thao tác nhanh)`
+        ghi_chu: `Thu tiền đơn hàng ${editingCard.id.slice(0, 8)} (${method})`
       };
 
       await upsertTransaction(financialRecord);
