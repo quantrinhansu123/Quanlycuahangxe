@@ -530,28 +530,32 @@ export const getNextSalesCardCode = async (): Promise<string> => {
 };
 
 /**
- * Lấy ngày mua hàng đầu tiên của một danh sách khách hàng để phân loại mới/cũ
+ * Lấy ngày mua hàng đầu tiên theo TÊN KHÁCH HÀNG để phân loại mới/cũ.
+ * Dò toàn bộ lịch sử đơn hàng bằng tên khách.
+ * Key kết quả được normalize (trim + lowercase) để so khớp chính xác.
  */
-export async function getCustomerFirstSaleDates(custIds: string[]): Promise<Record<string, string>> {
-  if (custIds.length === 0) return {};
+export async function getCustomerFirstSaleDates(customerNames: string[]): Promise<Record<string, string>> {
+  if (customerNames.length === 0) return {};
   
-  const chunks = chunkArray([...new Set(custIds)], 100);
+  const uniqueNames = [...new Set(customerNames.filter(n => n && n.trim()))];
+  if (uniqueNames.length === 0) return {};
+
   const results: Record<string, string> = {};
+  const chunks = chunkArray(uniqueNames, 100);
 
   await Promise.all(chunks.map(async (chunk) => {
-    // Truy vấn các phiếu có liên quan đến list ID này. 
-    // Chúng ta lấy tất cả rồi lọc MIN ở JS vì Supabase query builder không hỗ trợ trả về MIN directly với GROUP BY dễ dàng.
-    const { data: allSales } = await supabase
+    const { data } = await supabase
       .from('the_ban_hang')
-      .select('khach_hang_id, ngay')
-      .in('khach_hang_id', chunk);
+      .select('ten_khach_hang, ngay')
+      .in('ten_khach_hang', chunk);
 
-    if (allSales) {
-      allSales.forEach(sale => {
-        const id = sale.khach_hang_id;
-        if (id) {
-          if (!results[id] || sale.ngay < results[id]) {
-            results[id] = sale.ngay;
+    if (data) {
+      data.forEach(sale => {
+        const name = sale.ten_khach_hang;
+        if (name) {
+          const key = name.trim().toLowerCase();
+          if (!results[key] || sale.ngay < results[key]) {
+            results[key] = sale.ngay;
           }
         }
       });
@@ -560,3 +564,5 @@ export async function getCustomerFirstSaleDates(custIds: string[]): Promise<Reco
 
   return results;
 }
+
+

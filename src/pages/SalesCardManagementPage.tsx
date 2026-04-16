@@ -123,10 +123,14 @@ const SalesCardManagementPage: React.FC = () => {
       setSalesCards(cardsResult.data);
       setTotalCount(cardsResult.totalCount);
 
-      // Fetch first sale dates for customers in current view to determine new vs returning
-      const uniqueCustIds = [...new Set(cardsResult.data.map(c => c.khach_hang_id).filter(Boolean))] as string[];
-      if (uniqueCustIds.length > 0) {
-        const firstDates = await getCustomerFirstSaleDates(uniqueCustIds);
+      // Fetch first sale dates by CUSTOMER NAME to determine new vs returning
+      const uniqueNames = [...new Set(
+        cardsResult.data
+          .map(c => c.khach_hang?.ho_va_ten || c.ten_khach_hang || '')
+          .filter(n => n.trim())
+      )] as string[];
+      if (uniqueNames.length > 0) {
+        const firstDates = await getCustomerFirstSaleDates(uniqueNames);
         setCustomerFirstSaleDateMap(firstDates);
       }
     } catch (error) {
@@ -184,25 +188,21 @@ const SalesCardManagementPage: React.FC = () => {
       groups[date].items.push(card);
       groups[date].totalAmount += cardTotal;
       
-      // Use any identifying customer field
-      const customerId = card.khach_hang_id || card.ten_khach_hang || 'unknown';
-      groups[date].uniqueCustomers.add(customerId);
+      // Use customer name as the unique identifier (normalized)
+      const customerName = (card.khach_hang?.ho_va_ten || card.ten_khach_hang || 'unknown').trim().toLowerCase();
+      groups[date].uniqueCustomers.add(customerName);
       
-      // Categorize New vs Returning
-      if (card.khach_hang_id) {
-        const firstDate = customerFirstSaleDateMap[card.khach_hang_id];
-        if (firstDate === date) {
-          groups[date].newCustomers.add(customerId);
-        } else if (firstDate && firstDate < date) {
-          groups[date].returningCustomers.add(customerId);
+      // Categorize New vs Returning by checking name history
+      const firstDate = customerFirstSaleDateMap[customerName];
+
+      if (firstDate) {
+        if (firstDate >= date) {
+          groups[date].newCustomers.add(customerName);
         } else {
-          // If no history found or created today in this specific card, default to new if it's the first card we see
-          // but we rely on database firstDate for accuracy
-          groups[date].newCustomers.add(customerId);
+          groups[date].returningCustomers.add(customerName);
         }
       } else {
-        // Guest/Unknown often considered new
-        groups[date].newCustomers.add(customerId);
+        groups[date].newCustomers.add(customerName);
       }
       
       // Keep track of the latest activity time in this group
@@ -511,6 +511,14 @@ const SalesCardManagementPage: React.FC = () => {
         phuong_thuc_thanh_toan,
         ...cleanData
       } = formDataHeader as any;
+
+      // Extract the name from the existing customers if ten_khach_hang is implicitly null
+      if (!cleanData.ten_khach_hang && cleanData.khach_hang_id) {
+        const foundCustomer = customers.find(c => c.id === cleanData.khach_hang_id || c.ma_khach_hang === cleanData.khach_hang_id);
+        if (foundCustomer && foundCustomer.ho_va_ten) {
+          cleanData.ten_khach_hang = foundCustomer.ho_va_ten;
+        }
+      }
 
       // Sanitize date fields to avoid "invalid input syntax for type date" error in Supabase
       if (cleanData.ngay_nhac_thay_dau === '') cleanData.ngay_nhac_thay_dau = null;

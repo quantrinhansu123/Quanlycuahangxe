@@ -24,6 +24,7 @@ import { useAuth } from '../context/AuthContext';
 import type { AttendanceRecord } from '../data/attendanceData';
 import { bulkUpsertAttendanceRecords, deleteAttendanceRecord, getAttendancePaginated, getAttendanceRecords, upsertAttendanceRecord } from '../data/attendanceData';
 import { getPersonnel, type NhanSu } from '../data/personnelData';
+import { calculateAttendanceStatus } from '../utils/timekeeping';
 
 const AttendanceManagementPage: React.FC = () => {
   const { currentUser, isAdmin } = useAuth();
@@ -53,11 +54,15 @@ const AttendanceManagementPage: React.FC = () => {
 
   const STORAGE_KEY_COLUMNS = 'attendance_visible_columns';
   const [visibleColumns, setVisibleColumns] = useState<string[]>(() => {
+    const defaults = ['id_cham_cong', 'anh', 'nhan_su', 'ngay', 'trang_thai', 'checkin', 'checkout', 'di_muon', 'tang_ca', 'actions'];
     try {
       const saved = localStorage.getItem(STORAGE_KEY_COLUMNS);
-      return saved ? JSON.parse(saved) : ['id_cham_cong', 'anh', 'nhan_su', 'ngay', 'checkin', 'checkout', 'vi_tri', 'actions'];
+      if (!saved) return defaults;
+      const parsed = JSON.parse(saved);
+      // Merge defaults to ensure new columns show up for returning users
+      return Array.from(new Set([...parsed, ...['trang_thai', 'di_muon', 'tang_ca']]));
     } catch {
-      return ['id_cham_cong', 'anh', 'nhan_su', 'ngay', 'checkin', 'checkout', 'vi_tri', 'actions'];
+      return defaults;
     }
   });
 
@@ -70,8 +75,11 @@ const AttendanceManagementPage: React.FC = () => {
     { id: 'anh', label: 'Ảnh' },
     { id: 'nhan_su', label: 'Nhân sự' },
     { id: 'ngay', label: 'Ngày' },
+    { id: 'trang_thai', label: 'Trạng thái' },
     { id: 'checkin', label: 'Giờ vào' },
     { id: 'checkout', label: 'Giờ ra' },
+    { id: 'di_muon', label: 'Đi muộn' },
+    { id: 'tang_ca', label: 'Tăng ca' },
     { id: 'vi_tri', label: 'Vị trí' },
     { id: 'actions', label: 'Thao tác' }
   ];
@@ -95,8 +103,48 @@ const AttendanceManagementPage: React.FC = () => {
         }),
         getPersonnel()
       ]);
-      setRecords(attendanceResult.data);
-      setTotalCount(attendanceResult.totalCount);
+
+      let finalRecords = [...attendanceResult.data];
+      let totalCount = attendanceResult.totalCount;
+
+      // Mock absence logic: ONLY apply if a specific single day is queried (startDate === endDate or if user queries by single date if logic supported)
+      // Since our UI has a From - To date picker format, a user commonly selects a specific date by choosing From Date = To Date.
+      if (startDate && endDate && startDate === endDate) {
+         // Create a Set of staff who actually attended
+         const attendedStaffNames = new Set(attendanceResult.data.map(r => r.nhan_su));
+
+         // Filter personnel who didn't attend and who match the search/staff filters
+         const absentees = personnelData.filter(p => {
+           if (attendedStaffNames.has(p.ho_ten)) return false;
+           
+           // Apply staff filter if selected
+           if (selectedStaff && selectedStaff !== p.id_nhan_su && selectedStaff !== p.ho_ten) return false;
+           
+           // Apply search filter if selected
+           if (debouncedSearch && !p.ho_ten.toLowerCase().includes(debouncedSearch.toLowerCase())) return false;
+           
+           return true;
+         });
+
+         // Create fake records for absentees to render them as "Absent"
+         const fakeAbsentRecords: AttendanceRecord[] = absentees.map(p => ({
+           id: `fake-absent-${p.id}`,
+           id_cham_cong: null,
+           nhan_su: p.ho_ten,
+           ngay: startDate,
+           checkin: null,
+           checkout: null,
+           anh: p.hinh_anh || null,
+           vi_tri: null,
+           isMockAbsent: true // UI helper flag
+         } as AttendanceRecord & { isMockAbsent?: boolean }));
+
+         finalRecords = [...finalRecords, ...fakeAbsentRecords];
+         totalCount += fakeAbsentRecords.length;
+      }
+
+      setRecords(finalRecords);
+      setTotalCount(totalCount);
       setPersonnel(personnelData);
     } catch (error) {
       console.error(error);
@@ -142,7 +190,6 @@ const AttendanceManagementPage: React.FC = () => {
   const handleCloseModal = () => {
     setIsModalOpen(false);
   };
-
 
   const getLocation = () => {
     if (!("geolocation" in navigator)) {
@@ -541,8 +588,11 @@ const AttendanceManagementPage: React.FC = () => {
                   {visibleColumns.includes('anh') && <th className="px-4 py-3 font-semibold">Ảnh</th>}
                   {visibleColumns.includes('nhan_su') && <th className="px-4 py-3 font-semibold">Nhân sự</th>}
                   {visibleColumns.includes('ngay') && <th className="px-4 py-3 font-semibold">Ngày</th>}
+                  {visibleColumns.includes('trang_thai') && <th className="px-4 py-3 font-semibold">Trạng thái</th>}
                   {visibleColumns.includes('checkin') && <th className="px-4 py-3 font-semibold">Giờ vào</th>}
                   {visibleColumns.includes('checkout') && <th className="px-4 py-3 font-semibold">Giờ ra</th>}
+                  {visibleColumns.includes('di_muon') && <th className="px-4 py-3 font-semibold">Đi muộn</th>}
+                  {visibleColumns.includes('tang_ca') && <th className="px-4 py-3 font-semibold">Tăng ca</th>}
                   {visibleColumns.includes('vi_tri') && <th className="px-4 py-3 font-semibold">Vị trí</th>}
                   {visibleColumns.includes('actions') && <th className="px-4 py-3 text-center font-semibold">Thao tác</th>}
                 </tr>
@@ -555,46 +605,87 @@ const AttendanceManagementPage: React.FC = () => {
                       Đang tải dữ liệu...
                     </td>
                   </tr>
-                ) : records.map(record => (
-                  <tr key={record.id} className="hover:bg-muted/80 transition-colors">
-                    <td className="px-4 py-4 text-center"><input className="rounded border-border text-primary size-4" type="checkbox" /></td>
-                    {visibleColumns.includes('id_cham_cong') && (
-                      <td className="px-4 py-4 font-medium text-blue-600">{record.id_cham_cong || '—'}</td>
-                    )}
-                    {visibleColumns.includes('anh') && (
-                      <td className="px-4 py-4">
-                        <div className="w-10 h-10 rounded bg-primary/10 flex items-center justify-center text-primary overflow-hidden border border-border shadow-sm">
-                          {record.anh ? (
-                            <img src={record.anh} alt="" className="w-full h-full object-cover" />
+                ) : records.map(record => {
+                  const status = calculateAttendanceStatus(record.checkin, record.checkout);
+                  const isMockAbsent = (record as any).isMockAbsent;
+
+                  return (
+                    <tr key={record.id} className={clsx("transition-colors", isMockAbsent ? "bg-red-50/50 hover:bg-red-50" : "hover:bg-muted/80")}>
+                      <td className="px-4 py-4 text-center">
+                        {!isMockAbsent && <input className="rounded border-border text-primary size-4" type="checkbox" />}
+                      </td>
+                      {visibleColumns.includes('id_cham_cong') && (
+                        <td className="px-4 py-4 font-medium text-blue-600">{record.id_cham_cong || '—'}</td>
+                      )}
+                      {visibleColumns.includes('anh') && (
+                        <td className="px-4 py-4">
+                          <div className="w-10 h-10 rounded bg-primary/10 flex items-center justify-center text-primary overflow-hidden border border-border shadow-sm">
+                            {record.anh ? (
+                              <img src={record.anh} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <User size={20} />
+                            )}
+                          </div>
+                        </td>
+                      )}
+                      {visibleColumns.includes('nhan_su') && <td className="px-4 py-4 font-semibold text-foreground whitespace-nowrap">{record.nhan_su}</td>}
+                      {visibleColumns.includes('ngay') && <td className="px-4 py-4 text-muted-foreground whitespace-nowrap">{formatDateForDisplay(record.ngay)}</td>}
+                      
+                      {visibleColumns.includes('trang_thai') && (
+                        <td className="px-4 py-4">
+                          {isMockAbsent ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-red-100/80 text-red-700 text-[12px] font-semibold border border-red-200">
+                              Vắng mặt
+                            </span>
                           ) : (
-                            <User size={20} />
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-emerald-100/80 text-emerald-700 text-[12px] font-semibold border border-emerald-200">
+                              Có mặt
+                            </span>
                           )}
-                        </div>
-                      </td>
-                    )}
-                    {visibleColumns.includes('nhan_su') && <td className="px-4 py-4 font-semibold text-foreground whitespace-nowrap">{record.nhan_su}</td>}
-                    {visibleColumns.includes('ngay') && <td className="px-4 py-4 text-muted-foreground whitespace-nowrap">{formatDateForDisplay(record.ngay)}</td>}
-                    {visibleColumns.includes('checkin') && <td className="px-4 py-4 text-emerald-600 font-bold">{record.checkin || '—'}</td>}
-                    {visibleColumns.includes('checkout') && <td className="px-4 py-4 text-orange-600 font-bold">{record.checkout || '—'}</td>}
-                    {visibleColumns.includes('vi_tri') && (
-                      <td className="px-4 py-4 text-muted-foreground text-[12px] truncate max-w-[200px]" title={record.vi_tri || ''}>
-                        {record.vi_tri || '—'}
-                      </td>
-                    )}
-                    {visibleColumns.includes('actions') && (
-                      <td className="px-4 py-4">
-                        <div className="flex items-center justify-center gap-4">
-                          <button onClick={() => handleOpenModal(record)} className="text-primary hover:text-blue-700">
-                            <Edit2 size={18} />
-                          </button>
-                          <button onClick={() => handleDelete(record.id)} className="text-destructive hover:text-destructive/80">
-                            <Trash2 size={18} />
-                          </button>
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                ))}
+                        </td>
+                      )}
+
+                      {visibleColumns.includes('checkin') && <td className="px-4 py-4 text-emerald-600 font-bold">{record.checkin || '—'}</td>}
+                      {visibleColumns.includes('checkout') && <td className="px-4 py-4 text-orange-600 font-bold">{record.checkout || '—'}</td>}
+                      
+                      {visibleColumns.includes('di_muon') && (
+                        <td className="px-4 py-4 font-bold">
+                          {status.isLate && !isMockAbsent ? (
+                            <span className="text-red-600">Đi muộn {status.lateMinutes}p</span>
+                          ) : '—'}
+                        </td>
+                      )}
+
+                      {visibleColumns.includes('tang_ca') && (
+                        <td className="px-4 py-4 font-bold">
+                          {status.overtimeMinutes >= 30 && !isMockAbsent ? (
+                            <span className="text-orange-600">{status.overtimeFormatted}</span>
+                          ) : '—'}
+                        </td>
+                      )}
+
+                      {visibleColumns.includes('vi_tri') && (
+                        <td className="px-4 py-4 text-muted-foreground text-[12px] truncate max-w-[200px]" title={record.vi_tri || ''}>
+                          {record.vi_tri || '—'}
+                        </td>
+                      )}
+                      {visibleColumns.includes('actions') && (
+                        <td className="px-4 py-4">
+                          {!isMockAbsent && (
+                            <div className="flex items-center justify-center gap-4">
+                              <button onClick={() => handleOpenModal(record)} className="text-primary hover:text-blue-700">
+                                <Edit2 size={18} />
+                              </button>
+                              <button onClick={() => handleDelete(record.id)} className="text-destructive hover:text-destructive/80">
+                                <Trash2 size={18} />
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
                 {!loading && records.length === 0 && (
                   <tr>
                     <td colSpan={12} className="px-4 py-8 text-center text-muted-foreground">
@@ -617,8 +708,12 @@ const AttendanceManagementPage: React.FC = () => {
               <div className="px-4 py-8 text-center text-muted-foreground text-[13px]">Không tìm thấy bản ghi chấm công nào.</div>
             ) : (
               <div className="divide-y divide-border">
-                {records.map(record => (
-                  <div key={record.id} className="p-4 flex items-start gap-3 hover:bg-muted/50 transition-colors">
+                {records.map(record => {
+                  const status = calculateAttendanceStatus(record.checkin, record.checkout);
+                  const isMockAbsent = (record as any).isMockAbsent;
+                  
+                  return (
+                  <div key={record.id} className={clsx("p-4 flex items-start gap-3 transition-colors", isMockAbsent ? "bg-red-50/50 hover:bg-red-50" : "hover:bg-muted/50")}>
                     {/* Avatar */}
                     <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary overflow-hidden border border-border shadow-sm shrink-0">
                       {record.anh ? (
@@ -631,7 +726,7 @@ const AttendanceManagementPage: React.FC = () => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1">
                         <div className="flex items-center gap-2 min-w-0">
-                          {record.id_cham_cong && (
+                          {record.id_cham_cong && !isMockAbsent && (
                             <span className="bg-blue-50 text-blue-600 text-[10px] px-1.5 py-0.5 rounded font-bold border border-blue-100 shrink-0">
                               {record.id_cham_cong}
                             </span>
@@ -640,7 +735,32 @@ const AttendanceManagementPage: React.FC = () => {
                         </div>
                         <span className="text-[11px] text-muted-foreground shrink-0 ml-2">{formatDateForDisplay(record.ngay)}</span>
                       </div>
-                      <div className="flex items-center gap-4 text-[13px]">
+                      
+                      <div className="flex items-center gap-2 mb-1.5">
+                        {isMockAbsent ? (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-100/80 text-red-700 text-[11px] font-bold border border-red-200">
+                            Vắng mặt
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-100/80 text-emerald-700 text-[11px] font-bold border border-emerald-200">
+                            Có mặt
+                          </span>
+                        )}
+                        
+                        {!isMockAbsent && status.isLate && (
+                           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-50 text-red-600 text-[11px] font-bold border border-red-100">
+                             Đi muộn {status.lateMinutes}p
+                           </span>
+                        )}
+
+                        {!isMockAbsent && status.overtimeMinutes >= 30 && (
+                           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-orange-50 text-orange-600 text-[11px] font-bold border border-orange-100">
+                             OT: {status.overtimeFormatted}
+                           </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-4 text-[13px] mt-1">
                         <span className="flex items-center gap-1">
                           <Clock size={12} className="text-emerald-500" />
                           <span className="text-emerald-600 font-bold">{record.checkin || '—'}</span>
@@ -651,20 +771,22 @@ const AttendanceManagementPage: React.FC = () => {
                         </span>
                       </div>
                       {record.vi_tri && (
-                        <p className="text-[11px] text-muted-foreground mt-1 truncate">📍 {record.vi_tri}</p>
+                        <p className="text-[11px] text-muted-foreground mt-1.5 truncate">📍 {record.vi_tri}</p>
                       )}
                     </div>
                     {/* Actions */}
-                    <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
-                      <button onClick={() => handleOpenModal(record)} className="p-1.5 rounded-lg text-primary hover:bg-primary/10 transition-colors" title="Sửa">
-                        <Edit2 size={16} />
-                      </button>
-                      <button onClick={() => handleDelete(record.id)} className="p-1.5 rounded-lg text-destructive hover:bg-red-50 transition-colors" title="Xóa">
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
+                    {!isMockAbsent && (
+                      <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
+                        <button onClick={() => handleOpenModal(record)} className="p-1.5 rounded-lg text-primary hover:bg-primary/10 transition-colors" title="Sửa">
+                          <Edit2 size={16} />
+                        </button>
+                        <button onClick={() => handleDelete(record.id)} className="p-1.5 rounded-lg text-destructive hover:bg-red-50 transition-colors" title="Xóa">
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    )}
                   </div>
-                ))}
+                )})}
               </div>
             )}
           </div>

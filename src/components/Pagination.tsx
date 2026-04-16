@@ -43,9 +43,9 @@ const Pagination: React.FC<PaginationProps> = ({
   };
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-3 bg-card border-t border-border mt-auto">
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-3 sm:px-4 py-3 bg-card border-t border-border mt-auto">
       {/* Description */}
-      <div className="text-[13px] text-muted-foreground order-2 sm:order-1">
+      <div className="text-[12px] sm:text-[13px] text-muted-foreground order-2 sm:order-1 text-center sm:text-left">
         Hiển thị <span className="font-bold text-foreground">{totalCount === 0 ? 0 : startRange}</span>
         -
         <span className="font-bold text-foreground">{endRange}</span>
@@ -54,16 +54,18 @@ const Pagination: React.FC<PaginationProps> = ({
       </div>
 
       {/* Controls */}
-      <div className="flex items-center gap-2 order-1 sm:order-2">
+      <div className="flex flex-wrap items-center justify-center gap-3 order-1 sm:order-2">
         {onPageSizeChange && (
           <select 
             value={pageSize}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
-            className="mr-4 px-2 py-1.5 bg-background border border-border rounded-lg text-[13px] outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+            className="px-2 py-1.5 bg-background border border-border rounded-lg text-[12px] sm:text-[13px] outline-none focus:ring-1 focus:ring-primary cursor-pointer"
             disabled={loading}
           >
             {[10, 20, 50, 100].map(size => (
-              <option key={size} value={size}>{size} dòng / trang</option>
+              <option key={size} value={size}>
+                {size} / trang
+              </option>
             ))}
           </select>
         )}
@@ -72,10 +74,10 @@ const Pagination: React.FC<PaginationProps> = ({
           <button
             onClick={() => onPageChange(1)}
             disabled={currentPage === 1 || loading}
-            className="p-1.5 rounded-lg border border-border hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            className="p-1.5 rounded-lg border border-border hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-all hidden xs:flex"
             title="Trang đầu"
           >
-            <ChevronsLeft size={18} />
+            <ChevronsLeft size={16} />
           </button>
           <button
             onClick={() => onPageChange(currentPage - 1)}
@@ -83,17 +85,17 @@ const Pagination: React.FC<PaginationProps> = ({
             className="p-1.5 rounded-lg border border-border hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-all"
             title="Trang trước"
           >
-            <ChevronLeft size={18} />
+            <ChevronLeft size={16} />
           </button>
 
-          <div className="flex items-center gap-1 mx-1">
+          <div className="flex items-center gap-1 mx-0.5">
             {getPageNumbers().map(pageNum => (
               <button
                 key={pageNum}
                 onClick={() => onPageChange(pageNum)}
                 disabled={loading}
                 className={clsx(
-                  "w-8 h-8 rounded-lg text-[13px] font-bold transition-all",
+                  "w-7 h-7 sm:w-8 sm:h-8 rounded-lg text-[12px] sm:text-[13px] font-bold transition-all",
                   currentPage === pageNum 
                     ? "bg-primary text-white shadow-lg shadow-primary/25" 
                     : "hover:bg-muted text-muted-foreground"
@@ -110,15 +112,15 @@ const Pagination: React.FC<PaginationProps> = ({
             className="p-1.5 rounded-lg border border-border hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-all"
             title="Trang sau"
           >
-            <ChevronRight size={18} />
+            <ChevronRight size={16} />
           </button>
           <button
             onClick={() => onPageChange(totalPages)}
             disabled={currentPage === totalPages || loading}
-            className="p-1.5 rounded-lg border border-border hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            className="p-1.5 rounded-lg border border-border hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-all hidden xs:flex"
             title="Trang cuối"
           >
-            <ChevronsRight size={18} />
+            <ChevronsRight size={16} />
           </button>
         </div>
       </div>
