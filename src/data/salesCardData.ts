@@ -528,3 +528,35 @@ export const getNextSalesCardCode = async (): Promise<string> => {
   const nextNumber = maxNum + 1;
   return `BH-${nextNumber.toString().padStart(6, '0')}`;
 };
+
+/**
+ * Lấy ngày mua hàng đầu tiên của một danh sách khách hàng để phân loại mới/cũ
+ */
+export async function getCustomerFirstSaleDates(custIds: string[]): Promise<Record<string, string>> {
+  if (custIds.length === 0) return {};
+  
+  const chunks = chunkArray([...new Set(custIds)], 100);
+  const results: Record<string, string> = {};
+
+  await Promise.all(chunks.map(async (chunk) => {
+    // Truy vấn các phiếu có liên quan đến list ID này. 
+    // Chúng ta lấy tất cả rồi lọc MIN ở JS vì Supabase query builder không hỗ trợ trả về MIN directly với GROUP BY dễ dàng.
+    const { data: allSales } = await supabase
+      .from('the_ban_hang')
+      .select('khach_hang_id, ngay')
+      .in('khach_hang_id', chunk);
+
+    if (allSales) {
+      allSales.forEach(sale => {
+        const id = sale.khach_hang_id;
+        if (id) {
+          if (!results[id] || sale.ngay < results[id]) {
+            results[id] = sale.ngay;
+          }
+        }
+      });
+    }
+  }));
+
+  return results;
+}

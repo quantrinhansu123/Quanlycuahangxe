@@ -30,12 +30,20 @@ import type { NhanSu } from '../data/personnelData';
 import { getPersonnel } from '../data/personnelData';
 import { bulkUpsertSalesCardCTs, deleteSalesCardCTsByOrderId } from '../data/salesCardCTData';
 import type { SalesCard } from '../data/salesCardData';
-import { bulkUpsertSalesCards, deleteAllSalesCards, deleteSalesCard, getNextSalesCardCode, getSalesCardsPaginated, normalizeSalesCards, upsertSalesCard } from '../data/salesCardData';
+import { 
+  bulkUpsertSalesCards, 
+  deleteAllSalesCards, 
+  deleteSalesCard, 
+  getNextSalesCardCode, 
+  getSalesCardsPaginated, 
+  normalizeSalesCards, 
+  upsertSalesCard,
+  getCustomerFirstSaleDates 
+} from '../data/salesCardData';
 import { computeChanges, saveEditHistory } from '../data/salesCardHistoryData';
 import type { DichVu } from '../data/serviceData';
 import { getServices } from '../data/serviceData';
 import { supabase } from '../lib/supabase';
-import { cn } from '../lib/utils';
 
 const SalesCardFormModal = React.lazy(() => import('../components/SalesCardFormModal'));
 
@@ -67,10 +75,10 @@ const SalesCardManagementPage: React.FC = () => {
   // Date filtering states
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [activeQuickFilter, setActiveQuickFilter] = useState<'all' | 'today' | 'yesterday' | 'this_week' | 'this_month' | 'custom'>('all');
   const [selectedMonth, setSelectedMonth] = useState('');
   const [selectedStaff, setSelectedStaff] = useState('');
   const [selectedBranch, setSelectedBranch] = useState('');
+  const [customerFirstSaleDateMap, setCustomerFirstSaleDateMap] = useState<Record<string, string>>({});
 
   // Debounce search
   useEffect(() => {
@@ -114,6 +122,13 @@ const SalesCardManagementPage: React.FC = () => {
 
       setSalesCards(cardsResult.data);
       setTotalCount(cardsResult.totalCount);
+
+      // Fetch first sale dates for customers in current view to determine new vs returning
+      const uniqueCustIds = [...new Set(cardsResult.data.map(c => c.khach_hang_id).filter(Boolean))] as string[];
+      if (uniqueCustIds.length > 0) {
+        const firstDates = await getCustomerFirstSaleDates(uniqueCustIds);
+        setCustomerFirstSaleDateMap(firstDates);
+      }
     } catch (error) {
       console.error('Error loading sales cards:', error);
     } finally {
@@ -144,6 +159,8 @@ const SalesCardManagementPage: React.FC = () => {
       items: SalesCard[];
       totalAmount: number;
       uniqueCustomers: Set<string>;
+      newCustomers: Set<string>;
+      returningCustomers: Set<string>;
       latestTime: string;
     }> = {};
 
@@ -155,6 +172,8 @@ const SalesCardManagementPage: React.FC = () => {
           items: [],
           totalAmount: 0,
           uniqueCustomers: new Set(),
+          newCustomers: new Set(),
+          returningCustomers: new Set(),
           latestTime: card.gio || '00:00'
         };
       }
@@ -168,6 +187,23 @@ const SalesCardManagementPage: React.FC = () => {
       // Use any identifying customer field
       const customerId = card.khach_hang_id || card.ten_khach_hang || 'unknown';
       groups[date].uniqueCustomers.add(customerId);
+      
+      // Categorize New vs Returning
+      if (card.khach_hang_id) {
+        const firstDate = customerFirstSaleDateMap[card.khach_hang_id];
+        if (firstDate === date) {
+          groups[date].newCustomers.add(customerId);
+        } else if (firstDate && firstDate < date) {
+          groups[date].returningCustomers.add(customerId);
+        } else {
+          // If no history found or created today in this specific card, default to new if it's the first card we see
+          // but we rely on database firstDate for accuracy
+          groups[date].newCustomers.add(customerId);
+        }
+      } else {
+        // Guest/Unknown often considered new
+        groups[date].newCustomers.add(customerId);
+      }
       
       // Keep track of the latest activity time in this group
       if (card.gio && card.gio > groups[date].latestTime) {
@@ -891,65 +927,16 @@ const SalesCardManagementPage: React.FC = () => {
     }
   };
 
-  const handleQuickFilter = (type: typeof activeQuickFilter) => {
-    setActiveQuickFilter(type);
-    setSelectedMonth('');
-    const today = new Date();
-
-    // Set time to midnight for consistent calculations if needed, 
-    // but here we just need YYYY-MM-DD
-
-    let start = '';
-    let end = '';
-
-    switch (type) {
-      case 'today':
-        start = today.toISOString().split('T')[0];
-        end = start;
-        break;
-      case 'yesterday':
-        const yesterday = new Date(today);
-        yesterday.setDate(today.getDate() - 1);
-        start = yesterday.toISOString().split('T')[0];
-        end = start;
-        break;
-      case 'this_week':
-        const dayOfWeek = today.getDay(); // 0 (Sun) to 6 (Sat)
-        const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-        const monday = new Date(today);
-        monday.setDate(today.getDate() + diffToMonday);
-        const sunday = new Date(monday);
-        sunday.setDate(monday.getDate() + 6);
-        start = monday.toISOString().split('T')[0];
-        end = sunday.toISOString().split('T')[0];
-        break;
-      case 'this_month':
-        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-        const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-        start = firstDay.toISOString().split('T')[0];
-        end = lastDay.toISOString().split('T')[0];
-        break;
-      case 'all':
-        start = '';
-        end = '';
-        break;
-      default:
-        return;
-    }
-
-    setStartDate(start);
-    setEndDate(end);
-    setCurrentPage(1);
-  };
-
   const handleMonthChange = (monthStr: string) => {
+    setSelectedMonth(monthStr);
     if (!monthStr) {
-      handleQuickFilter('all');
+      setStartDate('');
+      setEndDate('');
+      setCurrentPage(1);
       return;
     }
 
     setSelectedMonth(monthStr);
-    setActiveQuickFilter('custom');
 
     const [year, month] = monthStr.split('-').map(Number);
     const firstDay = new Date(year, month - 1, 1);
@@ -964,7 +951,6 @@ const SalesCardManagementPage: React.FC = () => {
     setSearchQuery('');
     setStartDate('');
     setEndDate('');
-    setActiveQuickFilter('all');
     setSelectedMonth('');
     setSelectedStaff('');
     setSelectedBranch('');
@@ -1080,126 +1066,114 @@ const SalesCardManagementPage: React.FC = () => {
         </div>
 
         {/* Filter Bar */}
-        <div className="bg-card p-4 rounded-xl border border-border shadow-sm font-sans flex flex-col gap-4">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 sm:pb-0">
-              <div className="flex bg-muted p-1 rounded-lg shrink-0">
-                {[
-                  { id: 'all', label: 'Tất cả' },
-                  { id: 'today', label: 'Hôm nay' },
-                  { id: 'yesterday', label: 'Hôm qua' },
-                  { id: 'this_week', label: 'Tuần này' },
-                  { id: 'this_month', label: 'Tháng này' },
-                ].map((f) => (
-                  <button
-                    key={f.id}
-                    onClick={() => handleQuickFilter(f.id as any)}
-                    className={cn(
-                      "px-3 py-1.5 text-[11px] sm:text-[13px] font-bold rounded-md transition-all whitespace-nowrap",
-                      activeQuickFilter === f.id
-                        ? "bg-background text-primary shadow-sm"
-                        : "text-muted-foreground hover:text-foreground hover:bg-background/50"
-                    )}
-                  >
-                    {f.label}
-                  </button>
-                ))}
+        <div className="bg-card p-3 sm:p-4 rounded-xl border border-border shadow-sm font-sans">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end sm:gap-4">
+            {isAdmin && (
+              <>
+                {/* Branch Filter */}
+                <div className="col-span-1 flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-[13px] font-bold text-muted-foreground w-full">
+                  <Building size={14} className="shrink-0 hidden sm:block" />
+                  <div className="relative w-full">
+                    <select
+                      value={selectedBranch}
+                      onChange={(e) => {
+                        setSelectedBranch(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      className="appearance-none w-full pl-2 pr-7 sm:pl-3 sm:pr-8 py-1.5 bg-muted/50 border border-border rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none cursor-pointer transition-all text-[11px] sm:text-[13px]"
+                    >
+                      <option value="">Cơ sở...</option>
+                      {[...new Set(personnel.map(p => p.co_so).filter(Boolean))].map(branch => (
+                        <option key={branch} value={branch}>{branch}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 size-3.5 pointer-events-none text-muted-foreground" />
+                  </div>
+                </div>
+
+                {/* Staff Filter */}
+                <div className="col-span-1 flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-[13px] font-bold text-muted-foreground w-full">
+                  <User size={14} className="shrink-0 hidden sm:block" />
+                  <div className="relative w-full">
+                    <select
+                      value={selectedStaff}
+                      onChange={(e) => {
+                        setSelectedStaff(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      className="appearance-none w-full pl-2 pr-7 sm:pl-3 sm:pr-8 py-1.5 bg-muted/50 border border-border rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none cursor-pointer transition-all text-[11px] sm:text-[13px]"
+                    >
+                      <option value="">Nhân sự...</option>
+                      {personnel.map((p) => (
+                        <option key={p.id} value={p.ho_ten}>{p.ho_ten}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 size-3.5 pointer-events-none text-muted-foreground" />
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Month Filter */}
+            <div className="col-span-1 flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-[13px] font-bold text-muted-foreground w-full sm:w-auto">
+              <span className="hidden sm:inline">Tháng:</span>
+              <Calendar size={14} className="shrink-0 sm:hidden" />
+              <div className="relative w-full sm:w-auto">
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => handleMonthChange(e.target.value)}
+                  className="appearance-none w-full sm:min-w-[120px] pl-2 pr-7 sm:pl-3 sm:pr-8 py-1.5 bg-muted/50 border border-border rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none cursor-pointer transition-all text-[11px] sm:text-[13px]"
+                >
+                  <option value="">Tháng...</option>
+                  {Array.from({ length: 12 }, (_, i) => {
+                    const d = new Date();
+                    d.setMonth(d.getMonth() - i);
+                    const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                    const label = `Tháng ${d.getMonth() + 1}/${d.getFullYear()}`;
+                    return <option key={val} value={val}>{label}</option>;
+                  })}
+                </select>
+                <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 size-3.5 pointer-events-none text-muted-foreground" />
               </div>
             </div>
 
-            <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
-              {isAdmin && (
-                <>
-                  {/* Branch Filter */}
-                  <div className="flex items-center gap-2 text-[11px] sm:text-[13px] font-bold text-muted-foreground">
-                    <Building size={16} />
-                    <div className="relative">
-                      <select
-                        value={selectedBranch}
-                        onChange={(e) => {
-                          setSelectedBranch(e.target.value);
-                          setCurrentPage(1);
-                        }}
-                        className="appearance-none pl-3 pr-8 py-1.5 bg-muted/50 border border-border rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none cursor-pointer transition-all min-w-[120px]"
-                      >
-                        <option value="">Tất cả cơ sở</option>
-                        {[...new Set(personnel.map(p => p.co_so).filter(Boolean))].map(branch => (
-                          <option key={branch} value={branch}>{branch}</option>
-                        ))}
-                      </select>
-                      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 size-4 pointer-events-none text-muted-foreground" />
-                    </div>
-                  </div>
-
-                  {/* Staff Filter */}
-                  <div className="flex items-center gap-2 text-[11px] sm:text-[13px] font-bold text-muted-foreground">
-                    <User size={16} />
-                    <div className="relative">
-                      <select
-                        value={selectedStaff}
-                        onChange={(e) => {
-                          setSelectedStaff(e.target.value);
-                          setCurrentPage(1);
-                        }}
-                        className="appearance-none pl-3 pr-8 py-1.5 bg-muted/50 border border-border rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none cursor-pointer transition-all min-w-[120px]"
-                      >
-                        <option value="">Tất cả nhân viên</option>
-                        {personnel.map((p) => (
-                          <option key={p.id} value={p.ho_ten}>{p.ho_ten}</option>
-                        ))}
-                      </select>
-                      <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 size-4 pointer-events-none text-muted-foreground" />
-                    </div>
-                  </div>
-                </>
+            {/* Clear Button (Mobile next to Month) */}
+            <div className="sm:hidden col-span-1 flex justify-end">
+              {(startDate || endDate || searchQuery || selectedMonth || (isAdmin && (selectedStaff || selectedBranch))) && (
+                <button
+                  onClick={handleClearFilters}
+                  className="px-3 py-1.5 bg-rose-500/5 text-rose-500 border border-rose-200 rounded-lg flex items-center gap-1.5 text-[11px] font-bold"
+                >
+                  <X size={14} /> Xóa lọc
+                </button>
               )}
+            </div>
 
-              {/* Month Filter */}
-              <div className="flex items-center gap-2 text-[11px] sm:text-[13px] font-bold text-muted-foreground">
-                <span>Tháng:</span>
-                <div className="relative">
-                  <select
-                    value={selectedMonth}
-                    onChange={(e) => handleMonthChange(e.target.value)}
-                    className="appearance-none pl-3 pr-8 py-1.5 bg-muted/50 border border-border rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none cursor-pointer transition-all min-w-[120px]"
-                  >
-                    <option value="">Chọn tháng...</option>
-                    {Array.from({ length: 12 }, (_, i) => {
-                      const d = new Date();
-                      d.setMonth(d.getMonth() - i);
-                      const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-                      const label = `Tháng ${d.getMonth() + 1}/${d.getFullYear()}`;
-                      return <option key={val} value={val}>{label}</option>;
-                    })}
-                  </select>
-                  <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 size-4 pointer-events-none text-muted-foreground" />
-                </div>
-              </div>
+            {/* Date Range */}
+            <div className="col-span-2 sm:w-auto flex items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border">
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="bg-transparent border-none text-[11px] sm:text-[13px] font-medium outline-none p-1 w-full sm:w-[130px] cursor-pointer"
+              />
+              <span className="text-muted-foreground opacity-50 px-1">-</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => {
+                  setEndDate(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="bg-transparent border-none text-[11px] sm:text-[13px] font-medium outline-none p-1 w-full sm:w-[130px] cursor-pointer"
+              />
+            </div>
 
-              <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-lg border border-border">
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => {
-                    setStartDate(e.target.value);
-                    setActiveQuickFilter('custom');
-                    setCurrentPage(1);
-                  }}
-                  className="bg-transparent border-none text-[11px] sm:text-[13px] font-medium outline-none p-1 w-[120px] sm:w-[130px] cursor-pointer"
-                />
-                <span className="text-muted-foreground">-</span>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => {
-                    setEndDate(e.target.value);
-                    setActiveQuickFilter('custom');
-                    setCurrentPage(1);
-                  }}
-                  className="bg-transparent border-none text-[11px] sm:text-[13px] font-medium outline-none p-1 w-[120px] sm:w-[130px] cursor-pointer"
-                />
-              </div>
-
+            {/* Clear Button (Desktop only) */}
+            <div className="hidden sm:block">
               {(startDate || endDate || searchQuery || selectedMonth || (isAdmin && (selectedStaff || selectedBranch))) && (
                 <button
                   onClick={handleClearFilters}
@@ -1254,7 +1228,12 @@ const SalesCardManagementPage: React.FC = () => {
                     <div className="flex items-center gap-3 text-[10px] font-bold text-primary">
                       <span className="flex items-center gap-1">🕒 {group.latestTime}</span>
                       <span className="opacity-20">|</span>
-                      <span className="flex items-center gap-1">👥 {group.uniqueCustomers.size} khách</span>
+                      <span className="flex items-center gap-1">
+                        👥 {group.uniqueCustomers.size} khách
+                        <span className="ml-1 text-[9px] opacity-75 font-medium whitespace-nowrap">
+                          (🆕{group.newCustomers.size} mới | 🔄{group.returningCustomers.size} cũ)
+                        </span>
+                      </span>
                       <span className="opacity-20">|</span>
                       <span className="flex items-center gap-1">📄 {group.items.length} đơn</span>
                     </div>
@@ -1457,7 +1436,12 @@ const SalesCardManagementPage: React.FC = () => {
                             <div className="flex items-center gap-4 text-[11px] font-bold text-muted-foreground">
                               <span className="flex items-center gap-1.5 underline decoration-primary/30 decoration-2 underline-offset-4">🕒 Mới nhất: {group.latestTime}</span>
                               <span className="opacity-30">|</span>
-                              <span className="flex items-center gap-1.5">👥 {group.uniqueCustomers.size} khách</span>
+                              <span className="flex items-center gap-1.5">
+                                👥 {group.uniqueCustomers.size} khách
+                                <span className="ml-1 text-[10px] opacity-70 font-medium whitespace-nowrap">
+                                  (🆕{group.newCustomers.size} mới | 🔄{group.returningCustomers.size} cũ)
+                                </span>
+                              </span>
                               <span className="opacity-30">|</span>
                               <span className="flex items-center gap-1.5">📄 {group.items.length} đơn</span>
                               <span className="opacity-30">|</span>
