@@ -31,11 +31,11 @@ import { getPersonnel } from '../data/personnelData';
 import { bulkUpsertSalesCardCTs, deleteSalesCardCTsByOrderId } from '../data/salesCardCTData';
 import type { SalesCard } from '../data/salesCardData';
 import { bulkUpsertSalesCards, deleteAllSalesCards, deleteSalesCard, getNextSalesCardCode, getSalesCardsPaginated, normalizeSalesCards, upsertSalesCard } from '../data/salesCardData';
+import { computeChanges, saveEditHistory } from '../data/salesCardHistoryData';
 import type { DichVu } from '../data/serviceData';
 import { getServices } from '../data/serviceData';
 import { supabase } from '../lib/supabase';
 import { cn } from '../lib/utils';
-import { computeChanges, saveEditHistory } from '../data/salesCardHistoryData';
 
 const SalesCardFormModal = React.lazy(() => import('../components/SalesCardFormModal'));
 
@@ -501,7 +501,7 @@ const SalesCardManagementPage: React.FC = () => {
         detailRecords.length > 0 ? bulkUpsertSalesCardCTs(detailRecords) : Promise.resolve(),
         (async () => {
           const existingTx = await getTransactionByOrderId(savedCard.id);
-          
+
           if (!existingTx) return;
 
           const financialRecord: Partial<ThuChi> = {

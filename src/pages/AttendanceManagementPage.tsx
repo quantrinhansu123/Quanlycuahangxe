@@ -9,7 +9,6 @@ import {
   Edit2,
   List,
   Loader2,
-  Plus,
   Search,
   Trash2,
   Upload,
@@ -23,7 +22,7 @@ import * as XLSX from 'xlsx';
 import Pagination from '../components/Pagination';
 import { useAuth } from '../context/AuthContext';
 import type { AttendanceRecord } from '../data/attendanceData';
-import { bulkUpsertAttendanceRecords, deleteAttendanceRecord, getAttendancePaginated, getAttendanceRecords, getNextAttendanceId, upsertAttendanceRecord } from '../data/attendanceData';
+import { bulkUpsertAttendanceRecords, deleteAttendanceRecord, getAttendancePaginated, getAttendanceRecords, upsertAttendanceRecord } from '../data/attendanceData';
 import { getPersonnel, type NhanSu } from '../data/personnelData';
 
 const AttendanceManagementPage: React.FC = () => {
@@ -49,8 +48,6 @@ const AttendanceManagementPage: React.FC = () => {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(null);
-  const [isQuickAction, setIsQuickAction] = useState(false);
   const [formData, setFormData] = useState<Partial<AttendanceRecord>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -137,59 +134,13 @@ const AttendanceManagementPage: React.FC = () => {
     }
   };
 
-  const handleOpenModal = async (record?: AttendanceRecord) => {
-    if (record) {
-      setIsQuickAction(false);
-      setEditingRecord(record);
-      setFormData({ ...record });
-      setIsModalOpen(true);
-    } else {
-      setIsQuickAction(true);
-      setEditingRecord(null);
-      // Khi nhấn "Thêm chấm công", phát hiện xem hôm nay đã có bản ghi nào chưa
-      const todayStr = new Date().toISOString().split('T')[0];
-
-      // Smart match current user against DB personnel
-      const matchedUser = personnel.find(p => p.ho_ten?.toLowerCase() === currentUser?.ho_ten?.toLowerCase());
-      const fallbackName = matchedUser?.ho_ten || currentUser?.ho_ten || 'Tài khoản đăng nhập';
-
-      const autoId = await getNextAttendanceId();
-
-      setFormData({
-        id_cham_cong: autoId,
-        nhan_su: fallbackName,
-        ngay: todayStr,
-        checkin: '',
-        checkout: '',
-        vi_tri: '',
-        anh: ''
-      });
-
-      setLoading(true);
-      try {
-        const { data } = await getAttendancePaginated(1, 1, undefined, undefined, {
-          nhan_su: fallbackName,
-          ngay: todayStr
-        });
-
-        if (data && data.length > 0) {
-          const todayRecord = data[0];
-          setEditingRecord(todayRecord);
-          setFormData({ ...todayRecord });
-        }
-      } catch (err) {
-        console.error("Lỗi tự phát hiện chấm công:", err);
-      } finally {
-        setLoading(false);
-        setIsModalOpen(true);
-        setTimeout(() => getLocation(), 100);
-      }
-    }
+  const handleOpenModal = (record: AttendanceRecord) => {
+    setFormData({ ...record });
+    setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
-    setEditingRecord(null);
   };
 
 
@@ -226,29 +177,6 @@ const AttendanceManagementPage: React.FC = () => {
     }
   };
 
-  const handleQuickSubmit = async (type: 'checkin' | 'checkout') => {
-    const now = new Date().toTimeString().split(' ')[0].substring(0, 5);
-    const updatedData = { ...formData, [type]: now };
-
-    // Cập nhật lên UI ngay để người dùng thấy
-    setFormData(updatedData);
-
-    const dbPayload = {
-      ...updatedData,
-      checkin: updatedData.checkin || null,
-      checkout: updatedData.checkout || null,
-      vi_tri: updatedData.vi_tri || null,
-      anh: updatedData.anh || null,
-    };
-
-    try {
-      await upsertAttendanceRecord(dbPayload);
-      await loadRecords(false);
-      handleCloseModal();
-    } catch (error) {
-      alert('Lỗi: Không thể lưu thông tin chấm công.');
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -598,13 +526,6 @@ const AttendanceManagementPage: React.FC = () => {
                 </div>
               )}
             </div>
-            
-            <button
-              onClick={() => handleOpenModal()}
-              className="bg-primary hover:bg-primary/90 text-white px-3 sm:px-5 py-1.5 rounded flex items-center gap-2 text-[13px] sm:text-[14px] font-semibold transition-colors shadow-lg shadow-primary/20"
-            >
-              <Plus size={20} /> <span className="hidden sm:inline">Thêm chấm công</span>
-            </button>
           </div>
         </div>
 
@@ -765,8 +686,8 @@ const AttendanceManagementPage: React.FC = () => {
           <div className="bg-card w-full max-w-lg rounded-3xl border border-border shadow-2xl flex flex-col max-h-[90vh] animate-in fade-in duration-300" style={{ zIndex: 10000000 }}>
             <div className="px-8 py-5 border-b border-border flex items-center justify-between bg-muted/30 shrink-0">
               <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
-                {editingRecord ? <Edit2 size={20} className="text-primary" /> : <Plus size={20} className="text-primary" />}
-                {isQuickAction ? 'Chấm công' : 'Chỉnh sửa bản ghi'}
+                <Edit2 size={20} className="text-primary" />
+                Chỉnh sửa bản ghi
               </h3>
               <button onClick={handleCloseModal} className="p-2 rounded-full hover:bg-muted transition-colors text-muted-foreground"><X size={20} /></button>
             </div>
@@ -789,21 +710,7 @@ const AttendanceManagementPage: React.FC = () => {
                   </div>
                 </div>
 
-                {isAdmin && (
-                  <div className="space-y-1.5">
-                    <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                      <List size={14} className="text-primary/70" />
-                      Mã chấm công (ID)
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Nhập mã CC (ví dụ: CC-001)"
-                      value={formData.id_cham_cong || ''}
-                      onChange={(e) => setFormData(prev => ({ ...prev, id_cham_cong: e.target.value }))}
-                      className="w-full px-4 py-2.5 bg-card border border-border rounded-xl font-bold text-[14px] text-foreground focus:ring-2 focus:ring-primary/20 outline-none transition-all placeholder:font-normal placeholder:text-muted-foreground/50"
-                    />
-                  </div>
-                )}
+
 
                 <div className="space-y-1.5">
                   <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
@@ -884,42 +791,8 @@ const AttendanceManagementPage: React.FC = () => {
                     </div>
                   </div>
                 )}
-
-                {/* Hành động Chấm Công Nhanh (1 Trạm) */}
-                {isQuickAction && (
-                  <div className="flex flex-col gap-4 mt-6">
-                    {formData.checkin && formData.checkout ? (
-                      <div className="p-5 bg-emerald-50 border border-emerald-200 rounded-xl text-center shadow-inner">
-                        <p className="text-emerald-700 font-bold mb-2 text-lg">🎉 Hoàn tất chấm công hôm nay!</p>
-                        <p className="text-emerald-600 font-semibold text-[15px]">Giờ vào: {formData.checkin} — Giờ ra: {formData.checkout}</p>
-                      </div>
-                    ) : formData.checkin ? (
-                      <div className="flex flex-col gap-3">
-                        <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-center shadow-sm">
-                          <p className="text-[13px] text-blue-700 font-semibold mb-1">Đã chấm công VÀO lúc: <span className="font-bold text-lg leading-tight block text-blue-800">{formData.checkin}</span></p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleQuickSubmit('checkout')}
-                          className="w-full py-2.5 sm:py-4 rounded-xl text-sm sm:text-lg font-bold text-white bg-orange-500 hover:bg-orange-600 shadow-lg shadow-orange-500/30 transition-all active:scale-95 flex items-center justify-center gap-2"
-                        >
-                          <Clock size={18} className="sm:hidden" /><Clock size={24} className="hidden sm:block" /> CHẤM CÔNG RA NGAY
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleQuickSubmit('checkin')}
-                        className="w-full py-2.5 sm:py-4 rounded-xl text-sm sm:text-lg font-bold text-white bg-emerald-500 hover:bg-emerald-600 shadow-lg shadow-emerald-500/30 transition-all active:scale-95 flex items-center justify-center gap-2"
-                      >
-                        <Clock size={18} className="sm:hidden" /><Clock size={24} className="hidden sm:block" /> CHẤM CÔNG VÀO NGAY
-                      </button>
-                    )}
-                  </div>
-                )}
               </div>
 
-              {!isQuickAction && (
                 <div className="mt-10 flex items-center justify-end gap-3 pt-6 border-t border-border">
                   <button type="button" onClick={handleCloseModal} className="px-6 py-2.5 rounded-xl text-sm font-bold text-muted-foreground hover:bg-muted border border-border">Đóng lại</button>
                   {isAdmin && (
@@ -931,7 +804,6 @@ const AttendanceManagementPage: React.FC = () => {
                     </button>
                   )}
                 </div>
-              )}
             </form>
           </div>
         </div>,

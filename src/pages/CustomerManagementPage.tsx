@@ -139,7 +139,33 @@ const CustomerManagementPage: React.FC = () => {
   }, []);
 
   // Since we use Server-side pagination, 'customers' IS already the filtered list for the current page
-  const displayCustomers = customers;
+  const groupedCustomers = useMemo(() => {
+    const groups: { date: string; count: number; items: KhachHang[] }[] = [];
+    customers.forEach(customer => {
+      const dateStr = customer.ngay_dang_ky ? new Date(customer.ngay_dang_ky).toLocaleDateString('vi-VN') : 'Không xác định';
+      let group = groups.find(g => g.date === dateStr);
+      if (!group) {
+        group = { date: dateStr, count: 0, items: [] };
+        groups.push(group);
+      }
+      group.items.push(customer);
+      group.count++;
+    });
+
+    // Sort groups descending by date (Newest first)
+    return groups.sort((a, b) => {
+      if (a.date === 'Không xác định') return 1;
+      if (b.date === 'Không xác định') return -1;
+      
+      const [dayA, monthA, yearA] = a.date.split('/').map(Number);
+      const [dayB, monthB, yearB] = b.date.split('/').map(Number);
+      
+      const valA = (yearA * 10000) + (monthA * 100) + dayA;
+      const valB = (yearB * 10000) + (monthB * 100) + dayB;
+      
+      return valB - valA;
+    });
+  }, [customers]);
 
 
 
@@ -347,44 +373,41 @@ const CustomerManagementPage: React.FC = () => {
     <div className="w-full flex-1 animate-in fade-in slide-in-from-bottom-4 duration-500 text-muted-foreground font-sans">
       <div className="space-y-4">
         {/* Toolbar */}
-        <div className="bg-card p-2 rounded-xl border border-border shadow-sm flex flex-wrap items-center gap-1.5 sm:gap-4 justify-between relative z-50" ref={dropdownRef}>
-          {/* Group 1: Navigation, Search, Filters, Add Button */}
-          <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap">
+        <div className="bg-card p-2 sm:p-3 rounded-2xl border border-border shadow-md flex flex-col md:flex-row md:items-center gap-2 relative z-50" ref={dropdownRef}>
+          {/* Row 1: Navigation + Search + Filters */}
+          <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap md:flex-1">
             <button
               onClick={() => navigate(-1)}
-              className="px-2 py-1 sm:px-4 sm:py-2 hover:bg-muted rounded-lg flex items-center gap-1.5 text-muted-foreground transition-all border border-transparent hover:border-border shrink-0"
+              className="p-2 hover:bg-muted rounded-xl flex items-center gap-2 text-muted-foreground transition-all border border-border shadow-sm shrink-0"
               title="Quay lại"
             >
               <ArrowLeft className="size-4 sm:size-5" />
-              <span className="font-medium text-[11px] sm:text-[14px]">Quay lại</span>
             </button>
 
-            <div className="relative group shrink-0">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5 sm:size-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+            <div className="relative group flex-1 min-w-[120px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
               <input
                 type="text"
-                placeholder="Tìm khách..."
+                placeholder="Tìm khách hàng..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-7 sm:pl-9 pr-3 sm:pr-4 py-1 sm:py-2 bg-muted/50 border-border rounded-lg text-[11px] sm:text-[13px] focus:ring-1 focus:ring-primary focus:border-primary transition-all w-[120px] sm:w-[220px] lg:w-[300px] outline-none"
+                className="w-full pl-9 pr-4 py-2 bg-muted/30 border border-border rounded-xl text-[13px] focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
               />
             </div>
 
-            <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+            <div className="flex items-center gap-1.5 shrink-0">
               {/* Dept Dropdown */}
               <div className="relative">
                 <button
                   onClick={() => toggleDropdown('dept')}
-                  className="px-2 py-1 sm:px-3 sm:py-2 bg-muted/50 hover:bg-muted border border-border rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[14px] transition-all min-w-[90px] sm:min-w-[120px] justify-between"
+                  className="px-3 py-2 bg-muted/30 hover:bg-muted border border-border rounded-xl flex items-center gap-2 text-[12px] sm:text-[13px] transition-all min-w-[90px] justify-between shadow-sm"
                 >
-                  <div className="flex items-center gap-1 sm:gap-2 truncate">
-                    <Building2 className="size-3.5 sm:size-4 text-primary shrink-0" />
-                    <span className="truncate">{selectedDepts.length > 0 ? `CS (${selectedDepts.length})` : 'Chi nhánh'}</span>
-                  </div>
-                  <ChevronDown className={clsx("size-3.5 sm:size-4 transition-transform", openDropdown === 'dept' && "rotate-180")} />
+                  <Building2 className="size-4 text-primary shrink-0" />
+                  <span className="truncate">{selectedDepts.length > 0 ? `CS (${selectedDepts.length})` : 'Chi nhánh'}</span>
+                  <ChevronDown className={clsx("size-4 opacity-50 transition-transform", openDropdown === 'dept' && "rotate-180")} />
                 </button>
                 {openDropdown === 'dept' && (
-                  <div className="absolute top-full left-0 z-100 mt-1 min-w-[200px] bg-card border border-border rounded-lg shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                  <div className="absolute top-full left-0 z-100 mt-2 min-w-[200px] bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
                     <div className="px-3 py-2 bg-muted border-b border-border/50 flex items-center justify-between">
                       <label className="flex items-center gap-2 font-bold text-primary text-[11px] cursor-pointer">
                         <input
@@ -411,16 +434,14 @@ const CustomerManagementPage: React.FC = () => {
               <div className="relative">
                 <button
                   onClick={() => toggleDropdown('cycle')}
-                  className="px-2 py-1 sm:px-3 sm:py-2 bg-muted/50 hover:bg-muted border border-border rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[14px] transition-all min-w-[80px] sm:min-w-[110px] justify-between"
+                  className="px-3 py-2 bg-muted/30 hover:bg-muted border border-border rounded-xl flex items-center gap-2 text-[12px] sm:text-[13px] transition-all min-w-[85px] justify-between shadow-sm"
                 >
-                  <div className="flex items-center gap-1 sm:gap-2 truncate">
-                    <History className="size-3.5 sm:size-4 text-primary shrink-0" />
-                    <span className="truncate">{selectedCycles.length > 0 ? `CK (${selectedCycles.length})` : 'Chu kỳ'}</span>
-                  </div>
-                  <ChevronDown className={clsx("size-3.5 sm:size-4 transition-transform", openDropdown === 'cycle' && "rotate-180")} />
+                  <History className="size-4 text-primary shrink-0" />
+                  <span className="truncate">{selectedCycles.length > 0 ? `CK (${selectedCycles.length})` : 'Chu kỳ'}</span>
+                  <ChevronDown className={clsx("size-4 opacity-50 transition-transform", openDropdown === 'cycle' && "rotate-180")} />
                 </button>
                 {openDropdown === 'cycle' && (
-                  <div className="absolute top-full left-0 z-100 mt-1 min-w-[180px] bg-card border border-border rounded-lg shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                  <div className="absolute top-full right-0 z-100 mt-2 min-w-[180px] bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
                     <div className="px-3 py-2 bg-muted border-b border-border/50 flex items-center justify-between">
                       <label className="flex items-center gap-2 font-bold text-primary text-[11px] cursor-pointer">
                         <input
@@ -442,33 +463,34 @@ const CustomerManagementPage: React.FC = () => {
                   </div>
                 )}
               </div>
-
-              {/* Add New Button (Next to Cycle) */}
-              <button
-                onClick={() => handleOpenModal()}
-                className="px-2.5 py-1 sm:px-5 sm:py-2 bg-primary hover:bg-primary/90 text-white rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[14px] font-bold transition-all shrink-0 shadow-lg shadow-primary/20"
-              >
-                <Plus className="size-4 sm:size-5" />
-                <span>Thêm mới</span>
-              </button>
             </div>
           </div>
 
-          {/* Group 2: Utilities (Columns, Delete, Download, Import) */}
-          <div className="flex items-center gap-1.5 flex-wrap justify-end">
-            <div className="relative">
+          {/* Row 2: Add New + Utilities (Delete, Download, Import, Columns) */}
+          <div className="flex items-center gap-2 flex-wrap border-t md:border-t-0 border-border mt-1 md:mt-0 pt-2 md:pt-0 shrink-0">
+            <button
+              onClick={() => handleOpenModal()}
+              className="px-3 py-2 bg-primary hover:bg-primary/90 text-white rounded-xl flex items-center gap-2 text-[12px] sm:text-[13px] font-bold transition-all shadow-lg shadow-primary/25"
+            >
+              <Plus className="size-4 sm:size-5 text-white" />
+              <span>Thêm mới</span>
+            </button>
+
+            <div className="h-6 w-px bg-border mx-0.5" />
+
+            <div className="flex items-center gap-2 flex-wrap flex-1">
               <button
                 onClick={() => toggleDropdown('columns')}
                 className={clsx(
-                  "p-1.5 sm:p-2 border rounded-lg transition-all shrink-0",
-                  openDropdown === 'columns' ? "bg-primary/10 border-primary text-primary" : "bg-muted/50 border-border text-muted-foreground hover:bg-muted"
+                  "p-2 border rounded-xl transition-all shadow-sm",
+                  openDropdown === 'columns' ? "bg-primary/10 border-primary text-primary" : "bg-muted/30 border-border text-muted-foreground hover:bg-muted"
                 )}
                 title="Cài đặt cột"
               >
                 <List className="size-4 sm:size-5" />
               </button>
               {openDropdown === 'columns' && (
-                <div className="absolute top-full right-0 mt-1 w-64 bg-card border border-border rounded-xl shadow-2xl z-50 p-3 animate-in fade-in zoom-in-95 duration-200">
+                <div className="absolute top-full right-0 mt-2 w-64 bg-card border border-border rounded-xl shadow-2xl z-50 p-3 animate-in fade-in zoom-in-95 duration-200">
                   <div className="flex items-center justify-between mb-2 pb-2 border-b border-border">
                     <span className="font-bold text-[14px]">Hiển thị cột</span>
                     <button onClick={() => setVisibleColumns(allColumns.map(c => c.id))} className="text-[10px] text-primary hover:underline">Hiện tất cả</button>
@@ -488,38 +510,36 @@ const CustomerManagementPage: React.FC = () => {
                   </div>
                 </div>
               )}
-            </div>
 
-            <button
-              onClick={handleDeleteAll}
-              className="px-2 py-1 sm:px-3 sm:py-2 bg-destructive/5 hover:bg-destructive/10 text-destructive border border-destructive/20 rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold transition-all shrink-0"
-              title="Xóa tất cả"
-            >
-              <Trash2 className="size-4 sm:size-5" />
-              <span>Xóa tất cả</span>
-            </button>
+              <button
+                onClick={handleDeleteAll}
+                className="px-3 py-2 bg-destructive/5 hover:bg-destructive/10 text-destructive border border-destructive/20 rounded-xl flex items-center gap-1.5 text-[12px] sm:text-[13px] font-bold transition-all shadow-sm"
+                title="Xóa tất cả"
+              >
+                <Trash2 className="size-4" />
+                <span className="hidden xs:inline">Xóa tất cả</span>
+              </button>
 
-            <button
-              onClick={handleDownloadTemplate}
-              className="px-2 py-1 sm:px-3 sm:py-2 bg-muted/50 hover:bg-muted border border-border rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold text-muted-foreground transition-all shrink-0"
-              title="Tải mẫu Excel"
-            >
-              <Download className="size-4 sm:size-5" />
-              <span>Tải mẫu</span>
-            </button>
+              <button
+                onClick={handleDownloadTemplate}
+                className="px-3 py-2 bg-muted/30 hover:bg-muted border border-border rounded-xl flex items-center gap-1.5 text-[12px] sm:text-[13px] font-bold text-muted-foreground transition-all shadow-sm"
+                title="Tải mẫu Excel"
+              >
+                <Download className="size-4" />
+                <span className="hidden xs:inline">Tải mẫu</span>
+              </button>
 
-            <div className="relative shrink-0">
               <button
                 onClick={() => document.getElementById('excel-import')?.click()}
-                className="px-2 py-1 sm:px-3 sm:py-2 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold transition-all shrink-0"
-                title="Nhập dữ liệu Excel"
+                className="px-3 py-2 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 rounded-xl flex items-center gap-1.5 text-[12px] sm:text-[13px] font-bold transition-all shadow-sm"
+                title="Nhập Excel"
               >
-                <Upload className="size-4 sm:size-5" />
-                <span>Nhập Excel</span>
+                <Upload className="size-4" />
+                <span className="hidden xs:inline">Nhập Excel</span>
               </button>
-              <input id="excel-import" type="file" accept=".xlsx, .xls" className="hidden" onChange={handleImportExcel} />
             </div>
           </div>
+          <input id="excel-import" type="file" accept=".xlsx, .xls" className="hidden" onChange={handleImportExcel} />
         </div>
 
         {/* Mobile View (Cards) - Compact Style */}
@@ -537,122 +557,136 @@ const CustomerManagementPage: React.FC = () => {
                 </div>
               ))}
             </div>
-          ) : displayCustomers.length > 0 ? (
+          ) : customers.length > 0 ? (
             <div className="px-3 py-3 space-y-3">
-              {displayCustomers.map(customer => {
-                const isDue = customer.ngay_thay_dau ? new Date(customer.ngay_thay_dau) <= today : false;
-                const formatDateMobile = (dateStr?: string) => {
-                  if (!dateStr) return '—';
-                  const d = new Date(dateStr);
-                  return isNaN(d.getTime()) ? dateStr : d.toLocaleDateString('vi-VN');
-                };
-
-                return (
-                  <div key={customer.id} className="bg-card rounded-2xl p-3 border border-border/30 shadow-sm active:scale-[0.98] transition-transform cursor-pointer flex gap-3.5">
-                    {/* Large Avatar */}
-                    <div className="shrink-0">
-                      <div className="w-16 h-16 rounded-xl overflow-hidden border-2 border-primary/10 shadow-sm bg-primary/5 flex items-center justify-center text-primary">
-                        {customer.anh ? (
-                          <img src={customer.anh} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <User size={28} />
-                        )}
-                      </div>
-                    </div>
-                    {/* Card Content: 3 Lines + Actions */}
-                    <div className="flex-1 min-w-0 flex flex-col justify-center">
-                      {/* Line 1: Name + Phone + Due Badge */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-baseline gap-1.5 min-w-0">
-                          <h3 className="font-extrabold text-foreground text-sm truncate">{customer.ho_va_ten}</h3>
-                          {customer.so_dien_thoai && (
-                            <span className="text-[11px] text-muted-foreground/80 font-medium whitespace-nowrap">· {customer.so_dien_thoai}</span>
-                          )}
-                        </div>
-                        {isDue ? (
-                          <span className="bg-red-500/10 text-red-600 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider shrink-0 ml-2 animate-pulse">
-                            Thay dầu
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground/50 text-[8px] font-bold tracking-wider shrink-0 ml-2">
-                            {customer.ma_khach_hang || customer.id.slice(0, 6)}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Line 2: Plate + KM + Address */}
-                      <div className="flex items-center gap-1.5 text-[11px] mt-1 text-muted-foreground font-medium min-w-0">
-                        <div className="flex items-center gap-1 shrink-0">
-                          <Car size={14} className="text-primary" />
-                          <span className={clsx(
-                            "font-bold",
-                            customer.bien_so_xe === 'Xe Chưa Biển' ? "text-amber-600" : "text-foreground"
-                          )}>{customer.bien_so_xe}</span>
-                        </div>
-                        <span className="text-border">•</span>
-                        <div className="flex items-center gap-0.5 shrink-0 text-primary font-bold">
-                          <Gauge size={14} />
-                          <span>{customer.so_km?.toLocaleString()} km</span>
-                        </div>
-                        {customer.dia_chi_hien_tai && (
-                          <>
-                            <span className="text-border">•</span>
-                            <div className="flex items-center gap-1 truncate">
-                              <Building2 size={14} className="text-muted-foreground/60 shrink-0" />
-                              <span className="truncate">{customer.dia_chi_hien_tai}</span>
-                            </div>
-                          </>
-                        )}
-                      </div>
-
-                      {/* Line 3: Dates + Cycle */}
-                      <div className="flex items-center gap-1.5 text-[10px] mt-1 text-muted-foreground min-w-0">
-                        <div className="flex items-center gap-0.5 shrink-0">
-                          <Calendar size={12} className="text-muted-foreground/60" />
-                          <span className="font-semibold text-foreground">ĐK: {formatDateMobile(customer.ngay_dang_ky)}</span>
-                        </div>
-                        <span className="text-border opacity-40">•</span>
-                        <div className="flex items-center gap-0.5 shrink-0">
-                          <History size={12} className="text-muted-foreground/60" />
-                          <span>{customer.so_ngay_thay_dau} ngày</span>
-                        </div>
-                        <span className="text-border opacity-40">•</span>
-                        <div className="flex items-center gap-0.5 shrink-0">
-                          <Calendar size={12} className={isDue ? "text-red-500" : "text-muted-foreground/60"} />
-                          <span className={clsx("font-bold", isDue ? "text-red-600" : "text-primary")}>
-                            {formatDateMobile(customer.ngay_thay_dau)}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex items-center gap-2 mt-2.5 pt-2 border-t border-border/10">
-                        <button
-                          onClick={() => handleOpenDetails(customer)}
-                          className="flex items-center gap-1 px-2 py-1 bg-blue-500/5 text-blue-600 rounded-lg active:scale-95 transition-transform"
-                        >
-                          <List size={14} />
-                          <span className="text-[10px] font-bold">Chi tiết</span>
-                        </button>
-                        <button
-                          onClick={() => handleOpenModal(customer)}
-                          className="flex items-center gap-1 px-2 py-1 bg-primary/5 text-primary rounded-lg active:scale-95 transition-transform"
-                        >
-                          <Edit2 size={14} />
-                          <span className="text-[10px] font-bold">Sửa</span>
-                        </button>
-                        <button
-                          onClick={() => handleDelete(customer.id)}
-                          className="flex items-center gap-1 px-2 py-1 bg-destructive/5 text-destructive rounded-lg active:scale-95 transition-transform ml-auto"
-                        >
-                          <Trash2 size={14} />
-                          <span className="text-[10px] font-bold">Xóa</span>
-                        </button>
-                      </div>
-                    </div>
+              {groupedCustomers.map(group => (
+                <div key={group.date} className="space-y-3 mb-6">
+                  <div className="flex items-center gap-2 px-1">
+                    <div className="h-px bg-border flex-1" />
+                    <span className="text-[11px] font-black text-muted-foreground/60 uppercase tracking-widest whitespace-nowrap bg-muted/50 px-3 py-1 rounded-full border border-border shadow-sm italic">
+                      {group.date} : <span className="text-primary">{group.count}</span> khách hàng
+                    </span>
+                    <div className="h-px bg-border flex-1" />
                   </div>
-                );
-              })}
+                  
+                  <div className="space-y-3">
+                    {group.items.map(customer => {
+                      const isDue = customer.ngay_thay_dau ? new Date(customer.ngay_thay_dau) <= today : false;
+                      const formatDateMobile = (dateStr?: string) => {
+                        if (!dateStr) return '—';
+                        const d = new Date(dateStr);
+                        return isNaN(d.getTime()) ? dateStr : d.toLocaleDateString('vi-VN');
+                      };
+
+                      return (
+                        <div key={customer.id} className="bg-card rounded-2xl p-3 border border-border/30 shadow-sm active:scale-[0.98] transition-transform cursor-pointer flex gap-3.5">
+                          {/* Large Avatar */}
+                          <div className="shrink-0">
+                            <div className="w-16 h-16 rounded-xl overflow-hidden border-2 border-primary/10 shadow-sm bg-primary/5 flex items-center justify-center text-primary">
+                              {customer.anh ? (
+                                <img src={customer.anh} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                <User size={28} />
+                              )}
+                            </div>
+                          </div>
+                          {/* Card Content: 3 Lines + Actions */}
+                          <div className="flex-1 min-w-0 flex flex-col justify-center">
+                            {/* Line 1: Name + Phone + Due Badge */}
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-baseline gap-1.5 min-w-0">
+                                <h3 className="font-extrabold text-foreground text-sm truncate">{customer.ho_va_ten}</h3>
+                                {customer.so_dien_thoai && (
+                                  <span className="text-[11px] text-muted-foreground/80 font-medium whitespace-nowrap">· {customer.so_dien_thoai}</span>
+                                )}
+                              </div>
+                              {isDue ? (
+                                <span className="bg-red-500/10 text-red-600 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider shrink-0 ml-2 animate-pulse">
+                                  Thay dầu
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground/50 text-[8px] font-bold tracking-wider shrink-0 ml-2">
+                                  {customer.ma_khach_hang || customer.id.slice(0, 6)}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Line 2: Plate + KM + Address */}
+                            <div className="flex items-center gap-1.5 text-[11px] mt-1 text-muted-foreground font-medium min-w-0">
+                              <div className="flex items-center gap-1 shrink-0">
+                                <Car size={14} className="text-primary" />
+                                <span className={clsx(
+                                  "font-bold",
+                                  customer.bien_so_xe === 'Xe Chưa Biển' ? "text-amber-600" : "text-foreground"
+                                )}>{customer.bien_so_xe}</span>
+                              </div>
+                              <span className="text-border">•</span>
+                              <div className="flex items-center gap-0.5 shrink-0 text-primary font-bold">
+                                <Gauge size={14} />
+                                <span>{customer.so_km?.toLocaleString()} km</span>
+                              </div>
+                              {customer.dia_chi_hien_tai && (
+                                <>
+                                  <span className="text-border">•</span>
+                                  <div className="flex items-center gap-1 truncate">
+                                    <Building2 size={14} className="text-muted-foreground/60 shrink-0" />
+                                    <span className="truncate">{customer.dia_chi_hien_tai}</span>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+
+                            {/* Line 3: Dates + Cycle */}
+                            <div className="flex items-center gap-1.5 text-[10px] mt-1 text-muted-foreground min-w-0">
+                              <div className="flex items-center gap-0.5 shrink-0">
+                                <Calendar size={12} className="text-muted-foreground/60" />
+                                <span className="font-semibold text-foreground">ĐK: {formatDateMobile(customer.ngay_dang_ky)}</span>
+                              </div>
+                              <span className="text-border opacity-40">•</span>
+                              <div className="flex items-center gap-0.5 shrink-0">
+                                <History size={12} className="text-muted-foreground/60" />
+                                <span>{customer.so_ngay_thay_dau} ngày</span>
+                              </div>
+                              <span className="text-border opacity-40">•</span>
+                              <div className="flex items-center gap-0.5 shrink-0">
+                                <Calendar size={12} className={isDue ? "text-red-500" : "text-muted-foreground/60"} />
+                                <span className={clsx("font-bold", isDue ? "text-red-600" : "text-primary")}>
+                                  {formatDateMobile(customer.ngay_thay_dau)}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex items-center gap-2 mt-2.5 pt-2 border-t border-border/10">
+                              <button
+                                onClick={() => handleOpenDetails(customer)}
+                                className="flex items-center gap-1 px-2 py-1 bg-blue-500/5 text-blue-600 rounded-lg active:scale-95 transition-transform"
+                              >
+                                <List size={14} />
+                                <span className="text-[10px] font-bold">Chi tiết</span>
+                              </button>
+                              <button
+                                onClick={() => handleOpenModal(customer)}
+                                className="flex items-center gap-1 px-2 py-1 bg-primary/5 text-primary rounded-lg active:scale-95 transition-transform"
+                              >
+                                <Edit2 size={14} />
+                                <span className="text-[10px] font-bold">Sửa</span>
+                              </button>
+                              <button
+                                onClick={() => handleDelete(customer.id)}
+                                className="flex items-center gap-1 px-2 py-1 bg-destructive/5 text-destructive rounded-lg active:scale-95 transition-transform ml-auto"
+                              >
+                                <Trash2 size={14} />
+                                <span className="text-[10px] font-bold">Xóa</span>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
             <div className="px-3 py-8 text-center text-muted-foreground text-[13px]">
@@ -686,18 +720,35 @@ const CustomerManagementPage: React.FC = () => {
                   Array.from({ length: pageSize }).map((_, i) => (
                     <SkeletonRow key={i} visibleColumns={visibleColumns} />
                   ))
-                ) : displayCustomers.map(customer => (
-                  <CustomerTableRow
-                    key={customer.id}
-                    customer={customer}
-                    visibleColumns={visibleColumns}
-                    onEdit={handleOpenModal}
-                    onDelete={handleDelete}
-                    onOpenDetails={handleOpenDetails}
-                    today={today}
-                  />
+                ) : groupedCustomers.map(group => (
+                  <React.Fragment key={group.date}>
+                    <tr className="bg-muted/40 border-y border-border/50">
+                      <td colSpan={12} className="px-4 py-2">
+                        <div className="flex items-center gap-3">
+                            <span className="text-[11px] font-black text-muted-foreground/70 uppercase tracking-widest italic">
+                              {group.date}
+                            </span>
+                            <div className="h-px bg-border flex-1 opacity-50" />
+                            <span className="text-[11px] font-bold text-primary px-2 py-0.5 bg-primary/5 rounded border border-primary/10">
+                              {group.count} khách hàng
+                            </span>
+                        </div>
+                      </td>
+                    </tr>
+                    {group.items.map(customer => (
+                      <CustomerTableRow
+                        key={customer.id}
+                        customer={customer}
+                        visibleColumns={visibleColumns}
+                        onEdit={handleOpenModal}
+                        onDelete={handleDelete}
+                        onOpenDetails={handleOpenDetails}
+                        today={today}
+                      />
+                    ))}
+                  </React.Fragment>
                 ))}
-                {!loading && displayCustomers.length === 0 && (
+                {!loading && customers.length === 0 && (
                   <tr>
                     <td colSpan={12} className="px-4 py-8 text-center text-muted-foreground">
                       Không tìm thấy khách hàng nào khớp với điều kiện tìm kiếm.

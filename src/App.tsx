@@ -7,6 +7,7 @@ import ProtectedRoute from './components/layout/ProtectedRoute';
 // Lazy load all pages for optimal performance
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const AttendanceManagementPage = lazy(() => import('./pages/AttendanceManagementPage'));
+const AddAttendancePage = lazy(() => import('./pages/AddAttendancePage'));
 const PersonnelManagementPage = lazy(() => import('./pages/PersonnelManagementPage'));
 const CheckInPage = lazy(() => import('./pages/CheckInPage'));
 const CustomerManagementPage = lazy(() => import('./pages/CustomerManagementPage'));
@@ -41,6 +42,7 @@ function App() {
             <Route path="/nhan-su" element={<ModulePage />}>
               <Route path="ung-vien" element={<ProtectedRoute adminOnly><PersonnelManagementPage /></ProtectedRoute>} />
               <Route path="bang-cham-cong" element={<AttendanceManagementPage />} />
+              <Route path="them-cham-cong" element={<AddAttendancePage />} />
             </Route>
 
             <Route path="/cham-cong" element={<CheckInPage />} />
