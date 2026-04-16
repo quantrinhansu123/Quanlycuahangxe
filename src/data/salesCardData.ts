@@ -29,6 +29,7 @@ export interface SalesCard {
   ghi_chu: string | null;
   ten_khach_hang: string | null;
   so_dien_thoai: string | null;
+  phuong_thuc_thanh_toan?: string | null;
   created_at?: string;
 
   // Joined fields

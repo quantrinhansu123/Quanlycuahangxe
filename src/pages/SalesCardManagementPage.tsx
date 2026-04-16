@@ -266,7 +266,7 @@ const SalesCardManagementPage: React.FC = () => {
         } else {
           const matchedUser = personnel.find(
             p => p.ho_ten?.toLowerCase() === currentUser?.ho_ten?.toLowerCase()
-          ) || personnel[0];
+          );
           targetNhanVien = matchedUser ? matchedUser.ho_ten : '';
         }
 
@@ -350,8 +350,8 @@ const SalesCardManagementPage: React.FC = () => {
     } else {
       setEditingCard(null);
 
-      // Tự động gán người phụ trách là tên user đăng nhập hiện tại từ AuthContext
-      const matchedUser = personnel.find(p => p.ho_ten?.toLowerCase() === currentUser?.ho_ten?.toLowerCase()) || personnel[0];
+      // Tự động gán người phụ trách là tên user đăng nhập hiện tại từ AuthContext, nếu không thấy thì bỏ trống
+      const matchedUser = personnel.find(p => p.ho_ten?.toLowerCase() === currentUser?.ho_ten?.toLowerCase());
       const nextCode = await getNextSalesCardCode();
 
       setFormData({
@@ -429,6 +429,7 @@ const SalesCardManagementPage: React.FC = () => {
         service_items,
         the_ban_hang_ct,
         thu_chi,
+        phuong_thuc_thanh_toan,
         ...cleanData
       } = formDataHeader as any;
 
@@ -501,8 +502,6 @@ const SalesCardManagementPage: React.FC = () => {
         (async () => {
           const existingTx = await getTransactionByOrderId(savedCard.id);
           
-          // Only auto-update if a transaction already exists (already paid)
-          // Do NOT automatically create a new one for new/unpaid orders as per user request
           if (!existingTx) return;
 
           const financialRecord: Partial<ThuChi> = {
@@ -1258,9 +1257,24 @@ const SalesCardManagementPage: React.FC = () => {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-primary font-black text-[15px]">
+                        <div className="text-primary font-black text-[15px] mb-1">
                           {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalAmount)}
                         </div>
+                        {card.thu_chi ? (
+                          <div className="inline-block px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-bold text-[10px] whitespace-nowrap">
+                            🛡️ {card.thu_chi.phuong_thuc || 'Tiền mặt'}
+                          </div>
+                        ) : (
+                          card.phuong_thuc_thanh_toan ? (
+                            <div className="inline-block px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-bold text-[10px] whitespace-nowrap">
+                              ⚠️ {card.phuong_thuc_thanh_toan}
+                            </div>
+                          ) : (
+                            <div className="inline-block px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-bold text-[10px] whitespace-nowrap">
+                              Chưa chọn TT
+                            </div>
+                          )
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1344,6 +1358,7 @@ const SalesCardManagementPage: React.FC = () => {
                   <th className="px-4 py-3 font-semibold text-center">ĐÁNH GIÁ DỊCH VỤ</th>
                   <th className="px-4 py-3 font-semibold">Dịch vụ sử dụng</th>
                   <th className="px-4 py-3 font-semibold text-right">Tổng tiền</th>
+                  <th className="px-4 py-3 font-semibold text-center">Thanh toán</th>
                   <th className="px-4 py-3 font-semibold text-right">Số Km</th>
                   <th className="px-4 py-3 font-semibold text-center">Ngày nhắc thay dầu</th>
                   <th className="px-4 py-3 font-semibold">Ghi chú</th>
@@ -1407,6 +1422,23 @@ const SalesCardManagementPage: React.FC = () => {
                     <td className="px-4 py-4 text-right font-black text-primary">
                       {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
                         ((card as any).the_ban_hang_ct || []).reduce((sum: number, ct: any) => sum + (ct.thanh_tien || (ct.gia_ban * (ct.so_luong || 1))), 0)
+                      )}
+                    </td>
+                    <td className="px-4 py-4 text-center">
+                      {card.thu_chi ? (
+                        <span className="px-2 py-1 rounded bg-emerald-100 text-emerald-700 font-bold text-[11px] whitespace-nowrap shadow-sm border border-emerald-200" title="Đã thu tiền">
+                          {card.thu_chi.phuong_thuc || 'Tiền mặt'}
+                        </span>
+                      ) : (
+                        card.phuong_thuc_thanh_toan ? (
+                          <span className="px-2 py-1 rounded bg-amber-50 text-amber-600 font-bold text-[11px] whitespace-nowrap shadow-sm border border-amber-200" title="Chưa thu tiền (Dự kiến)">
+                            {card.phuong_thuc_thanh_toan}
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 rounded bg-muted text-muted-foreground font-bold text-[11px] whitespace-nowrap shadow-sm border border-border" title="Chưa có thông tin">
+                            Chưa chọn
+                          </span>
+                        )
                       )}
                     </td>
                     <td className="px-4 py-4 text-right font-mono font-bold text-foreground">{card.so_km?.toLocaleString()} km</td>

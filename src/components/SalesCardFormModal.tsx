@@ -1,4 +1,4 @@
-import { Calendar, ChevronDown, ChevronUp, Clock, FileText, History, Loader2, Save, ShoppingCart, User, Wrench, X } from 'lucide-react';
+import { Banknote, Calendar, ChevronDown, ChevronUp, Clock, FileText, History, Loader2, Save, ShoppingCart, User, Wrench, X } from 'lucide-react';
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { NhanSu } from '../data/personnelData';
@@ -58,7 +58,6 @@ const SalesCardFormModal: React.FC<{
 }> = React.memo(({ isOpen, editingCard, initialData, customerOptions, personnel, services, onClose, onSubmit, isReadOnly, onCollectPayment }) => {
   const [formData, setFormData] = useState<Partial<SalesCard & { service_items?: { id: string, ten_dich_vu: string, gia_ban: number, so_luong: number }[], thu_chi?: any }>>(initialData);
   const [isCollecting, setIsCollecting] = useState(false);
-  const [showPaymentOptions, setShowPaymentOptions] = useState(false);
   const [historyRecords, setHistoryRecords] = useState<EditHistoryRecord[]>([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
@@ -350,6 +349,22 @@ const SalesCardFormModal: React.FC<{
 
               <InputField label="Số Km" name="so_km" value={formatNumber(formData.so_km)} onChange={handleInputChange} icon={History} placeholder="12.000" disabled={isReadOnly} />
 
+              <div className="space-y-1.5 md:col-span-1">
+                <InputField 
+                  label="Hình thức thanh toán" 
+                  name="phuong_thuc_thanh_toan" 
+                  type="select" 
+                  options={['', 'Tiền mặt', 'Chuyển khoản']} 
+                  value={formData.thu_chi?.phuong_thuc || formData.phuong_thuc_thanh_toan || ''} 
+                  onChange={handleInputChange} 
+                  icon={Banknote} 
+                  disabled={!!formData.thu_chi} 
+                />
+                {!formData.thu_chi && (
+                  <p className="text-[10px] text-muted-foreground italic px-1">Lưu ý: Nếu chọn, phiếu thu sẽ tự động được tạo sau khi lưu phiếu.</p>
+                )}
+              </div>
+
               <InputField label="Ngày nhắc thay dầu" name="ngay_nhac_thay_dau" type="date" value={formData.ngay_nhac_thay_dau || ''} onChange={handleInputChange} icon={Calendar} disabled={isReadOnly} />
 
               <div className="space-y-1.5 md:col-span-2">
@@ -476,57 +491,30 @@ const SalesCardFormModal: React.FC<{
                     <span>ĐÃ THU ({formData.thu_chi.phuong_thuc || 'Tiền mặt'})</span>
                   </div>
                 ) : (
-                  editingCard && onCollectPayment && (
-                    showPaymentOptions ? (
-                      <div className="flex bg-emerald-50 rounded-xl overflow-hidden shadow-sm border border-emerald-200 animate-in fade-in zoom-in-95 duration-200">
-                        {isCollecting ? (
-                           <div className="px-6 py-2 text-sm font-bold text-emerald-700 flex items-center gap-2 bg-emerald-100">
-                             <Loader2 className="animate-spin" size={18} />
-                             <span>Đang lưu...</span>
-                           </div>
-                        ) : (
-                          <>
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                setIsCollecting(true);
-                                try { await onCollectPayment(formData, 'Tiền mặt'); } finally { setIsCollecting(false); setShowPaymentOptions(false); }
-                              }}
-                              className="px-3 sm:px-4 py-2 text-[13px] font-bold text-emerald-800 hover:bg-emerald-100 transition-colors flex items-center gap-1.5 border-r border-emerald-200/50"
-                            >
-                              <span>💵 Tiền mặt</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                setIsCollecting(true);
-                                try { await onCollectPayment(formData, 'Chuyển khoản'); } finally { setIsCollecting(false); setShowPaymentOptions(false); }
-                              }}
-                              className="px-3 sm:px-4 py-2 text-[13px] font-bold text-emerald-800 hover:bg-emerald-100 transition-colors flex items-center gap-1.5 border-r border-emerald-200/50"
-                            >
-                              <span>💳 Chuyển khoản</span>
-                            </button>
-                            <button 
-                              type="button" 
-                              onClick={() => setShowPaymentOptions(false)}
-                              className="px-2 py-2 bg-emerald-100 text-emerald-700 hover:bg-rose-100 hover:text-rose-600 transition-colors flex items-center justify-center p-2"
-                              title="Hủy thao tác"
-                            >
-                              <X size={16} />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setShowPaymentOptions(true)}
-                        className="px-4 py-1.5 sm:px-6 sm:py-2 rounded-xl text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all flex items-center gap-2"
-                      >
-                        <Save size={18} />
-                        <span>THU TIỀN</span>
-                      </button>
-                    )
+                  editingCard && onCollectPayment && isReadOnly && (
+                    <button
+                      type="button"
+                      disabled={isCollecting}
+                      onClick={async () => {
+                        if (!formData.phuong_thuc_thanh_toan && !formData.thu_chi?.phuong_thuc) {
+                          alert('Vui lòng chọn Hình thức thanh toán (Tiền mặt/Chuyển khoản) ở biểu mẫu trước khi bấm Thu Tiền.');
+                          return;
+                        }
+                        setIsCollecting(true);
+                        try { 
+                          await onCollectPayment(formData, formData.phuong_thuc_thanh_toan || formData.thu_chi?.phuong_thuc || 'Tiền mặt'); 
+                        } finally { 
+                          setIsCollecting(false); 
+                        }
+                      }}
+                      className={clsx(
+                        "px-4 py-1.5 sm:px-6 sm:py-2 rounded-xl text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all flex items-center gap-2",
+                        isCollecting && "opacity-70 cursor-not-allowed"
+                      )}
+                    >
+                      {isCollecting ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+                      <span>{isCollecting ? 'Đang thu...' : 'THU TIỀN'}</span>
+                    </button>
                   )
                 )}
               </div>
