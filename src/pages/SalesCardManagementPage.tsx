@@ -138,6 +138,49 @@ const SalesCardManagementPage: React.FC = () => {
   // Server-side filtering, so we use salesCards directly
   const displayItems = useMemo(() => salesCards, [salesCards]);
 
+  const groupedSales = useMemo(() => {
+    const groups: Record<string, {
+      date: string;
+      items: SalesCard[];
+      totalAmount: number;
+      uniqueCustomers: Set<string>;
+      latestTime: string;
+    }> = {};
+
+    displayItems.forEach(card => {
+      const date = card.ngay;
+      if (!groups[date]) {
+        groups[date] = {
+          date,
+          items: [],
+          totalAmount: 0,
+          uniqueCustomers: new Set(),
+          latestTime: card.gio || '00:00'
+        };
+      }
+      
+      const itemsDetail = (card as any).the_ban_hang_ct || [];
+      const cardTotal = itemsDetail.reduce((sum: number, ct: any) => sum + (ct.thanh_tien || (ct.gia_ban * (ct.so_luong || 1))), 0);
+      
+      groups[date].items.push(card);
+      groups[date].totalAmount += cardTotal;
+      
+      // Use any identifying customer field
+      const customerId = card.khach_hang_id || card.ten_khach_hang || 'unknown';
+      groups[date].uniqueCustomers.add(customerId);
+      
+      // Keep track of the latest activity time in this group
+      if (card.gio && card.gio > groups[date].latestTime) {
+        groups[date].latestTime = card.gio;
+      }
+    });
+
+    // Sort by date descending
+    return Object.values(groups).sort((a, b) => {
+      return new Date(b.date).getTime() - new Date(a.date).getTime();
+    });
+  }, [displayItems]);
+
   // ---- AUTO-OPEN MODAL WHEN REDIRECTED FROM CUSTOMER PAGE ----
   // Use a ref to store the pending customer ID so it survives re-renders
   const pendingCustomerRef = React.useRef<string | null>(null);
@@ -1198,127 +1241,155 @@ const SalesCardManagementPage: React.FC = () => {
               <Loader2 className="animate-spin inline-block mr-2" size={20} />
               Đang tải dữ liệu phiếu bán hàng...
             </div>
-          ) : displayItems.length > 0 ? (
-            displayItems.map(card => {
-              const items = (card as any).the_ban_hang_ct || [];
-              const totalAmount = items.reduce((sum: number, ct: any) => sum + (ct.thanh_tien || (ct.gia_ban * (ct.so_luong || 1))), 0);
-              const branch = items.length > 0 ? items[0].co_so : (card.dich_vu?.co_so || 'Cơ sở chính');
-
-              return (
-                <div key={card.id} className="bg-card p-4 rounded-xl border border-border shadow-sm space-y-4 relative group hover:border-primary/30 transition-all">
-                  {/* Row 1: Ngày / Giờ */}
-                  <div className="flex items-center justify-between border-b border-border/50 pb-2">
-                    <div className="flex items-center gap-2 text-primary font-bold text-[14px]">
-                      <Calendar size={16} />
-                      {new Date(card.ngay).toLocaleDateString('vi-VN')} {card.gio}
+          ) : groupedSales.length > 0 ? (
+            groupedSales.map(group => (
+              <div key={group.date} className="space-y-3 mb-8">
+                {/* Group Header */}
+                <div className="flex items-center gap-2 px-1">
+                  <div className="h-px bg-border flex-1" />
+                  <div className="flex flex-col items-center gap-1 bg-muted/60 px-4 py-2.5 rounded-2xl border border-border/80 shadow-sm backdrop-blur-sm">
+                    <span className="text-[11px] font-black text-muted-foreground uppercase tracking-widest whitespace-nowrap">
+                      📅 {new Date(group.date).toLocaleDateString('vi-VN')}
+                    </span>
+                    <div className="flex items-center gap-3 text-[10px] font-bold text-primary">
+                      <span className="flex items-center gap-1">🕒 {group.latestTime}</span>
+                      <span className="opacity-20">|</span>
+                      <span className="flex items-center gap-1">👥 {group.uniqueCustomers.size} khách</span>
+                      <span className="opacity-20">|</span>
+                      <span className="flex items-center gap-1">📄 {group.items.length} đơn</span>
+                    </div>
+                    <div className="text-[13px] font-black text-emerald-600 mt-0.5">
+                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(group.totalAmount)}
                     </div>
                   </div>
-
-                  {/* Row 2: Khách hàng / SĐT */}
-                  <div className="space-y-1">
-                    <div className="text-[16px] font-black text-foreground">
-                      {card.khach_hang?.ho_va_ten || card.ten_khach_hang || 'N/A'}
-                    </div>
-                    <div className="text-[13px] text-muted-foreground flex items-center gap-1.5 font-medium">
-                      📱 {card.khach_hang?.so_dien_thoai || card.so_dien_thoai || 'N/A'} {card.khach_hang?.dia_chi_hien_tai && <span className="opacity-60">• 🏢 {card.khach_hang.dia_chi_hien_tai}</span>}
-                    </div>
-                  </div>
-
-                  {/* Row 3: Dịch vụ - Số tiền - Người phụ trách - Cơ sở */}
-                  <div className="bg-muted/30 p-3 rounded-lg border border-border/40 space-y-3">
-                    <div className="flex flex-wrap gap-1.5">
-                      {items.length > 0 ? (
-                        items.map((ct: any, idx: number) => (
-                          <span key={idx} className="px-2 py-0.5 rounded bg-primary/10 text-primary font-semibold text-[11px]">
-                            {ct.san_pham}{(ct.so_luong || 1) > 1 && <span className="ml-1 opacity-70">×{ct.so_luong}</span>}
-                          </span>
-                        ))
-                      ) : (
-                        <span className="px-2 py-0.5 rounded bg-primary/10 text-primary font-semibold text-[11px]">
-                          {card.dich_vu?.ten_dich_vu || 'N/A'}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between text-[13px]">
-                      <div className="flex flex-col gap-0.5">
-                        <div className="text-muted-foreground text-[11px]">Người phụ trách / Cơ sở</div>
-                        <div className="font-bold text-foreground flex flex-col gap-0.5">
-                          {card.nhan_su_list && card.nhan_su_list.length > 0 ? (
-                            card.nhan_su_list.map((p, idx) => (
-                              <div key={idx} className="flex items-center gap-1.5 truncate max-w-[150px]">
-                                👤 {p.ho_ten}
-                              </div>
-                            ))
-                          ) : (
-                            <div className="flex items-center gap-1.5">👤 {card.nhan_vien_id || 'N/A'}</div>
-                          )}
-                          <div className="flex items-center gap-1.5 opacity-60 text-[11px]">🏢 {branch}</div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-primary font-black text-[15px] mb-1">
-                          {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalAmount)}
-                        </div>
-                        {card.thu_chi ? (
-                          <div className="inline-block px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-bold text-[10px] whitespace-nowrap">
-                            🛡️ {card.thu_chi.phuong_thuc || 'Tiền mặt'}
-                          </div>
-                        ) : (
-                          card.phuong_thuc_thanh_toan ? (
-                            <div className="inline-block px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-bold text-[10px] whitespace-nowrap">
-                              ⚠️ {card.phuong_thuc_thanh_toan}
-                            </div>
-                          ) : (
-                            <div className="inline-block px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-bold text-[10px] whitespace-nowrap">
-                              Chưa chọn TT
-                            </div>
-                          )
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Row 4: Số KM - Ngày nhắc thay dầu */}
-                  <div className="flex items-center justify-between text-[13px] pt-1">
-                    <div className="flex items-center gap-1.5 font-bold text-slate-600">
-                      🚗 {card.so_km?.toLocaleString()} km
-                    </div>
-                    {card.ngay_nhac_thay_dau && (
-                      <div className="flex items-center gap-1.5 text-rose-600 font-bold">
-                        🛢️ Nhắc: {new Date(card.ngay_nhac_thay_dau).toLocaleDateString('vi-VN')}
-                      </div>
-                    )}
-                  </div>
-
-                  {card.ghi_chu && (
-                    <div className="mt-2 flex items-start gap-1.5 p-2.5 bg-amber-50/50 rounded-xl border border-amber-100/50">
-                      <FileText size={14} className="text-amber-600/70 mt-0.5 shrink-0" />
-                      <p className="text-[12px] text-amber-900/70 italic leading-relaxed line-clamp-2">{card.ghi_chu}</p>
-                    </div>
-                  )}
-
-                  {/* Actions Bar for Mobile Card */}
-                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/30">
-                    <button onClick={() => handleViewCard(card)} className="flex items-center gap-1 px-3 py-1.5 text-blue-600 hover:bg-blue-50 rounded-lg text-[12px] font-bold border border-blue-100 transition-colors">
-                      <Eye size={14} /> Xem
-                    </button>
-                    {isAdmin && (
-                      <>
-                        {!card.thu_chi && (
-                          <button onClick={() => handleOpenModal(card)} className="flex items-center gap-1 px-3 py-1.5 text-primary hover:bg-primary/10 rounded-lg text-[12px] font-bold border border-primary/20 transition-colors">
-                            <Edit2 size={14} /> Sửa
-                          </button>
-                        )}
-                        <button onClick={() => handleDelete(card.id)} className="flex items-center gap-1 px-3 py-1.5 text-destructive hover:bg-destructive/10 rounded-lg text-[12px] font-bold border border-destructive/20 transition-colors">
-                          <Trash2 size={14} /> Xóa
-                        </button>
-                      </>
-                    )}
-                  </div>
+                  <div className="h-px bg-border flex-1" />
                 </div>
-              );
-            })
+
+                <div className="space-y-4">
+                  {group.items.map(card => {
+                    const items = (card as any).the_ban_hang_ct || [];
+                    const totalAmount = items.reduce((sum: number, ct: any) => sum + (ct.thanh_tien || (ct.gia_ban * (ct.so_luong || 1))), 0);
+                    const branch = items.length > 0 ? items[0].co_so : (card.dich_vu?.co_so || 'Cơ sở chính');
+
+                    return (
+                      <div key={card.id} className="bg-card p-4 rounded-xl border border-border shadow-sm space-y-4 relative group hover:border-primary/30 transition-all">
+                        {/* Row 1: Ngày / Giờ */}
+                        <div className="flex items-center justify-between border-b border-border/50 pb-2">
+                          <div className="flex items-center gap-2 text-primary font-bold text-[14px]">
+                            <Calendar size={16} />
+                            {card.gio}
+                          </div>
+                          <div className="text-[10px] font-mono text-muted-foreground/60 uppercase">#{card.id_bh || card.id.slice(0, 8)}</div>
+                        </div>
+
+                        {/* Row 2: Khách hàng / SĐT */}
+                        <div className="space-y-1">
+                          <div className="text-[16px] font-black text-foreground">
+                            {card.khach_hang?.ho_va_ten || card.ten_khach_hang || 'N/A'}
+                          </div>
+                          <div className="text-[13px] text-muted-foreground flex items-center gap-1.5 font-medium">
+                            📱 {card.khach_hang?.so_dien_thoai || card.so_dien_thoai || 'N/A'} {card.khach_hang?.dia_chi_hien_tai && <span className="opacity-60">• 🏢 {card.khach_hang.dia_chi_hien_tai}</span>}
+                          </div>
+                        </div>
+
+                        {/* Row 3: Dịch vụ - Số tiền - Người phụ trách - Cơ sở */}
+                        <div className="bg-muted/30 p-3 rounded-lg border border-border/40 space-y-3">
+                          <div className="flex flex-wrap gap-1.5">
+                            {items.length > 0 ? (
+                              items.map((ct: any, idx: number) => (
+                                <span key={idx} className="px-2 py-0.5 rounded bg-primary/10 text-primary font-semibold text-[11px]">
+                                  {ct.san_pham}{(ct.so_luong || 1) > 1 && <span className="ml-1 opacity-70">×{ct.so_luong}</span>}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="px-2 py-0.5 rounded bg-primary/10 text-primary font-semibold text-[11px]">
+                                {card.dich_vu?.ten_dich_vu || 'N/A'}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center justify-between text-[13px]">
+                            <div className="flex flex-col gap-0.5">
+                              <div className="text-muted-foreground text-[11px]">Người phụ trách / Cơ sở</div>
+                              <div className="font-bold text-foreground flex flex-col gap-0.5">
+                                {card.nhan_su_list && card.nhan_su_list.length > 0 ? (
+                                  card.nhan_su_list.map((p, idx) => (
+                                    <div key={idx} className="flex items-center gap-1.5 truncate max-w-[150px]">
+                                      👤 {p.ho_ten}
+                                    </div>
+                                  ))
+                                ) : (
+                                  <div className="flex items-center gap-1.5">👤 {card.nhan_vien_id || 'N/A'}</div>
+                                )}
+                                <div className="flex items-center gap-1.5 opacity-60 text-[11px]">🏢 {branch}</div>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-primary font-black text-[15px] mb-1">
+                                {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalAmount)}
+                              </div>
+                              {card.thu_chi ? (
+                                <div className="inline-block px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-bold text-[10px] whitespace-nowrap">
+                                  🛡️ {card.thu_chi.phuong_thuc || 'Tiền mặt'}
+                                </div>
+                              ) : (
+                                card.phuong_thuc_thanh_toan ? (
+                                  <div className="inline-block px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-bold text-[10px] whitespace-nowrap">
+                                    ⚠️ {card.phuong_thuc_thanh_toan}
+                                  </div>
+                                ) : (
+                                  <div className="inline-block px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-bold text-[10px] whitespace-nowrap">
+                                    Chưa chọn TT
+                                  </div>
+                                )
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Row 4: Số KM - Ngày nhắc thay dầu */}
+                        <div className="flex items-center justify-between text-[13px] pt-1">
+                          <div className="flex items-center gap-1.5 font-bold text-slate-600">
+                            🚗 {card.so_km?.toLocaleString()} km
+                          </div>
+                          {card.ngay_nhac_thay_dau && (
+                            <div className="flex items-center gap-1.5 text-rose-600 font-bold">
+                              🛢️ Nhắc: {new Date(card.ngay_nhac_thay_dau).toLocaleDateString('vi-VN')}
+                            </div>
+                          )}
+                        </div>
+
+                        {card.ghi_chu && (
+                          <div className="mt-2 flex items-start gap-1.5 p-2.5 bg-amber-50/50 rounded-xl border border-amber-100/50">
+                            <FileText size={14} className="text-amber-600/70 mt-0.5 shrink-0" />
+                            <p className="text-[12px] text-amber-900/70 italic leading-relaxed line-clamp-2">{card.ghi_chu}</p>
+                          </div>
+                        )}
+
+                        {/* Actions Bar for Mobile Card */}
+                        <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/30">
+                          <button onClick={() => handleViewCard(card)} className="flex items-center gap-1 px-3 py-1.5 text-blue-600 hover:bg-blue-50 rounded-lg text-[12px] font-bold border border-blue-100 transition-colors">
+                            <Eye size={14} /> Xem
+                          </button>
+                          {isAdmin && (
+                            <>
+                              {!card.thu_chi && (
+                                <button onClick={() => handleOpenModal(card)} className="flex items-center gap-1 px-3 py-1.5 text-primary hover:bg-primary/10 rounded-lg text-[12px] font-bold border border-primary/20 transition-colors">
+                                  <Edit2 size={14} /> Sửa
+                                </button>
+                              )}
+                              <button onClick={() => handleDelete(card.id)} className="flex items-center gap-1 px-3 py-1.5 text-destructive hover:bg-destructive/10 rounded-lg text-[12px] font-bold border border-destructive/20 transition-colors">
+                                <Trash2 size={14} /> Xóa
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))
           ) : (
             <div className="bg-card p-12 text-center text-muted-foreground border border-border border-dashed rounded-xl">
               Chưa có phiếu bán hàng nào được lập.
@@ -1368,12 +1439,36 @@ const SalesCardManagementPage: React.FC = () => {
               <tbody className="divide-y divide-slate-100 text-[14px]">
                 {loading ? (
                   <tr>
-                    <td colSpan={13} className="px-4 py-12 text-center text-muted-foreground">
+                    <td colSpan={14} className="px-4 py-12 text-center text-muted-foreground">
                       <Loader2 className="animate-spin inline-block mr-2" size={20} />
                       Đang tải dữ liệu phiếu bán hàng...
                     </td>
                   </tr>
-                ) : displayItems.map(card => (
+                ) : groupedSales.length > 0 ? (
+                  groupedSales.map(group => (
+                    <React.Fragment key={group.date}>
+                      {/* Group Header Row */}
+                      <tr className="bg-muted/40 border-y border-border/60 backdrop-blur-sm">
+                        <td colSpan={14} className="px-4 py-3">
+                          <div className="flex items-center gap-4">
+                            <span className="text-[12px] font-black text-primary uppercase tracking-widest bg-primary/10 px-3 py-1 rounded-full border border-primary/20">
+                              📅 {new Date(group.date).toLocaleDateString('vi-VN')}
+                            </span>
+                            <div className="flex items-center gap-4 text-[11px] font-bold text-muted-foreground">
+                              <span className="flex items-center gap-1.5 underline decoration-primary/30 decoration-2 underline-offset-4">🕒 Mới nhất: {group.latestTime}</span>
+                              <span className="opacity-30">|</span>
+                              <span className="flex items-center gap-1.5">👥 {group.uniqueCustomers.size} khách</span>
+                              <span className="opacity-30">|</span>
+                              <span className="flex items-center gap-1.5">📄 {group.items.length} đơn</span>
+                              <span className="opacity-30">|</span>
+                              <span className="text-emerald-600 font-extrabold text-[14px]">
+                                {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(group.totalAmount)}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                      {group.items.map(card => (
                   <tr key={card.id} className="hover:bg-muted/80 transition-colors">
                     <td className="px-4 py-4 text-center font-mono text-[12px] font-bold text-muted-foreground">
                       {card.id_bh || card.id.slice(0, 8)}
@@ -1474,20 +1569,24 @@ const SalesCardManagementPage: React.FC = () => {
                       </div>
                     </td>
                   </tr>
-                ))}
-                {!loading && displayItems.length === 0 && (
+                      ))}
+                    </React.Fragment>
+                  ))
+                ) : (
                   <tr>
-                    <td colSpan={13} className="px-4 py-8 text-center text-muted-foreground">Chưa có phiếu bán hàng nào được lập.</td>
+                    <td colSpan={14} className="px-4 py-12 text-center text-muted-foreground italic border-b border-dashed border-border">
+                      Chưa có phiếu bán hàng nào được lập.
+                    </td>
                   </tr>
                 )}
-                {!loading && displayItems.length > 0 && (
+                {!loading && groupedSales.length > 0 && (
                   <tr className="bg-primary/5 font-black border-t-2 border-primary/20">
-                    <td colSpan={10} className="px-4 py-4 text-right text-muted-foreground text-[11px] tracking-widest">Tổng cộng trang này:</td>
-                    <td colSpan={3} className="px-4 py-4 text-right text-primary text-lg">
+                    <td colSpan={11} className="px-4 py-5 text-right text-muted-foreground text-[11px] tracking-widest uppercase">Tổng trang này:</td>
+                    <td colSpan={3} className="px-4 py-5 text-right text-primary text-xl">
                       {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
                         displayItems.reduce((grandSum, card) => {
                           const items = (card as any).the_ban_hang_ct || [];
-                          return grandSum + items.reduce((sum: number, ct: any) => sum + (ct.gia_ban * (ct.so_luong || 1)), 0);
+                          return grandSum + items.reduce((sum: number, ct: any) => sum + (ct.thanh_tien || (ct.gia_ban * (ct.so_luong || 1))), 0);
                         }, 0)
                       )}
                     </td>
