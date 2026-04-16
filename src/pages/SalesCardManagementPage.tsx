@@ -289,6 +289,12 @@ const SalesCardManagementPage: React.FC = () => {
       showToast('Bạn không có quyền chỉnh sửa phiếu này.', 'error');
       return;
     }
+
+    if (card && card.thu_chi) {
+      showToast('Đơn hàng đã thu tiền, không thể chỉnh sửa.', 'warning');
+      handleViewCard(card);
+      return;
+    }
     setIsReadOnlyModal(false);
     if (card) {
       setEditingCard(card);
@@ -411,6 +417,7 @@ const SalesCardManagementPage: React.FC = () => {
         dich_vu_ids,
         service_items,
         the_ban_hang_ct,
+        thu_chi,
         ...cleanData
       } = formDataHeader as any;
 
@@ -482,10 +489,15 @@ const SalesCardManagementPage: React.FC = () => {
         detailRecords.length > 0 ? bulkUpsertSalesCardCTs(detailRecords) : Promise.resolve(),
         (async () => {
           const existingTx = await getTransactionByOrderId(savedCard.id);
+          
+          // Only auto-update if a transaction already exists (already paid)
+          // Do NOT automatically create a new one for new/unpaid orders as per user request
+          if (!existingTx) return;
+
           const financialRecord: Partial<ThuChi> = {
-            id: existingTx?.id,
+            id: existingTx.id,
             loai_phieu: 'phiếu thu',
-            phuong_thuc: 'Tiền mặt',
+            phuong_thuc: existingTx.phuong_thuc || 'Tiền mặt',
             id_don: savedCard.id,
             so_tien: totalAmount,
             ngay: savedCard.ngay,
@@ -496,7 +508,7 @@ const SalesCardManagementPage: React.FC = () => {
             id_khach_hang: savedCard.khach_hang_id,
             danh_muc: 'Doanh thu dịch vụ',
             trang_thai: 'Hoàn thành',
-            ghi_chu: `Hệ thống tự động: Thu tiền đơn hàng ${savedCard.id.slice(0, 8)}`
+            ghi_chu: existingTx.ghi_chu || `Hệ thống tự động: Cập nhật tiền đơn hàng ${savedCard.id.slice(0, 8)}`
           };
           await upsertTransaction(financialRecord);
         })(),
@@ -1268,9 +1280,11 @@ const SalesCardManagementPage: React.FC = () => {
                     </button>
                     {isAdmin && (
                       <>
-                        <button onClick={() => handleOpenModal(card)} className="flex items-center gap-1 px-3 py-1.5 text-primary hover:bg-primary/10 rounded-lg text-[12px] font-bold border border-primary/20 transition-colors">
-                          <Edit2 size={14} /> Sửa
-                        </button>
+                        {!card.thu_chi && (
+                          <button onClick={() => handleOpenModal(card)} className="flex items-center gap-1 px-3 py-1.5 text-primary hover:bg-primary/10 rounded-lg text-[12px] font-bold border border-primary/20 transition-colors">
+                            <Edit2 size={14} /> Sửa
+                          </button>
+                        )}
                         <button onClick={() => handleDelete(card.id)} className="flex items-center gap-1 px-3 py-1.5 text-destructive hover:bg-destructive/10 rounded-lg text-[12px] font-bold border border-destructive/20 transition-colors">
                           <Trash2 size={14} /> Xóa
                         </button>
@@ -1408,7 +1422,9 @@ const SalesCardManagementPage: React.FC = () => {
                         <button onClick={() => handleViewCard(card)} className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Xem chi tiết"><Eye size={18} /></button>
                         {isAdmin && (
                           <>
-                            <button onClick={() => handleOpenModal(card)} className="p-2 text-primary hover:bg-primary/10 rounded transition-colors" title="Chỉnh sửa"><Edit2 size={18} /></button>
+                            {!card.thu_chi && (
+                              <button onClick={() => handleOpenModal(card)} className="p-2 text-primary hover:bg-primary/10 rounded transition-colors" title="Chỉnh sửa"><Edit2 size={18} /></button>
+                            )}
                             <button onClick={() => handleDelete(card.id)} className="p-2 text-destructive hover:bg-destructive/10 rounded transition-colors" title="Xóa"><Trash2 size={18} /></button>
                           </>
                         )}
