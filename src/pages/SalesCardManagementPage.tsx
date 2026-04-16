@@ -152,7 +152,7 @@ const SalesCardManagementPage: React.FC = () => {
     if (pendingNewCustomer && !list.some(c => c.ma_khach_hang === pendingNewCustomer.ma_khach_hang)) {
       list = [{ ...pendingNewCustomer, ho_va_ten: `${pendingNewCustomer.ho_va_ten}` } as KhachHang, ...list];
     }
-    return list.map(c => {
+    const rawOptions = list.map(c => {
       const searchParts = [c.ho_va_ten];
       if (c.so_dien_thoai) searchParts.push(c.so_dien_thoai);
       if (c.bien_so_xe) searchParts.push(c.bien_so_xe);
@@ -164,6 +164,17 @@ const SalesCardManagementPage: React.FC = () => {
         searchKey: searchParts.join(' ')
       };
     });
+
+    // Remove duplicates based on value (key)
+    const uniqueOptions = [];
+    const seenValues = new Set();
+    for (const opt of rawOptions) {
+      if (opt.value && !seenValues.has(opt.value)) {
+        seenValues.add(opt.value);
+        uniqueOptions.push(opt);
+      }
+    }
+    return uniqueOptions;
   }, [customers, pendingNewCustomer]);
 
   // Capture pending ID immediately on first render (before any async work)

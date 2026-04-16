@@ -62,6 +62,7 @@ const SalesCardFormModal: React.FC<{
   const [historyRecords, setHistoryRecords] = useState<EditHistoryRecord[]>([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Sync formData with initialData when modal opens or initialData changes (for new cards)
   React.useEffect(() => {
@@ -179,7 +180,7 @@ const SalesCardFormModal: React.FC<{
     return options;
   }, [customerOptions, formData.khach_hang_id, initialData]);
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const hasServices = (formData.dich_vu_ids && formData.dich_vu_ids.length > 0) ||
@@ -194,7 +195,12 @@ const SalesCardFormModal: React.FC<{
       return;
     }
 
-    onSubmit(formData);
+    setIsSubmitting(true);
+    try {
+      await onSubmit(formData);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -526,12 +532,16 @@ const SalesCardFormModal: React.FC<{
               </div>
 
               <div className="flex items-center gap-3">
-                <button type="button" onClick={onClose} className="px-4 py-1.5 sm:px-6 sm:py-2 rounded-xl text-sm font-bold border border-border hover:bg-muted transition-all">
+                <button type="button" onClick={onClose} disabled={isSubmitting || isCollecting} className={clsx("px-4 py-1.5 sm:px-6 sm:py-2 rounded-xl text-sm font-bold border border-border hover:bg-muted transition-all", (isSubmitting || isCollecting) && "opacity-50 cursor-not-allowed")}>
                   {isReadOnly ? 'Đóng' : 'Hủy'}
                 </button>
                 {!isReadOnly && (
-                  <button type="submit" className="px-4 py-1.5 sm:px-8 sm:py-2 rounded-xl text-sm font-bold text-white bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 transition-all flex items-center gap-2">
-                    <Save size={18} /> <span>{editingCard ? 'Lưu thay đổi' : 'Lập phiếu'}</span>
+                  <button type="submit" disabled={isSubmitting || isCollecting} className={clsx("px-4 py-1.5 sm:px-8 sm:py-2 rounded-xl text-sm font-bold text-white bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 transition-all flex items-center gap-2", (isSubmitting || isCollecting) && "opacity-70 cursor-not-allowed")}>
+                    {isSubmitting ? (
+                      <><Loader2 size={18} className="animate-spin" /> <span>Đang lưu...</span></>
+                    ) : (
+                      <><Save size={18} /> <span>{editingCard ? 'Lưu thay đổi' : 'Lập phiếu'}</span></>
+                    )}
                   </button>
                 )}
               </div>
