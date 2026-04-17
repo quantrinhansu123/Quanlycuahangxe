@@ -40,9 +40,9 @@ function App() {
             <Route path="/dich-vu" element={<ServiceManagementPage />} />
 
             <Route path="/nhan-su" element={<ModulePage />}>
-              <Route path="ung-vien" element={<ProtectedRoute adminOnly><PersonnelManagementPage /></ProtectedRoute>} />
-              <Route path="bang-cham-cong" element={<AttendanceManagementPage />} />
               <Route path="them-cham-cong" element={<AddAttendancePage />} />
+              <Route path="bang-cham-cong" element={<AttendanceManagementPage />} />
+              <Route path="ung-vien" element={<ProtectedRoute adminOnly><PersonnelManagementPage /></ProtectedRoute>} />
             </Route>
 
             <Route path="/cham-cong" element={<CheckInPage />} />
