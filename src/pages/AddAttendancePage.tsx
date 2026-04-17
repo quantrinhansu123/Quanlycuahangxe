@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { AlertTriangle, Camera, Clock, MapPin, User, Calendar, ArrowLeft, Loader2, TrendingUp } from 'lucide-react';
+import { AlertTriangle, Camera, Clock, MapPin, RefreshCw, User, Calendar, ArrowLeft, Loader2, TrendingUp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -13,10 +13,12 @@ import {
   type AttendanceRecord 
 } from '../data/attendanceData';
 import { calculateAttendanceStatus, formatMinutesToHours } from '../utils/timekeeping';
+import { useToast } from '../context/ToastContext';
 
 
 const AddAttendancePage: React.FC = () => {
   const { currentUser, isAdmin } = useAuth();
+  const { showToast } = useToast();
   const navigate = useNavigate();
   const [personnel, setPersonnel] = useState<NhanSu[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,6 +28,8 @@ const AddAttendancePage: React.FC = () => {
 
   // Monthly records for stats
   const [monthlyRecords, setMonthlyRecords] = useState<AttendanceRecord[]>([]);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const watchIdRef = useRef<number | null>(null);
 
   useEffect(() => {
     const initData = async () => {
@@ -87,6 +91,33 @@ const AddAttendancePage: React.FC = () => {
     initData();
   }, [currentUser]);
 
+  // Auto-track location via watchPosition
+  useEffect(() => {
+    if (!("geolocation" in navigator)) return;
+
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setFormData(prev => ({
+          ...prev,
+          vi_tri: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`
+        }));
+        setLocationLoading(false);
+      },
+      (error) => {
+        console.error("Lỗi theo dõi vị trí:", error);
+        setLocationLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
+    );
+
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+    };
+  }, []);
+
   const getLocation = () => {
     if (!("geolocation" in navigator)) {
       console.warn("Trình duyệt không hỗ trợ định vị.");
@@ -125,23 +156,56 @@ const AddAttendancePage: React.FC = () => {
   const handleQuickSubmit = async (type: 'checkin' | 'checkout') => {
     setSubmitting(true);
     const now = new Date().toTimeString().split(' ')[0].substring(0, 5);
-    const updatedData = { ...formData, [type]: now };
 
-    setFormData(updatedData);
-
-    const dbPayload = {
-      ...updatedData,
-      checkin: updatedData.checkin || null,
-      checkout: updatedData.checkout || null,
-      vi_tri: updatedData.vi_tri || null,
-      anh: updatedData.anh || null,
-    };
+    // Check if this type already has a value (duplicate press)
+    const existingValue = type === 'checkin' ? formData.checkin : formData.checkout;
+    const isDuplicate = !!existingValue;
 
     try {
-      await upsertAttendanceRecord(dbPayload);
-      alert('Đã cập nhật chấm công thành công!');
+      if (isDuplicate) {
+        // Create a NEW record in DB (separate row) to preserve both presses
+        const newId = await getNextAttendanceId();
+        const newRecord: Partial<AttendanceRecord> = {
+          id_cham_cong: newId,
+          nhan_su: formData.nhan_su,
+          ngay: formData.ngay,
+          checkin: type === 'checkin' ? now : null,
+          checkout: type === 'checkout' ? now : null,
+          vi_tri: formData.vi_tri || null,
+          anh: formData.anh || null,
+        };
+        
+        const savedRecord = await upsertAttendanceRecord(newRecord);
+        
+        // Update local stats list
+        setMonthlyRecords(prev => [savedRecord, ...prev]);
+        
+        showToast(`Bấm ${type === 'checkin' ? 'giờ vào' : 'giờ ra'} mới thành công`, 'warning');
+      } else {
+        // First press: update the current record
+        const updatedData = { ...formData, [type]: now };
+        setFormData(updatedData);
+        
+        const dbPayload = {
+          ...updatedData,
+          checkin: updatedData.checkin || null,
+          checkout: updatedData.checkout || null,
+          vi_tri: updatedData.vi_tri || null,
+          anh: updatedData.anh || null,
+        };
+        
+        const savedRecord = await upsertAttendanceRecord(dbPayload);
+        
+        // Update local stats list (replace old one if exists or add new)
+        setMonthlyRecords(prev => {
+          const filtered = prev.filter(r => r.id !== savedRecord.id);
+          return [savedRecord, ...filtered];
+        });
+
+        showToast('Cập nhật chấm công thành công', 'success');
+      }
     } catch (error) {
-      alert('Lỗi: Không thể lưu thông tin chấm công.');
+      showToast('Không thể lưu thông tin chấm công', 'error');
     } finally {
       setSubmitting(false);
     }
@@ -293,14 +357,31 @@ const AddAttendancePage: React.FC = () => {
             </div>
 
             {/* Location Map */}
-            {coordinates && (
-              <div className="mb-6 rounded-2xl overflow-hidden border border-border shadow-sm">
-                <div className="flex items-center gap-2 px-4 py-2 bg-muted/50 border-b border-border">
-                  <MapPin size={14} className="text-primary" />
-                  <span className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider">Vị trí chấm công</span>
-                  <span className="text-[10px] text-muted-foreground ml-auto font-mono">{formData.vi_tri}</span>
-                </div>
+            {/* Location Map */}
+            <div className="mb-6 rounded-2xl overflow-hidden border border-border shadow-sm">
+              <div className="flex items-center gap-2 px-4 py-2 bg-muted/50 border-b border-border">
+                <MapPin size={14} className="text-primary" />
+                <span className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider">Vị trí chấm công</span>
+                {coordinates && (
+                  <span className="text-[10px] text-muted-foreground font-mono hidden sm:inline">{formData.vi_tri}</span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLocationLoading(true);
+                    getLocation();
+                    setTimeout(() => setLocationLoading(false), 3000);
+                  }}
+                  className="ml-auto flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold text-primary bg-primary/5 hover:bg-primary/10 active:scale-95 transition-all border border-primary/20"
+                  title="Cập nhật vị trí"
+                >
+                  <RefreshCw size={12} className={locationLoading ? 'animate-spin' : ''} />
+                  <span className="hidden sm:inline">Cập nhật</span>
+                </button>
+              </div>
+              {coordinates ? (
                 <iframe
+                  key={`${coordinates.lat}-${coordinates.lon}`}
                   title="Vị trí chấm công"
                   width="100%"
                   height="200"
@@ -309,8 +390,22 @@ const AddAttendancePage: React.FC = () => {
                   referrerPolicy="no-referrer-when-downgrade"
                   src={`https://www.openstreetmap.org/export/embed.html?bbox=${coordinates.lon - 0.005}%2C${coordinates.lat - 0.003}%2C${coordinates.lon + 0.005}%2C${coordinates.lat + 0.003}&layer=mapnik&marker=${coordinates.lat}%2C${coordinates.lon}`}
                 />
-              </div>
-            )}
+              ) : (
+                <div className="h-[120px] flex flex-col items-center justify-center gap-2 text-muted-foreground bg-muted/20">
+                  {locationLoading ? (
+                    <>
+                      <Loader2 size={20} className="animate-spin text-primary" />
+                      <span className="text-[12px] font-medium">Đang lấy vị trí...</span>
+                    </>
+                  ) : (
+                    <>
+                      <MapPin size={24} className="opacity-30" />
+                      <span className="text-[12px]">Chưa có vị trí. Bấm "Cập nhật" để lấy.</span>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
 
             <div className="space-y-5">
               <div className="space-y-1.5">
