@@ -508,7 +508,6 @@ const SalesCardManagementPage: React.FC = () => {
         service_items,
         the_ban_hang_ct,
         thu_chi,
-        phuong_thuc_thanh_toan,
         ...cleanData
       } = formDataHeader as any;
 

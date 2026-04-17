@@ -194,6 +194,11 @@ const SalesCardFormModal: React.FC<{
       return;
     }
 
+    if (!formData.phuong_thuc_thanh_toan && !formData.thu_chi?.phuong_thuc) {
+      alert('Vui lòng chọn Hình thức thanh toán trước khi lưu phiếu.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await onSubmit(formData);
@@ -358,6 +363,7 @@ const SalesCardFormModal: React.FC<{
                   value={formData.thu_chi?.phuong_thuc || formData.phuong_thuc_thanh_toan || ''} 
                   onChange={handleInputChange} 
                   icon={Banknote} 
+                  required={true}
                   disabled={!!formData.thu_chi} 
                 />
                 {!formData.thu_chi && (
