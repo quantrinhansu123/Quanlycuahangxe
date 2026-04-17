@@ -224,39 +224,93 @@ const AddAttendancePage: React.FC = () => {
                 )}
               </div>
 
-              {/* Box chấm công */}
+              {/* Box chấm công thông minh */}
               <div className="flex flex-col gap-4 mt-8 pt-6 border-t border-border">
-                {formData.checkin && formData.checkout ? (
-                  <div className="p-5 bg-emerald-50 border border-emerald-200 rounded-xl text-center shadow-inner">
-                    <p className="text-emerald-700 font-bold mb-2 text-lg">🎉 Hoàn tất chấm công hôm nay!</p>
-                    <p className="text-emerald-600 font-semibold text-[15px]">Giờ vào: {formData.checkin} — Giờ ra: {formData.checkout}</p>
-                  </div>
-                ) : formData.checkin ? (
-                  <div className="flex flex-col gap-3">
-                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl text-center shadow-sm">
-                      <p className="text-[14px] text-blue-700 font-semibold mb-1">Đã chấm công VÀO lúc: <span className="font-bold text-xl leading-tight block text-blue-800">{formData.checkin}</span></p>
+                {/* Hiển thị trạng thái hiện tại nếu đã có dữ liệu */}
+                {(formData.checkin || formData.checkout) && (
+                  <div className="p-4 bg-muted/30 border border-border rounded-2xl text-center space-y-1.5 mb-2 shadow-inner">
+                    <p className="text-[12px] font-bold text-muted-foreground uppercase tracking-widest opacity-70">Trạng thái hôm nay</p>
+                    <div className="flex justify-center gap-6">
+                      {formData.checkin && (
+                        <div className="text-center">
+                          <p className="text-[10px] uppercase font-bold text-emerald-600/70">Giờ vào</p>
+                          <p className="text-lg font-black text-emerald-700">{formData.checkin}</p>
+                        </div>
+                      )}
+                      {formData.checkout && (
+                        <div className="text-center">
+                          <p className="text-[10px] uppercase font-bold text-orange-600/70">Giờ ra</p>
+                          <p className="text-lg font-black text-orange-700">{formData.checkout}</p>
+                        </div>
+                      )}
                     </div>
-                    <button
-                      type="button"
-                      disabled={submitting}
-                      onClick={() => handleQuickSubmit('checkout')}
-                      className="w-full py-4 rounded-xl text-lg font-bold text-white bg-orange-500 hover:bg-orange-600 shadow-lg shadow-orange-500/30 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
-                    >
-                      {submitting ? <Loader2 className="animate-spin" /> : <Clock size={24} />}
-                      CHẤM CÔNG RA NGAY
-                    </button>
                   </div>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={submitting}
-                    onClick={() => handleQuickSubmit('checkin')}
-                    className="w-full py-4 rounded-xl text-lg font-bold text-white bg-emerald-500 hover:bg-emerald-600 shadow-lg shadow-emerald-500/30 transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
-                  >
-                     {submitting ? <Loader2 className="animate-spin" /> : <Clock size={24} />}
-                    CHẤM CÔNG VÀO NGAY
-                  </button>
                 )}
+
+                {(() => {
+                  const hour = new Date().getHours();
+                  const isMorning = hour >= 5 && hour < 12;
+                  const isAfternoon = hour >= 14 && hour < 22;
+
+                  if (isMorning) {
+                    return (
+                      <button
+                        type="button"
+                        disabled={submitting}
+                        onClick={() => handleQuickSubmit('checkin')}
+                        className="w-full py-4 rounded-xl text-lg font-bold text-white bg-emerald-500 hover:bg-emerald-600 shadow-lg shadow-emerald-500/30 transition-all active:scale-95 flex flex-col items-center justify-center gap-1 disabled:opacity-50"
+                      >
+                        <div className="flex items-center gap-2">
+                          {submitting ? <Loader2 className="animate-spin" /> : <Clock size={24} />}
+                          <span>CHẤM CÔNG GIỜ VÀO</span>
+                        </div>
+                        <span className="text-[11px] font-medium opacity-80">(Tự động nhận diện buổi sáng: 5h-12h)</span>
+                      </button>
+                    );
+                  }
+
+                  if (isAfternoon) {
+                    return (
+                      <button
+                        type="button"
+                        disabled={submitting}
+                        onClick={() => handleQuickSubmit('checkout')}
+                        className="w-full py-4 rounded-xl text-lg font-bold text-white bg-orange-500 hover:bg-orange-600 shadow-lg shadow-orange-500/30 transition-all active:scale-95 flex flex-col items-center justify-center gap-1 disabled:opacity-50"
+                      >
+                        <div className="flex items-center gap-2">
+                          {submitting ? <Loader2 className="animate-spin" /> : <Clock size={24} />}
+                          <span>CHẤM CÔNG GIỜ RA</span>
+                        </div>
+                        <span className="text-[11px] font-medium opacity-80">(Tự động nhận diện buổi chiều: 14h-22h)</span>
+                      </button>
+                    );
+                  }
+
+                  // Ngoài khung giờ auto hoặc giờ nghỉ trưa
+                  return (
+                    <div className="space-y-3">
+                      <p className="text-[12px] text-center text-muted-foreground font-bold italic mb-1">Hiện tại ngoài khung giờ tự động, vui lòng chọn thủ công:</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          disabled={submitting}
+                          onClick={() => handleQuickSubmit('checkin')}
+                          className="py-3 rounded-xl text-[14px] font-bold text-white bg-emerald-500 hover:bg-emerald-600 shadow-md transition-all active:scale-95 disabled:opacity-50"
+                        >
+                          CHẤM GIỜ VÀO
+                        </button>
+                        <button
+                          type="button"
+                          disabled={submitting}
+                          onClick={() => handleQuickSubmit('checkout')}
+                          className="py-3 rounded-xl text-[14px] font-bold text-white bg-orange-500 hover:bg-orange-600 shadow-md transition-all active:scale-95 disabled:opacity-50"
+                        >
+                          CHẤM GIỜ RA
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 
