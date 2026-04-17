@@ -215,28 +215,54 @@ const AddAttendancePage: React.FC = () => {
   const monthlyStats = useMemo(() => {
     let lateCount = 0;
     let totalOvertimeMinutes = 0;
+    
+    // Group records by date (ngay)
+    const recordsByDate: Record<string, AttendanceRecord[]> = {};
+    monthlyRecords.forEach(record => {
+      if (!record.ngay) return;
+      if (!recordsByDate[record.ngay]) {
+        recordsByDate[record.ngay] = [];
+      }
+      recordsByDate[record.ngay].push(record);
+    });
+
+    const uniqueDates = Object.keys(recordsByDate);
     const missingRecords: { ngay: string; missing: 'checkin' | 'checkout' }[] = [];
 
-    monthlyRecords.forEach(record => {
-      const status = calculateAttendanceStatus(record.checkin, record.checkout);
+    uniqueDates.forEach(date => {
+      const dayRecords = recordsByDate[date];
+      
+      // A day is "late" if ANY of its records are late
+      let dayIsLate = false;
+      let dayOvertime = 0;
+      let hasCheckin = false;
+      let hasCheckout = false;
 
-      if (status.isLate) lateCount++;
-      totalOvertimeMinutes += status.overtimeMinutes;
+      dayRecords.forEach(record => {
+        const status = calculateAttendanceStatus(record.checkin, record.checkout);
+        if (status.isLate) dayIsLate = true;
+        dayOvertime += status.overtimeMinutes;
+        if (record.checkin) hasCheckin = true;
+        if (record.checkout) hasCheckout = true;
+      });
 
-      // Detect missing check-in or check-out
-      if (record.checkin && !record.checkout) {
-        missingRecords.push({ ngay: record.ngay, missing: 'checkout' });
-      } else if (!record.checkin && record.checkout) {
-        missingRecords.push({ ngay: record.ngay, missing: 'checkin' });
+      if (dayIsLate) lateCount++;
+      totalOvertimeMinutes += dayOvertime;
+
+      // Smart warnings: Only warn if the ENTITY of the day is missing something
+      if (hasCheckin && !hasCheckout) {
+        missingRecords.push({ ngay: date, missing: 'checkout' });
+      } else if (!hasCheckin && hasCheckout) {
+        missingRecords.push({ ngay: date, missing: 'checkin' });
       }
     });
 
     return {
-      totalDays: monthlyRecords.length,
+      totalDays: uniqueDates.length,
       lateCount,
       totalOvertimeMinutes,
       overtimeFormatted: formatMinutesToHours(totalOvertimeMinutes),
-      missingRecords
+      missingRecords: missingRecords.sort((a, b) => b.ngay.localeCompare(a.ngay)) // Sort by newest date
     };
   }, [monthlyRecords]);
 
