@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, Camera, Clock, MapPin, RefreshCw, User, Calendar, ArrowLeft, Loader2, TrendingUp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -24,6 +25,7 @@ const AddAttendancePage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState<Partial<AttendanceRecord>>({});
+  const [showDetailView, setShowDetailView] = useState<'total' | 'late' | 'overtime' | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Monthly records for stats
@@ -228,9 +230,13 @@ const AddAttendancePage: React.FC = () => {
 
     const uniqueDates = Object.keys(recordsByDate);
     const missingRecords: { ngay: string; missing: 'checkin' | 'checkout' }[] = [];
+    const lateRecords: { date: string; records: AttendanceRecord[] }[] = [];
+    const overtimeRecords: { date: string; records: AttendanceRecord[] }[] = [];
+    const allWorkDays: { date: string; records: AttendanceRecord[] }[] = [];
 
     uniqueDates.forEach(date => {
       const dayRecords = recordsByDate[date];
+      allWorkDays.push({ date, records: dayRecords });
       
       // A day is "late" if ANY of its records are late
       let dayIsLate = false;
@@ -246,8 +252,15 @@ const AddAttendancePage: React.FC = () => {
         if (record.checkout) hasCheckout = true;
       });
 
-      if (dayIsLate) lateCount++;
-      totalOvertimeMinutes += dayOvertime;
+      if (dayIsLate) {
+        lateCount++;
+        lateRecords.push({ date, records: dayRecords });
+      }
+      
+      if (dayOvertime > 0) {
+        totalOvertimeMinutes += dayOvertime;
+        overtimeRecords.push({ date, records: dayRecords });
+      }
 
       // Smart warnings: Only warn if the ENTITY of the day is missing something
       if (hasCheckin && !hasCheckout) {
@@ -262,7 +275,10 @@ const AddAttendancePage: React.FC = () => {
       lateCount,
       totalOvertimeMinutes,
       overtimeFormatted: formatMinutesToHours(totalOvertimeMinutes),
-      missingRecords: missingRecords.sort((a, b) => b.ngay.localeCompare(a.ngay)) // Sort by newest date
+      missingRecords: missingRecords.sort((a, b) => b.ngay.localeCompare(a.ngay)), // Sort by newest date
+      lateRecords: lateRecords.sort((a, b) => b.date.localeCompare(a.date)),
+      overtimeRecords: overtimeRecords.sort((a, b) => b.date.localeCompare(a.date)),
+      allWorkDays: allWorkDays.sort((a, b) => b.date.localeCompare(a.date))
     };
   }, [monthlyRecords]);
 
@@ -288,7 +304,8 @@ const AddAttendancePage: React.FC = () => {
   }
 
   return (
-    <div className="w-full flex-1 animate-in fade-in slide-in-from-bottom-4 duration-500 font-sans p-4 sm:p-6 lg:p-8">
+    <>
+      <div className="w-full flex-1 animate-in fade-in slide-in-from-bottom-4 duration-500 font-sans p-4 sm:p-6 lg:p-8">
       <div className="max-w-2xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
@@ -300,29 +317,40 @@ const AddAttendancePage: React.FC = () => {
 
         {/* Monthly Stats Cards */}
         <div className="grid grid-cols-3 gap-3">
-          <div className="bg-card rounded-2xl border border-border p-4 text-center shadow-sm">
-            <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-600 mx-auto mb-2">
+          <button 
+            onClick={() => setShowDetailView('total')}
+            className="group bg-card rounded-2xl border border-border p-4 text-center shadow-sm hover:shadow-md hover:border-blue-200 hover:-translate-y-1 transition-all active:scale-95 outline-none"
+          >
+            <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-600 mx-auto mb-2 group-hover:scale-110 transition-transform">
               <Calendar size={20} />
             </div>
             <p className="text-2xl font-black text-foreground">{monthlyStats.totalDays}</p>
             <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Ngày công</p>
-          </div>
-          <div className="bg-card rounded-2xl border border-border p-4 text-center shadow-sm">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-2 ${monthlyStats.lateCount > 0 ? 'bg-red-500/10 text-red-600' : 'bg-emerald-500/10 text-emerald-600'}`}>
+          </button>
+          
+          <button 
+            onClick={() => setShowDetailView('late')}
+            className="group bg-card rounded-2xl border border-border p-4 text-center shadow-sm hover:shadow-md hover:border-red-200 hover:-translate-y-1 transition-all active:scale-95 outline-none"
+          >
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform ${monthlyStats.lateCount > 0 ? 'bg-red-500/10 text-red-600' : 'bg-emerald-500/10 text-emerald-600'}`}>
               <Clock size={20} />
             </div>
             <p className={`text-2xl font-black ${monthlyStats.lateCount > 0 ? 'text-red-600' : 'text-foreground'}`}>{monthlyStats.lateCount}</p>
             <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Đi muộn</p>
-          </div>
-          <div className="bg-card rounded-2xl border border-border p-4 text-center shadow-sm">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-2 ${monthlyStats.totalOvertimeMinutes > 0 ? 'bg-orange-500/10 text-orange-600' : 'bg-muted text-muted-foreground'}`}>
+          </button>
+
+          <button 
+            onClick={() => setShowDetailView('overtime')}
+            className="group bg-card rounded-2xl border border-border p-4 text-center shadow-sm hover:shadow-md hover:border-orange-200 hover:-translate-y-1 transition-all active:scale-95 outline-none"
+          >
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform ${monthlyStats.totalOvertimeMinutes > 0 ? 'bg-orange-500/10 text-orange-600' : 'bg-muted text-muted-foreground'}`}>
               <TrendingUp size={20} />
             </div>
             <p className={`text-2xl font-black ${monthlyStats.totalOvertimeMinutes > 0 ? 'text-orange-600' : 'text-foreground'}`}>
               {monthlyStats.overtimeFormatted || '0p'}
             </p>
             <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Tăng ca</p>
-          </div>
+          </button>
         </div>
         <p className="text-[11px] text-center text-muted-foreground font-medium -mt-3">
           Thống kê {currentMonthLabel}
@@ -577,6 +605,163 @@ const AddAttendancePage: React.FC = () => {
         </div>
       </div>
     </div>
+
+      {/* Stats Detail Overlay */}
+      <AnimatePresence>
+        {showDetailView && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowDetailView(null)}
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            />
+            
+            <motion.div 
+              initial={{ y: "100%", opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: "100%", opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="relative w-full max-w-lg bg-background rounded-t-[32px] sm:rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
+            >
+              {/* Header */}
+              <div className="p-6 border-b border-border flex items-center justify-between bg-card">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                    showDetailView === 'total' ? 'bg-blue-500/10 text-blue-600' :
+                    showDetailView === 'late' ? 'bg-red-500/10 text-red-600' :
+                    'bg-orange-500/10 text-orange-600'
+                  }`}>
+                    {showDetailView === 'total' ? <Calendar size={20} /> :
+                     showDetailView === 'late' ? <Clock size={20} /> :
+                     <TrendingUp size={20} />}
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-foreground">
+                      {showDetailView === 'total' ? 'Chi tiết Ngày công' :
+                       showDetailView === 'late' ? 'Chi tiết Đi muộn' :
+                       'Chi tiết Tăng ca'}
+                    </h3>
+                    <p className="text-[11px] font-bold text-muted-foreground uppercase">
+                      {currentMonthLabel}
+                    </p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setShowDetailView(null)}
+                  className="w-10 h-10 rounded-full bg-muted/50 flex items-center justify-center hover:bg-muted transition-colors active:scale-90 shadow-inner"
+                >
+                  <ArrowLeft className="rotate-90 sm:rotate-0" size={20} />
+                </button>
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
+                {(() => {
+                  const recordsToShow = 
+                    showDetailView === 'total' ? monthlyStats.allWorkDays :
+                    showDetailView === 'late' ? monthlyStats.lateRecords :
+                    monthlyStats.overtimeRecords;
+
+                  if (recordsToShow.length === 0) {
+                    return (
+                      <div className="py-12 text-center space-y-3">
+                        <div className="w-16 h-16 bg-muted/30 rounded-full flex items-center justify-center mx-auto opacity-40">
+                          {showDetailView === 'total' ? <Calendar size={24} /> :
+                           showDetailView === 'late' ? <Clock size={24} /> :
+                           <TrendingUp size={24} />}
+                        </div>
+                        <p className="text-muted-foreground font-medium italic">Không có dữ liệu trong tháng này.</p>
+                      </div>
+                    );
+                  }
+
+                  return recordsToShow.map((item, idx) => {
+                    const hasMultiple = item.records.length > 1;
+                    
+                    return (
+                      <div key={idx} className="bg-card/50 border border-border rounded-2xl p-4 hover:border-primary/20 transition-all">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <span className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-bold text-[13px]">
+                              {new Date(item.date).getDate()}
+                            </span>
+                            <div>
+                              <p className="text-sm font-black text-foreground">
+                                {new Date(item.date).toLocaleDateString('vi-VN', { weekday: 'long' })}
+                              </p>
+                              <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">
+                                {new Date(item.date).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
+                              </p>
+                            </div>
+                          </div>
+                          {hasMultiple && (
+                            <span className="px-2 py-0.5 rounded-full bg-muted text-[10px] font-black text-muted-foreground">
+                              {item.records.length} LẦN BẤM
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          {item.records.map((r, rIdx) => {
+                            const status = calculateAttendanceStatus(r.checkin, r.checkout);
+                            return (
+                              <div key={rIdx} className={`p-3 rounded-xl border flex items-center justify-between ${
+                                r.checkin && calculateAttendanceStatus(r.checkin, null).isLate 
+                                  ? 'bg-red-500/5 border-red-500/10' 
+                                  : 'bg-emerald-500/5 border-emerald-500/10'
+                              }`}>
+                                <div className="flex items-center gap-4">
+                                  <div>
+                                    <p className="text-[9px] font-bold text-muted-foreground uppercase opacity-70">Giờ vào</p>
+                                    <p className={`text-[13px] font-black ${
+                                      r.checkin && calculateAttendanceStatus(r.checkin, null).isLate ? 'text-red-600' : 'text-emerald-700'
+                                    }`}>
+                                      {r.checkin || '--:--'}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p className="text-[9px] font-bold text-muted-foreground uppercase opacity-70">Giờ ra</p>
+                                    <p className="text-[13px] font-black text-orange-700">
+                                      {r.checkout || '--:--'}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  {status.overtimeMinutes > 0 && (
+                                    <p className="text-[11px] font-black text-orange-600">
+                                      +{formatMinutesToHours(status.overtimeMinutes)} TC
+                                    </p>
+                                  )}
+                                  {r.checkin && calculateAttendanceStatus(r.checkin, null).isLate && (
+                                    <p className="text-[10px] font-bold text-red-500">Muộn {calculateAttendanceStatus(r.checkin, null).lateMinutes}p</p>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+
+              {/* Bottom Actions */}
+              <div className="p-6 bg-muted/30 border-t border-border">
+                <button 
+                  onClick={() => setShowDetailView(null)}
+                  className="w-full py-4 bg-foreground text-background font-black rounded-2xl hover:opacity-90 transition-all active:scale-95 shadow-lg shadow-foreground/10"
+                >
+                  ĐÓNG CHI TIẾT
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </>
   );
 };
 
