@@ -308,9 +308,20 @@ export const getSalesCardsPaginated = async (
 
   await enrichSalesCards(pagedCards);
 
-  // 3. Calculate Grand Total Amount across ALL pages
+  // 3. Calculate Grand Totals across ALL matching results
   let grandTotal = 0;
+  let totalCustomersCount = 0;
+
   if (allCards.length > 0) {
+    // Unique customers count (handle duplicates)
+    // Use khach_hang_id (UUID or code) as the primary identifier, fallback to ten_khach_hang
+    const customerSet = new Set<string>();
+    allCards.forEach(c => {
+      const identifier = (c.khach_hang_id || c.ten_khach_hang || '').trim().toLowerCase();
+      if (identifier) customerSet.add(identifier);
+    });
+    totalCustomersCount = customerSet.size;
+
     const allIds = allCards.map(c => c.id).filter(Boolean);
     const allOrderCodes = allCards.map(c => c.id_bh).filter(Boolean) as string[];
     const allRefs = [...new Set([...allIds, ...allOrderCodes])];
@@ -361,7 +372,8 @@ export const getSalesCardsPaginated = async (
   return {
     data: pagedCards,
     totalCount: count || 0,
-    totalAmount: grandTotal
+    totalAmount: grandTotal,
+    totalCustomers: totalCustomersCount
   };
 };
 

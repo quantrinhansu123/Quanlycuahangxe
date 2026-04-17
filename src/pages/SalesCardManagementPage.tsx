@@ -67,6 +67,7 @@ const SalesCardManagementPage: React.FC = () => {
   const [pageSize, setPageSize] = useState(20);
   const [totalCount, setTotalCount] = useState(0);
   const [totalAmount, setTotalAmount] = useState(0);
+  const [totalCustomers, setTotalCustomers] = useState(0);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isReadOnlyModal, setIsReadOnlyModal] = useState(false);
@@ -124,6 +125,7 @@ const SalesCardManagementPage: React.FC = () => {
       setSalesCards(cardsResult.data);
       setTotalCount(cardsResult.totalCount);
       setTotalAmount(cardsResult.totalAmount);
+      setTotalCustomers((cardsResult as any).totalCustomers || 0);
 
       // Fetch first sale dates by CUSTOMER NAME to determine new vs returning
       const uniqueNames = [...new Set(
@@ -1203,6 +1205,10 @@ const SalesCardManagementPage: React.FC = () => {
               <span className="text-[10px] sm:text-[11px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Tổng đơn:</span>
               <span className="text-sm sm:text-base font-black text-primary">{totalCount}</span>
             </div>
+            <div className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-blue-500/5 border border-blue-500/20 flex items-center gap-2">
+              <span className="text-[10px] sm:text-[11px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Tổng khách:</span>
+              <span className="text-sm sm:text-base font-black text-blue-600">{totalCustomers}</span>
+            </div>
             <div className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-emerald-500/5 border border-emerald-500/20 flex items-center gap-2">
               <span className="text-[10px] sm:text-[11px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Tổng tiền:</span>
               <span className="text-sm sm:text-base font-black text-emerald-600">
@@ -1381,8 +1387,14 @@ const SalesCardManagementPage: React.FC = () => {
 
           {/* Mobile Summary Row */}
           {!loading && displayItems.length > 0 && (
-            <div className="bg-primary/5 p-4 rounded-xl border border-primary/20 mt-2">
+            <div className="bg-primary/5 p-4 rounded-xl border border-primary/20 mt-2 space-y-2">
               <div className="flex items-center justify-between">
+                <span className="text-muted-foreground text-[12px] font-bold uppercase tracking-widest font-sans">Tổng khách lọc:</span>
+                <span className="text-blue-600 font-black text-lg">
+                  {totalCustomers} khách
+                </span>
+              </div>
+              <div className="flex items-center justify-between pt-2 border-t border-primary/10">
                 <span className="text-muted-foreground text-[12px] font-bold uppercase tracking-widest font-sans">Tổng doanh số lọc:</span>
                 <span className="text-primary font-black text-lg">
                   {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalAmount)}
@@ -1564,7 +1576,12 @@ const SalesCardManagementPage: React.FC = () => {
                 )}
                 {!loading && groupedSales.length > 0 && (
                   <tr className="bg-primary/5 font-black border-t-2 border-primary/20">
-                    <td colSpan={11} className="px-4 py-5 text-right text-muted-foreground text-[11px] tracking-widest uppercase">Tổng doanh số toàn bộ (kết quả lọc):</td>
+                    <td colSpan={8} className="px-4 py-5 text-right text-muted-foreground text-[11px] tracking-widest uppercase">
+                      Tổng khách (toàn bộ): <span className="text-blue-600 ml-2 text-base">{totalCustomers}</span>
+                    </td>
+                    <td colSpan={3} className="px-4 py-5 text-right text-muted-foreground text-[11px] tracking-widest uppercase border-l border-primary/10">
+                      Tổng doanh số toàn bộ (kết quả lọc):
+                    </td>
                     <td colSpan={3} className="px-4 py-5 text-right text-primary text-xl">
                       {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalAmount)}
                     </td>
