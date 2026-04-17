@@ -279,15 +279,30 @@ export const getSalesCardsPaginated = async (
   if (staffId) baseQuery = baseQuery.ilike('nhan_vien_id', `%${staffId}%`);
 
   if (branch) {
-    const { data: matchedDetailIds } = await supabase
-      .from('the_ban_hang_ct')
-      .select('id_don_hang')
-      .eq('co_so', branch);
-    const matchedIds = [...new Set((matchedDetailIds || []).map(d => d.id_don_hang).filter(Boolean))] as string[];
-    if (matchedIds.length > 0) {
-      const idSearchList = matchedIds.map(id => `"${id}"`).join(',');
-      baseQuery = baseQuery.or(`id.in.(${idSearchList}),id_bh.in.(${idSearchList})`);
+    // 1. Search in Customers table strictly by branch (Address = Branch Location)
+    const branchNameOnly = branch.replace('Cơ sở ', '');
+    const { data: matchedCustomers } = await supabase
+      .from('khach_hang')
+      .select('id, ma_khach_hang')
+      .or(`dia_chi_hien_tai.eq."${branch}",dia_chi_hien_tai.eq."${branchNameOnly}"`)
+      .limit(300); // Max 300 IDs to keep query length safe but cover more ground
+
+    const customerIds = (matchedCustomers || []).map(c => c.id);
+    const customerCodes = (matchedCustomers || []).map(c => c.ma_khach_hang).filter(Boolean);
+    
+    const branchOrConditions: string[] = [];
+    
+    if (customerIds.length > 0) {
+      branchOrConditions.push(`khach_hang_id.in.(${customerIds.map(id => `"${id}"`).join(',')})`);
+    }
+    if (customerCodes.length > 0) {
+      branchOrConditions.push(`khach_hang_id.in.(${customerCodes.map(id => `"${id}"`).join(',')})`);
+    }
+
+    if (branchOrConditions.length > 0) {
+      baseQuery = baseQuery.or(branchOrConditions.join(','));
     } else {
+      // No recent customers found for this branch address
       baseQuery = baseQuery.eq('id', '00000000-0000-0000-0000-000000000000');
     }
   }

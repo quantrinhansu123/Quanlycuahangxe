@@ -1098,7 +1098,7 @@ const SalesCardManagementPage: React.FC = () => {
                       className="appearance-none w-full pl-2 pr-7 sm:pl-3 sm:pr-8 py-1.5 bg-muted/50 border border-border rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none cursor-pointer transition-all text-[11px] sm:text-[13px]"
                     >
                       <option value="">Cơ sở...</option>
-                      {[...new Set(personnel.map(p => p.co_so).filter(Boolean))].map(branch => (
+                      {["Cơ sở Bắc Giang", "Cơ sở Bắc Ninh"].map(branch => (
                         <option key={branch} value={branch}>{branch}</option>
                       ))}
                     </select>
