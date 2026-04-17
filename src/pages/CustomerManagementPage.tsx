@@ -25,6 +25,8 @@ import Pagination from '../components/Pagination';
 import { useToast } from '../context/ToastContext';
 import type { KhachHang } from '../data/customerData';
 import { bulkDeleteCustomers, bulkUpsertCustomers, deleteCustomer, getCustomersForSelect, getCustomersPaginated } from '../data/customerData';
+import { getCustomerLastSaleDates } from '../data/salesCardData';
+
 
 const CustomerManagementPage: React.FC = () => {
   const navigate = useNavigate();
@@ -32,6 +34,8 @@ const CustomerManagementPage: React.FC = () => {
   const [customers, setCustomers] = useState<KhachHang[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [lastOrderDates, setLastOrderDates] = useState<Record<string, string>>({});
+
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -100,6 +104,17 @@ const CustomerManagementPage: React.FC = () => {
       );
       setCustomers(data);
       setTotalCount(totalCount);
+
+      // Fetch last order dates for the current list
+      if (data.length > 0) {
+        const ids = [
+          ...data.map(c => c.id),
+          ...data.map(c => c.ma_khach_hang).filter(Boolean) as string[]
+        ];
+        const datesMap = await getCustomerLastSaleDates(ids);
+        setLastOrderDates(datesMap);
+      }
+
     } catch (error) {
       console.error(error);
     } finally {
@@ -605,10 +620,16 @@ const CustomerManagementPage: React.FC = () => {
                                   Thay dầu
                                 </span>
                               ) : (
-                                <span className="text-muted-foreground/50 text-[8px] font-bold tracking-wider shrink-0 ml-2">
-                                  {customer.ma_khach_hang || customer.id.slice(0, 6)}
+                                <span className="bg-primary/5 text-primary/70 border border-primary/10 px-1.5 py-0.5 rounded text-[9px] font-bold tracking-tight shrink-0 ml-2">
+                                  {(() => {
+                                    const lastDate = lastOrderDates[customer.id] || (customer.ma_khach_hang ? lastOrderDates[customer.ma_khach_hang] : null);
+                                    if (!lastDate) return 'Chưa có đơn';
+                                    const d = new Date(lastDate);
+                                    return `Đơn cuối: ${isNaN(d.getTime()) ? lastDate : d.toLocaleDateString('vi-VN')}`;
+                                  })()}
                                 </span>
                               )}
+
                             </div>
 
                             {/* Line 2: Plate + KM + Address */}

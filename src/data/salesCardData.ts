@@ -565,4 +565,38 @@ export async function getCustomerFirstSaleDates(customerNames: string[]): Promis
   return results;
 }
 
+/**
+ * Lấy ngày mua hàng gần nhất của danh sách khách hàng.
+ * Trả về Map giữa ID khách hàng (UUID hoặc mã KH) và ngày gần nhất.
+ */
+export async function getCustomerLastSaleDates(identifiers: string[]): Promise<Record<string, string>> {
+  if (identifiers.length === 0) return {};
+  
+  const uniqueIds = [...new Set(identifiers.filter(id => id && id.trim()))];
+  if (uniqueIds.length === 0) return {};
+
+  const results: Record<string, string> = {};
+  const chunks = chunkArray(uniqueIds, 100);
+
+  await Promise.all(chunks.map(async (chunk) => {
+    const { data } = await supabase
+      .from('the_ban_hang')
+      .select('khach_hang_id, ngay')
+      .in('khach_hang_id', chunk)
+      .order('ngay', { ascending: false });
+
+    if (data) {
+      data.forEach(sale => {
+        const id = sale.khach_hang_id;
+        if (id && !results[id]) {
+          results[id] = sale.ngay;
+        }
+      });
+    }
+  }));
+
+  return results;
+}
+
+
 
