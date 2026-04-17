@@ -127,9 +127,9 @@ const SalesCardManagementPage: React.FC = () => {
       setSalesCards(cardsResult.data);
       setTotalCount(cardsResult.totalCount);
       setTotalAmount(cardsResult.totalAmount);
-      setTotalCustomers((cardsResult as any).totalCustomers || 0);
-      setNewCustomersCount((cardsResult as any).newCustomersCount || 0);
-      setReturningCustomersCount((cardsResult as any).returningCustomersCount || 0);
+      setTotalCustomers(cardsResult.totalCustomers || 0);
+      setNewCustomersCount(cardsResult.newCustomersCount || 0);
+      setReturningCustomersCount(cardsResult.returningCustomersCount || 0);
 
       // Fetch first sale dates by CUSTOMER NAME to determine new vs returning
       const uniqueNames = [...new Set(

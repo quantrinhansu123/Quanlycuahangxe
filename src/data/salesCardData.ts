@@ -238,7 +238,7 @@ export const getSalesCardsPaginated = async (
   endDate?: string,
   staffId?: string,
   branch?: string
-): Promise<{ data: SalesCard[], totalCount: number, totalAmount: number }> => {
+): Promise<{ data: SalesCard[], totalCount: number, totalAmount: number, totalCustomers: number, newCustomersCount: number, returningCustomersCount: number }> => {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
@@ -299,7 +299,7 @@ export const getSalesCardsPaginated = async (
     .order('created_at', { ascending: false });
 
   if (error) {
-    if (error.code === 'PGRST103') return { data: [], totalCount: count || 0, totalAmount: 0 };
+    if (error.code === 'PGRST103') return { data: [], totalCount: count || 0, totalAmount: 0, totalCustomers: 0, newCustomersCount: 0, returningCustomersCount: 0 };
     throw error;
   }
 
