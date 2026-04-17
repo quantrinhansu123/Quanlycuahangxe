@@ -311,16 +311,36 @@ export const getSalesCardsPaginated = async (
   // 3. Calculate Grand Totals across ALL matching results
   let grandTotal = 0;
   let totalCustomersCount = 0;
+  let newCustomersCount = 0;
+  let returningCustomersCount = 0;
 
   if (allCards.length > 0) {
-    // Unique customers count (handle duplicates)
-    // Use khach_hang_id (UUID or code) as the primary identifier, fallback to ten_khach_hang
-    const customerSet = new Set<string>();
-    allCards.forEach(c => {
-      const identifier = (c.khach_hang_id || c.ten_khach_hang || '').trim().toLowerCase();
-      if (identifier) customerSet.add(identifier);
-    });
-    totalCustomersCount = customerSet.size;
+    // Unique customers identification
+    const uniqueCustomerNames = [...new Set(
+      allCards.map(c => c.khach_hang?.ho_va_ten || c.ten_khach_hang || '').filter(Boolean)
+    )];
+    totalCustomersCount = uniqueCustomerNames.length;
+
+    // Categorize New vs Returning
+    if (uniqueCustomerNames.length > 0) {
+      const firstDatesMap = await getCustomerFirstSaleDates(uniqueCustomerNames);
+      
+      uniqueCustomerNames.forEach(name => {
+        const key = name.trim().toLowerCase();
+        const firstDate = firstDatesMap[key];
+        
+        if (startDate && firstDate) {
+          if (firstDate < startDate) {
+            returningCustomersCount++;
+          } else {
+            newCustomersCount++;
+          }
+        } else {
+          // If no filter, treat everyone as 'New' for the view, or we can just say newCustomersCount = total
+          newCustomersCount++;
+        }
+      });
+    }
 
     const allIds = allCards.map(c => c.id).filter(Boolean);
     const allOrderCodes = allCards.map(c => c.id_bh).filter(Boolean) as string[];
@@ -373,7 +393,9 @@ export const getSalesCardsPaginated = async (
     data: pagedCards,
     totalCount: count || 0,
     totalAmount: grandTotal,
-    totalCustomers: totalCustomersCount
+    totalCustomers: totalCustomersCount,
+    newCustomersCount,
+    returningCustomersCount
   };
 };
 

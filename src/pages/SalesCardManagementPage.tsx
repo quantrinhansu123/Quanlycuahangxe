@@ -68,6 +68,8 @@ const SalesCardManagementPage: React.FC = () => {
   const [totalCount, setTotalCount] = useState(0);
   const [totalAmount, setTotalAmount] = useState(0);
   const [totalCustomers, setTotalCustomers] = useState(0);
+  const [newCustomersCount, setNewCustomersCount] = useState(0);
+  const [returningCustomersCount, setReturningCustomersCount] = useState(0);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isReadOnlyModal, setIsReadOnlyModal] = useState(false);
@@ -126,6 +128,8 @@ const SalesCardManagementPage: React.FC = () => {
       setTotalCount(cardsResult.totalCount);
       setTotalAmount(cardsResult.totalAmount);
       setTotalCustomers((cardsResult as any).totalCustomers || 0);
+      setNewCustomersCount((cardsResult as any).newCustomersCount || 0);
+      setReturningCustomersCount((cardsResult as any).returningCustomersCount || 0);
 
       // Fetch first sale dates by CUSTOMER NAME to determine new vs returning
       const uniqueNames = [...new Set(
@@ -1207,7 +1211,12 @@ const SalesCardManagementPage: React.FC = () => {
             </div>
             <div className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-blue-500/5 border border-blue-500/20 flex items-center gap-2">
               <span className="text-[10px] sm:text-[11px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Tổng khách:</span>
-              <span className="text-sm sm:text-base font-black text-blue-600">{totalCustomers}</span>
+              <div className="flex flex-col">
+                <span className="text-sm sm:text-base font-black text-blue-600">{totalCustomers}</span>
+                <span className="text-[9px] sm:text-[10px] font-bold text-muted-foreground opacity-80 whitespace-nowrap">
+                  (🆕{newCustomersCount} mới | 🔄{returningCustomersCount} cũ)
+                </span>
+              </div>
             </div>
             <div className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-emerald-500/5 border border-emerald-500/20 flex items-center gap-2">
               <span className="text-[10px] sm:text-[11px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Tổng tiền:</span>
@@ -1390,9 +1399,12 @@ const SalesCardManagementPage: React.FC = () => {
             <div className="bg-primary/5 p-4 rounded-xl border border-primary/20 mt-2 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground text-[12px] font-bold uppercase tracking-widest font-sans">Tổng khách lọc:</span>
-                <span className="text-blue-600 font-black text-lg">
-                  {totalCustomers} khách
-                </span>
+                <div className="flex flex-col items-end">
+                  <span className="text-blue-600 font-black text-lg">{totalCustomers} khách</span>
+                  <span className="text-[10px] font-bold text-muted-foreground">
+                    (🆕{newCustomersCount} mới | 🔄{returningCustomersCount} cũ)
+                  </span>
+                </div>
               </div>
               <div className="flex items-center justify-between pt-2 border-t border-primary/10">
                 <span className="text-muted-foreground text-[12px] font-bold uppercase tracking-widest font-sans">Tổng doanh số lọc:</span>
@@ -1576,8 +1588,16 @@ const SalesCardManagementPage: React.FC = () => {
                 )}
                 {!loading && groupedSales.length > 0 && (
                   <tr className="bg-primary/5 font-black border-t-2 border-primary/20">
-                    <td colSpan={8} className="px-4 py-5 text-right text-muted-foreground text-[11px] tracking-widest uppercase">
-                      Tổng khách (toàn bộ): <span className="text-blue-600 ml-2 text-base">{totalCustomers}</span>
+                    <td colSpan={8} className="px-4 py-5 text-right">
+                      <div className="flex flex-col items-end">
+                        <span className="text-muted-foreground text-[11px] tracking-widest uppercase mb-1">Tổng khách (toàn bộ):</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-blue-600 text-base">{totalCustomers} khách</span>
+                          <span className="text-muted-foreground text-[11px] opacity-70">
+                            (🆕{newCustomersCount} mới | 🔄{returningCustomersCount} cũ)
+                          </span>
+                        </div>
+                      </div>
                     </td>
                     <td colSpan={3} className="px-4 py-5 text-right text-muted-foreground text-[11px] tracking-widest uppercase border-l border-primary/10">
                       Tổng doanh số toàn bộ (kết quả lọc):
