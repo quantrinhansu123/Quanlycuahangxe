@@ -31,6 +31,15 @@ export interface AttendanceRecord {
   vi_tri: string | null;
   nhan_su: string;
   created_at?: string;
+  lich_su_sua?: {
+    thoi_gian: string;
+    nguoi_sua: string;
+    thay_doi: {
+      truong: string;
+      gia_tri_cu: any;
+      gia_tri_moi: any;
+    }[];
+  }[];
 }
 
 export const getAttendanceRecords = async (staffName?: string): Promise<AttendanceRecord[]> => {

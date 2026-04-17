@@ -7,6 +7,7 @@ import {
   Clock,
   Download,
   Edit2,
+  History,
   List,
   Loader2,
   Search,
@@ -50,6 +51,8 @@ const AttendanceManagementPage: React.FC = () => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState<Partial<AttendanceRecord>>({});
+  const [originalRecord, setOriginalRecord] = useState<AttendanceRecord | null>(null);
+  const [showHistoryRecord, setShowHistoryRecord] = useState<AttendanceRecord | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const STORAGE_KEY_COLUMNS = 'attendance_visible_columns';
@@ -193,6 +196,7 @@ const AttendanceManagementPage: React.FC = () => {
   };
 
   const handleOpenModal = (record: AttendanceRecord) => {
+    setOriginalRecord(record);
     setFormData({ ...record });
     setIsModalOpen(true);
   };
@@ -238,8 +242,42 @@ const AttendanceManagementPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await upsertAttendanceRecord(formData);
-      await loadRecords();
+      const updatedData = { ...formData };
+
+      // If editing existing record, track history
+      if (originalRecord) {
+        const changes: { truong: string; gia_tri_cu: any; gia_tri_moi: any }[] = [];
+        
+        const fieldsToTrack: { key: keyof AttendanceRecord; label: string }[] = [
+          { key: 'nhan_su', label: 'Nhân sự' },
+          { key: 'ngay', label: 'Ngày' },
+          { key: 'checkin', label: 'Giờ vào' },
+          { key: 'checkout', label: 'Giờ ra' }
+        ];
+
+        fieldsToTrack.forEach(({ key, label }) => {
+          if (originalRecord[key] !== updatedData[key]) {
+            changes.push({
+              truong: label,
+              gia_tri_cu: originalRecord[key] || 'Trống',
+              gia_tri_moi: updatedData[key] || 'Trống'
+            });
+          }
+        });
+
+        if (changes.length > 0) {
+          const historyEntry = {
+            thoi_gian: new Date().toLocaleString('vi-VN'),
+            nguoi_sua: currentUser?.ho_ten || 'Admin',
+            thay_doi: changes
+          };
+          
+          updatedData.lich_su_sua = [historyEntry, ...(originalRecord.lich_su_sua || [])];
+        }
+      }
+
+      await upsertAttendanceRecord(updatedData);
+      await loadRecords(false);
       handleCloseModal();
     } catch (error) {
       alert('Lỗi: Không thể lưu thông tin chấm công.');
@@ -713,10 +751,15 @@ const AttendanceManagementPage: React.FC = () => {
                         <td className="px-4 py-4">
                           {!isMockAbsent && (
                             <div className="flex items-center justify-center gap-4">
-                              <button onClick={() => handleOpenModal(record)} className="text-primary hover:text-blue-700">
+                              <button onClick={() => handleOpenModal(record)} className="text-primary hover:text-blue-700" title="Sửa bản ghi">
                                 <Edit2 size={18} />
                               </button>
-                              <button onClick={() => handleDelete(record.id)} className="text-destructive hover:text-destructive/80">
+                              {(record.lich_su_sua && record.lich_su_sua.length > 0) && (
+                                <button onClick={() => setShowHistoryRecord(record)} className="text-orange-500 hover:text-orange-600" title="Xem lịch sử sửa">
+                                  <History size={18} />
+                                </button>
+                              )}
+                              <button onClick={() => handleDelete(record.id)} className="text-destructive hover:text-destructive/80" title="Xoá bản ghi">
                                 <Trash2 size={18} />
                               </button>
                             </div>
@@ -834,6 +877,11 @@ const AttendanceManagementPage: React.FC = () => {
                         <button onClick={() => handleOpenModal(record)} className="p-1.5 rounded-lg text-primary hover:bg-primary/10 transition-colors" title="Sửa">
                           <Edit2 size={16} />
                         </button>
+                        {(record.lich_su_sua && record.lich_su_sua.length > 0) && (
+                          <button onClick={() => setShowHistoryRecord(record)} className="p-1.5 rounded-lg text-orange-500 hover:bg-orange-50 transition-colors" title="Lịch sử">
+                            <History size={16} />
+                          </button>
+                        )}
                         <button onClick={() => handleDelete(record.id)} className="p-1.5 rounded-lg text-destructive hover:bg-red-50 transition-colors" title="Xóa">
                           <Trash2 size={16} />
                         </button>
@@ -984,6 +1032,67 @@ const AttendanceManagementPage: React.FC = () => {
                   )}
                 </div>
             </form>
+          </div>
+        </div>,
+        document.body
+      )}
+      {/* History Modal */}
+      {showHistoryRecord && createPortal(
+        <div className="fixed inset-0 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" style={{ zIndex: 9999999 }}>
+          <div className="bg-card w-full max-w-md rounded-3xl border border-border shadow-2xl flex flex-col max-h-[80vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-muted/30">
+              <h4 className="font-bold text-foreground flex items-center gap-2 text-sm">
+                <History size={18} className="text-orange-500" />
+                Lịch sử chỉnh sửa
+              </h4>
+              <button onClick={() => setShowHistoryRecord(null)} className="p-1.5 rounded-full hover:bg-muted transition-colors text-muted-foreground"><X size={18} /></button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+              <div className="flex items-center gap-3 pb-4 border-b border-border">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                  {showHistoryRecord.nhan_su.charAt(0)}
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-foreground">{showHistoryRecord.nhan_su}</p>
+                  <p className="text-[11px] text-muted-foreground">ID: {showHistoryRecord.id_cham_cong || '—'}</p>
+                </div>
+              </div>
+
+              <div className="space-y-6 relative before:absolute before:left-[17px] before:top-2 before:bottom-2 before:w-[2px] before:bg-border">
+                {showHistoryRecord.lich_su_sua?.map((log, idx) => (
+                  <div key={idx} className="relative pl-10">
+                    <div className="absolute left-0 top-1 w-9 h-9 rounded-full bg-card border-2 border-primary flex items-center justify-center z-10 shadow-sm">
+                      <Clock size={14} className="text-primary" />
+                    </div>
+                    <div className="bg-muted/30 border border-border rounded-2xl p-4 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[11px] font-black text-primary uppercase">{log.nguoi_sua}</p>
+                        <p className="text-[11px] text-muted-foreground font-medium">{log.thoi_gian}</p>
+                      </div>
+                      <div className="space-y-1.5">
+                        {log.thay_doi.map((change, cIdx) => (
+                          <p key={cIdx} className="text-[12px] leading-relaxed">
+                            <span className="font-bold text-foreground opacity-70">[{change.truong}]:</span>{' '}
+                            <span className="text-muted-foreground line-through opacity-50">{change.gia_tri_cu}</span>
+                            {' '}<span className="text-foreground font-semibold">→ {change.gia_tri_moi}</span>
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-6 bg-muted/20 border-t border-border">
+              <button 
+                onClick={() => setShowHistoryRecord(null)}
+                className="w-full py-3 bg-foreground text-background font-black rounded-xl hover:opacity-90 transition-all active:scale-95"
+              >
+                ĐÓNG LẠI
+              </button>
+            </div>
           </div>
         </div>,
         document.body
