@@ -12,6 +12,7 @@ import {
   List,
   Plus,
   Search,
+  ShoppingCart,
   Trash2,
   Upload,
   User
@@ -25,7 +26,7 @@ import Pagination from '../components/Pagination';
 import { useToast } from '../context/ToastContext';
 import type { KhachHang } from '../data/customerData';
 import { bulkDeleteCustomers, bulkUpsertCustomers, deleteCustomer, getCustomersForSelect, getCustomersPaginated } from '../data/customerData';
-import { getCustomerLastSaleDates } from '../data/salesCardData';
+import { getCustomerLastSaleDates, getCustomerStats } from '../data/salesCardData';
 
 
 const CustomerManagementPage: React.FC = () => {
@@ -35,6 +36,9 @@ const CustomerManagementPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [lastOrderDates, setLastOrderDates] = useState<Record<string, string>>({});
+  const [customerStats, setCustomerStats] = useState<Record<string, { totalRevenue: number, visitCount: number }>>({});
+
+
 
 
   // Pagination states
@@ -57,9 +61,11 @@ const CustomerManagementPage: React.FC = () => {
 
 
   const [visibleColumns, setVisibleColumns] = useState<string[]>([
-    'anh', 'ma_khach_hang', 'ho_va_ten', 'so_dien_thoai', 'dia_chi_hien_tai', 'bien_so_xe',
-    'ngay_dang_ky', 'so_km', 'so_ngay_thay_dau', 'ngay_thay_dau', 'actions'
+    'anh', 'ho_va_ten', 'so_dien_thoai', 'dia_chi_hien_tai', 'bien_so_xe',
+    'total_revenue', 'visit_count', 'ngay_dang_ky', 'so_km', 'so_ngay_thay_dau', 'ngay_thay_dau', 'actions'
+
   ]);
+
 
   const allColumns = [
     { id: 'anh', label: 'Ảnh' },
@@ -67,11 +73,15 @@ const CustomerManagementPage: React.FC = () => {
     { id: 'so_dien_thoai', label: 'Số điện thoại' },
     { id: 'dia_chi_hien_tai', label: 'Địa chỉ' },
     { id: 'bien_so_xe', label: 'Biển số' },
+    { id: 'total_revenue', label: 'Tổng doanh số' },
+    { id: 'visit_count', label: 'Số lần ghé' },
     { id: 'ngay_dang_ky', label: 'Ngày đăng ký' },
+
     { id: 'so_km', label: 'Số KM' },
     { id: 'so_ngay_thay_dau', label: 'Chu kỳ' },
     { id: 'ngay_thay_dau', label: 'Ngày thay dầu' },
     { id: 'actions', label: 'Thao tác' }
+
   ];
 
   const toggleColumn = useCallback((colId: string) => {
@@ -105,15 +115,21 @@ const CustomerManagementPage: React.FC = () => {
       setCustomers(data);
       setTotalCount(totalCount);
 
-      // Fetch last order dates for the current list
+      // Fetch last order dates & revenues for the current list
       if (data.length > 0) {
         const ids = [
           ...data.map(c => c.id),
           ...data.map(c => c.ma_khach_hang).filter(Boolean) as string[]
         ];
-        const datesMap = await getCustomerLastSaleDates(ids);
+        const [datesMap, statsMap] = await Promise.all([
+          getCustomerLastSaleDates(ids),
+          getCustomerStats(ids)
+        ]);
         setLastOrderDates(datesMap);
+        setCustomerStats(statsMap);
+
       }
+
 
     } catch (error) {
       console.error(error);
@@ -676,6 +692,25 @@ const CustomerManagementPage: React.FC = () => {
                                 </span>
                               </div>
                             </div>
+                            
+                            {/* Line 4: Stats (Revenue + Visits) */}
+                            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                              <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-600 bg-emerald-500/5 px-2 py-1 rounded-lg">
+                                <ShoppingCart size={14} />
+                                <span>{
+                                  new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
+                                    (customerStats[customer.id]?.totalRevenue || (customer.ma_khach_hang ? customerStats[customer.ma_khach_hang]?.totalRevenue : 0)) || 0
+                                  )
+                                }</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 text-[11px] font-bold text-blue-600 bg-blue-500/5 px-2 py-1 rounded-lg">
+                                <History size={14} />
+                                <span>Ghé: {
+                                  (customerStats[customer.id]?.visitCount || (customer.ma_khach_hang ? customerStats[customer.ma_khach_hang]?.visitCount : 0)) || 0
+                                } lần</span>
+                              </div>
+                            </div>
+
 
                             {/* Actions */}
                             <div className="flex items-center gap-2 mt-2.5 pt-2 border-t border-border/10">
@@ -729,7 +764,11 @@ const CustomerManagementPage: React.FC = () => {
                   {visibleColumns.includes('so_dien_thoai') && <th className="px-4 py-3 font-semibold">SĐT</th>}
                   {visibleColumns.includes('dia_chi_hien_tai') && <th className="px-4 py-3 font-semibold">Địa chỉ lưu trú hiện tại</th>}
                   {visibleColumns.includes('bien_so_xe') && <th className="px-4 py-3 font-semibold">Biển số Xe</th>}
+                  {visibleColumns.includes('total_revenue') && <th className="px-4 py-3 font-semibold text-right">Tổng doanh số</th>}
+                  {visibleColumns.includes('visit_count') && <th className="px-4 py-3 font-semibold text-center">Lần ghé</th>}
                   {visibleColumns.includes('ngay_dang_ky') && <th className="px-4 py-3 font-semibold">Ngày đăng ký</th>}
+
+
                   {visibleColumns.includes('so_km') && <th className="px-4 py-3 font-semibold text-right">Số Km</th>}
                   {visibleColumns.includes('so_ngay_thay_dau') && <th className="px-4 py-3 font-semibold text-center">Số ngày thay dầu</th>}
                   {visibleColumns.includes('ngay_thay_dau') && <th className="px-4 py-3 font-semibold">Ngày thay dầu</th>}
@@ -765,7 +804,11 @@ const CustomerManagementPage: React.FC = () => {
                         onDelete={handleDelete}
                         onOpenDetails={handleOpenDetails}
                         today={today}
+                        stats={customerStats[customer.id] || (customer.ma_khach_hang && customerStats[customer.ma_khach_hang]) || { totalRevenue: 0, visitCount: 0 }}
                       />
+
+
+
                     ))}
                   </React.Fragment>
                 ))}
@@ -816,8 +859,11 @@ const CustomerTableRow: React.FC<{
   onEdit: (customer: KhachHang) => void,
   onDelete: (id: string) => void,
   onOpenDetails: (customer: KhachHang) => void,
-  today: Date
-}> = React.memo(({ customer, visibleColumns, onEdit, onDelete, onOpenDetails, today }) => {
+  today: Date,
+  stats: { totalRevenue: number, visitCount: number }
+}> = React.memo(({ customer, visibleColumns, onEdit, onDelete, onOpenDetails, today, stats }) => {
+
+
   const isCầnThayDầu = customer.ngay_thay_dau ? new Date(customer.ngay_thay_dau) <= today : false;
 
   const formatDate = (dateStr: string | undefined) => {
@@ -866,7 +912,21 @@ const CustomerTableRow: React.FC<{
           </span>
         </td>
       )}
+      {visibleColumns.includes('total_revenue') && (
+        <td className="px-4 py-3 text-right font-black text-emerald-600 tabular-nums text-[14px]">
+          {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(stats?.totalRevenue || 0)}
+        </td>
+      )}
+
+      {visibleColumns.includes('visit_count') && (
+        <td className="px-4 py-3 text-center font-bold text-blue-600 tabular-nums text-[14px]">
+          {stats?.visitCount || 0}
+        </td>
+      )}
+
       {visibleColumns.includes('ngay_dang_ky') && <td className="px-4 py-3 text-muted-foreground whitespace-nowrap text-[13px]">{formatDate(customer.ngay_dang_ky)}</td>}
+
+
       {visibleColumns.includes('so_km') && (
         <td className="px-4 py-3 font-bold text-foreground text-[14px] tabular-nums text-right">
           {customer.so_km?.toLocaleString()} <span className="font-normal text-muted-foreground text-[10px]">Km</span>

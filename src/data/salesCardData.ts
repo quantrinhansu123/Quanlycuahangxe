@@ -598,5 +598,162 @@ export async function getCustomerLastSaleDates(identifiers: string[]): Promise<R
   return results;
 }
 
+/**
+ * Lấy tổng doanh số của danh sách khách hàng.
+ * Trả về Map giữa ID khách hàng (UUID hoặc mã KH) và tổng số tiền đã chi tiêu.
+ */
+export async function getCustomerTotalRevenues(identifiers: string[]): Promise<Record<string, number>> {
+  if (identifiers.length === 0) return {};
+  
+  const uniqueIds = [...new Set(identifiers.filter(id => id && id.trim()))];
+  if (uniqueIds.length === 0) return {};
+
+  const revenues: Record<string, number> = {};
+  const chunks = chunkArray(uniqueIds, 50);
+
+  for (const chunk of chunks) {
+    // 1. Lấy tất cả các đơn hàng của nhóm khách hàng này
+    const { data: salesCards } = await supabase
+      .from('the_ban_hang')
+      .select('id, id_bh, khach_hang_id, dich_vu_id')
+      .in('khach_hang_id', chunk);
+
+    if (!salesCards || salesCards.length === 0) continue;
+
+    const orderIds = salesCards.map(c => c.id);
+    const orderCodes = salesCards.map(c => c.id_bh).filter(Boolean) as string[];
+    const allOrderRefs = [...new Set([...orderIds, ...orderCodes])];
+
+    // 2. Lấy chi tiết các đơn hàng (the_ban_hang_ct)
+    const { data: details } = await supabase
+      .from('the_ban_hang_ct')
+      .select('id_don_hang, thanh_tien')
+      .in('id_don_hang', allOrderRefs);
+
+    const orderTotalsFromDetails = new Map<string, number>();
+    if (details) {
+      details.forEach(d => {
+        if (d.id_don_hang) {
+          const key = d.id_don_hang.toLowerCase();
+          orderTotalsFromDetails.set(key, (orderTotalsFromDetails.get(key) || 0) + (d.thanh_tien || 0));
+        }
+      });
+    }
+
+    // 3. Xử lý các đơn hàng dùng dich_vu_id (legacy)
+    const legacyServiceIds = [...new Set(salesCards.filter(c => c.dich_vu_id).map(c => c.dich_vu_id!))];
+    const servicePrices = new Map<string, number>();
+    if (legacyServiceIds.length > 0) {
+      const { data: services } = await supabase
+        .from('dich_vu')
+        .select('ten_dich_vu, id_dich_vu, gia_ban')
+        .or(`ten_dich_vu.in.(${legacyServiceIds.map(id => `"${id}"`).join(',')}),id_dich_vu.in.(${legacyServiceIds.map(id => `"${id}"`).join(',')})`);
+      if (services) {
+        services.forEach(s => {
+          if (s.id_dich_vu) servicePrices.set(s.id_dich_vu.toLowerCase(), s.gia_ban || 0);
+          servicePrices.set(s.ten_dich_vu.toLowerCase(), s.gia_ban || 0);
+        });
+      }
+    }
+
+    // 4. Tổng hợp doanh số theo từng khách hàng
+    salesCards.forEach(card => {
+      const khId = card.khach_hang_id;
+      if (!khId) return;
+
+      // Ưu tiên tổng từ chi tiết đơn hàng
+      let cardTotal = (card.id_bh && orderTotalsFromDetails.get(card.id_bh.toLowerCase())) || 
+                      orderTotalsFromDetails.get(card.id.toLowerCase()) || 0;
+
+      // Nếu không có chi tiết, thử dùng dich_vu_id
+      if (cardTotal === 0 && card.dich_vu_id) {
+        cardTotal = servicePrices.get(card.dich_vu_id.toLowerCase()) || 0;
+      }
+
+      revenues[khId] = (revenues[khId] || 0) + cardTotal;
+    });
+  }
+
+  return revenues;
+}
+
+/**
+ * Lấy thống kê tổng hợp (doanh số và số lần ghé) của danh sách khách hàng.
+ */
+export async function getCustomerStats(identifiers: string[]): Promise<Record<string, { totalRevenue: number, visitCount: number }>> {
+  if (identifiers.length === 0) return {};
+  
+  const uniqueIds = [...new Set(identifiers.filter(id => id && id.trim()))];
+  if (uniqueIds.length === 0) return {};
+
+  const stats: Record<string, { totalRevenue: number, visitCount: number }> = {};
+  const chunks = chunkArray(uniqueIds, 50);
+
+  for (const chunk of chunks) {
+    const { data: salesCards } = await supabase
+      .from('the_ban_hang')
+      .select('id, id_bh, khach_hang_id, dich_vu_id')
+      .in('khach_hang_id', chunk);
+
+    if (!salesCards || salesCards.length === 0) continue;
+
+    const allOrderRefs = [...new Set([
+      ...salesCards.map(c => c.id),
+      ...salesCards.map(c => c.id_bh).filter(Boolean) as string[]
+    ])];
+
+    const { data: details } = await supabase
+      .from('the_ban_hang_ct')
+      .select('id_don_hang, thanh_tien')
+      .in('id_don_hang', allOrderRefs);
+
+    const orderTotalsMap = new Map<string, number>();
+    if (details) {
+      details.forEach(d => {
+        if (d.id_don_hang) {
+          const key = d.id_don_hang.toLowerCase();
+          orderTotalsMap.set(key, (orderTotalsMap.get(key) || 0) + (d.thanh_tien || 0));
+        }
+      });
+    }
+
+    const legacyServiceIds = [...new Set(salesCards.filter(c => c.dich_vu_id).map(c => c.dich_vu_id!))];
+    const servicePrices = new Map<string, number>();
+    if (legacyServiceIds.length > 0) {
+      const { data: services } = await supabase
+        .from('dich_vu')
+        .select('ten_dich_vu, id_dich_vu, gia_ban')
+        .or(`ten_dich_vu.in.(${legacyServiceIds.map(id => `"${id}"`).join(',')}),id_dich_vu.in.(${legacyServiceIds.map(id => `"${id}"`).join(',')})`);
+      if (services) {
+        services.forEach(s => {
+          if (s.id_dich_vu) servicePrices.set(s.id_dich_vu.toLowerCase(), s.gia_ban || 0);
+          servicePrices.set(s.ten_dich_vu.toLowerCase(), s.gia_ban || 0);
+        });
+      }
+    }
+
+    salesCards.forEach(card => {
+      const khId = card.khach_hang_id;
+      if (!khId) return;
+
+      if (!stats[khId]) stats[khId] = { totalRevenue: 0, visitCount: 0 };
+      
+      let cardTotal = (card.id_bh && orderTotalsMap.get(card.id_bh.toLowerCase())) || 
+                      orderTotalsMap.get(card.id.toLowerCase()) || 0;
+
+      if (cardTotal === 0 && card.dich_vu_id) {
+        cardTotal = servicePrices.get(card.dich_vu_id.toLowerCase()) || 0;
+      }
+
+      stats[khId].totalRevenue += cardTotal;
+      stats[khId].visitCount += 1;
+    });
+  }
+
+  return stats;
+}
+
+
+
 
 
