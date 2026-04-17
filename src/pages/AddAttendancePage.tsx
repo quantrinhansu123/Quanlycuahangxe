@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Camera, Clock, User, Calendar, ArrowLeft, Loader2 } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { AlertTriangle, Camera, Clock, MapPin, User, Calendar, ArrowLeft, Loader2, TrendingUp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { 
@@ -12,6 +12,7 @@ import {
   getNextAttendanceId,
   type AttendanceRecord 
 } from '../data/attendanceData';
+import { calculateAttendanceStatus, formatMinutesToHours } from '../utils/timekeeping';
 
 
 const AddAttendancePage: React.FC = () => {
@@ -22,6 +23,9 @@ const AddAttendancePage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState<Partial<AttendanceRecord>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Monthly records for stats
+  const [monthlyRecords, setMonthlyRecords] = useState<AttendanceRecord[]>([]);
 
   useEffect(() => {
     const initData = async () => {
@@ -59,6 +63,19 @@ const AddAttendancePage: React.FC = () => {
           const todayRecord = data[0];
           setFormData({ ...todayRecord });
         }
+
+        // Load monthly records for stats
+        const now = new Date();
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+        const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+
+        const { data: monthData } = await getAttendancePaginated(1, 100, undefined, '', {
+          nhan_su: fallbackName,
+          startDate: monthStart,
+          endDate: monthEnd
+        });
+        setMonthlyRecords(monthData || []);
+
       } catch (err) {
         console.error("Lỗi khởi tạo AddAttendancePage:", err);
       } finally {
@@ -130,6 +147,48 @@ const AddAttendancePage: React.FC = () => {
     }
   };
 
+  // Monthly statistics
+  const monthlyStats = useMemo(() => {
+    let lateCount = 0;
+    let totalOvertimeMinutes = 0;
+    const missingRecords: { ngay: string; missing: 'checkin' | 'checkout' }[] = [];
+
+    monthlyRecords.forEach(record => {
+      const status = calculateAttendanceStatus(record.checkin, record.checkout);
+
+      if (status.isLate) lateCount++;
+      totalOvertimeMinutes += status.overtimeMinutes;
+
+      // Detect missing check-in or check-out
+      if (record.checkin && !record.checkout) {
+        missingRecords.push({ ngay: record.ngay, missing: 'checkout' });
+      } else if (!record.checkin && record.checkout) {
+        missingRecords.push({ ngay: record.ngay, missing: 'checkin' });
+      }
+    });
+
+    return {
+      totalDays: monthlyRecords.length,
+      lateCount,
+      totalOvertimeMinutes,
+      overtimeFormatted: formatMinutesToHours(totalOvertimeMinutes),
+      missingRecords
+    };
+  }, [monthlyRecords]);
+
+  // Parse coordinates for map
+  const coordinates = useMemo(() => {
+    if (!formData.vi_tri) return null;
+    const parts = formData.vi_tri.split(',').map(s => s.trim());
+    if (parts.length !== 2) return null;
+    const lat = parseFloat(parts[0]);
+    const lon = parseFloat(parts[1]);
+    if (isNaN(lat) || isNaN(lon)) return null;
+    return { lat, lon };
+  }, [formData.vi_tri]);
+
+  const currentMonthLabel = new Date().toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' });
+
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center p-8">
@@ -140,17 +199,78 @@ const AddAttendancePage: React.FC = () => {
 
   return (
     <div className="w-full flex-1 animate-in fade-in slide-in-from-bottom-4 duration-500 font-sans p-4 sm:p-6 lg:p-8">
-      <div className="max-w-xl mx-auto space-y-6">
+      <div className="max-w-2xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
           <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 px-4 py-2 border border-border rounded-xl text-[13px] font-bold text-muted-foreground hover:bg-card transition-all shadow-sm active:scale-95">
             <ArrowLeft size={18} /> Quay lại
           </button>
-          <h1 className="text-2xl font-black text-foreground tracking-tight">Thêm chấm công thủ công</h1>
+          <h1 className="text-2xl font-black text-foreground tracking-tight">Chấm công</h1>
         </div>
 
+        {/* Monthly Stats Cards */}
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-card rounded-2xl border border-border p-4 text-center shadow-sm">
+            <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-600 mx-auto mb-2">
+              <Calendar size={20} />
+            </div>
+            <p className="text-2xl font-black text-foreground">{monthlyStats.totalDays}</p>
+            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Ngày công</p>
+          </div>
+          <div className="bg-card rounded-2xl border border-border p-4 text-center shadow-sm">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-2 ${monthlyStats.lateCount > 0 ? 'bg-red-500/10 text-red-600' : 'bg-emerald-500/10 text-emerald-600'}`}>
+              <Clock size={20} />
+            </div>
+            <p className={`text-2xl font-black ${monthlyStats.lateCount > 0 ? 'text-red-600' : 'text-foreground'}`}>{monthlyStats.lateCount}</p>
+            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Đi muộn</p>
+          </div>
+          <div className="bg-card rounded-2xl border border-border p-4 text-center shadow-sm">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-2 ${monthlyStats.totalOvertimeMinutes > 0 ? 'bg-orange-500/10 text-orange-600' : 'bg-muted text-muted-foreground'}`}>
+              <TrendingUp size={20} />
+            </div>
+            <p className={`text-2xl font-black ${monthlyStats.totalOvertimeMinutes > 0 ? 'text-orange-600' : 'text-foreground'}`}>
+              {monthlyStats.overtimeFormatted || '0p'}
+            </p>
+            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Tăng ca</p>
+          </div>
+        </div>
+        <p className="text-[11px] text-center text-muted-foreground font-medium -mt-3">
+          Thống kê {currentMonthLabel}
+        </p>
+
+        {/* Missing Check-in/out Warnings */}
+        {monthlyStats.missingRecords.length > 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-2 shadow-sm animate-in fade-in duration-300">
+            <div className="flex items-center gap-2 mb-1">
+              <AlertTriangle size={18} className="text-amber-600 shrink-0" />
+              <h3 className="text-[13px] font-bold text-amber-800">
+                Cảnh báo: Quên quẹt giờ ({monthlyStats.missingRecords.length} ngày)
+              </h3>
+            </div>
+            <div className="space-y-1.5 max-h-[150px] overflow-y-auto custom-scrollbar">
+              {monthlyStats.missingRecords.map((item, idx) => {
+                const dateFormatted = new Date(item.ngay).toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit' });
+                return (
+                  <div key={idx} className="flex items-center gap-2 px-3 py-1.5 bg-white/70 rounded-lg border border-amber-100 text-[12px]">
+                    <Calendar size={14} className="text-amber-500 shrink-0" />
+                    <span className="font-bold text-amber-900">{dateFormatted}</span>
+                    <span className="text-amber-700">—</span>
+                    <span className={`font-bold ${item.missing === 'checkout' ? 'text-orange-600' : 'text-red-600'}`}>
+                      {item.missing === 'checkout' ? 'Thiếu giờ RA' : 'Thiếu giờ VÀO'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-[10px] text-amber-600 italic mt-1">
+              Báo cho quản lý để được bổ sung giờ chấm công.
+            </p>
+          </div>
+        )}
+
+        {/* Main Card */}
         <div className="bg-card rounded-3xl border border-border shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-300">
-          <div className="p-8">
+          <div className="p-6 sm:p-8">
             <div className="flex flex-col items-center mb-8">
               <div className="relative group">
                 <div className="w-32 h-32 rounded-3xl border-4 border-card bg-primary/10 flex items-center justify-center text-primary overflow-hidden shadow-inner">
@@ -172,9 +292,27 @@ const AddAttendancePage: React.FC = () => {
               <p className="mt-4 text-[12px] text-muted-foreground text-center">Chụp hoặc tải ảnh check-in</p>
             </div>
 
+            {/* Location Map */}
+            {coordinates && (
+              <div className="mb-6 rounded-2xl overflow-hidden border border-border shadow-sm">
+                <div className="flex items-center gap-2 px-4 py-2 bg-muted/50 border-b border-border">
+                  <MapPin size={14} className="text-primary" />
+                  <span className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider">Vị trí chấm công</span>
+                  <span className="text-[10px] text-muted-foreground ml-auto font-mono">{formData.vi_tri}</span>
+                </div>
+                <iframe
+                  title="Vị trí chấm công"
+                  width="100%"
+                  height="200"
+                  style={{ border: 0 }}
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  src={`https://www.openstreetmap.org/export/embed.html?bbox=${coordinates.lon - 0.005}%2C${coordinates.lat - 0.003}%2C${coordinates.lon + 0.005}%2C${coordinates.lat + 0.003}&layer=mapnik&marker=${coordinates.lat}%2C${coordinates.lon}`}
+                />
+              </div>
+            )}
+
             <div className="space-y-5">
-
-
               <div className="space-y-1.5">
                 <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                   <User size={14} className="text-primary/70" />
