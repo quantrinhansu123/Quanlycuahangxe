@@ -238,13 +238,14 @@ export const getSalesCardsPaginated = async (
   endDate?: string,
   staffId?: string,
   branch?: string
-): Promise<{ data: SalesCard[], totalCount: number }> => {
+): Promise<{ data: SalesCard[], totalCount: number, totalAmount: number }> => {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
-  let query = supabase
+  // 1. Build the base filter query for the main table (without range yet)
+  let baseQuery = supabase
     .from('the_ban_hang')
-    .select(`*`, { count: 'exact' });
+    .select(`id, id_bh, dich_vu_id, ngay, gio, khach_hang_id, nhan_vien_id, ten_khach_hang, so_dien_thoai`, { count: 'exact' });
 
   if (searchQuery && searchQuery.trim()) {
     const term = searchQuery.trim();
@@ -256,74 +257,111 @@ export const getSalesCardsPaginated = async (
 
     const customerCodes = (matchedCustomers || []).slice(0, 50).map(c => c.ma_khach_hang).filter(Boolean);
 
-    // Find matching services
     const { data: matchedServices } = await supabase
       .from('dich_vu')
       .select('id')
       .ilike('ten_dich_vu', `%${term}%`);
     const serviceIds = (matchedServices || []).slice(0, 50).map(s => s.id);
 
-    // Filter Sales Cards
     const orConditions: string[] = [];
-    if (customerCodes.length > 0) orConditions.push(`khach_hang_id.in.(${customerCodes.join(',')})`);
-    if (serviceIds.length > 0) orConditions.push(`dich_vu_id.in.(${serviceIds.join(',')})`);
+    if (customerCodes.length > 0) orConditions.push(`khach_hang_id.in.(${customerCodes.map(c => `"${c}"`).join(',')})`);
+    if (serviceIds.length > 0) orConditions.push(`dich_vu_id.in.(${serviceIds.map(s => `"${s}"`).join(',')})`);
     orConditions.push(`id_bh.ilike.%${term}%`);
     orConditions.push(`khach_hang_id.ilike.%${term}%`);
 
     if (orConditions.length > 0) {
-      query = query.or(orConditions.join(','));
+      baseQuery = baseQuery.or(orConditions.join(','));
     }
   }
 
-  if (startDate) {
-    query = query.gte('ngay', startDate);
-  }
-  if (endDate) {
-    query = query.lte('ngay', endDate);
-  }
-
-  if (staffId) {
-    query = query.ilike('nhan_vien_id', `%${staffId}%`);
-  }
+  if (startDate) baseQuery = baseQuery.gte('ngay', startDate);
+  if (endDate) baseQuery = baseQuery.lte('ngay', endDate);
+  if (staffId) baseQuery = baseQuery.ilike('nhan_vien_id', `%${staffId}%`);
 
   if (branch) {
     const { data: matchedDetailIds } = await supabase
       .from('the_ban_hang_ct')
       .select('id_don_hang')
       .eq('co_so', branch);
-
     const matchedIds = [...new Set((matchedDetailIds || []).map(d => d.id_don_hang).filter(Boolean))] as string[];
-
     if (matchedIds.length > 0) {
-      query = query.in('id', matchedIds);
+      const idSearchList = matchedIds.map(id => `"${id}"`).join(',');
+      baseQuery = baseQuery.or(`id.in.(${idSearchList}),id_bh.in.(${idSearchList})`);
     } else {
-      // If no details match the branch, return no results
-      query = query.eq('id', '00000000-0000-0000-0000-000000000000');
+      baseQuery = baseQuery.eq('id', '00000000-0000-0000-0000-000000000000');
     }
   }
 
-  const { data, count, error } = await query
+  // 2. Fetch all matching cards to calculate the true total (for up to 1000 items at once)
+  const { data: allMatchingCards, count, error } = await baseQuery
     .order('ngay', { ascending: false })
     .order('gio', { ascending: false })
-    .order('created_at', { ascending: false })
-    .range(from, to);
+    .order('created_at', { ascending: false });
 
   if (error) {
-    // PGRST103: Range Not Satisfiable. Occurs when pagination offset exceeds total rows.
-    if (error.code === 'PGRST103') {
-      return { data: [], totalCount: count || 0 };
-    }
-    console.error('Error fetching paginated sales cards:', error);
+    if (error.code === 'PGRST103') return { data: [], totalCount: count || 0, totalAmount: 0 };
     throw error;
   }
 
-  const cards = (data as SalesCard[]) || [];
+  const allCards = (allMatchingCards as SalesCard[]) || [];
+  const pagedCards = allCards.slice(from, to + 1);
 
-  await enrichSalesCards(cards);
+  await enrichSalesCards(pagedCards);
+
+  // 3. Calculate Grand Total Amount across ALL pages
+  let grandTotal = 0;
+  if (allCards.length > 0) {
+    const allIds = allCards.map(c => c.id).filter(Boolean);
+    const allOrderCodes = allCards.map(c => c.id_bh).filter(Boolean) as string[];
+    const allRefs = [...new Set([...allIds, ...allOrderCodes])];
+
+    const chunks = chunkArray(allRefs, 100);
+    const totalDetails: { thanh_tien: number, gia_ban: number, so_luong: number, id_don_hang: string }[] = [];
+
+    await Promise.all(chunks.map(async (chunk) => {
+      const { data: details } = await supabase
+        .from('the_ban_hang_ct')
+        .select('thanh_tien, gia_ban, so_luong, id_don_hang')
+        .in('id_don_hang', chunk);
+      if (details) totalDetails.push(...details);
+    }));
+
+    // Sum up
+    grandTotal = totalDetails.reduce((sum, d) => sum + (d.thanh_tien || ((d.gia_ban || 0) * (d.so_luong || 1))), 0);
+
+    // Legacy fallback for cards with dich_vu_id but NO details in the_ban_hang_ct
+    const cardsWithDetails = new Set(totalDetails.map(d => d.id_don_hang.toLowerCase()));
+    const legacyCards = allCards.filter(c => 
+      c.dich_vu_id && 
+      !cardsWithDetails.has(c.id.toLowerCase()) && 
+      (!c.id_bh || !cardsWithDetails.has(c.id_bh.toLowerCase()))
+    );
+
+    if (legacyCards.length > 0) {
+      const legacyServiceIds = [...new Set(legacyCards.map(c => c.dich_vu_id).filter(Boolean) as string[])];
+      const { data: services } = await supabase
+        .from('dich_vu')
+        .select('id, gia_ban, ten_dich_vu')
+        .or(`id.in.(${legacyServiceIds.map(id => `"${id}"`).join(',')}),ten_dich_vu.in.(${legacyServiceIds.map(id => `"${id}"`).join(',')})`);
+      
+      if (services) {
+        const priceMap = new Map();
+        services.forEach(s => {
+          if (s.id) priceMap.set(s.id.toLowerCase(), s.gia_ban || 0);
+          if (s.ten_dich_vu) priceMap.set(s.ten_dich_vu.toLowerCase(), s.gia_ban || 0);
+        });
+        legacyCards.forEach(c => {
+          const price = priceMap.get(c.dich_vu_id!.toLowerCase()) || 0;
+          grandTotal += price;
+        });
+      }
+    }
+  }
 
   return {
-    data: cards,
-    totalCount: count || 0
+    data: pagedCards,
+    totalCount: count || 0,
+    totalAmount: grandTotal
   };
 };
 

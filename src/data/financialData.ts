@@ -176,10 +176,11 @@ export const getTransactionsPaginated = async (
   pageSize: number,
   searchQuery?: string,
   filters?: TransactionFilters
-): Promise<{ data: ThuChi[], totalCount: number }> => {
+): Promise<{ data: ThuChi[], totalCount: number, totalIncome: number, totalExpense: number }> => {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
+  // 1. Build the base query for the main list
   let query = supabase
     .from('thu_chi')
     .select('*', { count: 'exact' });
@@ -196,19 +197,35 @@ export const getTransactionsPaginated = async (
     query = query.in('loai_phieu', filters.types);
   }
 
-  const { data, count, error } = await query
+  // 2. Fetch all matching records to calculate global totals (limited to common use cases)
+  const { data: allMatching, count, error } = await query
     .order('ngay', { ascending: false })
-    .order('gio', { ascending: false })
-    .range(from, to);
+    .order('gio', { ascending: false });
 
   if (error) {
     console.error('Error fetching paginated transactions:', error);
     throw error;
   }
 
+  const allRecords = (allMatching as ThuChi[]) || [];
+  const pagedData = allRecords.slice(from, to + 1);
+
+  // 3. Calculate filtered totals
+  let totalIncome = 0;
+  let totalExpense = 0;
+
+  allRecords.forEach(t => {
+    if (t.trang_thai === 'Hoàn thành') {
+      if (t.loai_phieu === 'phiếu thu') totalIncome += Number(t.so_tien);
+      else if (t.loai_phieu === 'phiếu chi') totalExpense += Number(t.so_tien);
+    }
+  });
+
   return {
-    data: (data as ThuChi[]) || [],
-    totalCount: count || 0
+    data: pagedData,
+    totalCount: count || 0,
+    totalIncome,
+    totalExpense
   };
 };
 

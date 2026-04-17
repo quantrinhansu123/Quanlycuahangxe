@@ -66,6 +66,7 @@ const SalesCardManagementPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [totalCount, setTotalCount] = useState(0);
+  const [totalAmount, setTotalAmount] = useState(0);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isReadOnlyModal, setIsReadOnlyModal] = useState(false);
@@ -122,6 +123,7 @@ const SalesCardManagementPage: React.FC = () => {
 
       setSalesCards(cardsResult.data);
       setTotalCount(cardsResult.totalCount);
+      setTotalAmount(cardsResult.totalAmount);
 
       // Fetch first sale dates by CUSTOMER NAME to determine new vs returning
       const uniqueNames = [...new Set(
@@ -1202,14 +1204,9 @@ const SalesCardManagementPage: React.FC = () => {
               <span className="text-sm sm:text-base font-black text-primary">{totalCount}</span>
             </div>
             <div className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-emerald-500/5 border border-emerald-500/20 flex items-center gap-2">
-              <span className="text-[10px] sm:text-[11px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Tổng tiền (trang):</span>
+              <span className="text-[10px] sm:text-[11px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Tổng tiền:</span>
               <span className="text-sm sm:text-base font-black text-emerald-600">
-                {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
-                  displayItems.reduce((grandSum, card) => {
-                    const items = (card as any).the_ban_hang_ct || [];
-                    return grandSum + items.reduce((sum: number, ct: any) => sum + (ct.gia_ban * (ct.so_luong || 1)), 0);
-                  }, 0)
-                )}
+                {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalAmount)}
               </span>
             </div>
           </div>
@@ -1386,14 +1383,9 @@ const SalesCardManagementPage: React.FC = () => {
           {!loading && displayItems.length > 0 && (
             <div className="bg-primary/5 p-4 rounded-xl border border-primary/20 mt-2">
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground text-[12px] font-bold uppercase tracking-widest font-sans">Tổng trang này:</span>
+                <span className="text-muted-foreground text-[12px] font-bold uppercase tracking-widest font-sans">Tổng doanh số lọc:</span>
                 <span className="text-primary font-black text-lg">
-                  {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
-                    displayItems.reduce((grandSum, card) => {
-                      const items = (card as any).the_ban_hang_ct || [];
-                      return grandSum + items.reduce((sum: number, ct: any) => sum + (ct.thanh_tien || (ct.gia_ban * (ct.so_luong || 1))), 0);
-                    }, 0)
-                  )}
+                  {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalAmount)}
                 </span>
               </div>
             </div>
@@ -1572,14 +1564,9 @@ const SalesCardManagementPage: React.FC = () => {
                 )}
                 {!loading && groupedSales.length > 0 && (
                   <tr className="bg-primary/5 font-black border-t-2 border-primary/20">
-                    <td colSpan={11} className="px-4 py-5 text-right text-muted-foreground text-[11px] tracking-widest uppercase">Tổng trang này:</td>
+                    <td colSpan={11} className="px-4 py-5 text-right text-muted-foreground text-[11px] tracking-widest uppercase">Tổng doanh số toàn bộ (kết quả lọc):</td>
                     <td colSpan={3} className="px-4 py-5 text-right text-primary text-xl">
-                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
-                        displayItems.reduce((grandSum, card) => {
-                          const items = (card as any).the_ban_hang_ct || [];
-                          return grandSum + items.reduce((sum: number, ct: any) => sum + (ct.thanh_tien || (ct.gia_ban * (ct.so_luong || 1))), 0);
-                        }, 0)
-                      )}
+                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalAmount)}
                     </td>
                   </tr>
                 )}

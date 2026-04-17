@@ -9,7 +9,6 @@ import { clsx } from 'clsx';
 import { 
   getTransactions,
   getTransactionsPaginated, 
-  getTransactionStats,
   deleteTransaction, 
   bulkUpsertTransactions, 
   deleteAllTransactions,
@@ -69,18 +68,21 @@ const FinancialManagementPage: React.FC = () => {
   const loadData = React.useCallback(async () => {
     try {
       setLoading(true);
-      const [transactionsData, statsData, customersData, salesCardsData] = await Promise.all([
+      const [transactionsData, customersData, salesCardsData] = await Promise.all([
         getTransactionsPaginated(currentPage, pageSize, debouncedSearch, {
           branches: selectedBranches,
           types: selectedTypes
         }),
-        getTransactionStats(),
         getCustomers(),
         getSalesCards()
       ]);
       setTransactions(transactionsData.data);
       setTotalCount(transactionsData.totalCount);
-      setStats(statsData);
+      setStats({
+        income: transactionsData.totalIncome,
+        expense: transactionsData.totalExpense,
+        balance: transactionsData.totalIncome - transactionsData.totalExpense
+      });
       setCustomers(customersData);
       setSalesCards(salesCardsData);
     } catch (error) {
@@ -732,7 +734,7 @@ const StatCard: React.FC<{ title: string, amount: number, color: string, bgColor
     <div className={clsx("w-10 h-10 rounded-lg flex items-center justify-center shrink-0", bgColor, color)}>
       <Icon size={20} />
     </div>
-    <div className="min-w-0">
+    <div className="min-w-0 flex-1">
       <p className="text-[10px] font-bold text-muted-foreground uppercase truncate">{title}</p>
       <p className={clsx("text-lg font-black truncate", color)}>{new Intl.NumberFormat('vi-VN').format(amount)} <span className="text-[10px] font-normal">đ</span></p>
     </div>
