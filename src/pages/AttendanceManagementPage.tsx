@@ -107,41 +107,51 @@ const AttendanceManagementPage: React.FC = () => {
       let finalRecords = [...attendanceResult.data];
       let totalCount = attendanceResult.totalCount;
 
-      // Mock absence logic: ONLY apply if a specific single day is queried (startDate === endDate or if user queries by single date if logic supported)
-      // Since our UI has a From - To date picker format, a user commonly selects a specific date by choosing From Date = To Date.
-      if (startDate && endDate && startDate === endDate) {
-         // Create a Set of staff who actually attended
-         const attendedStaffNames = new Set(attendanceResult.data.map(r => r.nhan_su));
+      // MOCK ABSENCE LOGIC: For every distinct date in the fetched data,
+      // inject 'Absent' records for personnel who did not check in.
+      let datesToProcess: string[] = [];
+      if (attendanceResult.data.length > 0) {
+        datesToProcess = Array.from(new Set(attendanceResult.data.map(r => r.ngay).filter(Boolean)));
+      } else if (startDate && endDate && startDate === endDate) {
+        datesToProcess = [startDate];
+      }
 
-         // Filter personnel who didn't attend and who match the search/staff filters
-         const absentees = personnelData.filter(p => {
-           if (attendedStaffNames.has(p.ho_ten)) return false;
-           
-           // Apply staff filter if selected
-           if (selectedStaff && selectedStaff !== p.id_nhan_su && selectedStaff !== p.ho_ten) return false;
-           
-           // Apply search filter if selected
-           if (debouncedSearch && !p.ho_ten.toLowerCase().includes(debouncedSearch.toLowerCase())) return false;
-           
-           return true;
-         });
+      const todayString = new Date().toISOString().split('T')[0];
+      if (currentPage === 1 && !endDate && !datesToProcess.includes(todayString)) {
+         if (!startDate || startDate <= todayString) {
+            datesToProcess.unshift(todayString);
+         }
+      }
 
-         // Create fake records for absentees to render them as "Absent"
+      const relevantPersonnel = personnelData.filter(p => {
+        // Apply staff filter if selected
+        if (selectedStaff && selectedStaff !== p.id_nhan_su && selectedStaff !== p.ho_ten) return false;
+        // Apply search filter if selected
+        if (debouncedSearch && !p.ho_ten.toLowerCase().includes(debouncedSearch.toLowerCase())) return false;
+        return true;
+      });
+
+      datesToProcess.forEach(date => {
+         const attendedStaffNames = new Set(
+           attendanceResult.data.filter(r => r.ngay === date).map(r => r.nhan_su)
+         );
+
+         const absentees = relevantPersonnel.filter(p => !attendedStaffNames.has(p.ho_ten));
+
          const fakeAbsentRecords: AttendanceRecord[] = absentees.map(p => ({
-           id: `fake-absent-${p.id}`,
+           id: `fake-absent-${date}-${p.id}`,
            id_cham_cong: null,
            nhan_su: p.ho_ten,
-           ngay: startDate,
+           ngay: date,
            checkin: null,
            checkout: null,
            anh: p.hinh_anh || null,
            vi_tri: null,
-           isMockAbsent: true // UI helper flag
+           isMockAbsent: true
          } as AttendanceRecord & { isMockAbsent?: boolean }));
 
          finalRecords = [...finalRecords, ...fakeAbsentRecords];
-         totalCount += fakeAbsentRecords.length;
-      }
+      });
 
       setRecords(finalRecords);
       setTotalCount(totalCount);
@@ -422,6 +432,21 @@ const AttendanceManagementPage: React.FC = () => {
     }
   };
 
+  const groupedRecords = React.useMemo(() => {
+    const groups: { [key: string]: typeof records } = {};
+    records.forEach(r => {
+      const dateKey = r.ngay || 'Chưa xác định';
+      if (!groups[dateKey]) groups[dateKey] = [];
+      groups[dateKey].push(r);
+    });
+    // Sort dates descending
+    return Object.entries(groups).sort(([a], [b]) => {
+      if (a === 'Chưa xác định') return 1;
+      if (b === 'Chưa xác định') return -1;
+      return new Date(b).getTime() - new Date(a).getTime();
+    });
+  }, [records]);
+
   return (
     <div className="w-full flex-1 animate-in fade-in slide-in-from-bottom-4 duration-500 text-muted-foreground font-sans">
       <div className="space-y-4">
@@ -605,7 +630,22 @@ const AttendanceManagementPage: React.FC = () => {
                       Đang tải dữ liệu...
                     </td>
                   </tr>
-                ) : records.map(record => {
+                ) : groupedRecords.map(([date, dateRecords]) => (
+                  <React.Fragment key={date}>
+                    <tr className="bg-muted/40 font-semibold border-y border-border">
+                       <td colSpan={12} className="px-4 py-2 text-primary font-bold bg-primary/5 uppercase text-[12px]">
+                         <div className="flex items-center justify-between w-full md:w-auto md:justify-start md:gap-6">
+                           <div className="flex items-center gap-2">
+                              <Calendar size={14} className="text-primary/70" />
+                              {formatDateForDisplay(date)}
+                           </div>
+                           <span className="text-[11px] text-muted-foreground lowercase font-medium bg-white/50 px-2 py-0.5 rounded border border-border tracking-normal">
+                             Tổng: {dateRecords.length} nhân sự
+                           </span>
+                         </div>
+                       </td>
+                    </tr>
+                    {dateRecords.map(record => {
                   const status = calculateAttendanceStatus(record.checkin, record.checkout);
                   const isMockAbsent = (record as any).isMockAbsent;
 
@@ -686,6 +726,8 @@ const AttendanceManagementPage: React.FC = () => {
                     </tr>
                   );
                 })}
+                  </React.Fragment>
+                ))}
                 {!loading && records.length === 0 && (
                   <tr>
                     <td colSpan={12} className="px-4 py-8 text-center text-muted-foreground">
@@ -707,9 +749,21 @@ const AttendanceManagementPage: React.FC = () => {
             ) : records.length === 0 ? (
               <div className="px-4 py-8 text-center text-muted-foreground text-[13px]">Không tìm thấy bản ghi chấm công nào.</div>
             ) : (
-              <div className="divide-y divide-border">
-                {records.map(record => {
-                  const status = calculateAttendanceStatus(record.checkin, record.checkout);
+              <div className="space-y-4">
+                {groupedRecords.map(([date, dateRecords]) => (
+                  <div key={date} className="bg-card rounded-xl border border-border overflow-hidden shadow-sm">
+                    <div className="px-4 py-2 bg-muted/60 border-b border-border/50 text-[12px] font-bold text-primary flex items-center justify-between uppercase">
+                       <div className="flex items-center gap-2">
+                         <Calendar size={14} className="text-primary/70" />
+                         {formatDateForDisplay(date)}
+                       </div>
+                       <span className="text-[10px] text-muted-foreground font-medium bg-background px-1.5 py-0.5 rounded border border-border lowercase tracking-normal">
+                         Tổng {dateRecords.length} NV
+                       </span>
+                    </div>
+                    <div className="divide-y divide-border/50">
+                      {dateRecords.map(record => {
+                        const status = calculateAttendanceStatus(record.checkin, record.checkout);
                   const isMockAbsent = (record as any).isMockAbsent;
                   
                   return (
@@ -787,6 +841,9 @@ const AttendanceManagementPage: React.FC = () => {
                     )}
                   </div>
                 )})}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
