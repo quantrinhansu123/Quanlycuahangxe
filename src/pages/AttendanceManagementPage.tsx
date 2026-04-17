@@ -124,8 +124,8 @@ const AttendanceManagementPage: React.FC = () => {
       }
 
       const relevantPersonnel = personnelData.filter(p => {
-        // Apply staff filter if selected
-        if (selectedStaff && selectedStaff !== p.id_nhan_su && selectedStaff !== p.ho_ten) return false;
+        // Apply staff filter if selected: Match by full name
+        if (selectedStaff && selectedStaff !== p.ho_ten) return false;
         // Apply search filter if selected
         if (debouncedSearch && !p.ho_ten.toLowerCase().includes(debouncedSearch.toLowerCase())) return false;
         return true;
@@ -483,7 +483,7 @@ const AttendanceManagementPage: React.FC = () => {
               >
                 <option value="">Tất cả nhân sự</option>
                 {personnel.map(p => (
-                  <option key={p.id} value={p.id_nhan_su || p.ho_ten}>{p.ho_ten}</option>
+                  <option key={p.id} value={p.ho_ten}>{p.ho_ten}</option>
                 ))}
               </select>
             )}
