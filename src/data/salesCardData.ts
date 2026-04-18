@@ -253,7 +253,7 @@ export const getSalesCardsPaginated = async (
     const { data: matchedCustomers } = await supabase
       .from('khach_hang')
       .select('ma_khach_hang')
-      .or(`ho_va_ten.ilike.%${term}%,so_dien_thoai.ilike.%${term}%,ma_khach_hang.ilike.%${term}%`);
+      .or(`ho_va_ten.ilike."%${term}%",so_dien_thoai.ilike."%${term}%",ma_khach_hang.ilike."%${term}%"`);
 
     const customerCodes = (matchedCustomers || []).slice(0, 50).map(c => c.ma_khach_hang).filter(Boolean);
 
@@ -266,8 +266,8 @@ export const getSalesCardsPaginated = async (
     const orConditions: string[] = [];
     if (customerCodes.length > 0) orConditions.push(`khach_hang_id.in.(${customerCodes.map(c => `"${c}"`).join(',')})`);
     if (serviceIds.length > 0) orConditions.push(`dich_vu_id.in.(${serviceIds.map(s => `"${s}"`).join(',')})`);
-    orConditions.push(`id_bh.ilike.%${term}%`);
-    orConditions.push(`khach_hang_id.ilike.%${term}%`);
+    orConditions.push(`id_bh.ilike."%${term}%"`);
+    orConditions.push(`khach_hang_id.ilike."%${term}%"`);
 
     if (orConditions.length > 0) {
       baseQuery = baseQuery.or(orConditions.join(','));
@@ -278,47 +278,40 @@ export const getSalesCardsPaginated = async (
   if (endDate) baseQuery = baseQuery.lte('ngay', endDate);
   if (staffId) baseQuery = baseQuery.ilike('nhan_vien_id', `%${staffId}%`);
 
+  // Pre-fetch branch customer identifiers (filter will be applied client-side for accuracy)
+  let branchCustomerSet: Set<string> | null = null;
   if (branch) {
-    // 1. Search in Customers table strictly by branch (Address = Branch Location)
     const branchNameOnly = branch.replace('Cơ sở ', '');
     const { data: matchedCustomers } = await supabase
       .from('khach_hang')
       .select('id, ma_khach_hang')
       .or(`dia_chi_hien_tai.eq."${branch}",dia_chi_hien_tai.eq."${branchNameOnly}"`)
-      .limit(300); // Max 300 IDs to keep query length safe but cover more ground
+      .limit(10000);
 
-    const customerIds = (matchedCustomers || []).map(c => c.id);
-    const customerCodes = (matchedCustomers || []).map(c => c.ma_khach_hang).filter(Boolean);
-    
-    const branchOrConditions: string[] = [];
-    
-    if (customerIds.length > 0) {
-      branchOrConditions.push(`khach_hang_id.in.(${customerIds.map(id => `"${id}"`).join(',')})`);
-    }
-    if (customerCodes.length > 0) {
-      branchOrConditions.push(`khach_hang_id.in.(${customerCodes.map(id => `"${id}"`).join(',')})`);
-    }
-
-    if (branchOrConditions.length > 0) {
-      baseQuery = baseQuery.or(branchOrConditions.join(','));
-    } else {
-      // No recent customers found for this branch address
-      baseQuery = baseQuery.eq('id', '00000000-0000-0000-0000-000000000000');
-    }
+    branchCustomerSet = new Set<string>();
+    (matchedCustomers || []).forEach(c => {
+      if (c.id) branchCustomerSet!.add(c.id.toLowerCase());
+      if (c.ma_khach_hang) branchCustomerSet!.add(c.ma_khach_hang.toLowerCase());
+    });
   }
 
-  // 2. Fetch all matching cards to calculate the true total (for up to 1000 items at once)
+  // 2. Fetch all matching cards to calculate the true total
   const { data: allMatchingCards, count, error } = await baseQuery
     .order('ngay', { ascending: false })
     .order('gio', { ascending: false })
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .limit(10000);
 
   if (error) {
     if (error.code === 'PGRST103') return { data: [], totalCount: count || 0, totalAmount: 0, totalCustomers: 0, newCustomersCount: 0, returningCustomersCount: 0 };
     throw error;
   }
 
-  const allCards = (allMatchingCards as SalesCard[]) || [];
+  // Apply branch filter client-side to guarantee accuracy (avoids URL length limits)
+  let allCards = (allMatchingCards as SalesCard[]) || [];
+  if (branchCustomerSet) {
+    allCards = allCards.filter(c => c.khach_hang_id && branchCustomerSet!.has(c.khach_hang_id.toLowerCase()));
+  }
   const pagedCards = allCards.slice(from, to + 1);
 
   await enrichSalesCards(pagedCards);
@@ -406,7 +399,7 @@ export const getSalesCardsPaginated = async (
 
   return {
     data: pagedCards,
-    totalCount: count || 0,
+    totalCount: branchCustomerSet ? allCards.length : (count || 0),
     totalAmount: grandTotal,
     totalCustomers: totalCustomersCount,
     newCustomersCount,
