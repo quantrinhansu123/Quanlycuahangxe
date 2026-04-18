@@ -71,7 +71,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
         setFormData({
           ho_va_ten: '',
           so_dien_thoai: '',
-          dia_chi_hien_tai: 'Cơ sở Bắc Giang',
+          dia_chi_hien_tai: '',
           anh: '',
           ngay_dang_ky: new Date().toISOString().split('T')[0],
           bien_so_xe: '',
@@ -300,7 +300,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
             <InputField label="Họ và tên" name="ho_va_ten" value={formData.ho_va_ten} onChange={handleInputChange} icon={User} placeholder="Nhập họ tên đầy đủ..." required />
             <InputField label="Số điện thoại" name="so_dien_thoai" value={formData.so_dien_thoai} onChange={handleInputChange} icon={Phone} placeholder="09xx..." required />
             <InputField label="Mã khách hàng" name="ma_khach_hang" value={formData.ma_khach_hang} onChange={handleInputChange} icon={Tag} placeholder="KH-XXXXXX" />
-            <InputField label="Địa chỉ lưu trú hiện tại" name="dia_chi_hien_tai" value={formData.dia_chi_hien_tai} onChange={handleInputChange} icon={MapPin} type="select" options={["", "Cơ sở Bắc Giang", "Cơ sở Bắc Ninh"]} />
+            <InputField label="Địa chỉ lưu trú hiện tại" name="dia_chi_hien_tai" value={formData.dia_chi_hien_tai} onChange={handleInputChange} icon={MapPin} type="select" options={["Cơ sở Bắc Giang", "Cơ sở Bắc Ninh"]} placeholder="Chọn cơ sở..." />
             <InputField label="Biển số xe" name="bien_so_xe" value={formData.bien_so_xe} onChange={handleInputChange} icon={CreditCard} placeholder="98A-xxx.xx" />
             <InputField label="Ngày đăng ký" name="ngay_dang_ky" type="date" value={formData.ngay_dang_ky} onChange={handleInputChange} icon={Calendar} />
 
@@ -451,6 +451,7 @@ const InputField: React.FC<{
           required={required}
           className={clsx("w-full px-4 py-2.5 bg-background border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-[14px]", disabled && "opacity-60 cursor-not-allowed bg-muted/20")}
         >
+          <option value="" disabled hidden>{placeholder || '-- Chọn --'}</option>
           {options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
         </select>
       ) : (
