@@ -127,7 +127,7 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
   const location = useLocation();
   const navigate = useNavigate();
   const { avatar } = useTheme();
-  const { currentUser } = useAuth();
+  const { nhanVien, signOut } = useAuth();
 
   const defaultAvatar = "https://ui-avatars.com/api/?name=User&background=random&color=random";
   const userAvatar = avatar || defaultAvatar;
@@ -466,10 +466,10 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
             </div>
             <div className="hidden sm:flex flex-col">
               <div className="flex items-center gap-1">
-                <span className="text-[13px] font-bold leading-tight text-foreground group-hover:text-primary transition-colors">{currentUser?.ho_ten || 'Tài khoản'}</span>
+                <span className="text-[13px] font-bold leading-tight text-foreground group-hover:text-primary transition-colors">{nhanVien?.ho_ten || 'Tài khoản'}</span>
                 <ChevronDown size={12} className={clsx("text-muted-foreground transition-transform duration-200", showUserDropdown && "rotate-180")} />
               </div>
-              <span className="text-[10px] text-muted-foreground leading-tight font-medium">{currentUser?.vi_tri || 'Quản trị viên (Admin)'}</span>
+              <span className="text-[10px] text-muted-foreground leading-tight font-medium">{nhanVien?.vi_tri || 'Nhân viên'}</span>
             </div>
           </div>
 
@@ -506,7 +506,10 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
                 <div className="my-1 border-t border-border/50" />
 
                 <button
-                  onClick={() => setShowUserDropdown(false)}
+                  onClick={async () => {
+                    setShowUserDropdown(false);
+                    await signOut();
+                  }}
                   className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-red-500 hover:bg-red-500/10 transition-all duration-200"
                 >
                   <div className="w-8 h-8 rounded-lg bg-red-500/5 flex items-center justify-center">

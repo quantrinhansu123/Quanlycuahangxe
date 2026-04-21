@@ -12,12 +12,14 @@ import { useNavigate } from 'react-router-dom';
 import { clsx } from 'clsx';
 import { deleteInventoryRecord, bulkUpsertInventoryRecords, deleteAllInventoryRecords, getInventoryPaginated, getInventoryRecords } from '../data/inventoryData';
 import type { InventoryRecord } from '../data/inventoryData';
+import { useAuth } from '../context/AuthContext';
 import { getServices } from '../data/serviceData';
 import Pagination from '../components/Pagination';
 import type { DichVu } from '../data/serviceData';
 import InventoryFormModal from '../components/InventoryFormModal';
 
 const InventoryManagementPage: React.FC = () => {
+  const { isAdmin } = useAuth();
   const navigate = useNavigate();
   const [records, setRecords] = useState<InventoryRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -436,33 +438,35 @@ const InventoryManagementPage: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              <button 
-                onClick={handleDownloadTemplate}
-                className="flex items-center gap-2 px-2 sm:px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
-                title="Tải mẫu Excel"
-              >
-                <Download size={18} />
-                <span className="hidden sm:inline">Tải mẫu</span>
-              </button>
-              <div className="relative">
+            {isAdmin && (
+              <div className="flex items-center gap-1.5 sm:gap-2">
                 <button 
-                  onClick={() => document.getElementById('excel-import')?.click()}
+                  onClick={handleDownloadTemplate}
                   className="flex items-center gap-2 px-2 sm:px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
-                  title="Nhập kho từ Excel"
+                  title="Tải mẫu Excel"
                 >
-                  <Upload size={18} />
-                  <span className="hidden sm:inline">Nhập Excel</span>
+                  <Download size={18} />
+                  <span className="hidden sm:inline">Tải mẫu</span>
                 </button>
-                <input 
-                  id="excel-import"
-                  type="file" 
-                  accept=".xlsx, .xls" 
-                  className="hidden" 
-                  onChange={handleImportExcel} 
-                />
+                <div className="relative">
+                  <button 
+                    onClick={() => document.getElementById('excel-import')?.click()}
+                    className="flex items-center gap-2 px-2 sm:px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
+                    title="Nhập kho từ Excel"
+                  >
+                    <Upload size={18} />
+                    <span className="hidden sm:inline">Nhập Excel</span>
+                  </button>
+                  <input 
+                    id="excel-import"
+                    type="file" 
+                    accept=".xlsx, .xls" 
+                    className="hidden" 
+                    onChange={handleImportExcel} 
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="relative">
               <button 
@@ -501,20 +505,24 @@ const InventoryManagementPage: React.FC = () => {
                 </div>
               )}
             </div>
-            <button
-              onClick={handleDeleteAll}
-              className="hidden sm:flex px-3 py-1.5 border border-red-200 rounded text-[13px] text-red-600 hover:bg-red-50 transition-colors font-medium bg-white items-center gap-2"
-              title="Xóa toàn bộ dữ liệu"
-            >
-              <Trash2 size={18} />
-              <span>Xóa tất cả</span>
-            </button>
-            <button 
-              onClick={() => handleOpenModal()}
-              className="bg-primary hover:bg-primary/90 text-white px-3 sm:px-5 py-1.5 rounded flex items-center gap-2 text-[13px] sm:text-[14px] font-semibold transition-colors"
-            >
-              <Plus size={20} /> <span className="hidden sm:inline">Thêm mới</span>
-            </button>
+            {isAdmin && (
+              <button
+                onClick={handleDeleteAll}
+                className="hidden sm:flex px-3 py-1.5 border border-red-200 rounded text-[13px] text-red-600 hover:bg-red-50 transition-colors font-medium bg-white items-center gap-2"
+                title="Xóa toàn bộ dữ liệu"
+              >
+                <Trash2 size={18} />
+                <span>Xóa tất cả</span>
+              </button>
+            )}
+            {isAdmin && (
+              <button 
+                onClick={() => handleOpenModal()}
+                className="bg-primary hover:bg-primary/90 text-white px-3 sm:px-5 py-1.5 rounded flex items-center gap-2 text-[13px] sm:text-[14px] font-semibold transition-colors"
+              >
+                <Plus size={20} /> <span className="hidden sm:inline">Thêm mới</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -571,8 +579,14 @@ const InventoryManagementPage: React.FC = () => {
                       {visibleColumns.includes('actions') && (
                         <td className="px-4 py-4">
                           <div className="flex items-center justify-center gap-4">
-                            <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleOpenModal(record); }} className="text-primary hover:text-blue-700 transition-colors" title="Sửa"><Edit2 size={18} /></button>
-                            <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDelete(record.id); }} className="text-destructive hover:text-destructive/80 transition-colors" title="Xóa"><Trash2 size={18} /></button>
+                            {isAdmin ? (
+                              <>
+                                <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleOpenModal(record); }} className="text-primary hover:text-blue-700 transition-colors" title="Sửa"><Edit2 size={18} /></button>
+                                <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDelete(record.id); }} className="text-destructive hover:text-destructive/80 transition-colors" title="Xóa"><Trash2 size={18} /></button>
+                              </>
+                            ) : (
+                              <span className="text-[11px] italic text-slate-400">Read-only</span>
+                            )}
                           </div>
                         </td>
                       )}
@@ -640,10 +654,12 @@ const InventoryManagementPage: React.FC = () => {
                         </div>
                       </div>
                     </div>
-                    <div className="flex flex-col gap-1 shrink-0 pt-0.5">
-                      <button type="button" onClick={(e) => { e.preventDefault(); handleOpenModal(record); }} className="p-1.5 rounded-lg text-primary hover:bg-primary/10"><Edit2 size={15} /></button>
-                      <button type="button" onClick={(e) => { e.preventDefault(); handleDelete(record.id); }} className="p-1.5 rounded-lg text-destructive hover:bg-red-50"><Trash2 size={15} /></button>
-                    </div>
+                    {isAdmin && (
+                      <div className="flex flex-col gap-1 shrink-0 pt-0.5">
+                        <button type="button" onClick={(e) => { e.preventDefault(); handleOpenModal(record); }} className="p-1.5 rounded-lg text-primary hover:bg-primary/10"><Edit2 size={15} /></button>
+                        <button type="button" onClick={(e) => { e.preventDefault(); handleDelete(record.id); }} className="p-1.5 rounded-lg text-destructive hover:bg-red-50"><Trash2 size={15} /></button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

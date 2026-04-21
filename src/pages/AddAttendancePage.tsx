@@ -18,7 +18,7 @@ import { calculateAttendanceStatus, formatMinutesToHours } from '../utils/timeke
 
 
 const AddAttendancePage: React.FC = () => {
-  const { currentUser, isAdmin } = useAuth();
+  const { nhanVien, isAdmin } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [personnel, setPersonnel] = useState<NhanSu[]>([]);
@@ -43,8 +43,8 @@ const AddAttendancePage: React.FC = () => {
         const todayStr = new Date().toISOString().split('T')[0];
 
         // Smart match current user against DB personnel
-        const matchedUser = personnelData.find(p => p.ho_ten?.toLowerCase() === currentUser?.ho_ten?.toLowerCase());
-        const fallbackName = matchedUser?.ho_ten || currentUser?.ho_ten || 'Tài khoản đăng nhập';
+        const matchedUser = personnelData.find(p => p.ho_ten?.toLowerCase() === nhanVien?.ho_ten?.toLowerCase());
+        const fallbackName = matchedUser?.ho_ten || nhanVien?.ho_ten || 'Tài khoản đăng nhập';
 
         const autoId = await getNextAttendanceId();
 
@@ -91,7 +91,7 @@ const AddAttendancePage: React.FC = () => {
     };
 
     initData();
-  }, [currentUser]);
+  }, [nhanVien]);
 
   // Auto-track location via watchPosition
   useEffect(() => {

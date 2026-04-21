@@ -24,6 +24,7 @@ import CustomerDetailsModal from '../components/CustomerDetailsModal';
 import CustomerFormModal from '../components/CustomerFormModal';
 import Pagination from '../components/Pagination';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 import type { KhachHang } from '../data/customerData';
 import { bulkDeleteCustomers, bulkUpsertCustomers, deleteCustomer, getCustomersForSelect, getCustomersPaginated } from '../data/customerData';
 import { getCustomerLastSaleDates, getCustomerStats } from '../data/salesCardData';
@@ -32,6 +33,7 @@ import { getCustomerLastSaleDates, getCustomerStats } from '../data/salesCardDat
 const CustomerManagementPage: React.FC = () => {
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const { isAdmin } = useAuth();
   const [customers, setCustomers] = useState<KhachHang[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -499,13 +501,15 @@ const CustomerManagementPage: React.FC = () => {
 
           {/* Row 2: Add New + Utilities (Delete, Download, Import, Columns) */}
           <div className="flex items-center gap-2 flex-wrap border-t md:border-t-0 border-border mt-1 md:mt-0 pt-2 md:pt-0 shrink-0">
-            <button
-              onClick={() => handleOpenModal()}
-              className="px-3 py-2 bg-primary hover:bg-primary/90 text-white rounded-xl flex items-center gap-2 text-[12px] sm:text-[13px] font-bold transition-all shadow-lg shadow-primary/25"
-            >
-              <Plus className="size-4 sm:size-5 text-white" />
-              <span>Thêm mới</span>
-            </button>
+            {isAdmin && (
+              <button
+                onClick={() => handleOpenModal()}
+                className="px-3 py-2 bg-primary hover:bg-primary/90 text-white rounded-xl flex items-center gap-2 text-[12px] sm:text-[13px] font-bold transition-all shadow-lg shadow-primary/25"
+              >
+                <Plus className="size-4 sm:size-5 text-white" />
+                <span>Thêm mới</span>
+              </button>
+            )}
 
             <div className="h-6 w-px bg-border mx-0.5" />
 
@@ -542,6 +546,7 @@ const CustomerManagementPage: React.FC = () => {
                 </div>
               )}
 
+            {isAdmin && (
               <button
                 onClick={handleDeleteAll}
                 className="px-3 py-2 bg-destructive/5 hover:bg-destructive/10 text-destructive border border-destructive/20 rounded-xl flex items-center gap-1.5 text-[12px] sm:text-[13px] font-bold transition-all shadow-sm"
@@ -550,6 +555,7 @@ const CustomerManagementPage: React.FC = () => {
                 <Trash2 className="size-4" />
                 <span className="hidden xs:inline">Xóa tất cả</span>
               </button>
+            )}
 
               <button
                 onClick={handleDownloadTemplate}
@@ -560,14 +566,16 @@ const CustomerManagementPage: React.FC = () => {
                 <span className="hidden xs:inline">Tải mẫu</span>
               </button>
 
-              <button
-                onClick={() => document.getElementById('excel-import')?.click()}
-                className="px-3 py-2 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 rounded-xl flex items-center gap-1.5 text-[12px] sm:text-[13px] font-bold transition-all shadow-sm"
-                title="Nhập Excel"
-              >
-                <Upload className="size-4" />
-                <span className="hidden xs:inline">Nhập Excel</span>
-              </button>
+              {isAdmin && (
+                <button
+                  onClick={() => document.getElementById('excel-import')?.click()}
+                  className="px-3 py-2 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 rounded-xl flex items-center gap-1.5 text-[12px] sm:text-[13px] font-bold transition-all shadow-sm"
+                  title="Nhập Excel"
+                >
+                  <Upload className="size-4" />
+                  <span className="hidden xs:inline">Nhập Excel</span>
+                </button>
+              )}
             </div>
           </div>
           <input id="excel-import" type="file" accept=".xlsx, .xls" className="hidden" onChange={handleImportExcel} />
@@ -728,13 +736,15 @@ const CustomerManagementPage: React.FC = () => {
                                 <Edit2 size={14} />
                                 <span className="text-[10px] font-bold">Sửa</span>
                               </button>
-                              <button
-                                onClick={() => handleDelete(customer.id)}
-                                className="flex items-center gap-1 px-2 py-1 bg-destructive/5 text-destructive rounded-lg active:scale-95 transition-transform ml-auto"
-                              >
-                                <Trash2 size={14} />
-                                <span className="text-[10px] font-bold">Xóa</span>
-                              </button>
+                              {isAdmin && (
+                                <button
+                                  onClick={() => handleDelete(customer.id)}
+                                  className="flex items-center gap-1 px-2 py-1 bg-destructive/5 text-destructive rounded-lg active:scale-95 transition-transform ml-auto"
+                                >
+                                  <Trash2 size={14} />
+                                  <span className="text-[10px] font-bold">Xóa</span>
+                                </button>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -805,6 +815,7 @@ const CustomerManagementPage: React.FC = () => {
                         onOpenDetails={handleOpenDetails}
                         today={today}
                         stats={customerStats[customer.id] || (customer.ma_khach_hang && customerStats[customer.ma_khach_hang]) || { totalRevenue: 0, visitCount: 0 }}
+                        isAdmin={isAdmin}
                       />
 
 
@@ -860,8 +871,9 @@ const CustomerTableRow: React.FC<{
   onDelete: (id: string) => void,
   onOpenDetails: (customer: KhachHang) => void,
   today: Date,
-  stats: { totalRevenue: number, visitCount: number }
-}> = React.memo(({ customer, visibleColumns, onEdit, onDelete, onOpenDetails, today, stats }) => {
+  stats: { totalRevenue: number, visitCount: number },
+  isAdmin: boolean
+}> = React.memo(({ customer, visibleColumns, onEdit, onDelete, onOpenDetails, today, stats, isAdmin }) => {
 
 
   const isCầnThayDầu = customer.ngay_thay_dau ? new Date(customer.ngay_thay_dau) <= today : false;
@@ -948,12 +960,16 @@ const CustomerTableRow: React.FC<{
             <button onClick={(e) => { e.preventDefault(); onOpenDetails(customer); }} className="p-2 text-blue-500 hover:bg-blue-50 rounded transition-colors" title="Lịch sử giao dịch">
               <History size={18} />
             </button>
-            <button onClick={(e) => { e.preventDefault(); onEdit(customer); }} className="p-2 text-primary hover:bg-primary/5 rounded transition-colors" title="Sửa">
-              <Edit2 size={18} />
-            </button>
-            <button onClick={(e) => { e.preventDefault(); onDelete(customer.id); }} className="p-2 text-destructive hover:bg-destructive/5 rounded transition-colors" title="Xóa">
-              <Trash2 size={18} />
-            </button>
+            {isAdmin && (
+              <>
+                <button onClick={(e) => { e.preventDefault(); onEdit(customer); }} className="p-2 text-primary hover:bg-primary/5 rounded transition-colors" title="Sửa">
+                  <Edit2 size={18} />
+                </button>
+                <button onClick={(e) => { e.preventDefault(); onDelete(customer.id); }} className="p-2 text-destructive hover:bg-destructive/5 rounded transition-colors" title="Xóa">
+                  <Trash2 size={18} />
+                </button>
+              </>
+            )}
           </div>
         </td>
       )}

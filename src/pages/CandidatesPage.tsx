@@ -7,6 +7,7 @@ import {
 import { clsx } from 'clsx';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { statusConfig, positionOptions, mockInterviewSessions } from './candidates/data';
 import AddEditCandidateDialog from './candidates/dialogs/AddEditCandidateDialog';
 import CandidateDetailDialog from './candidates/dialogs/CandidateDetailDialog';
@@ -17,6 +18,7 @@ import { getCandidatesPaginated, getNextCandidateCode, upsertCandidate, deleteCa
 import type { Candidate, CandidateFormState } from './candidates/types';
 
 const CandidatesPage: React.FC = () => {
+  const { isAdmin } = useAuth();
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
@@ -106,37 +108,41 @@ const CandidatesPage: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-card border border-border text-[13px] font-bold text-muted-foreground hover:bg-muted transition-all shadow-sm">
-            <Download size={16} />
-            Xuất file
-          </button>
-          <button 
-            onClick={async () => {
-              const nextCode = await getNextCandidateCode();
-              setFormState({
-                formName: '',
-                formEmail: '',
-                formPhone: '',
-                formAddress: '',
-                formBirthYear: '',
-                formBirthDate: '',
-                formSource: '',
-                formPosition: '',
-                formCandidateCode: nextCode,
-                formStatus: 'new',
-                formLatestInterview: '',
-                formLatestResult: '',
-                formInternalNotes: '',
-                formDocuments: []
-              });
-              setSelectedCandidate(null);
-              setIsAddDialogOpen(true);
-            }}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-[13px] font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
-          >
-            <Plus size={18} />
-            Thêm ứng viên
-          </button>
+          {isAdmin && (
+            <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-card border border-border text-[13px] font-bold text-muted-foreground hover:bg-muted transition-all shadow-sm">
+              <Download size={16} />
+              Xuất file
+            </button>
+          )}
+          {isAdmin && (
+            <button 
+              onClick={async () => {
+                const nextCode = await getNextCandidateCode();
+                setFormState({
+                  formName: '',
+                  formEmail: '',
+                  formPhone: '',
+                  formAddress: '',
+                  formBirthYear: '',
+                  formBirthDate: '',
+                  formSource: '',
+                  formPosition: '',
+                  formCandidateCode: nextCode,
+                  formStatus: 'new',
+                  formLatestInterview: '',
+                  formLatestResult: '',
+                  formInternalNotes: '',
+                  formDocuments: []
+                });
+                setSelectedCandidate(null);
+                setIsAddDialogOpen(true);
+              }}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-[13px] font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
+            >
+              <Plus size={18} />
+              Thêm ứng viên
+            </button>
+          )}
         </div>
       </div>
 
@@ -229,53 +235,58 @@ const CandidatesPage: React.FC = () => {
                       </span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
-                      <button onClick={(e) => { e.stopPropagation(); setSelectedStatsPerson({ id: candidate.id, ho_ten: candidate.name }); setIsStatsModalOpen(true); }} className="p-2 hover:bg-emerald-50 text-emerald-600 rounded-lg transition-colors" title="Xem KPI trong ngày">
-                        <Eye size={16} />
-                      </button>
-                      <button 
-                        onClick={(e) => { 
-                          e.stopPropagation(); 
-                          setFormState({
-                            formName: candidate.name,
-                            formEmail: candidate.email,
-                            formPhone: candidate.phone,
-                            formAddress: '', // Fallback or mapping
-                            formBirthYear: candidate.birthYear,
-                            formBirthDate: '', // Fallback or mapping
-                            formSource: candidate.source,
-                            formPosition: candidate.positionId,
-                            formCandidateCode: candidate.id_ung_vien || '',
-                            formStatus: candidate.status,
-                            formLatestInterview: candidate.latestInterview,
-                            formLatestResult: candidate.latestResult,
-                            formInternalNotes: '', // Mapping needed
-                            formDocuments: candidate.documents || []
-                          });
-                          setSelectedCandidate(candidate); 
-                          setIsAddDialogOpen(true); 
-                        }} 
-                        className="p-2 hover:bg-primary/10 text-primary rounded-lg transition-colors" 
-                        title="Sửa"
-                      >
-                        <Edit2 size={16} />
-                      </button>
-                      <button 
-                        onClick={async (e) => { 
-                          e.stopPropagation(); 
-                          if (window.confirm('Bạn có chắc muốn xóa ứng viên này?')) {
-                            await deleteCandidate(candidate.id);
-                            loadData();
-                          }
-                        }} 
-                        className="p-2 hover:bg-red-50 text-red-500 rounded-lg transition-colors" 
-                        title="Xóa"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
+                          <button onClick={(e) => { e.stopPropagation(); setSelectedStatsPerson({ id: candidate.id, ho_ten: candidate.name }); setIsStatsModalOpen(true); }} className="p-2 hover:bg-emerald-50 text-emerald-600 rounded-lg transition-colors" title="Xem KPI trong ngày">
+                            <Eye size={16} />
+                          </button>
+                          {isAdmin && (
+                            <button 
+                              onClick={(e) => { 
+                                e.stopPropagation(); 
+                                setFormState({
+                                  formName: candidate.name,
+                                  formEmail: candidate.email,
+                                  formPhone: candidate.phone,
+                                  formAddress: '', // Fallback or mapping
+                                  formBirthYear: candidate.birthYear,
+                                  formBirthDate: '', // Fallback or mapping
+                                  formSource: candidate.source,
+                                  formPosition: candidate.positionId,
+                                  formCandidateCode: candidate.id_ung_vien || '',
+                                  formStatus: candidate.status,
+                                  formLatestInterview: candidate.latestInterview,
+                                  formLatestResult: candidate.latestResult,
+                                  formInternalNotes: '', // Mapping needed
+                                  formDocuments: candidate.documents || []
+                                });
+                                setSelectedCandidate(candidate); 
+                                setIsAddDialogOpen(true); 
+                              }} 
+                              className="p-2 hover:bg-primary/10 text-primary rounded-lg transition-colors" 
+                              title="Sửa"
+                            >
+                              <Edit2 size={16} />
+                            </button>
+                          )}
+                          {isAdmin && (
+                            <button 
+                              onClick={async (e) => { 
+                                e.stopPropagation(); 
+                                if (window.confirm('Bạn có chắc muốn xóa ứng viên này?')) {
+                                  await deleteCandidate(candidate.id);
+                                  loadData();
+                                }
+                              }} 
+                              className="p-2 hover:bg-red-50 text-red-500 rounded-lg transition-colors" 
+                              title="Xóa"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
+                          {!isAdmin && <span className="text-[11px] italic text-slate-400">Read-only</span>}
+                        </div>
+                      </td>
                 </tr>
               ))}
               {loading && (

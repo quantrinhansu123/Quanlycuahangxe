@@ -21,10 +21,12 @@ import Pagination from '../components/Pagination';
 import ServiceFormModal from '../components/ServiceFormModal';
 import type { DichVu } from '../data/serviceData';
 import { bulkUpsertServices, deleteAllServices, deleteService, getNextServiceCode, getServices, getServicesPaginated, upsertService } from '../data/serviceData';
+import { useAuth } from '../context/AuthContext';
 
 const ServiceManagementPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { isAdmin } = useAuth();
   const [services, setServices] = useState<DichVu[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -328,13 +330,15 @@ const ServiceManagementPage: React.FC = () => {
               />
             </div>
 
-            <button
-              onClick={() => handleOpenModal()}
-              className="px-2.5 py-1 sm:px-5 sm:py-2 bg-primary hover:bg-primary/90 text-white rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[14px] font-bold transition-all shrink-0 shadow-lg shadow-primary/20"
-            >
-              <Plus className="size-4 sm:size-5" />
-              <span>Thêm mới</span>
-            </button>
+            {isAdmin && (
+              <button
+                onClick={() => handleOpenModal()}
+                className="px-2.5 py-1 sm:px-5 sm:py-2 bg-primary hover:bg-primary/90 text-white rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[14px] font-bold transition-all shrink-0 shadow-lg shadow-primary/20"
+              >
+                <Plus className="size-4 sm:size-5" />
+                <span>Thêm mới</span>
+              </button>
+            )}
 
             <div className="relative">
               <button onClick={() => toggleDropdown('branch')} className="flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-2 border border-border rounded-lg text-[11px] sm:text-[13px] text-muted-foreground min-w-[90px] sm:min-w-[140px] justify-between bg-muted/50 hover:bg-muted transition-all">
@@ -373,26 +377,30 @@ const ServiceManagementPage: React.FC = () => {
               <span>Tải mẫu</span>
             </button>
 
-            <div className="relative shrink-0">
-              <button
-                onClick={() => document.getElementById('excel-import-service')?.click()}
-                className="px-2 py-1 sm:px-4 sm:py-2 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold transition-all shrink-0"
-                title="Nhập dịch vụ từ Excel"
-              >
-                <Upload className="size-4 sm:size-5" />
-                <span>Nhập Excel</span>
-              </button>
-              <input id="excel-import-service" type="file" accept=".xlsx, .xls" className="hidden" onChange={handleImportExcel} />
-            </div>
+            {isAdmin && (
+              <div className="relative shrink-0">
+                <button
+                  onClick={() => document.getElementById('excel-import-service')?.click()}
+                  className="px-2 py-1 sm:px-4 sm:py-2 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold transition-all shrink-0"
+                  title="Nhập dịch vụ từ Excel"
+                >
+                  <Upload className="size-4 sm:size-5" />
+                  <span>Nhập Excel</span>
+                </button>
+                <input id="excel-import-service" type="file" accept=".xlsx, .xls" className="hidden" onChange={handleImportExcel} />
+              </div>
+            )}
 
-            <button
-              onClick={handleDeleteAll}
-              className="px-2 py-1 sm:px-4 sm:py-2 bg-destructive/5 hover:bg-destructive/10 text-destructive border border-destructive/20 rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold transition-all shrink-0"
-              title="Xóa toàn bộ dữ liệu"
-            >
-              <Trash2 className="size-4 sm:size-5" />
-              <span>Xóa hết</span>
-            </button>
+            {isAdmin && (
+              <button
+                onClick={handleDeleteAll}
+                className="px-2 py-1 sm:px-4 sm:py-2 bg-destructive/5 hover:bg-destructive/10 text-destructive border border-destructive/20 rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold transition-all shrink-0"
+                title="Xóa toàn bộ dữ liệu"
+              >
+                <Trash2 className="size-4 sm:size-5" />
+                <span>Xóa hết</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -467,12 +475,16 @@ const ServiceManagementPage: React.FC = () => {
                   <button onClick={() => handleViewService(service)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors border border-blue-100" title="Xem chi tiết">
                     <Eye size={16} />
                   </button>
-                  <button onClick={() => handleOpenModal(service)} className="flex items-center gap-1.5 px-3 py-1.5 text-primary hover:bg-primary/5 rounded-lg text-[12px] font-bold border border-primary/20 transition-colors">
-                    <Edit2 size={14} /> Sửa
-                  </button>
-                  <button onClick={() => handleDelete(service.id)} className="flex items-center gap-1.5 px-3 py-1.5 text-destructive hover:bg-destructive/5 rounded-lg text-[12px] font-bold border border-destructive/20 transition-colors">
-                    <Trash2 size={14} /> Xóa
-                  </button>
+                  {isAdmin && (
+                    <button onClick={() => handleOpenModal(service)} className="flex items-center gap-1.5 px-3 py-1.5 text-primary hover:bg-primary/5 rounded-lg text-[12px] font-bold border border-primary/20 transition-colors">
+                      <Edit2 size={14} /> Sửa
+                    </button>
+                  )}
+                  {isAdmin && (
+                    <button onClick={() => handleDelete(service.id)} className="flex items-center gap-1.5 px-3 py-1.5 text-destructive hover:bg-destructive/5 rounded-lg text-[12px] font-bold border border-destructive/20 transition-colors">
+                      <Trash2 size={14} /> Xóa
+                    </button>
+                  )}
                 </div>
               </div>
             ))
@@ -537,8 +549,12 @@ const ServiceManagementPage: React.FC = () => {
                     <td className="px-4 py-4 text-center">
                       <div className="flex items-center justify-center gap-2">
                         <button onClick={() => handleViewService(service)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Xem chi tiết"><Eye size={18} /></button>
-                        <button onClick={() => handleOpenModal(service)} className="p-1.5 text-primary hover:bg-primary/10 rounded transition-colors" title="Chỉnh sửa"><Edit2 size={18} /></button>
-                        <button onClick={() => handleDelete(service.id)} className="p-1.5 text-destructive hover:bg-destructive/10 rounded transition-colors" title="Xóa"><Trash2 size={18} /></button>
+                        {isAdmin && (
+                          <button onClick={() => handleOpenModal(service)} className="p-1.5 text-primary hover:bg-primary/10 rounded transition-colors" title="Chỉnh sửa"><Edit2 size={18} /></button>
+                        )}
+                        {isAdmin && (
+                          <button onClick={() => handleDelete(service.id)} className="p-1.5 text-destructive hover:bg-destructive/10 rounded transition-colors" title="Xóa"><Trash2 size={18} /></button>
+                        )}
                       </div>
                     </td>
                   </tr>

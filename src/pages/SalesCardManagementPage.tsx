@@ -48,7 +48,7 @@ import { supabase } from '../lib/supabase';
 const SalesCardFormModal = React.lazy(() => import('../components/SalesCardFormModal'));
 
 const SalesCardManagementPage: React.FC = () => {
-  const { currentUser, isAdmin } = useAuth();
+  const { nhanVien, isAdmin } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [salesCards, setSalesCards] = useState<SalesCard[]>([]);
@@ -120,7 +120,7 @@ const SalesCardManagementPage: React.FC = () => {
         debouncedSearch,
         startDate || undefined,
         endDate || undefined,
-        isAdmin ? (selectedStaff || undefined) : (currentUser?.ho_ten || undefined),
+        isAdmin ? (selectedStaff || undefined) : (nhanVien?.ho_ten || undefined),
         isAdmin ? (selectedBranch || undefined) : undefined
       );
 
@@ -146,7 +146,7 @@ const SalesCardManagementPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, pageSize, debouncedSearch, startDate, endDate, selectedStaff, selectedBranch, isAdmin, currentUser]);
+  }, [currentPage, pageSize, debouncedSearch, startDate, endDate, selectedStaff, selectedBranch, isAdmin, nhanVien]);
 
   const loadData = useCallback(async () => {
     loadReferenceData(); // Non-blocking background load for dropdowns
@@ -352,7 +352,7 @@ const SalesCardManagementPage: React.FC = () => {
           targetNhanVien = lastCard.nhan_vien_id;
         } else {
           const matchedUser = personnel.find(
-            p => p.ho_ten?.toLowerCase() === currentUser?.ho_ten?.toLowerCase()
+            p => p.ho_ten?.toLowerCase() === nhanVien?.ho_ten?.toLowerCase()
           );
           targetNhanVien = matchedUser ? matchedUser.ho_ten : '';
         }
@@ -438,7 +438,7 @@ const SalesCardManagementPage: React.FC = () => {
       setEditingCard(null);
 
       // Tự động gán người phụ trách là tên user đăng nhập hiện tại từ AuthContext, nếu không thấy thì bỏ trống
-      const matchedUser = personnel.find(p => p.ho_ten?.toLowerCase() === currentUser?.ho_ten?.toLowerCase());
+      const matchedUser = personnel.find(p => p.ho_ten?.toLowerCase() === nhanVien?.ho_ten?.toLowerCase());
       const nextCode = await getNextSalesCardCode();
 
       setFormData({
@@ -560,7 +560,7 @@ const SalesCardManagementPage: React.FC = () => {
         // formDataHeader.service_items chứa form mảng mới, editingCard.the_ban_hang_ct chứa mảng cũ
         const changes = computeChanges(editingCard, cleanData, editingCard.the_ban_hang_ct || [], formDataHeader.service_items || []);
         if (changes.length > 0) {
-          saveEditHistory(savedCard.id, currentUser?.ho_ten || 'Hệ thống', changes);
+          saveEditHistory(savedCard.id, nhanVien?.ho_ten || 'Hệ thống', changes);
         }
       }
 

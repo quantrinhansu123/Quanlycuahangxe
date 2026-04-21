@@ -17,6 +17,7 @@ import {
 import React, { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
+import { useAuth } from '../context/AuthContext';
 import Pagination from '../components/Pagination';
 import PersonnelDailyStatsModal from '../components/PersonnelDailyStatsModal';
 import PersonnelFormModal from '../components/PersonnelFormModal';
@@ -24,6 +25,7 @@ import type { NhanSu } from '../data/personnelData';
 import { bulkUpsertPersonnel, deletePersonnel, getNextPersonnelCode, getPersonnel, getPersonnelPaginated, upsertPersonnel } from '../data/personnelData';
 
 const PersonnelManagementPage: React.FC = () => {
+  const { isAdmin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [personnel, setPersonnel] = useState<NhanSu[]>([]);
@@ -349,40 +351,44 @@ const PersonnelManagementPage: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              <button
-                onClick={handleDownloadTemplate}
-                className="flex items-center gap-2 px-2 sm:px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
-                title="Tải mẫu Excel"
-              >
-                <Download size={18} />
-                <span className="hidden sm:inline">Tải mẫu</span>
-              </button>
-              <div className="relative">
+            {isAdmin && (
+              <div className="flex items-center gap-1.5 sm:gap-2">
                 <button
-                  onClick={() => document.getElementById('excel-import')?.click()}
+                  onClick={handleDownloadTemplate}
                   className="flex items-center gap-2 px-2 sm:px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
-                  title="Nhập nhân sự từ Excel"
+                  title="Tải mẫu Excel"
                 >
-                  <Upload size={18} />
-                  <span className="hidden sm:inline">Nhập Excel</span>
+                  <Download size={18} />
+                  <span className="hidden sm:inline">Tải mẫu</span>
                 </button>
-                <input
-                  id="excel-import"
-                  type="file"
-                  accept=".xlsx, .xls"
-                  className="hidden"
-                  onChange={handleImportExcel}
-                />
+                <div className="relative">
+                  <button
+                    onClick={() => document.getElementById('excel-import')?.click()}
+                    className="flex items-center gap-2 px-2 sm:px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
+                    title="Nhập nhân sự từ Excel"
+                  >
+                    <Upload size={18} />
+                    <span className="hidden sm:inline">Nhập Excel</span>
+                  </button>
+                  <input
+                    id="excel-import"
+                    type="file"
+                    accept=".xlsx, .xls"
+                    className="hidden"
+                    onChange={handleImportExcel}
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
-            <button
-              onClick={async () => await handleOpenModal()}
-              className="bg-primary hover:bg-primary/90 text-white px-3 sm:px-5 py-1.5 rounded flex items-center gap-2 text-[13px] sm:text-[14px] font-semibold transition-colors"
-            >
-              <Plus size={20} /> <span className="hidden sm:inline">Thêm mới</span>
-            </button>
+            {isAdmin && (
+              <button
+                onClick={async () => await handleOpenModal()}
+                className="bg-primary hover:bg-primary/90 text-white px-3 sm:px-5 py-1.5 rounded flex items-center gap-2 text-[13px] sm:text-[14px] font-semibold transition-colors"
+              >
+                <Plus size={20} /> <span className="hidden sm:inline">Thêm mới</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -438,8 +444,13 @@ const PersonnelManagementPage: React.FC = () => {
                     <td className="px-4 py-4 text-center">
                       <div className="flex items-center justify-center gap-3">
                         <button onClick={() => { setSelectedStatsPerson({ id: person.id, ho_ten: person.ho_ten }); setIsStatsModalOpen(true); }} className="text-emerald-600 hover:text-emerald-800 transition-colors" title="Xem thống kê làm việc"><Eye size={16} /></button>
-                        <button onClick={async () => await handleOpenModal(person)} className="text-primary hover:text-blue-700 transition-colors" title="Sửa thông tin"><Edit2 size={16} /></button>
-                        <button onClick={() => handleDelete(person.id)} className="text-destructive hover:text-red-700 transition-colors" title="Xóa nhân viên"><Trash2 size={16} /></button>
+                        {isAdmin && (
+                          <>
+                            <button onClick={async () => await handleOpenModal(person)} className="text-primary hover:text-blue-700 transition-colors" title="Sửa thông tin"><Edit2 size={16} /></button>
+                            <button onClick={() => handleDelete(person.id)} className="text-destructive hover:text-red-700 transition-colors" title="Xóa nhân viên"><Trash2 size={16} /></button>
+                          </>
+                        )}
+                        {!isAdmin && <span className="text-[11px] italic text-slate-400">Read-only</span>}
                       </div>
                     </td>
                   </tr>
@@ -533,20 +544,24 @@ const PersonnelManagementPage: React.FC = () => {
                           <Eye size={14} />
                           <span className="text-[10px] font-bold">Thống kê</span>
                         </button>
-                        <button
-                          onClick={async () => await handleOpenModal(person)}
-                          className="flex items-center gap-1 px-2 py-1 bg-primary/5 text-primary rounded-lg active:scale-95 transition-transform"
-                        >
-                          <Edit2 size={14} />
-                          <span className="text-[10px] font-bold">Sửa</span>
-                        </button>
-                        <button
-                          onClick={() => handleDelete(person.id)}
-                          className="flex items-center gap-1 px-2 py-1 bg-destructive/5 text-destructive rounded-lg active:scale-95 transition-transform ml-auto"
-                        >
-                          <Trash2 size={14} />
-                          <span className="text-[10px] font-bold">Xoá</span>
-                        </button>
+                        {isAdmin && (
+                          <>
+                            <button
+                              onClick={async () => await handleOpenModal(person)}
+                              className="flex items-center gap-1 px-2 py-1 bg-primary/5 text-primary rounded-lg active:scale-95 transition-transform"
+                            >
+                              <Edit2 size={14} />
+                              <span className="text-[10px] font-bold">Sửa</span>
+                            </button>
+                            <button
+                              onClick={() => handleDelete(person.id)}
+                              className="flex items-center gap-1 px-2 py-1 bg-destructive/5 text-destructive rounded-lg active:scale-95 transition-transform ml-auto"
+                            >
+                              <Trash2 size={14} />
+                              <span className="text-[10px] font-bold">Xoá</span>
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>

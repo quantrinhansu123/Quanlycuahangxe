@@ -13,11 +13,13 @@ import type { NhanSu } from '../data/personnelData';
 import { clsx } from 'clsx';
 import { removeVietnameseTones } from '../lib/utils';
 import * as XLSX from 'xlsx';
+import { useAuth } from '../context/AuthContext';
 
 
 
 const PayrollPage: React.FC = () => {
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
   const [payrollData, setPayrollData] = useState<BangLuong[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
@@ -344,70 +346,80 @@ const PayrollPage: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-          <button 
-            onClick={() => setShowAddEmployee(true)}
-            className="flex items-center gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 bg-white border border-slate-200 rounded-lg font-bold text-sm text-slate-700 hover:bg-slate-50 transition-all shadow-sm"
-          >
-            <Plus size={18} className="text-primary" />
-            <span className="hidden sm:inline">Chọn nhân viên</span>
-          </button>
-          <button onClick={handleImport} className="flex items-center gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 bg-white border border-slate-200 rounded-lg font-bold text-sm text-slate-600 hover:bg-slate-50 transition-all shadow-sm">
-            <Download size={18} />
-            <span className="hidden sm:inline">Nhập khẩu</span>
-          </button>
-          <button onClick={handleSendSlip} className="hidden sm:flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-lg font-bold text-sm text-slate-600 hover:bg-slate-50 transition-all shadow-sm">
-            <Send size={18} />
-            Gửi phiếu lương
-          </button>
-          <button 
-            disabled={loading} 
-            onClick={handleApproveSelected} 
-            className="flex items-center gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg font-bold text-sm hover:bg-blue-100 transition-all shadow-sm disabled:opacity-50"
-          >
-            {loading ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
-            <span className="hidden sm:inline">Duyệt lương</span>
-          </button>
-          <button 
-            disabled={isPaying} 
-            onClick={handlePayAll} 
-            className="flex items-center gap-2 px-3 sm:px-6 py-2 sm:py-2.5 bg-primary text-white rounded-lg font-black shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
-          >
-            {isPaying ? <Loader2 size={18} className="animate-spin" /> : <BadgeDollarSign size={18} />}
-            <span className="hidden sm:inline">{isPaying ? 'Đang xử lý...' : 'Trả lương'}</span>
-          </button>
-          
-          <div className="h-8 w-px bg-slate-200 mx-1" />
-          
-          <div className="relative" ref={moreMenuRef}>
-            <button 
-              onClick={() => setShowMoreMenu(!showMoreMenu)}
-              className={clsx(
-                "p-2.5 rounded-lg transition-all",
-                showMoreMenu ? "bg-slate-100 text-slate-800" : "text-slate-400 hover:text-slate-600 hover:bg-slate-100"
-              )}
+          {isAdmin && (
+            <button
+              onClick={() => setShowAddEmployee(true)}
+              className="flex items-center gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 bg-white border border-slate-200 rounded-lg font-bold text-sm text-slate-700 hover:bg-slate-50 transition-all shadow-sm"
             >
-              <MoreHorizontal size={20} />
+              <Plus size={18} className="text-primary" />
+              <span className="hidden sm:inline">Chọn nhân viên</span>
             </button>
-            
-            {showMoreMenu && (
-              <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-2 animate-in zoom-in-95 duration-200">
-                <button 
-                  onClick={handleDeleteBatch}
-                  className="w-full flex items-center gap-3 p-3 text-rose-600 hover:bg-rose-50 rounded-lg text-sm font-bold transition-all text-left"
-                >
-                  <AlertCircle size={18} />
-                  Xóa toàn bộ bảng lương
-                </button>
-                <button 
-                  onClick={() => { alert('Đã sao chép liên kết bảng lương!'); setShowMoreMenu(false); }}
-                  className="w-full flex items-center gap-3 p-3 text-slate-600 hover:bg-slate-50 rounded-lg text-sm font-bold transition-all text-left"
-                >
-                  <Calendar size={18} />
-                  Xem lịch sử thay đổi
-                </button>
-              </div>
-            )}
-          </div>
+          )}
+          {isAdmin && (
+            <button onClick={handleImport} className="flex items-center gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 bg-white border border-slate-200 rounded-lg font-bold text-sm text-slate-600 hover:bg-slate-50 transition-all shadow-sm">
+              <Download size={18} />
+              <span className="hidden sm:inline">Nhập khẩu</span>
+            </button>
+          )}
+          {isAdmin && (
+            <button onClick={handleSendSlip} className="hidden sm:flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-lg font-bold text-sm text-slate-600 hover:bg-slate-50 transition-all shadow-sm">
+              <Send size={18} />
+              Gửi phiếu lương
+            </button>
+          )}
+          {isAdmin && (
+            <button
+              disabled={loading}
+              onClick={handleApproveSelected}
+              className="flex items-center gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg font-bold text-sm hover:bg-blue-100 transition-all shadow-sm disabled:opacity-50"
+            >
+              {loading ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
+              <span className="hidden sm:inline">Duyệt lương</span>
+            </button>
+          )}
+          {isAdmin && (
+            <button
+              disabled={isPaying}
+              onClick={handlePayAll}
+              className="flex items-center gap-2 px-3 sm:px-6 py-2 sm:py-2.5 bg-primary text-white rounded-lg font-black shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+            >
+              {isPaying ? <Loader2 size={18} className="animate-spin" /> : <BadgeDollarSign size={18} />}
+              <span className="hidden sm:inline">{isPaying ? 'Đang xử lý...' : 'Trả lương'}</span>
+            </button>
+          )}
+          
+          {isAdmin && (
+            <div className="relative" ref={moreMenuRef}>
+              <button
+                onClick={() => setShowMoreMenu(!showMoreMenu)}
+                className={clsx(
+                  "p-2.5 rounded-lg transition-all",
+                  showMoreMenu ? "bg-slate-100 text-slate-800" : "text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                )}
+              >
+                <MoreHorizontal size={20} />
+              </button>
+
+              {showMoreMenu && (
+                <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-2 animate-in zoom-in-95 duration-200">
+                  <button
+                    onClick={handleDeleteBatch}
+                    className="w-full flex items-center gap-3 p-3 text-rose-600 hover:bg-rose-50 rounded-lg text-sm font-bold transition-all text-left"
+                  >
+                    <AlertCircle size={18} />
+                    Xóa toàn bộ bảng lương
+                  </button>
+                  <button
+                    onClick={() => { alert('Đã sao chép liên kết bảng lương!'); setShowMoreMenu(false); }}
+                    className="w-full flex items-center gap-3 p-3 text-slate-600 hover:bg-slate-50 rounded-lg text-sm font-bold transition-all text-left"
+                  >
+                    <Calendar size={18} />
+                    Xem lịch sử thay đổi
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           <button 
             onClick={handleNotifyEmployees}

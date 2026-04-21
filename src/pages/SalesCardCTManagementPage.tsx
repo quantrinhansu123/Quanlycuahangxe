@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import * as XLSX from 'xlsx';
 import Pagination from '../components/Pagination';
 import SalesCardCTFormModal from '../components/SalesCardCTFormModal';
@@ -22,6 +23,7 @@ import type { DichVu } from '../data/serviceData';
 import { getServices } from '../data/serviceData';
 
 const SalesCardCTManagementPage: React.FC = () => {
+  const { isAdmin } = useAuth();
   const navigate = useNavigate();
   const [items, setItems] = useState<SalesCardCT[]>([]);
   const [salesCards, setSalesCards] = useState<SalesCard[]>([]);
@@ -314,45 +316,51 @@ const SalesCardCTManagementPage: React.FC = () => {
                 type="text"
               />
             </div>
-            <button
-              onClick={() => handleOpenModal()}
-              className="px-2.5 py-1 sm:px-5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[14px] font-bold transition-all shrink-0 shadow-lg shadow-blue-500/20"
-            >
-              <Plus className="size-4 sm:size-5" />
-              <span>Thêm chi tiết</span>
-            </button>
+            {isAdmin && (
+              <button
+                onClick={() => handleOpenModal()}
+                className="px-2.5 py-1 sm:px-5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[14px] font-bold transition-all shrink-0 shadow-lg shadow-blue-500/20"
+              >
+                <Plus className="size-4 sm:size-5" />
+                <span>Thêm chi tiết</span>
+              </button>
+            )}
           </div>
 
           <div className="flex items-center gap-1.5 flex-wrap justify-end">
-            <button
-              onClick={handleDownloadTemplate}
-              className="px-2 py-1 sm:px-4 sm:py-2 bg-muted/50 hover:bg-muted border border-border rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold text-muted-foreground transition-all shrink-0"
-              title="Tải mẫu Excel"
-            >
-              <Download className="size-4 sm:size-5" />
-              <span>Tải mẫu</span>
-            </button>
+            {isAdmin && (
+              <>
+                <button
+                  onClick={handleDownloadTemplate}
+                  className="px-2 py-1 sm:px-4 sm:py-2 bg-muted/50 hover:bg-muted border border-border rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold text-muted-foreground transition-all shrink-0"
+                  title="Tải mẫu Excel"
+                >
+                  <Download className="size-4 sm:size-5" />
+                  <span>Tải mẫu</span>
+                </button>
 
-            <div className="relative shrink-0">
-              <button
-                onClick={() => document.getElementById('excel-import-ct')?.click()}
-                className="px-2 py-1 sm:px-4 sm:py-2 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold transition-all shrink-0"
-                title="Nhập dữ liệu Excel"
-              >
-                <Upload className="size-4 sm:size-5" />
-                <span>Nhập Excel</span>
-              </button>
-              <input id="excel-import-ct" type="file" accept=".xlsx, .xls" className="hidden" onChange={handleImportExcel} />
-            </div>
+                <div className="relative shrink-0">
+                  <button
+                    onClick={() => document.getElementById('excel-import-ct')?.click()}
+                    className="px-2 py-1 sm:px-4 sm:py-2 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold transition-all shrink-0"
+                    title="Nhập dữ liệu Excel"
+                  >
+                    <Upload className="size-4 sm:size-5" />
+                    <span>Nhập Excel</span>
+                  </button>
+                  <input id="excel-import-ct" type="file" accept=".xlsx, .xls" className="hidden" onChange={handleImportExcel} />
+                </div>
 
-            <button
-              onClick={handleDeleteAll}
-              className="px-2 py-1 sm:px-4 sm:py-2 bg-destructive/5 hover:bg-destructive/10 text-destructive border border-destructive/20 rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold transition-all shrink-0"
-              title="Xóa tất cả"
-            >
-              <Trash2 className="size-4 sm:size-5" />
-              <span>Xóa hết</span>
-            </button>
+                <button
+                  onClick={handleDeleteAll}
+                  className="px-2 py-1 sm:px-4 sm:py-2 bg-destructive/5 hover:bg-destructive/10 text-destructive border border-destructive/20 rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold transition-all shrink-0"
+                  title="Xóa tất cả"
+                >
+                  <Trash2 className="size-4 sm:size-5" />
+                  <span>Xóa hết</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -415,12 +423,17 @@ const SalesCardCTManagementPage: React.FC = () => {
 
                   {/* Actions */}
                   <div className="flex items-center justify-end gap-2 pt-1">
-                    <button onClick={() => handleOpenModal(item)} className="flex items-center gap-1.5 px-3 py-1.5 text-primary hover:bg-primary/5 rounded-lg text-[12px] font-bold border border-primary/20 transition-colors">
-                      <Edit2 size={14} /> Sửa
-                    </button>
-                    <button onClick={() => handleDelete(item.id)} className="flex items-center gap-1.5 px-3 py-1.5 text-destructive hover:bg-destructive/5 rounded-lg text-[12px] font-bold border border-destructive/20 transition-colors">
-                      <Trash2 size={14} /> Xóa
-                    </button>
+                    {isAdmin && (
+                      <button onClick={() => handleOpenModal(item)} className="flex items-center gap-1.5 px-3 py-1.5 text-primary hover:bg-primary/5 rounded-lg text-[12px] font-bold border border-primary/20 transition-colors">
+                        <Edit2 size={14} /> Sửa
+                      </button>
+                    )}
+                    {isAdmin && (
+                      <button onClick={() => handleDelete(item.id)} className="flex items-center gap-1.5 px-3 py-1.5 text-destructive hover:bg-destructive/5 rounded-lg text-[12px] font-bold border border-destructive/20 transition-colors">
+                        <Trash2 size={14} /> Xóa
+                      </button>
+                    )}
+                    {!isAdmin && <span className="text-[11px] italic text-slate-400">Read-only</span>}
                   </div>
                 </div>
               ))
@@ -481,8 +494,13 @@ const SalesCardCTManagementPage: React.FC = () => {
                       <td className="px-4 py-4 text-right font-black text-emerald-600">{formatCurrency(item.lai)}</td>
                       <td className="px-4 py-4 text-center">
                         <div className="flex items-center justify-center gap-2">
-                          <button onClick={() => handleOpenModal(item)} className="p-2 text-primary hover:bg-primary/10 rounded transition-colors" title="Chỉnh sửa"><Edit2 size={18} /></button>
-                          <button onClick={() => handleDelete(item.id)} className="p-2 text-destructive hover:bg-destructive/10 rounded transition-colors" title="Xóa"><Trash2 size={18} /></button>
+                          {isAdmin && (
+                            <button onClick={() => handleOpenModal(item)} className="p-2 text-primary hover:bg-primary/10 rounded transition-colors" title="Chỉnh sửa"><Edit2 size={18} /></button>
+                          )}
+                          {isAdmin && (
+                            <button onClick={() => handleDelete(item.id)} className="p-2 text-destructive hover:bg-destructive/10 rounded transition-colors" title="Xóa"><Trash2 size={18} /></button>
+                          )}
+                          {!isAdmin && <span className="text-[11px] italic text-slate-400">Read-only</span>}
                         </div>
                       </td>
                     </tr>

@@ -14,17 +14,19 @@ import {
   deleteAllTransactions,
   upsertTransaction
 } from '../data/financialData';
-import type { ThuChi } from '../data/financialData';
-import { getCustomers } from '../data/customerData';
-import type { KhachHang } from '../data/customerData';
-import { getSalesCards } from '../data/salesCardData';
-import type { SalesCard } from '../data/salesCardData';
 import Pagination from '../components/Pagination';
 import FinancialFormModal from '../components/FinancialFormModal';
+import { useAuth } from '../context/AuthContext';
+import type { ThuChi } from '../data/financialData';
+import type { KhachHang } from '../data/customerData';
+import { getCustomers } from '../data/customerData';
+import type { SalesCard } from '../data/salesCardData';
+import { getSalesCards } from '../data/salesCardData';
 
 const FinancialCharts = React.lazy(() => import('../components/FinancialCharts'));
 
 const FinancialManagementPage: React.FC = () => {
+  const { isAdmin } = useAuth();
   const location = useLocation();
   const [transactions, setTransactions] = useState<ThuChi[]>([]);
   const [customers, setCustomers] = useState<KhachHang[]>([]);
@@ -480,54 +482,60 @@ const FinancialManagementPage: React.FC = () => {
                     )}
                   </div>
 
-                  <button
-                    onClick={() => handleOpenModal()}
-                    className="px-2.5 py-1 sm:px-5 sm:py-2 bg-primary hover:bg-primary/90 text-white rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[14px] font-bold transition-all shrink-0 shadow-lg shadow-primary/20"
-                  >
-                    <Plus className="size-4 sm:size-5" />
-                    <span>Phiếu mới</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Utility Actions Group */}
-              <div className="flex items-center gap-1.5 flex-wrap justify-end ml-auto sm:ml-0">
-                <button
-                  onClick={handleDownloadTemplate}
-                  className="px-2 py-1 sm:px-3 sm:py-2 bg-muted/50 hover:bg-muted border border-border rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold text-muted-foreground transition-all shrink-0"
-                  title="Tải mẫu Excel"
-                >
-                  <Download className="size-4 sm:size-5" />
-                  <span>Tải mẫu</span>
-                </button>
-                
-                <div className="relative shrink-0">
-                  <button
-                    onClick={() => document.getElementById('excel-import')?.click()}
-                    className="px-2 py-1 sm:px-3 sm:py-2 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold transition-all shrink-0"
-                    title="Nhập dữ liệu Excel"
-                  >
-                    <Upload className="size-4 sm:size-5" />
-                    <span>Nhập Excel</span>
-                  </button>
-                  <input
-                    id="excel-import"
-                    type="file"
-                    accept=".xlsx, .xls"
-                    className="hidden"
-                    onChange={handleImportExcel}
-                  />
+                    {isAdmin && (
+                      <button
+                        onClick={() => handleOpenModal()}
+                        className="px-2.5 py-1 sm:px-5 sm:py-2 bg-primary hover:bg-primary/90 text-white rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[14px] font-bold transition-all shrink-0 shadow-lg shadow-primary/20"
+                      >
+                        <Plus className="size-4 sm:size-5" />
+                        <span>Phiếu mới</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
 
-                <button
-                  onClick={handleDeleteAll}
-                  className="px-2 py-1 sm:px-4 sm:py-2 bg-destructive/5 hover:bg-destructive/10 text-destructive border border-destructive/20 rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[14px] font-bold transition-all shadow-sm shrink-0"
-                  title="Xóa hết"
-                >
-                  <Trash2 className="size-4 sm:size-5" />
-                  <span>Xóa hết</span>
-                </button>
-              </div>
+                {/* Utility Actions Group */}
+                <div className="flex items-center gap-1.5 flex-wrap justify-end ml-auto sm:ml-0">
+                  {isAdmin && (
+                    <>
+                      <button
+                        onClick={handleDownloadTemplate}
+                        className="px-2 py-1 sm:px-3 sm:py-2 bg-muted/50 hover:bg-muted border border-border rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold text-muted-foreground transition-all shrink-0"
+                        title="Tải mẫu Excel"
+                      >
+                        <Download className="size-4 sm:size-5" />
+                        <span>Tải mẫu</span>
+                      </button>
+                      
+                      <div className="relative shrink-0">
+                        <button
+                          onClick={() => document.getElementById('excel-import')?.click()}
+                          className="px-2 py-1 sm:px-3 sm:py-2 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold transition-all shrink-0"
+                          title="Nhập dữ liệu Excel"
+                        >
+                          <Upload className="size-4 sm:size-5" />
+                          <span>Nhập Excel</span>
+                        </button>
+                        <input
+                          id="excel-import"
+                          type="file"
+                          accept=".xlsx, .xls"
+                          className="hidden"
+                          onChange={handleImportExcel}
+                        />
+                      </div>
+
+                      <button
+                        onClick={handleDeleteAll}
+                        className="px-2 py-1 sm:px-4 sm:py-2 bg-destructive/5 hover:bg-destructive/10 text-destructive border border-destructive/20 rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[14px] font-bold transition-all shadow-sm shrink-0"
+                        title="Xóa hết"
+                      >
+                        <Trash2 className="size-4 sm:size-5" />
+                        <span>Xóa hết</span>
+                      </button>
+                    </>
+                  )}
+                </div>
             </div>
 
             {/* Mobile Cards (View) */}
@@ -566,12 +574,18 @@ const FinancialManagementPage: React.FC = () => {
                       {transaction.loai_phieu === 'phiếu thu' ? '+' : '-'}{new Intl.NumberFormat('vi-VN').format(transaction.so_tien)}
                     </div>
                     <div className="flex items-center justify-end gap-2 mt-1">
-                      <button onClick={() => handleOpenModal(transaction)} className="text-primary p-1 hover:bg-primary/5 rounded">
-                        <Edit2 size={14} />
-                      </button>
-                      <button onClick={() => handleDelete(transaction.id)} className="text-destructive p-1 hover:bg-destructive/5 rounded">
-                        <Trash2 size={14} />
-                      </button>
+                      {isAdmin ? (
+                        <>
+                          <button onClick={() => handleOpenModal(transaction)} className="text-primary p-1 hover:bg-primary/5 rounded">
+                            <Edit2 size={14} />
+                          </button>
+                          <button onClick={() => handleDelete(transaction.id)} className="text-destructive p-1 hover:bg-destructive/5 rounded">
+                            <Trash2 size={14} />
+                          </button>
+                        </>
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground italic px-2">Read-only</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -675,10 +689,14 @@ const FinancialManagementPage: React.FC = () => {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <div className="flex items-center justify-center gap-2">
-                            <button onClick={() => handleOpenModal(transaction)} className="text-primary hover:bg-primary/5 rounded p-1.5"><Edit2 size={18} /></button>
-                            <button onClick={() => handleDelete(transaction.id)} className="text-destructive hover:bg-destructive/5 rounded p-1.5"><Trash2 size={18} /></button>
-                          </div>
+                          {isAdmin ? (
+                            <div className="flex items-center justify-center gap-2">
+                              <button onClick={() => handleOpenModal(transaction)} className="text-primary hover:bg-primary/5 rounded p-1.5"><Edit2 size={18} /></button>
+                              <button onClick={() => handleDelete(transaction.id)} className="text-destructive hover:bg-destructive/5 rounded p-1.5"><Trash2 size={18} /></button>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground/30">—</span>
+                          )}
                         </td>
                       </tr>
                     ))}

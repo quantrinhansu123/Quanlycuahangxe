@@ -28,7 +28,7 @@ import { getPersonnel, type NhanSu } from '../data/personnelData';
 import { calculateAttendanceStatus } from '../utils/timekeeping';
 
 const AttendanceManagementPage: React.FC = () => {
-  const { currentUser, isAdmin } = useAuth();
+  const { nhanVien, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [personnel, setPersonnel] = useState<NhanSu[]>([]);
@@ -99,7 +99,7 @@ const AttendanceManagementPage: React.FC = () => {
     try {
       if (showLoading) setLoading(true);
       const [attendanceResult, personnelData] = await Promise.all([
-        getAttendancePaginated(currentPage, pageSize, isAdmin ? undefined : currentUser?.ho_ten, debouncedSearch, {
+        getAttendancePaginated(currentPage, pageSize, isAdmin ? undefined : nhanVien?.ho_ten, debouncedSearch, {
           nhan_su: selectedStaff,
           startDate,
           endDate
@@ -268,7 +268,7 @@ const AttendanceManagementPage: React.FC = () => {
         if (changes.length > 0) {
           const historyEntry = {
             thoi_gian: new Date().toLocaleString('vi-VN'),
-            nguoi_sua: currentUser?.ho_ten || 'Admin',
+            nguoi_sua: nhanVien?.ho_ten || 'Admin',
             thay_doi: changes
           };
           
@@ -751,17 +751,22 @@ const AttendanceManagementPage: React.FC = () => {
                         <td className="px-4 py-4">
                           {!isMockAbsent && (
                             <div className="flex items-center justify-center gap-4">
-                              <button onClick={() => handleOpenModal(record)} className="text-primary hover:text-blue-700" title="Sửa bản ghi">
-                                <Edit2 size={18} />
-                              </button>
+                              {isAdmin && (
+                                <button onClick={() => handleOpenModal(record)} className="text-primary hover:text-blue-700" title="Sửa bản ghi">
+                                  <Edit2 size={18} />
+                                </button>
+                              )}
                               {(record.lich_su_sua && record.lich_su_sua.length > 0) && (
                                 <button onClick={() => setShowHistoryRecord(record)} className="text-orange-500 hover:text-orange-600" title="Xem lịch sử sửa">
                                   <History size={18} />
                                 </button>
                               )}
-                              <button onClick={() => handleDelete(record.id)} className="text-destructive hover:text-destructive/80" title="Xoá bản ghi">
-                                <Trash2 size={18} />
-                              </button>
+                              {isAdmin && (
+                                <button onClick={() => handleDelete(record.id)} className="text-destructive hover:text-destructive/80" title="Xoá bản ghi">
+                                  <Trash2 size={18} />
+                                </button>
+                              )}
+                              {!isAdmin && <span className="text-[11px] italic text-slate-400">Read-only</span>}
                             </div>
                           )}
                         </td>
