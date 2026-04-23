@@ -1,8 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { Session, User as SupabaseUser } from '@supabase/supabase-js';
-import { createClient } from '../utils/supabase/client';
-
-const supabase = createClient();
+import { supabase } from '../lib/supabase';
 
 // Thông tin nhân viên lấy từ bảng nhan_su
 export interface NhanVien {
@@ -12,6 +10,7 @@ export interface NhanVien {
   vi_tri: string;
   co_so: string;
   email: string | null;
+  sdt?: string | null;
   auth_user_id: string | null;
 }
 
@@ -37,9 +36,11 @@ const ADMIN_ROLES = ['Quản trị viên', 'Chủ cửa hàng', 'quản lý'];
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const demoRole = sessionStorage.getItem('demo_role');
+  // Cleanup legacy local-login session to avoid fake auth state.
+  sessionStorage.removeItem('local_nhan_vien');
 
   const [session, setSession] = useState<Session | null>(
-    demoRole ? ({ 
+    demoRole ? ({
       access_token: 'demo-token',
       refresh_token: 'demo-refresh',
       expires_in: 3600,
@@ -79,34 +80,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Lấy thông tin nhân viên từ DB theo auth_user_id
   const fetchNhanVien = async (userId: string) => {
-    const { data, error } = await supabase
-      .from('nhan_su')
-      .select('id, id_nhan_su, ho_ten, vi_tri, co_so, email, auth_user_id')
-      .eq('auth_user_id', userId)
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('nhan_su')
+        .select('id, id_nhan_su, ho_ten, vi_tri, co_so, email, sdt, auth_user_id')
+        .eq('auth_user_id', userId)
+        .single();
 
-    if (error || !data) {
-      console.warn('Không tìm thấy nhân viên với auth_user_id:', userId);
+      if (error || !data) {
+        console.warn('Không tìm thấy nhân viên với auth_user_id:', userId);
+        setNhanVien(null);
+      } else {
+        setNhanVien(data as NhanVien);
+      }
+    } catch (e) {
+      console.error('Lỗi tải nhân sự:', e);
       setNhanVien(null);
-    } else {
-      setNhanVien(data as NhanVien);
     }
   };
 
   useEffect(() => {
-    // Nếu trong chế độ Demo thì không chạy logic thực tế
+    // Nếu trong chế độ Demo thì không chạy auth thực tế
     if (demoRole) return;
 
     // Lấy session hiện tại khi app khởi động
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setSupabaseUser(session?.user ?? null);
-      if (session?.user) {
-        fetchNhanVien(session.user.id).finally(() => setIsLoading(false));
-      } else {
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        setSession(session);
+        setSupabaseUser(session?.user ?? null);
+        if (session?.user) {
+          fetchNhanVien(session.user.id).finally(() => setIsLoading(false));
+        } else {
+          setIsLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.error('getSession lỗi:', err);
         setIsLoading(false);
-      }
-    });
+      });
 
     // Lắng nghe thay đổi auth state (login/logout/token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -132,7 +144,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await supabase.auth.signOut();
   };
 
-  const isAdmin = nhanVien ? ADMIN_ROLES.some(role => nhanVien.vi_tri.toLowerCase().includes(role.toLowerCase())) : false;
+  const isAdmin = nhanVien
+    ? ADMIN_ROLES.some(role => (nhanVien.vi_tri ?? '').toLowerCase().includes(role.toLowerCase()))
+    : false;
 
   return (
     <AuthContext.Provider value={{ session, supabaseUser, nhanVien, isAdmin, isLoading, signOut }}>

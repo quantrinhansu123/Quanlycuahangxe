@@ -1,13 +1,96 @@
 import React, { useState } from 'react';
-import { createClient } from '../utils/supabase/client';
+import { Navigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 
-const supabase = createClient();
+interface PhoneLoginResult {
+  id: string;
+  id_nhan_su: string | null;
+  ho_ten: string;
+  vi_tri: string;
+  co_so: string;
+  email: string | null;
+  sdt: string | null;
+  auth_user_id: string | null;
+}
+
+const normalizePhone = (value: string) => value.replace(/\D/g, '');
+
+const getPhoneCandidates = (value: string): string[] => {
+  const digits = normalizePhone(value);
+  if (!digits) return [];
+
+  const candidates = new Set<string>([digits]);
+  if (digits.startsWith('0')) {
+    candidates.add(digits.slice(1));
+  } else {
+    candidates.add(`0${digits}`);
+  }
+  return Array.from(candidates).filter(Boolean);
+};
+
+const callPhoneLoginRpc = async (phone: string, password: string): Promise<{
+  data: PhoneLoginResult[] | null;
+  error: {
+    code?: string;
+    message: string;
+    details?: string;
+    hint?: string;
+  } | null;
+}> => {
+  const phoneCandidates = getPhoneCandidates(phone);
+  const attempts: Array<Record<string, string>> = [];
+
+  for (const phoneCandidate of phoneCandidates) {
+    attempts.push(
+      { p_sdt: phoneCandidate, p_password: password },
+      { p_password: password, p_sdt: phoneCandidate },
+      { sdt: phoneCandidate, password },
+      { phone: phoneCandidate, password },
+    );
+  }
+
+  let lastError: {
+    code?: string;
+    message: string;
+    details?: string;
+    hint?: string;
+  } | null = null;
+
+  for (const args of attempts) {
+    const { data, error } = await supabase.rpc('login_with_phone', args);
+    if (!error) {
+      return { data: data as PhoneLoginResult[] | null, error: null };
+    }
+
+    lastError = {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    };
+
+    // Nếu function tồn tại nhưng sai credentials thì không cần thử signature khác.
+    if (error.code !== 'PGRST202') {
+      break;
+    }
+  }
+
+  return { data: null, error: lastError };
+};
 
 const LoginPage: React.FC = () => {
-  const [email, setEmail] = useState('');
+  const { session, isLoading } = useAuth();
+  const routeLocation = useLocation();
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  if (!isLoading && session) {
+    const redirectTo = (routeLocation.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? '/';
+    return <Navigate to={redirectTo} replace />;
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -15,12 +98,55 @@ const LoginPage: React.FC = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        console.error('Login error:', error);
-        setError('Email hoặc mật khẩu không đúng. (' + error.message + ')');
+      const { data: rpcData, error: rpcError } = await callPhoneLoginRpc(phone, password);
+
+      if (rpcError) {
+        console.error('Phone login rpc error detail:', {
+          code: rpcError.code,
+          message: rpcError.message,
+          details: rpcError.details,
+          hint: rpcError.hint,
+        });
+
+        if (rpcError.code === 'PGRST202') {
+          setError('DB chưa có function login_with_phone đúng tham số. Vui lòng chạy SQL migration mới nhất.');
+        } else {
+          setError('Đăng nhập thất bại. Vui lòng thử lại. (' + rpcError.message + ')');
+        }
+        return;
       }
-      // Nếu thành công, onAuthStateChange trong AuthContext sẽ tự cập nhật
+
+      const matchedUser = (rpcData as PhoneLoginResult[] | null)?.[0];
+      if (!matchedUser) {
+        setError('Số điện thoại hoặc mật khẩu không đúng.');
+        return;
+      }
+
+      // Dữ liệu (khach_hang, v.v.) dùng RLS theo auth.uid() — cần JWT Supabase.
+      // SĐT+password đã xác thực qua RPC; bước này gắn session thật để admin/RLS thấy đúng dữ liệu.
+      const workEmail = matchedUser.email?.trim();
+      if (!workEmail) {
+        setError('Tài khoản nhân sự cần có cột email để đồng bộ quyền dữ liệu. Liên hệ quản trị viên cập nhật.');
+        return;
+      }
+
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: workEmail,
+        password,
+      });
+
+      if (signInError) {
+        setError(
+          'Không tạo được phiên bảo mật với cùng mật khẩu. Hãy đồng bộ: mật khẩu cột nhan_su.password phải trùng mật khẩu tài khoản email trên Supabase Auth, hoặc reset mật khẩu. (' +
+            signInError.message +
+            ')',
+        );
+        return;
+      }
+
+      sessionStorage.removeItem('local_nhan_vien');
+      // Reload để AuthContext bỏ hẳn session "local" cũ và dùng JWT Supabase (RLS admin đúng dữ liệu).
+      window.location.assign('/');
     } catch (err) {
       console.error('Unexpected login error:', err);
       setError('Không thể kết nối tới server. Vui lòng kiểm tra kết nối mạng.');
@@ -48,16 +174,16 @@ const LoginPage: React.FC = () => {
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-foreground mb-1.5">
-                Email
+                Số điện thoại
               </label>
               <input
-                id="login-email"
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="email@example.com"
+                id="login-phone"
+                type="tel"
+                value={phone}
+                onChange={e => setPhone(e.target.value)}
+                placeholder="VD: 0866049866"
                 required
-                autoComplete="email"
+                autoComplete="username"
                 className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-foreground text-sm
                            focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
                            transition-colors placeholder:text-muted-foreground"

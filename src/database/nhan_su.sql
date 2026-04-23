@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS public.nhan_su (
     id_nhan_su TEXT, -- Mã nhân vật lấy từ cột id trong Excel
     email TEXT,
     sdt TEXT,
+    password TEXT, -- Mật khẩu đăng nhập nội bộ theo SĐT
     hinh_anh TEXT,
     vi_tri TEXT NOT NULL, -- 'kỹ thuật viên', 'quản lý'
     co_so TEXT NOT NULL,  -- 'Cơ sở Bắc Giang', 'Cơ sở Bắc Ninh'
