@@ -21,12 +21,36 @@ export interface KhachHang {
   ngay_thay_dau: string; // Ngày thay dầu (Legacy field)
   ma_khach_hang?: string; // Mã khách hàng (Legacy/Short ID)
   lich_su_thay_dau?: OilChangeEntry[]; // Bảng lịch sử thay dầu
+  nhan_vien_id?: string | null; // Người tạo khách hàng
 }
 
-export const getCustomers = async (): Promise<KhachHang[]> => {
-  const { data, error } = await supabase
+const buildBranchVariants = (branchScope?: string): string[] => {
+  const base = (branchScope || '').trim();
+  if (!base) return [];
+  const variants = new Set<string>([base]);
+
+  // Hỗ trợ dữ liệu cũ: "Cơ sở Bắc Ninh" <-> "Bắc Ninh"
+  const withoutPrefix = base.replace(/^cơ sở\s+/i, '').trim();
+  if (withoutPrefix) variants.add(withoutPrefix);
+
+  if (!/^cơ sở\s+/i.test(base)) {
+    variants.add(`Cơ sở ${base}`.trim());
+  }
+
+  return Array.from(variants);
+};
+
+export const getCustomers = async (branchScope?: string): Promise<KhachHang[]> => {
+  let query = supabase
     .from('khach_hang')
-    .select('*')
+    .select('*');
+
+  const branchVariants = buildBranchVariants(branchScope);
+  if (branchVariants.length > 0) {
+    query = query.in('dia_chi_hien_tai', branchVariants);
+  }
+
+  const { data, error } = await query
     .order('created_at', { ascending: false })
     .order('ngay_dang_ky', { ascending: false });
 
@@ -38,12 +62,21 @@ export const getCustomers = async (): Promise<KhachHang[]> => {
 };
 
 // Lightweight version for dropdown selects - excludes heavy columns like 'anh' (Base64), 'so_km'
-export const getCustomersForSelect = async (): Promise<Pick<KhachHang, 'id' | 'ho_va_ten' | 'so_dien_thoai' | 'bien_so_xe' | 'ma_khach_hang' | 'dia_chi_hien_tai'>[]> => {
-  const { data, error } = await supabase
+export const getCustomersForSelect = async (
+  branchScope?: string
+): Promise<Pick<KhachHang, 'id' | 'ho_va_ten' | 'so_dien_thoai' | 'bien_so_xe' | 'ma_khach_hang' | 'dia_chi_hien_tai'>[]> => {
+  let query = supabase
     .from('khach_hang')
     .select('id, ho_va_ten, so_dien_thoai, bien_so_xe, ma_khach_hang, dia_chi_hien_tai')
     .order('created_at', { ascending: false })
     .limit(10000);
+
+  const branchVariants = buildBranchVariants(branchScope);
+  if (branchVariants.length > 0) {
+    query = query.in('dia_chi_hien_tai', branchVariants);
+  }
+
+  const { data, error } = await query;
 
 
   if (error) {
@@ -58,7 +91,8 @@ export const getCustomersPaginated = async (
   pageSize: number,
   searchQuery?: string,
   depts?: string[],
-  cycles?: number[]
+  cycles?: number[],
+  branchScope?: string
 ): Promise<{ data: KhachHang[], totalCount: number }> => {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
@@ -79,6 +113,11 @@ export const getCustomersPaginated = async (
 
   if (cycles && cycles.length > 0) {
     query = query.in('so_ngay_thay_dau', cycles);
+  }
+
+  const branchVariants = buildBranchVariants(branchScope);
+  if (branchVariants.length > 0) {
+    query = query.in('dia_chi_hien_tai', branchVariants);
   }
 
 

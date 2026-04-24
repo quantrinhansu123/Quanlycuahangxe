@@ -119,6 +119,7 @@ const PersonnelManagementPage: React.FC = () => {
         ho_ten: '',
         email: '',
         sdt: '',
+        password: '',
         hinh_anh: '',
         vi_tri: 'kỹ thuật viên',
         co_so: 'Cơ sở Bắc Giang'
@@ -150,6 +151,7 @@ const PersonnelManagementPage: React.FC = () => {
         "Họ và tên": "Nguyễn Văn A",
         "Email": "vana@gmail.com",
         "SĐT": "0912345678",
+        "Password": "123456",
         "Hình ảnh": "",
         "Vị trí": "kỹ thuật viên",
         "Cơ sở": "Cơ sở Bắc Giang"
@@ -204,6 +206,7 @@ const PersonnelManagementPage: React.FC = () => {
             id_nhan_su: String(norm["id"] || '').trim() || null,
             email: norm["Email"] ? String(norm["Email"]).trim() : null,
             sdt: norm["SĐT"] || norm["SDT"] || norm["Điện thoại"] ? String(norm["SĐT"] || norm["SDT"] || norm["Điện thoại"]).trim() : null,
+            password: norm["Password"] || norm["Mật khẩu"] ? String(norm["Password"] || norm["Mật khẩu"]).trim() : null,
             hinh_anh: norm["Hình ảnh"] || norm["Ảnh"] ? String(norm["Hình ảnh"] || norm["Ảnh"]).trim() : null,
             vi_tri,
             co_so

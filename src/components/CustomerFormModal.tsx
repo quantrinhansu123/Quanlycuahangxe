@@ -27,9 +27,10 @@ interface CustomerFormModalProps {
   onClose: () => void;
   onSuccess: (customer: KhachHang, shouldCreateOrder?: boolean, isTemp?: boolean) => void;
   customer: KhachHang | null;
+  currentStaffId?: string;
 }
 
-const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen, onClose, onSuccess, customer }) => {
+const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen, onClose, onSuccess, customer, currentStaffId }) => {
   const [formData, setFormData] = useState<Partial<KhachHang>>({});
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -255,9 +256,15 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
       if (shouldOrder && !customer) {
         // Deferred Save: Đẩy data tạm sang bên kia để chờ xử lý cùng với hoá đơn
         dataToSave.id = 'PENDING-' + (dataToSave.ma_khach_hang || Math.random().toString(36).substring(2, 8).toUpperCase());
+        if (currentStaffId) {
+          dataToSave.nhan_vien_id = currentStaffId;
+        }
         onSuccess(dataToSave as KhachHang, true, true);
         onClose();
       } else {
+        if (!customer && currentStaffId) {
+          dataToSave.nhan_vien_id = currentStaffId;
+        }
         const savedCustomer = await upsertCustomer(dataToSave);
         onSuccess(savedCustomer, shouldOrder, false);
         onClose();

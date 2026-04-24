@@ -122,30 +122,8 @@ const LoginPage: React.FC = () => {
         return;
       }
 
-      // Dữ liệu (khach_hang, v.v.) dùng RLS theo auth.uid() — cần JWT Supabase.
-      // SĐT+password đã xác thực qua RPC; bước này gắn session thật để admin/RLS thấy đúng dữ liệu.
-      const workEmail = matchedUser.email?.trim();
-      if (!workEmail) {
-        setError('Tài khoản nhân sự cần có cột email để đồng bộ quyền dữ liệu. Liên hệ quản trị viên cập nhật.');
-        return;
-      }
-
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: workEmail,
-        password,
-      });
-
-      if (signInError) {
-        setError(
-          'Không tạo được phiên bảo mật với cùng mật khẩu. Hãy đồng bộ: mật khẩu cột nhan_su.password phải trùng mật khẩu tài khoản email trên Supabase Auth, hoặc reset mật khẩu. (' +
-            signInError.message +
-            ')',
-        );
-        return;
-      }
-
-      sessionStorage.removeItem('local_nhan_vien');
-      // Reload để AuthContext bỏ hẳn session "local" cũ và dùng JWT Supabase (RLS admin đúng dữ liệu).
+      // Bỏ Auth email: chỉ cần khớp SĐT + password trong bảng nhan_su là đăng nhập.
+      sessionStorage.setItem('local_nhan_vien', JSON.stringify(matchedUser));
       window.location.assign('/');
     } catch (err) {
       console.error('Unexpected login error:', err);

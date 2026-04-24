@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { Session, User as SupabaseUser } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
 
 // Thông tin nhân viên lấy từ bảng nhan_su
 export interface NhanVien {
@@ -36,37 +35,44 @@ const ADMIN_ROLES = ['Quản trị viên', 'Chủ cửa hàng', 'quản lý'];
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const demoRole = sessionStorage.getItem('demo_role');
-  // Cleanup legacy local-login session to avoid fake auth state.
-  sessionStorage.removeItem('local_nhan_vien');
+  const localNhanVienRaw = sessionStorage.getItem('local_nhan_vien');
+  let localNhanVien: NhanVien | null = null;
+  if (localNhanVienRaw) {
+    try {
+      localNhanVien = JSON.parse(localNhanVienRaw) as NhanVien;
+    } catch {
+      sessionStorage.removeItem('local_nhan_vien');
+    }
+  }
 
   const [session, setSession] = useState<Session | null>(
-    demoRole ? ({
+    (demoRole || localNhanVien) ? ({
       access_token: 'demo-token',
       refresh_token: 'demo-refresh',
       expires_in: 3600,
       token_type: 'bearer',
       user: { 
-        id: 'demo-uuid', 
-        email: 'demo@example.com',
+        id: localNhanVien?.auth_user_id || 'demo-uuid', 
+        email: localNhanVien?.email || 'demo@example.com',
         aud: 'authenticated',
         role: 'authenticated',
         app_metadata: { provider: 'email' },
-        user_metadata: { ho_ten: demoRole === 'admin' ? 'Demo Admin' : 'Demo Staff' }
+        user_metadata: { ho_ten: localNhanVien?.ho_ten || (demoRole === 'admin' ? 'Demo Admin' : 'Demo Staff') }
       } 
     } as any) : null
   );
   const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(
-    demoRole ? ({
-      id: 'demo-uuid', 
+    (demoRole || localNhanVien) ? ({
+      id: localNhanVien?.auth_user_id || 'demo-uuid', 
       aud: 'authenticated',
       role: 'authenticated',
-      email: 'demo@example.com',
+      email: localNhanVien?.email || 'demo@example.com',
       app_metadata: { provider: 'email' },
-      user_metadata: { ho_ten: demoRole === 'admin' ? 'Demo Admin' : 'Demo Staff' }
+      user_metadata: { ho_ten: localNhanVien?.ho_ten || (demoRole === 'admin' ? 'Demo Admin' : 'Demo Staff') }
     } as any) : null
   );
   const [nhanVien, setNhanVien] = useState<NhanVien | null>(
-    demoRole ? ({
+    localNhanVien ? localNhanVien : demoRole ? ({
       id: 'demo-nv-uuid',
       id_nhan_su: 'DEMO-001',
       ho_ten: 'Demo ' + (demoRole === 'admin' ? 'Quản trị viên' : 'Nhân viên'),
@@ -76,72 +82,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       auth_user_id: 'demo-uuid'
     } as any) : null
   );
-  const [isLoading, setIsLoading] = useState(!demoRole);
-
-  // Lấy thông tin nhân viên từ DB theo auth_user_id
-  const fetchNhanVien = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('nhan_su')
-        .select('id, id_nhan_su, ho_ten, vi_tri, co_so, email, sdt, auth_user_id')
-        .eq('auth_user_id', userId)
-        .single();
-
-      if (error || !data) {
-        console.warn('Không tìm thấy nhân viên với auth_user_id:', userId);
-        setNhanVien(null);
-      } else {
-        setNhanVien(data as NhanVien);
-      }
-    } catch (e) {
-      console.error('Lỗi tải nhân sự:', e);
-      setNhanVien(null);
-    }
-  };
+  const [isLoading] = useState(false);
 
   useEffect(() => {
-    // Nếu trong chế độ Demo thì không chạy auth thực tế
-    if (demoRole) return;
-
-    // Lấy session hiện tại khi app khởi động
-    supabase.auth
-      .getSession()
-      .then(({ data: { session } }) => {
-        setSession(session);
-        setSupabaseUser(session?.user ?? null);
-        if (session?.user) {
-          fetchNhanVien(session.user.id).finally(() => setIsLoading(false));
-        } else {
-          setIsLoading(false);
-        }
-      })
-      .catch((err) => {
-        console.error('getSession lỗi:', err);
-        setIsLoading(false);
-      });
-
-    // Lắng nghe thay đổi auth state (login/logout/token refresh)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setSupabaseUser(session?.user ?? null);
-      if (session?.user) {
-        fetchNhanVien(session.user.id).finally(() => setIsLoading(false));
-      } else {
+    // Đồng bộ state khi local session thay đổi.
+    const latestRaw = sessionStorage.getItem('local_nhan_vien');
+    if (latestRaw) {
+      try {
+        const latest = JSON.parse(latestRaw) as NhanVien;
+        setNhanVien(latest);
+        setSession({
+          access_token: 'local-token',
+          refresh_token: 'local-refresh',
+          expires_in: 3600,
+          token_type: 'bearer',
+          user: {
+            id: latest.auth_user_id || latest.id || 'local-uuid',
+            email: latest.email || 'local@example.com',
+            aud: 'authenticated',
+            role: 'authenticated',
+            app_metadata: { provider: 'local-nhan-su' },
+            user_metadata: { ho_ten: latest.ho_ten },
+          },
+        } as any);
+        setSupabaseUser({
+          id: latest.auth_user_id || latest.id || 'local-uuid',
+          aud: 'authenticated',
+          role: 'authenticated',
+          email: latest.email || 'local@example.com',
+          app_metadata: { provider: 'local-nhan-su' },
+          user_metadata: { ho_ten: latest.ho_ten },
+        } as any);
+      } catch {
         setNhanVien(null);
-        setIsLoading(false);
       }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [demoRole]);
+    }
+  }, []);
 
   const signOut = async () => {
-    if (demoRole) {
+    if (demoRole || localNhanVien) {
       sessionStorage.removeItem('demo_role');
+      sessionStorage.removeItem('local_nhan_vien');
       location.reload();
       return;
     }
-    await supabase.auth.signOut();
+    sessionStorage.removeItem('local_nhan_vien');
+    location.reload();
   };
 
   const isAdmin = nhanVien

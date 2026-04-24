@@ -33,7 +33,8 @@ import { getCustomerLastSaleDates, getCustomerStats } from '../data/salesCardDat
 const CustomerManagementPage: React.FC = () => {
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const { isAdmin } = useAuth();
+  const { isAdmin, nhanVien } = useAuth();
+  const branchScope = isAdmin ? undefined : (nhanVien?.co_so || undefined);
   const [customers, setCustomers] = useState<KhachHang[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -112,7 +113,8 @@ const CustomerManagementPage: React.FC = () => {
         pageSize,
         searchQuery,
         selectedDepts,
-        numericCycles
+        numericCycles,
+        branchScope
       );
       setCustomers(data);
       setTotalCount(totalCount);
@@ -142,7 +144,7 @@ const CustomerManagementPage: React.FC = () => {
 
   useEffect(() => {
     loadCustomers();
-  }, [currentPage, pageSize, selectedDepts, selectedCycles]); // Re-load when page, size, or filters change
+  }, [currentPage, pageSize, selectedDepts, selectedCycles, branchScope]); // Re-load when page, size, or filters change
 
   // Reset page when searching
   useEffect(() => {
@@ -288,7 +290,7 @@ const CustomerManagementPage: React.FC = () => {
         };
 
         // Fetch all identifiers from DB to check for duplicates properly
-        const fullList = await getCustomersForSelect();
+        const fullList = await getCustomersForSelect(branchScope);
 
         const formattedData: Partial<KhachHang>[] = data.map(row => {
           // Normalize keys
@@ -394,11 +396,11 @@ const CustomerManagementPage: React.FC = () => {
   // We'll use a larger pool of customers to populate the branch filter list
   const [allDepts, setAllDepts] = useState<string[]>([]);
   useEffect(() => {
-    getCustomersForSelect().then(data => {
+    getCustomersForSelect(branchScope).then(data => {
       const depts = Array.from(new Set(data.map(c => c.dia_chi_hien_tai).filter(Boolean))).sort();
       setAllDepts(depts);
     });
-  }, []);
+  }, [branchScope]);
 
   const deptOptions = allDepts;
 
@@ -850,6 +852,7 @@ const CustomerManagementPage: React.FC = () => {
         onClose={handleCloseModal}
         onSuccess={handleCustomerSuccess}
         customer={editingCustomer}
+        currentStaffId={nhanVien?.id_nhan_su || nhanVien?.ho_ten || undefined}
       />
 
 

@@ -6,6 +6,7 @@ export interface NhanSu {
   ho_ten: string;
   email: string | null;
   sdt: string | null;
+  password?: string | null;
   hinh_anh: string | null;
   vi_tri: string;
   co_so: string;

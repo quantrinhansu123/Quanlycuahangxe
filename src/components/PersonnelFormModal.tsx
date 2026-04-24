@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Camera, Save, X, Building2, User, Phone, Mail, Briefcase, Loader2 } from 'lucide-react';
+import { Camera, Save, X, Building2, User, Phone, Mail, Briefcase, Loader2, KeyRound } from 'lucide-react';
 import type { NhanSu } from '../data/personnelData';
 import { uploadPersonnelImage } from '../data/personnelData';
 
@@ -151,15 +151,31 @@ const PersonnelFormModal: React.FC<PersonnelFormModalProps> = React.memo(({
               </div>
 
               <div className="space-y-1.5 focus-within:ring-2 focus-within:ring-primary/20 rounded-xl transition-all">
+                <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                  <KeyRound size={14} className="text-primary/70" />
+                  Password
+                </label>
+                <input
+                  type="text"
+                  name="password"
+                  value={formData.password ?? ''}
+                  onChange={handleInputChange}
+                  placeholder="Nhập mật khẩu đăng nhập"
+                  tabIndex={4}
+                  className="w-full px-4 py-2 bg-background border border-border rounded-xl outline-none focus:border-primary text-[14px]"
+                />
+              </div>
+
+              <div className="space-y-1.5 focus-within:ring-2 focus-within:ring-primary/20 rounded-xl transition-all">
                 <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2"><Briefcase size={14} className="text-primary/70" />Vị trí</label>
-                <select name="vi_tri" value={formData.vi_tri} onChange={handleInputChange} tabIndex={4} className="w-full px-4 py-2 bg-background border border-border rounded-xl outline-none focus:border-primary text-[14px]">
+                <select name="vi_tri" value={formData.vi_tri} onChange={handleInputChange} tabIndex={5} className="w-full px-4 py-2 bg-background border border-border rounded-xl outline-none focus:border-primary text-[14px]">
                   {positionOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                 </select>
               </div>
 
               <div className="space-y-1.5 md:col-span-2 focus-within:ring-2 focus-within:ring-primary/20 rounded-xl transition-all">
                 <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2"><Building2 size={14} className="text-primary/70" />Cơ sở</label>
-                <select name="co_so" value={formData.co_so} onChange={handleInputChange} tabIndex={5} className="w-full px-4 py-2 bg-background border border-border rounded-xl outline-none focus:border-primary text-[14px]">
+                <select name="co_so" value={formData.co_so} onChange={handleInputChange} tabIndex={6} className="w-full px-4 py-2 bg-background border border-border rounded-xl outline-none focus:border-primary text-[14px]">
                   {branchOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                 </select>
               </div>
