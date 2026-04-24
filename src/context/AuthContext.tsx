@@ -37,7 +37,7 @@ const AuthContext = createContext<AuthContextType>({
   signOut: async () => {},
 });
 
-const ADMIN_ROLES = ['Quản trị viên', 'Chủ cửa hàng'];
+const ADMIN_ROLES = ['Quản trị viên', 'admin'];
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const demoRole = sessionStorage.getItem('demo_role');
