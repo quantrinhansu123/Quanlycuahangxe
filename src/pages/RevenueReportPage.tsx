@@ -16,9 +16,26 @@ import {
   X,
   ExternalLink,
   Filter,
+  CheckSquare,
+  Square,
 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+  LabelList,
+} from 'recharts';
 import {
   getReportSummary,
   getRevenueByBranch,
@@ -42,52 +59,20 @@ const fmtDate = (d: string) => {
   return `${day}/${m}/${y}`;
 };
 
-const toDisplay = (iso: string) => {
-  if (!iso) return '';
-  const [y, m, d] = iso.split('-');
-  return `${d}/${m}/${y}`;
-};
-
-const toISO = (display: string): string => {
-  const parts = display.replace(/[^\d/]/g, '').split('/');
-  if (parts.length !== 3 || parts[2].length !== 4) return '';
-  const iso = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-  return isNaN(new Date(iso).getTime()) ? '' : iso;
-};
-
-// ──────────── DateInput (dd/mm/yyyy) ────────────
+// ──────────── DateInput (calendar picker) ────────────
 function DateInput({
   value,
   onChange,
-  placeholder = 'dd/mm/yyyy',
 }: {
   value: string;
   onChange: (v: string) => void;
-  placeholder?: string;
 }) {
-  const [raw, setRaw] = useState(toDisplay(value));
-
-  useEffect(() => {
-    setRaw(toDisplay(value));
-  }, [value]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let v = e.target.value.replace(/[^\d/]/g, '');
-    if (v.length === 2 && !v.includes('/') && raw.length < v.length) v += '/';
-    if (v.length === 5 && v.charAt(2) === '/' && !v.slice(3).includes('/') && raw.length < v.length) v += '/';
-    setRaw(v);
-    const iso = toISO(v);
-    if (iso) onChange(iso);
-    else if (v === '') onChange('');
-  };
-
   return (
     <input
-      value={raw}
-      onChange={handleChange}
-      maxLength={10}
-      placeholder={placeholder}
-      className="w-28 bg-background border border-border rounded-lg px-2.5 py-1 text-[12px] font-mono outline-none focus:ring-1 focus:ring-primary text-center"
+      type="date"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-36 bg-background border border-border rounded-lg px-2.5 py-1 text-[12px] outline-none focus:ring-1 focus:ring-primary"
     />
   );
 }
@@ -116,9 +101,9 @@ function LocalFilter({
         <span className="text-[11px] font-bold text-muted-foreground">Lọc theo ngày:</span>
       </div>
       <div className="flex items-center gap-2">
-        <DateInput value={localStart} onChange={onStartChange} placeholder="Từ dd/mm/yyyy" />
+        <DateInput value={localStart} onChange={onStartChange} />
         <span className="text-muted-foreground text-[12px]">→</span>
-        <DateInput value={localEnd} onChange={onEndChange} placeholder="Đến dd/mm/yyyy" />
+        <DateInput value={localEnd} onChange={onEndChange} />
       </div>
       {isActive && (
         <>
@@ -826,13 +811,14 @@ function PersonnelTable({ data }: { data: { personnel: RevenueByPersonnel[]; avg
 }
 
 // ────────────  Slug map  ────────────
-type TabKey = 'service' | 'day' | 'branch' | 'personnel';
+type TabKey = 'service' | 'day' | 'branch' | 'personnel' | 'chart';
 
 const SLUG_TO_TAB: Record<string, TabKey> = {
   'san-pham': 'service',
   'theo-ngay': 'day',
   'co-so': 'branch',
   'nhan-su': 'personnel',
+  'bieu-do': 'chart',
 };
 
 const TAB_TO_SLUG: Record<TabKey, string> = {
@@ -840,6 +826,7 @@ const TAB_TO_SLUG: Record<TabKey, string> = {
   day: 'theo-ngay',
   branch: 'co-so',
   personnel: 'nhan-su',
+  chart: 'bieu-do',
 };
 
 // ──────────── Main Page ────────────
@@ -848,7 +835,360 @@ const tabs: { key: TabKey; label: string; icon: React.ElementType }[] = [
   { key: 'day', label: 'Theo ngày', icon: Calendar },
   { key: 'branch', label: 'Theo cơ sở', icon: Building2 },
   { key: 'personnel', label: 'Nhân sự', icon: Users },
+  { key: 'chart', label: 'Biểu đồ', icon: TrendingUp },
 ];
+
+const CHART_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#14b8a6'];
+type ChartVariant = 'line' | 'bar' | 'area';
+
+const compactMoney = (value: number) =>
+  new Intl.NumberFormat('vi-VN', { notation: 'compact', compactDisplay: 'short' }).format(value || 0);
+
+function buildDateRange(startDate: string, endDate: string): string[] {
+  if (!startDate || !endDate || startDate > endDate) return [];
+  const days: string[] = [];
+  const cursor = new Date(`${startDate}T00:00:00`);
+  const end = new Date(`${endDate}T00:00:00`);
+  while (cursor <= end) {
+    days.push(cursor.toISOString().slice(0, 10));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return days;
+}
+
+function ComparisonChartBlock({
+  title,
+  items,
+  selectedItems,
+  onToggleItem,
+  onSelectAll,
+  onClearAll,
+  seriesByDate,
+  dateList,
+  chartType,
+  onChartTypeChange,
+}: {
+  title: string;
+  items: string[];
+  selectedItems: Set<string>;
+  onToggleItem: (item: string) => void;
+  onSelectAll: () => void;
+  onClearAll: () => void;
+  seriesByDate: Record<string, Record<string, number>>;
+  dateList: string[];
+  chartType: ChartVariant;
+  onChartTypeChange: (value: ChartVariant) => void;
+}) {
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [filterKeyword, setFilterKeyword] = useState('');
+
+  const activeItems = useMemo(
+    () => items.filter((item) => selectedItems.has(item)).slice(0, 8),
+    [items, selectedItems]
+  );
+
+  const filteredItems = useMemo(
+    () =>
+      items.filter((item) =>
+        item.toLowerCase().includes(filterKeyword.trim().toLowerCase())
+      ),
+    [items, filterKeyword]
+  );
+
+  const chartData = useMemo(
+    () =>
+      dateList.map((date) => {
+        const row: Record<string, string | number> = { date: fmtDate(date) };
+        activeItems.forEach((item) => {
+          row[item] = seriesByDate[item]?.[date] || 0;
+        });
+        return row;
+      }),
+    [activeItems, dateList, seriesByDate]
+  );
+
+  return (
+    <div className="bg-card border border-border rounded-xl p-4 space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-[14px] font-black text-foreground">{title}</h3>
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setIsFilterOpen((prev) => !prev)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border text-[11px] font-bold hover:bg-accent"
+            >
+              Bộ lọc
+              <ChevronDown size={12} className={isFilterOpen ? 'rotate-180 transition-transform' : 'transition-transform'} />
+            </button>
+            {isFilterOpen && (
+              <div className="absolute right-0 top-9 z-20 w-72 bg-card border border-border rounded-lg shadow-lg p-2.5 space-y-2">
+                <input
+                  value={filterKeyword}
+                  onChange={(e) => setFilterKeyword(e.target.value)}
+                  placeholder="Tìm nhanh..."
+                  className="w-full px-2.5 py-1.5 text-[12px] border border-border rounded-md bg-background outline-none focus:ring-1 focus:ring-primary"
+                />
+                <div className="max-h-52 overflow-y-auto border border-border rounded-md p-2 grid grid-cols-1 gap-1">
+                  {filteredItems.map((item) => {
+                    const checked = selectedItems.has(item);
+                    return (
+                      <label key={item} className="flex items-center gap-2 text-[12px] text-foreground cursor-pointer">
+                        <button type="button" onClick={() => onToggleItem(item)} className="text-primary">
+                          {checked ? <CheckSquare size={14} /> : <Square size={14} />}
+                        </button>
+                        <span className="truncate">{item}</span>
+                      </label>
+                    );
+                  })}
+                  {filteredItems.length === 0 && (
+                    <div className="text-[11px] text-muted-foreground italic px-1 py-1">Không có dữ liệu phù hợp</div>
+                  )}
+                </div>
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-[11px] text-muted-foreground">Đã chọn: {selectedItems.size}</span>
+                  <button
+                    type="button"
+                    onClick={() => setIsFilterOpen(false)}
+                    className="text-[11px] font-bold text-primary hover:underline"
+                  >
+                    Đóng
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+          <select
+            value={chartType}
+            onChange={(e) => onChartTypeChange(e.target.value as ChartVariant)}
+            className="px-2.5 py-1 rounded-md border border-border text-[11px] font-bold bg-background text-foreground"
+          >
+            <option value="line">Line</option>
+            <option value="bar">Bar</option>
+            <option value="area">Area</option>
+          </select>
+          <button
+            type="button"
+            onClick={onSelectAll}
+            className="px-2.5 py-1 rounded-md border border-border text-[11px] font-bold hover:bg-accent"
+          >
+            Chọn tất cả
+          </button>
+          <button
+            type="button"
+            onClick={onClearAll}
+            className="px-2.5 py-1 rounded-md border border-border text-[11px] font-bold text-muted-foreground hover:bg-accent"
+          >
+            Bỏ chọn
+          </button>
+        </div>
+      </div>
+
+      <div className="h-72">
+        <ResponsiveContainer width="100%" height="100%">
+          {chartType === 'line' && (
+            <LineChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+              <YAxis tickFormatter={compactMoney} tick={{ fontSize: 11 }} />
+              <Tooltip
+                formatter={(value) => fmt(Number(value || 0))}
+                contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb' }}
+              />
+              <Legend />
+              {activeItems.map((item, index) => (
+                <Line
+                  key={item}
+                  type="monotone"
+                  dataKey={item}
+                  name={item}
+                  stroke={CHART_COLORS[index % CHART_COLORS.length]}
+                  strokeWidth={2}
+                  dot={false}
+                />
+              ))}
+            </LineChart>
+          )}
+          {chartType === 'bar' && (
+            <BarChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+              <YAxis tickFormatter={compactMoney} tick={{ fontSize: 11 }} />
+              <Tooltip
+                formatter={(value) => fmt(Number(value || 0))}
+                contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb' }}
+              />
+              <Legend />
+              {activeItems.map((item, index) => (
+                <Bar
+                  key={item}
+                  dataKey={item}
+                  name={item}
+                  fill={CHART_COLORS[index % CHART_COLORS.length]}
+                  radius={[4, 4, 0, 0]}
+                >
+                  <LabelList
+                    dataKey={item}
+                    position="top"
+                    formatter={(value) => compactMoney(Number(value || 0))}
+                    style={{ fontSize: 10, fontWeight: 700, fill: '#374151' }}
+                  />
+                </Bar>
+              ))}
+            </BarChart>
+          )}
+          {chartType === 'area' && (
+            <AreaChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+              <YAxis tickFormatter={compactMoney} tick={{ fontSize: 11 }} />
+              <Tooltip
+                formatter={(value) => fmt(Number(value || 0))}
+                contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb' }}
+              />
+              <Legend />
+              {activeItems.map((item, index) => (
+                <Area
+                  key={item}
+                  type="monotone"
+                  dataKey={item}
+                  name={item}
+                  stroke={CHART_COLORS[index % CHART_COLORS.length]}
+                  fill={CHART_COLORS[index % CHART_COLORS.length]}
+                  fillOpacity={0.15}
+                  strokeWidth={2}
+                />
+              ))}
+            </AreaChart>
+          )}
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function RevenueComparisonView({
+  startDate,
+  endDate,
+  serviceData,
+  branchData,
+  personnelData,
+}: {
+  startDate: string;
+  endDate: string;
+  serviceData: RevenueByService[];
+  branchData: RevenueByBranch[];
+  personnelData: RevenueByPersonnel[];
+}) {
+  const dateList = useMemo(() => buildDateRange(startDate, endDate), [startDate, endDate]);
+
+  const serviceItems = useMemo(() => serviceData.map((s) => s.san_pham), [serviceData]);
+  const branchItems = useMemo(() => branchData.map((b) => b.co_so), [branchData]);
+  const personnelItems = useMemo(() => personnelData.map((p) => p.nhan_vien_name), [personnelData]);
+
+  const [selectedServices, setSelectedServices] = useState<Set<string>>(new Set());
+  const [selectedBranches, setSelectedBranches] = useState<Set<string>>(new Set());
+  const [selectedPersonnel, setSelectedPersonnel] = useState<Set<string>>(new Set());
+  const [serviceChartType, setServiceChartType] = useState<ChartVariant>('line');
+  const [personnelChartType, setPersonnelChartType] = useState<ChartVariant>('bar');
+  const [branchChartType, setBranchChartType] = useState<ChartVariant>('area');
+
+  useEffect(() => setSelectedServices(new Set(serviceItems.slice(0, 8))), [serviceItems]);
+  useEffect(() => setSelectedBranches(new Set(branchItems.slice(0, 8))), [branchItems]);
+  useEffect(() => setSelectedPersonnel(new Set(personnelItems.slice(0, 8))), [personnelItems]);
+
+  const serviceSeriesByDate = useMemo(() => {
+    const map: Record<string, Record<string, number>> = {};
+    serviceData.forEach((item) => {
+      map[item.san_pham] = {};
+      item.daily_breakdown.forEach((daily) => {
+        map[item.san_pham][daily.date] = daily.revenue;
+      });
+    });
+    return map;
+  }, [serviceData]);
+
+  const branchSeriesByDate = useMemo(() => {
+    const map: Record<string, Record<string, number>> = {};
+    branchData.forEach((item) => {
+      map[item.co_so] = {};
+      item.daily_breakdown.forEach((daily) => {
+        map[item.co_so][daily.date] = daily.revenue;
+      });
+    });
+    return map;
+  }, [branchData]);
+
+  const personnelSeriesByDate = useMemo(() => {
+    const map: Record<string, Record<string, number>> = {};
+    personnelData.forEach((item) => {
+      map[item.nhan_vien_name] = {};
+      item.daily_breakdown.forEach((daily) => {
+        map[item.nhan_vien_name][daily.date] = daily.revenue;
+      });
+    });
+    return map;
+  }, [personnelData]);
+
+  const toggleSetItem = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, item: string) => {
+    setter((prev) => {
+      const next = new Set(prev);
+      if (next.has(item)) next.delete(item);
+      else next.add(item);
+      return next;
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-muted/30 border border-border rounded-xl p-3">
+        <p className="text-[12px] text-muted-foreground">
+          Biểu đồ so sánh doanh thu theo ngày trong khoảng <strong>{fmtDate(startDate)}</strong> đến <strong>{fmtDate(endDate)}</strong>. 
+          Mỗi biểu đồ hỗ trợ lọc bằng tickbox theo nhóm tương ứng.
+        </p>
+      </div>
+
+      <ComparisonChartBlock
+        title="So sánh doanh thu theo ngày — Sản phẩm"
+        items={serviceItems}
+        selectedItems={selectedServices}
+        onToggleItem={(item) => toggleSetItem(setSelectedServices, item)}
+        onSelectAll={() => setSelectedServices(new Set(serviceItems))}
+        onClearAll={() => setSelectedServices(new Set())}
+        seriesByDate={serviceSeriesByDate}
+        dateList={dateList}
+        chartType={serviceChartType}
+        onChartTypeChange={setServiceChartType}
+      />
+
+      <ComparisonChartBlock
+        title="So sánh doanh thu theo ngày — Nhân sự"
+        items={personnelItems}
+        selectedItems={selectedPersonnel}
+        onToggleItem={(item) => toggleSetItem(setSelectedPersonnel, item)}
+        onSelectAll={() => setSelectedPersonnel(new Set(personnelItems))}
+        onClearAll={() => setSelectedPersonnel(new Set())}
+        seriesByDate={personnelSeriesByDate}
+        dateList={dateList}
+        chartType={personnelChartType}
+        onChartTypeChange={setPersonnelChartType}
+      />
+
+      <ComparisonChartBlock
+        title="So sánh doanh thu theo ngày — Cơ sở"
+        items={branchItems}
+        selectedItems={selectedBranches}
+        onToggleItem={(item) => toggleSetItem(setSelectedBranches, item)}
+        onSelectAll={() => setSelectedBranches(new Set(branchItems))}
+        onClearAll={() => setSelectedBranches(new Set())}
+        seriesByDate={branchSeriesByDate}
+        dateList={dateList}
+        chartType={branchChartType}
+        onChartTypeChange={setBranchChartType}
+      />
+    </div>
+  );
+}
 
 const RevenueReportPage: React.FC = () => {
   const navigate = useNavigate();
@@ -924,12 +1264,22 @@ const RevenueReportPage: React.FC = () => {
           </div>
 
           {/* Global date range filter */}
-          <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2 shadow-sm">
-            <Calendar size={12} className="text-muted-foreground" />
-            <span className="text-[11px] font-bold text-muted-foreground">Khoảng thời gian:</span>
-            <DateInput value={startDate} onChange={setStartDate} />
-            <span className="text-muted-foreground opacity-40">→</span>
-            <DateInput value={endDate} onChange={setEndDate} />
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            <button
+              type="button"
+              onClick={() => setActiveTab('chart')}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-primary/30 bg-primary/10 text-primary text-[12px] font-bold hover:bg-primary/15"
+            >
+              <TrendingUp size={13} />
+              Biểu đồ so sánh
+            </button>
+            <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2 shadow-sm">
+              <Calendar size={12} className="text-muted-foreground" />
+              <span className="text-[11px] font-bold text-muted-foreground">Khoảng thời gian:</span>
+              <DateInput value={startDate} onChange={setStartDate} />
+              <span className="text-muted-foreground opacity-40">→</span>
+              <DateInput value={endDate} onChange={setEndDate} />
+            </div>
           </div>
         </div>
 
@@ -968,6 +1318,15 @@ const RevenueReportPage: React.FC = () => {
                 {activeTab === 'day' && <DayTable data={dayData} summary={summary} />}
                 {activeTab === 'branch' && <BranchTable data={branchData} />}
                 {activeTab === 'personnel' && personnelData && <PersonnelTable data={personnelData} />}
+                {activeTab === 'chart' && personnelData && (
+                  <RevenueComparisonView
+                    startDate={startDate}
+                    endDate={endDate}
+                    serviceData={serviceData}
+                    branchData={branchData}
+                    personnelData={personnelData.personnel}
+                  />
+                )}
               </div>
             </div>
           </>
