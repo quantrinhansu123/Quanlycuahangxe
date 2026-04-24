@@ -1,14 +1,16 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import type { ViewPermissionKey } from '../../data/viewPermissions';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
   adminOnly?: boolean;
+  viewKey?: ViewPermissionKey;
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, adminOnly = false }) => {
-  const { session, isAdmin, isLoading } = useAuth();
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, adminOnly = false, viewKey }) => {
+  const { session, isAdmin, isLoading, hasViewAccess } = useAuth();
   const location = useLocation();
 
   // Chờ auth state khởi tạo xong (tránh flash redirect)
@@ -27,6 +29,10 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, adminOnly = f
 
   // Trang admin mà không phải admin → về trang chủ
   if (adminOnly && !isAdmin) {
+    return <Navigate to="/" replace />;
+  }
+
+  if (viewKey && !hasViewAccess(viewKey)) {
     return <Navigate to="/" replace />;
   }
 

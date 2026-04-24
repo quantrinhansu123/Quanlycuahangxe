@@ -1,5 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { Session, User as SupabaseUser } from '@supabase/supabase-js';
+import {
+  VIEW_PERMISSION_STORAGE_KEY,
+  type ViewPermissionKey,
+} from '../data/viewPermissions';
 
 // Thông tin nhân viên lấy từ bảng nhan_su
 export interface NhanVien {
@@ -19,6 +23,7 @@ interface AuthContextType {
   nhanVien: NhanVien | null;
   isAdmin: boolean;
   isLoading: boolean;
+  hasViewAccess: (viewKey: ViewPermissionKey) => boolean;
   signOut: () => Promise<void>;
 }
 
@@ -28,10 +33,11 @@ const AuthContext = createContext<AuthContextType>({
   nhanVien: null,
   isAdmin: false,
   isLoading: true,
+  hasViewAccess: () => true,
   signOut: async () => {},
 });
 
-const ADMIN_ROLES = ['Quản trị viên', 'Chủ cửa hàng', 'quản lý'];
+const ADMIN_ROLES = ['Quản trị viên', 'Chủ cửa hàng'];
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const demoRole = sessionStorage.getItem('demo_role');
@@ -134,8 +140,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     ? ADMIN_ROLES.some(role => (nhanVien.vi_tri ?? '').toLowerCase().includes(role.toLowerCase()))
     : false;
 
+  const hasViewAccess = (viewKey: ViewPermissionKey): boolean => {
+    if (isAdmin) return true;
+    const positionKey = (nhanVien?.vi_tri || '').trim().toLowerCase();
+    if (!positionKey) return true;
+
+    try {
+      const raw = localStorage.getItem(VIEW_PERMISSION_STORAGE_KEY);
+      if (!raw) return true;
+      const parsed = JSON.parse(raw) as Record<string, ViewPermissionKey[]>;
+      const allowedViews = parsed[positionKey];
+      if (!allowedViews) return true;
+      return allowedViews.includes(viewKey);
+    } catch {
+      return true;
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ session, supabaseUser, nhanVien, isAdmin, isLoading, signOut }}>
+    <AuthContext.Provider value={{ session, supabaseUser, nhanVien, isAdmin, isLoading, hasViewAccess, signOut }}>
       {children}
     </AuthContext.Provider>
   );

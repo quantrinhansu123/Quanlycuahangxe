@@ -5,7 +5,9 @@ import { useOutletContext } from 'react-router-dom';
 import type { ActionCardProps } from '../components/ui/ActionCard';
 import { ActionCard } from '../components/ui/ActionCard';
 import { ModuleCard } from '../components/ui/ModuleCard';
+import { useAuth } from '../context/AuthContext';
 import { moduleData } from '../data/moduleData';
+import type { ViewPermissionKey } from '../data/viewPermissions';
 import { removeVietnameseTones } from '../lib/utils';
 
 const dashboardModules: ActionCardProps[] = [
@@ -55,7 +57,36 @@ const dashboardModules: ActionCardProps[] = [
 
 const Dashboard: React.FC = () => {
   const { globalSearch } = useOutletContext<{ globalSearch: string }>() || { globalSearch: '' };
-  const allSections = Object.values(moduleData).flat();
+  const { hasViewAccess } = useAuth();
+
+  const resolveViewKey = React.useCallback((path?: string): ViewPermissionKey | undefined => {
+    if (!path) return undefined;
+    if (path.startsWith('/ban-hang')) return 'ban-hang';
+    if (path.startsWith('/thu-chi')) return 'thu-chi';
+    if (path.startsWith('/dich-vu')) return 'dich-vu';
+    if (path.startsWith('/bao-cao')) return 'bao-cao';
+    if (path.startsWith('/nhan-su')) return 'nhan-su';
+    if (path.startsWith('/kho-van')) return 'kho-van';
+    if (path.startsWith('/tien-luong')) return 'tien-luong';
+    return undefined;
+  }, []);
+
+  const allSections = React.useMemo(() =>
+    Object.values(moduleData).flat().map((section) => ({
+      ...section,
+      items: section.items.filter((item) => {
+        const viewKey = resolveViewKey(item.path);
+        return !viewKey || hasViewAccess(viewKey);
+      }),
+    })).filter((section) => section.items.length > 0),
+  [hasViewAccess, resolveViewKey]);
+
+  const visibleDashboardModules = React.useMemo(() =>
+    dashboardModules.filter((module) => {
+      const viewKey = resolveViewKey(module.href);
+      return !viewKey || hasViewAccess(viewKey);
+    }),
+  [hasViewAccess, resolveViewKey]);
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -100,7 +131,7 @@ const Dashboard: React.FC = () => {
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
-          {dashboardModules.map((module, idx) => (
+          {visibleDashboardModules.map((module, idx) => (
             <ActionCard
               key={idx}
               {...module}

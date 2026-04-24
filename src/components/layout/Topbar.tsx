@@ -127,7 +127,8 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
   const location = useLocation();
   const navigate = useNavigate();
   const { avatar } = useTheme();
-  const { nhanVien, signOut } = useAuth();
+  const { nhanVien, signOut, hasViewAccess } = useAuth();
+  const canOpenPermissionSettings = hasViewAccess('cai-dat-phan-quyen');
 
   const defaultAvatar = "https://ui-avatars.com/api/?name=User&background=random&color=random";
   const userAvatar = avatar || defaultAvatar;
@@ -490,18 +491,20 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
                   <span className="text-[13px] font-semibold">Hồ sơ cá nhân</span>
                 </button>
 
-                <button
-                  onClick={() => {
-                    navigate('/cai-dat');
-                    setShowUserDropdown(false);
-                  }}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-all duration-200"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center text-primary/70">
-                    <Settings size={18} />
-                  </div>
-                  <span className="text-[13px] font-semibold">Cài đặt hệ thống</span>
-                </button>
+                {canOpenPermissionSettings && (
+                  <button
+                    onClick={() => {
+                      navigate('/cai-dat/phan-quyen');
+                      setShowUserDropdown(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-all duration-200"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center text-primary/70">
+                      <Settings size={18} />
+                    </div>
+                    <span className="text-[13px] font-semibold">Cài đặt phân quyền</span>
+                  </button>
+                )}
 
                 <div className="my-1 border-t border-border/50" />
 

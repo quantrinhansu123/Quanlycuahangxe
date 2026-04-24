@@ -12,15 +12,15 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = React.memo(({ isOpen, setIsOpen }) => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, hasViewAccess } = useAuth();
   
   const filteredMenu = React.useMemo(() => 
-    sidebarMenu.filter(item => !item.adminOnly || isAdmin),
-  [isAdmin]);
+    sidebarMenu.filter(item => (!item.adminOnly || isAdmin) && (!item.viewKey || hasViewAccess(item.viewKey))),
+  [isAdmin, hasViewAccess]);
 
   const filteredExtraItems = React.useMemo(() => 
-    extraMenuItems.filter(item => !item.adminOnly || isAdmin),
-  [isAdmin]);
+    extraMenuItems.filter(item => (!item.adminOnly || isAdmin) && (!item.viewKey || hasViewAccess(item.viewKey))),
+  [isAdmin, hasViewAccess]);
   return (
     <>
       {/* Overlay - visible whenever sidebar is open ON MOBILE */}
