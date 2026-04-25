@@ -16,8 +16,6 @@ import {
   X,
   ExternalLink,
   Filter,
-  CheckSquare,
-  Square,
 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -34,7 +32,6 @@ import {
   Tooltip,
   XAxis,
   YAxis,
-  LabelList,
 } from 'recharts';
 import {
   getReportSummary,
@@ -856,97 +853,177 @@ function buildDateRange(startDate: string, endDate: string): string[] {
   return days;
 }
 
-function ComparisonChartBlock({
-  title,
-  items,
-  selectedItems,
-  onToggleItem,
-  onSelectAll,
-  onClearAll,
-  seriesByDate,
+function DailyRevenueChartBlock({
+  dayData,
+  serviceData,
+  personnelData,
   dateList,
   chartType,
   onChartTypeChange,
 }: {
-  title: string;
-  items: string[];
-  selectedItems: Set<string>;
-  onToggleItem: (item: string) => void;
-  onSelectAll: () => void;
-  onClearAll: () => void;
-  seriesByDate: Record<string, Record<string, number>>;
+  dayData: RevenueByDay[];
+  serviceData: RevenueByService[];
+  personnelData: RevenueByPersonnel[];
   dateList: string[];
   chartType: ChartVariant;
   onChartTypeChange: (value: ChartVariant) => void;
 }) {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [filterKeyword, setFilterKeyword] = useState('');
+  const [serviceKeyword, setServiceKeyword] = useState('');
+  const [personnelKeyword, setPersonnelKeyword] = useState('');
+  const serviceItems = useMemo(() => serviceData.map((item) => item.san_pham), [serviceData]);
+  const personnelItems = useMemo(() => personnelData.map((item) => item.nhan_vien_name), [personnelData]);
+  const [selectedServices, setSelectedServices] = useState<Set<string> | null>(null);
+  const [selectedPersonnel, setSelectedPersonnel] = useState<Set<string> | null>(null);
+  const effectiveSelectedServices = selectedServices ?? new Set(serviceItems);
+  const effectiveSelectedPersonnel = selectedPersonnel ?? new Set(personnelItems);
 
-  const activeItems = useMemo(
-    () => items.filter((item) => selectedItems.has(item)).slice(0, 8),
-    [items, selectedItems]
-  );
-
-  const filteredItems = useMemo(
+  const filteredServices = useMemo(
     () =>
-      items.filter((item) =>
-        item.toLowerCase().includes(filterKeyword.trim().toLowerCase())
+      serviceItems.filter((item) =>
+        item.toLowerCase().includes(serviceKeyword.trim().toLowerCase())
       ),
-    [items, filterKeyword]
+    [serviceItems, serviceKeyword]
   );
+
+  const filteredPersonnel = useMemo(
+    () =>
+      personnelItems.filter((item) =>
+        item.toLowerCase().includes(personnelKeyword.trim().toLowerCase())
+      ),
+    [personnelItems, personnelKeyword]
+  );
+
+  const toggleSetItem = (
+    setter: React.Dispatch<React.SetStateAction<Set<string> | null>>,
+    currentItems: string[],
+    item: string
+  ) => {
+    setter((prev) => {
+      const base = prev ?? new Set(currentItems);
+      const next = new Set(base);
+      if (next.has(item)) next.delete(item);
+      else next.add(item);
+      return next;
+    });
+  };
+
+  const totalRevenueByDate = useMemo(() => {
+    const map: Record<string, number> = {};
+    dayData.forEach((day) => {
+      map[day.date] = day.total_revenue;
+    });
+    return map;
+  }, [dayData]);
+
+  const serviceRevenueByDate = useMemo(() => {
+    const map: Record<string, number> = {};
+    serviceData.forEach((item) => {
+      if (!effectiveSelectedServices.has(item.san_pham)) return;
+      item.daily_breakdown.forEach((daily) => {
+        map[daily.date] = (map[daily.date] || 0) + daily.revenue;
+      });
+    });
+    return map;
+  }, [serviceData, effectiveSelectedServices]);
+
+  const personnelRevenueByDate = useMemo(() => {
+    const map: Record<string, number> = {};
+    personnelData.forEach((item) => {
+      if (!effectiveSelectedPersonnel.has(item.nhan_vien_name)) return;
+      item.daily_breakdown.forEach((daily) => {
+        map[daily.date] = (map[daily.date] || 0) + daily.revenue;
+      });
+    });
+    return map;
+  }, [personnelData, effectiveSelectedPersonnel]);
+
+  const hasServiceFilter =
+    effectiveSelectedServices.size > 0 && effectiveSelectedServices.size < serviceItems.length;
+  const hasPersonnelFilter =
+    effectiveSelectedPersonnel.size > 0 && effectiveSelectedPersonnel.size < personnelItems.length;
 
   const chartData = useMemo(
     () =>
-      dateList.map((date) => {
-        const row: Record<string, string | number> = { date: fmtDate(date) };
-        activeItems.forEach((item) => {
-          row[item] = seriesByDate[item]?.[date] || 0;
-        });
-        return row;
-      }),
-    [activeItems, dateList, seriesByDate]
+      dateList.map((date) => ({
+        date: fmtDate(date),
+        totalRevenue: totalRevenueByDate[date] || 0,
+        filteredServiceRevenue: serviceRevenueByDate[date] || 0,
+        filteredPersonnelRevenue: personnelRevenueByDate[date] || 0,
+      })),
+    [dateList, totalRevenueByDate, serviceRevenueByDate, personnelRevenueByDate]
   );
 
   return (
-    <div className="bg-card border border-border rounded-xl p-4 space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="text-[14px] font-black text-foreground">{title}</h3>
-        <div className="flex items-center gap-2 flex-wrap justify-end">
-          <div className="relative">
+    <div className="bg-card border border-border rounded-xl p-3 sm:p-4 space-y-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <h3 className="text-[14px] font-black text-foreground">Doanh thu theo ngày</h3>
+        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2">
+          <div className="relative col-span-2 sm:col-span-1">
             <button
               type="button"
               onClick={() => setIsFilterOpen((prev) => !prev)}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border text-[11px] font-bold hover:bg-accent"
+              className="inline-flex w-full sm:w-auto items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border text-[11px] font-bold hover:bg-accent"
             >
               Bộ lọc
               <ChevronDown size={12} className={isFilterOpen ? 'rotate-180 transition-transform' : 'transition-transform'} />
             </button>
             {isFilterOpen && (
-              <div className="absolute right-0 top-9 z-20 w-72 bg-card border border-border rounded-lg shadow-lg p-2.5 space-y-2">
-                <input
-                  value={filterKeyword}
-                  onChange={(e) => setFilterKeyword(e.target.value)}
-                  placeholder="Tìm nhanh..."
-                  className="w-full px-2.5 py-1.5 text-[12px] border border-border rounded-md bg-background outline-none focus:ring-1 focus:ring-primary"
-                />
-                <div className="max-h-52 overflow-y-auto border border-border rounded-md p-2 grid grid-cols-1 gap-1">
-                  {filteredItems.map((item) => {
-                    const checked = selectedItems.has(item);
-                    return (
-                      <label key={item} className="flex items-center gap-2 text-[12px] text-foreground cursor-pointer">
-                        <button type="button" onClick={() => onToggleItem(item)} className="text-primary">
-                          {checked ? <CheckSquare size={14} /> : <Square size={14} />}
-                        </button>
-                        <span className="truncate">{item}</span>
-                      </label>
-                    );
-                  })}
-                  {filteredItems.length === 0 && (
-                    <div className="text-[11px] text-muted-foreground italic px-1 py-1">Không có dữ liệu phù hợp</div>
-                  )}
+              <div className="absolute left-0 sm:left-auto sm:right-0 top-10 z-20 w-[min(92vw,20rem)] sm:w-80 bg-card border border-border rounded-lg shadow-lg p-2.5 space-y-2">
+                <div className="space-y-1">
+                  <p className="text-[11px] font-bold text-foreground">Sản phẩm</p>
+                  <input
+                    value={serviceKeyword}
+                    onChange={(e) => setServiceKeyword(e.target.value)}
+                    placeholder="Tìm sản phẩm..."
+                    className="w-full px-2.5 py-1.5 text-[12px] border border-border rounded-md bg-background outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  <div className="max-h-32 overflow-y-auto border border-border rounded-md p-2 grid grid-cols-1 gap-1">
+                    {filteredServices.map((item) => {
+                      const checked = effectiveSelectedServices.has(item);
+                      return (
+                        <label key={item} className="flex items-center gap-2 text-[12px] text-foreground cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleSetItem(setSelectedServices, serviceItems, item)}
+                            className="h-3.5 w-3.5 rounded border-border text-primary focus:ring-primary"
+                          />
+                          <span className="truncate">{item}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-[11px] text-muted-foreground">Đã chọn: {selectedItems.size}</span>
+                <div className="space-y-1">
+                  <p className="text-[11px] font-bold text-foreground">Nhân sự</p>
+                  <input
+                    value={personnelKeyword}
+                    onChange={(e) => setPersonnelKeyword(e.target.value)}
+                    placeholder="Tìm nhân sự..."
+                    className="w-full px-2.5 py-1.5 text-[12px] border border-border rounded-md bg-background outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  <div className="max-h-32 overflow-y-auto border border-border rounded-md p-2 grid grid-cols-1 gap-1">
+                    {filteredPersonnel.map((item) => {
+                      const checked = effectiveSelectedPersonnel.has(item);
+                      return (
+                        <label key={item} className="flex items-center gap-2 text-[12px] text-foreground cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleSetItem(setSelectedPersonnel, personnelItems, item)}
+                            className="h-3.5 w-3.5 rounded border-border text-primary focus:ring-primary"
+                          />
+                          <span className="truncate">{item}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="flex items-center justify-between pt-1 border-t border-border">
+                  <span className="text-[11px] text-muted-foreground">
+                    SP: {effectiveSelectedServices.size}/{serviceItems.length} - NS: {effectiveSelectedPersonnel.size}/{personnelItems.length}
+                  </span>
                   <button
                     type="button"
                     onClick={() => setIsFilterOpen(false)}
@@ -961,7 +1038,7 @@ function ComparisonChartBlock({
           <select
             value={chartType}
             onChange={(e) => onChartTypeChange(e.target.value as ChartVariant)}
-            className="px-2.5 py-1 rounded-md border border-border text-[11px] font-bold bg-background text-foreground"
+            className="w-full sm:w-auto px-2.5 py-1.5 rounded-md border border-border text-[11px] font-bold bg-background text-foreground"
           >
             <option value="line">Line</option>
             <option value="bar">Bar</option>
@@ -969,96 +1046,84 @@ function ComparisonChartBlock({
           </select>
           <button
             type="button"
-            onClick={onSelectAll}
-            className="px-2.5 py-1 rounded-md border border-border text-[11px] font-bold hover:bg-accent"
+            onClick={() => {
+              setSelectedServices(new Set(serviceItems));
+              setSelectedPersonnel(new Set(personnelItems));
+            }}
+            className="w-full sm:w-auto px-2.5 py-1.5 rounded-md border border-border text-[11px] font-bold hover:bg-accent"
           >
             Chọn tất cả
           </button>
           <button
             type="button"
-            onClick={onClearAll}
-            className="px-2.5 py-1 rounded-md border border-border text-[11px] font-bold text-muted-foreground hover:bg-accent"
+            onClick={() => {
+              setSelectedServices(new Set());
+              setSelectedPersonnel(new Set());
+            }}
+            className="w-full sm:w-auto px-2.5 py-1.5 rounded-md border border-border text-[11px] font-bold text-muted-foreground hover:bg-accent"
           >
             Bỏ chọn
           </button>
         </div>
       </div>
 
-      <div className="h-72">
+      <div className="h-64 sm:h-72">
         <ResponsiveContainer width="100%" height="100%">
           {chartType === 'line' && (
             <LineChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-              <YAxis tickFormatter={compactMoney} tick={{ fontSize: 11 }} />
+              <XAxis dataKey="date" tick={{ fontSize: 10 }} minTickGap={24} />
+              <YAxis tickFormatter={compactMoney} tick={{ fontSize: 10 }} width={48} />
               <Tooltip
                 formatter={(value) => fmt(Number(value || 0))}
                 contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb' }}
               />
               <Legend />
-              {activeItems.map((item, index) => (
-                <Line
-                  key={item}
-                  type="monotone"
-                  dataKey={item}
-                  name={item}
-                  stroke={CHART_COLORS[index % CHART_COLORS.length]}
-                  strokeWidth={2}
-                  dot={false}
-                />
-              ))}
+              <Line type="monotone" dataKey="totalRevenue" name="Tổng doanh thu" stroke={CHART_COLORS[0]} strokeWidth={2} dot={false} />
+              {hasServiceFilter && (
+                <Line type="monotone" dataKey="filteredServiceRevenue" name="Doanh thu theo lọc sản phẩm" stroke={CHART_COLORS[1]} strokeWidth={2} dot={false} />
+              )}
+              {hasPersonnelFilter && (
+                <Line type="monotone" dataKey="filteredPersonnelRevenue" name="Doanh thu theo lọc nhân sự" stroke={CHART_COLORS[2]} strokeWidth={2} dot={false} />
+              )}
             </LineChart>
           )}
           {chartType === 'bar' && (
             <BarChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-              <YAxis tickFormatter={compactMoney} tick={{ fontSize: 11 }} />
+              <XAxis dataKey="date" tick={{ fontSize: 10 }} minTickGap={24} />
+              <YAxis tickFormatter={compactMoney} tick={{ fontSize: 10 }} width={48} />
               <Tooltip
                 formatter={(value) => fmt(Number(value || 0))}
                 contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb' }}
               />
               <Legend />
-              {activeItems.map((item, index) => (
-                <Bar
-                  key={item}
-                  dataKey={item}
-                  name={item}
-                  fill={CHART_COLORS[index % CHART_COLORS.length]}
-                  radius={[4, 4, 0, 0]}
-                >
-                  <LabelList
-                    dataKey={item}
-                    position="top"
-                    formatter={(value) => compactMoney(Number(value || 0))}
-                    style={{ fontSize: 10, fontWeight: 700, fill: '#374151' }}
-                  />
-                </Bar>
-              ))}
+              <Bar dataKey="totalRevenue" name="Tổng doanh thu" fill={CHART_COLORS[0]} radius={[4, 4, 0, 0]} />
+              {hasServiceFilter && (
+                <Bar dataKey="filteredServiceRevenue" name="Doanh thu theo lọc sản phẩm" fill={CHART_COLORS[1]} radius={[4, 4, 0, 0]} />
+              )}
+              {hasPersonnelFilter && (
+                <Bar dataKey="filteredPersonnelRevenue" name="Doanh thu theo lọc nhân sự" fill={CHART_COLORS[2]} radius={[4, 4, 0, 0]} />
+              )}
             </BarChart>
           )}
           {chartType === 'area' && (
             <AreaChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-              <YAxis tickFormatter={compactMoney} tick={{ fontSize: 11 }} />
+              <XAxis dataKey="date" tick={{ fontSize: 10 }} minTickGap={24} />
+              <YAxis tickFormatter={compactMoney} tick={{ fontSize: 10 }} width={48} />
               <Tooltip
                 formatter={(value) => fmt(Number(value || 0))}
                 contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb' }}
               />
               <Legend />
-              {activeItems.map((item, index) => (
-                <Area
-                  key={item}
-                  type="monotone"
-                  dataKey={item}
-                  name={item}
-                  stroke={CHART_COLORS[index % CHART_COLORS.length]}
-                  fill={CHART_COLORS[index % CHART_COLORS.length]}
-                  fillOpacity={0.15}
-                  strokeWidth={2}
-                />
-              ))}
+              <Area type="monotone" dataKey="totalRevenue" name="Tổng doanh thu" stroke={CHART_COLORS[0]} fill={CHART_COLORS[0]} fillOpacity={0.15} strokeWidth={2} />
+              {hasServiceFilter && (
+                <Area type="monotone" dataKey="filteredServiceRevenue" name="Doanh thu theo lọc sản phẩm" stroke={CHART_COLORS[1]} fill={CHART_COLORS[1]} fillOpacity={0.15} strokeWidth={2} />
+              )}
+              {hasPersonnelFilter && (
+                <Area type="monotone" dataKey="filteredPersonnelRevenue" name="Doanh thu theo lọc nhân sự" stroke={CHART_COLORS[2]} fill={CHART_COLORS[2]} fillOpacity={0.15} strokeWidth={2} />
+              )}
             </AreaChart>
           )}
         </ResponsiveContainer>
@@ -1067,124 +1132,287 @@ function ComparisonChartBlock({
   );
 }
 
+/** So sánh doanh thu theo ngày giữa các cơ sở (mỗi cơ sở một series). */
+function BranchDailyChartBlock({
+  branchData,
+  dateList,
+  chartType,
+  onChartTypeChange,
+}: {
+  branchData: RevenueByBranch[];
+  dateList: string[];
+  chartType: ChartVariant;
+  onChartTypeChange: (value: ChartVariant) => void;
+}) {
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [branchKeyword, setBranchKeyword] = useState('');
+  const branchItems = useMemo(() => branchData.map((b) => b.co_so), [branchData]);
+  const [selectedBranches, setSelectedBranches] = useState<Set<string> | null>(null);
+  const effectiveSelected = selectedBranches ?? new Set(branchItems);
+
+  const filteredBranches = useMemo(
+    () =>
+      branchItems.filter((name) =>
+        name.toLowerCase().includes(branchKeyword.trim().toLowerCase())
+      ),
+    [branchItems, branchKeyword]
+  );
+
+  const toggleBranch = (name: string) => {
+    setSelectedBranches((prev) => {
+      const base = prev ?? new Set(branchItems);
+      const next = new Set(base);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  };
+
+  const seriesByDate = useMemo(() => {
+    const map: Record<string, Record<string, number>> = {};
+    branchData.forEach((item) => {
+      map[item.co_so] = {};
+      item.daily_breakdown.forEach((d) => {
+        map[item.co_so][d.date] = d.revenue;
+      });
+    });
+    return map;
+  }, [branchData]);
+
+  const activeBranches = useMemo(() => {
+    const ordered = branchItems.filter((b) => effectiveSelected.has(b));
+    return ordered.slice(0, 8);
+  }, [branchItems, effectiveSelected]);
+
+  const chartData = useMemo(
+    () =>
+      dateList.map((date) => {
+        const row: Record<string, string | number> = { date: fmtDate(date) };
+        activeBranches.forEach((coSo) => {
+          row[coSo] = seriesByDate[coSo]?.[date] || 0;
+        });
+        return row;
+      }),
+    [activeBranches, dateList, seriesByDate]
+  );
+
+  const axisProps = {
+    tick: { fontSize: 10 } as const,
+    minTickGap: 24,
+  };
+
+  return (
+    <div className="bg-card border border-border rounded-xl p-3 sm:p-4 space-y-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <h3 className="text-[14px] font-black text-foreground">Theo cơ sở (theo ngày)</h3>
+        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2">
+          <div className="relative col-span-2 sm:col-span-1">
+            <button
+              type="button"
+              onClick={() => setIsFilterOpen((prev) => !prev)}
+              className="inline-flex w-full sm:w-auto items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border text-[11px] font-bold hover:bg-accent"
+            >
+              Bộ lọc cơ sở
+              <ChevronDown size={12} className={isFilterOpen ? 'rotate-180 transition-transform' : 'transition-transform'} />
+            </button>
+            {isFilterOpen && (
+              <div className="absolute left-0 sm:left-auto sm:right-0 top-10 z-20 w-[min(92vw,20rem)] sm:w-80 bg-card border border-border rounded-lg shadow-lg p-2.5 space-y-2">
+                <div className="space-y-1">
+                  <p className="text-[11px] font-bold text-foreground">Cơ sở</p>
+                  <input
+                    value={branchKeyword}
+                    onChange={(e) => setBranchKeyword(e.target.value)}
+                    placeholder="Tìm cơ sở..."
+                    className="w-full px-2.5 py-1.5 text-[12px] border border-border rounded-md bg-background outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  <div className="max-h-40 overflow-y-auto border border-border rounded-md p-2 grid grid-cols-1 gap-1">
+                    {filteredBranches.map((name) => {
+                      const checked = effectiveSelected.has(name);
+                      return (
+                        <label key={name} className="flex items-center gap-2 text-[12px] text-foreground cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleBranch(name)}
+                            className="h-3.5 w-3.5 rounded border-border text-primary focus:ring-primary"
+                          />
+                          <span className="truncate">{name}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="flex items-center justify-between pt-1 border-t border-border">
+                  <span className="text-[11px] text-muted-foreground">
+                    Đã chọn: {effectiveSelected.size}/{branchItems.length}
+                    {effectiveSelected.size > 8 && (
+                      <span className="text-amber-600 font-bold"> · Hiển thị tối đa 8 trên biểu đồ</span>
+                    )}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIsFilterOpen(false)}
+                    className="text-[11px] font-bold text-primary hover:underline"
+                  >
+                    Đóng
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+          <select
+            value={chartType}
+            onChange={(e) => onChartTypeChange(e.target.value as ChartVariant)}
+            className="w-full sm:w-auto px-2.5 py-1.5 rounded-md border border-border text-[11px] font-bold bg-background text-foreground"
+          >
+            <option value="line">Line</option>
+            <option value="bar">Bar</option>
+            <option value="area">Area</option>
+          </select>
+          <button
+            type="button"
+            onClick={() => setSelectedBranches(new Set(branchItems))}
+            className="w-full sm:w-auto px-2.5 py-1.5 rounded-md border border-border text-[11px] font-bold hover:bg-accent"
+          >
+            Chọn tất cả
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedBranches(new Set())}
+            className="w-full sm:w-auto px-2.5 py-1.5 rounded-md border border-border text-[11px] font-bold text-muted-foreground hover:bg-accent"
+          >
+            Bỏ chọn
+          </button>
+        </div>
+      </div>
+
+      {branchData.length === 0 ? (
+        <p className="text-[12px] text-muted-foreground italic py-8 text-center">
+          Không có dữ liệu theo cơ sở trong khoảng thời gian đã chọn.
+        </p>
+      ) : activeBranches.length === 0 ? (
+        <p className="text-[12px] text-muted-foreground italic py-8 text-center">
+          Chọn ít nhất một cơ sở trong bộ lọc để hiển thị biểu đồ.
+        </p>
+      ) : (
+        <div className="h-64 sm:h-72">
+          <ResponsiveContainer width="100%" height="100%">
+            {chartType === 'line' && (
+              <LineChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="date" {...axisProps} />
+                <YAxis tickFormatter={compactMoney} tick={{ fontSize: 10 }} width={48} />
+                <Tooltip
+                  formatter={(value) => fmt(Number(value || 0))}
+                  contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb' }}
+                />
+                <Legend />
+                {activeBranches.map((coSo, index) => (
+                  <Line
+                    key={coSo}
+                    type="monotone"
+                    dataKey={coSo}
+                    name={coSo}
+                    stroke={CHART_COLORS[index % CHART_COLORS.length]}
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                ))}
+              </LineChart>
+            )}
+            {chartType === 'bar' && (
+              <BarChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="date" {...axisProps} />
+                <YAxis tickFormatter={compactMoney} tick={{ fontSize: 10 }} width={48} />
+                <Tooltip
+                  formatter={(value) => fmt(Number(value || 0))}
+                  contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb' }}
+                />
+                <Legend />
+                {activeBranches.map((coSo, index) => (
+                  <Bar
+                    key={coSo}
+                    dataKey={coSo}
+                    name={coSo}
+                    fill={CHART_COLORS[index % CHART_COLORS.length]}
+                    radius={[4, 4, 0, 0]}
+                  />
+                ))}
+              </BarChart>
+            )}
+            {chartType === 'area' && (
+              <AreaChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="date" {...axisProps} />
+                <YAxis tickFormatter={compactMoney} tick={{ fontSize: 10 }} width={48} />
+                <Tooltip
+                  formatter={(value) => fmt(Number(value || 0))}
+                  contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb' }}
+                />
+                <Legend />
+                {activeBranches.map((coSo, index) => (
+                  <Area
+                    key={coSo}
+                    type="monotone"
+                    dataKey={coSo}
+                    name={coSo}
+                    stroke={CHART_COLORS[index % CHART_COLORS.length]}
+                    fill={CHART_COLORS[index % CHART_COLORS.length]}
+                    fillOpacity={0.15}
+                    strokeWidth={2}
+                  />
+                ))}
+              </AreaChart>
+            )}
+          </ResponsiveContainer>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RevenueComparisonView({
   startDate,
   endDate,
+  dayData,
   serviceData,
   branchData,
   personnelData,
 }: {
   startDate: string;
   endDate: string;
+  dayData: RevenueByDay[];
   serviceData: RevenueByService[];
   branchData: RevenueByBranch[];
   personnelData: RevenueByPersonnel[];
 }) {
   const dateList = useMemo(() => buildDateRange(startDate, endDate), [startDate, endDate]);
-
-  const serviceItems = useMemo(() => serviceData.map((s) => s.san_pham), [serviceData]);
-  const branchItems = useMemo(() => branchData.map((b) => b.co_so), [branchData]);
-  const personnelItems = useMemo(() => personnelData.map((p) => p.nhan_vien_name), [personnelData]);
-
-  const [selectedServices, setSelectedServices] = useState<Set<string>>(new Set());
-  const [selectedBranches, setSelectedBranches] = useState<Set<string>>(new Set());
-  const [selectedPersonnel, setSelectedPersonnel] = useState<Set<string>>(new Set());
-  const [serviceChartType, setServiceChartType] = useState<ChartVariant>('line');
-  const [personnelChartType, setPersonnelChartType] = useState<ChartVariant>('bar');
-  const [branchChartType, setBranchChartType] = useState<ChartVariant>('area');
-
-  useEffect(() => setSelectedServices(new Set(serviceItems.slice(0, 8))), [serviceItems]);
-  useEffect(() => setSelectedBranches(new Set(branchItems.slice(0, 8))), [branchItems]);
-  useEffect(() => setSelectedPersonnel(new Set(personnelItems.slice(0, 8))), [personnelItems]);
-
-  const serviceSeriesByDate = useMemo(() => {
-    const map: Record<string, Record<string, number>> = {};
-    serviceData.forEach((item) => {
-      map[item.san_pham] = {};
-      item.daily_breakdown.forEach((daily) => {
-        map[item.san_pham][daily.date] = daily.revenue;
-      });
-    });
-    return map;
-  }, [serviceData]);
-
-  const branchSeriesByDate = useMemo(() => {
-    const map: Record<string, Record<string, number>> = {};
-    branchData.forEach((item) => {
-      map[item.co_so] = {};
-      item.daily_breakdown.forEach((daily) => {
-        map[item.co_so][daily.date] = daily.revenue;
-      });
-    });
-    return map;
-  }, [branchData]);
-
-  const personnelSeriesByDate = useMemo(() => {
-    const map: Record<string, Record<string, number>> = {};
-    personnelData.forEach((item) => {
-      map[item.nhan_vien_name] = {};
-      item.daily_breakdown.forEach((daily) => {
-        map[item.nhan_vien_name][daily.date] = daily.revenue;
-      });
-    });
-    return map;
-  }, [personnelData]);
-
-  const toggleSetItem = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, item: string) => {
-    setter((prev) => {
-      const next = new Set(prev);
-      if (next.has(item)) next.delete(item);
-      else next.add(item);
-      return next;
-    });
-  };
+  const [chartType, setChartType] = useState<ChartVariant>('bar');
 
   return (
     <div className="space-y-4">
       <div className="bg-muted/30 border border-border rounded-xl p-3">
         <p className="text-[12px] text-muted-foreground">
-          Biểu đồ so sánh doanh thu theo ngày trong khoảng <strong>{fmtDate(startDate)}</strong> đến <strong>{fmtDate(endDate)}</strong>. 
-          Mỗi biểu đồ hỗ trợ lọc bằng tickbox theo nhóm tương ứng.
+          Biểu đồ thể hiện doanh thu theo ngày trong khoảng <strong>{fmtDate(startDate)}</strong> đến <strong>{fmtDate(endDate)}</strong>. 
+          Sản phẩm và nhân sự được chuyển về bộ lọc để tiện theo dõi; cơ sở có biểu đồ so sánh riêng bên dưới.
         </p>
       </div>
 
-      <ComparisonChartBlock
-        title="So sánh doanh thu theo ngày — Sản phẩm"
-        items={serviceItems}
-        selectedItems={selectedServices}
-        onToggleItem={(item) => toggleSetItem(setSelectedServices, item)}
-        onSelectAll={() => setSelectedServices(new Set(serviceItems))}
-        onClearAll={() => setSelectedServices(new Set())}
-        seriesByDate={serviceSeriesByDate}
+      <DailyRevenueChartBlock
+        dayData={dayData}
+        serviceData={serviceData}
+        personnelData={personnelData}
         dateList={dateList}
-        chartType={serviceChartType}
-        onChartTypeChange={setServiceChartType}
+        chartType={chartType}
+        onChartTypeChange={setChartType}
       />
 
-      <ComparisonChartBlock
-        title="So sánh doanh thu theo ngày — Nhân sự"
-        items={personnelItems}
-        selectedItems={selectedPersonnel}
-        onToggleItem={(item) => toggleSetItem(setSelectedPersonnel, item)}
-        onSelectAll={() => setSelectedPersonnel(new Set(personnelItems))}
-        onClearAll={() => setSelectedPersonnel(new Set())}
-        seriesByDate={personnelSeriesByDate}
+      <BranchDailyChartBlock
+        branchData={branchData}
         dateList={dateList}
-        chartType={personnelChartType}
-        onChartTypeChange={setPersonnelChartType}
-      />
-
-      <ComparisonChartBlock
-        title="So sánh doanh thu theo ngày — Cơ sở"
-        items={branchItems}
-        selectedItems={selectedBranches}
-        onToggleItem={(item) => toggleSetItem(setSelectedBranches, item)}
-        onSelectAll={() => setSelectedBranches(new Set(branchItems))}
-        onClearAll={() => setSelectedBranches(new Set())}
-        seriesByDate={branchSeriesByDate}
-        dateList={dateList}
-        chartType={branchChartType}
-        onChartTypeChange={setBranchChartType}
+        chartType={chartType}
+        onChartTypeChange={setChartType}
       />
     </div>
   );
@@ -1200,7 +1428,7 @@ const RevenueReportPage: React.FC = () => {
 
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
-    d.setMonth(d.getMonth() - 1);
+    d.setDate(d.getDate() - 2);
     return d.toISOString().split('T')[0];
   });
   const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
@@ -1322,6 +1550,7 @@ const RevenueReportPage: React.FC = () => {
                   <RevenueComparisonView
                     startDate={startDate}
                     endDate={endDate}
+                    dayData={dayData}
                     serviceData={serviceData}
                     branchData={branchData}
                     personnelData={personnelData.personnel}
