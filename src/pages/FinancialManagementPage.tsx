@@ -152,37 +152,6 @@ const FinancialManagementPage: React.FC = () => {
     });
   };
 
-  /** Dùng cho lối tắt khoảng ngày (nếu còn trong bản build); tránh ReferenceError nếu JSX cũ còn tham chiếu. */
-  const setFilterRange = (start: string, end: string) => {
-    if (start <= end) {
-      setFilterDateFrom(start);
-      setFilterDateTo(end);
-    } else {
-      setFilterDateFrom(end);
-      setFilterDateTo(start);
-    }
-    setCurrentPage(1);
-  };
-  const setPresetDays = (n: number) => {
-    const e = new Date();
-    e.setHours(0, 0, 0, 0);
-    const s = new Date(e);
-    s.setDate(s.getDate() - (n - 1));
-    setFilterRange(s.toISOString().slice(0, 10), e.toISOString().slice(0, 10));
-  };
-  const setThisMonth = () => {
-    const t = new Date();
-    const s = new Date(t.getFullYear(), t.getMonth(), 1);
-    const e = new Date();
-    setFilterRange(s.toISOString().slice(0, 10), e.toISOString().slice(0, 10));
-  };
-  const setPrevMonth = () => {
-    const t = new Date();
-    const s = new Date(t.getFullYear(), t.getMonth() - 1, 1);
-    const e = new Date(t.getFullYear(), t.getMonth(), 0);
-    setFilterRange(s.toISOString().slice(0, 10), e.toISOString().slice(0, 10));
-  };
-
   const customerOptions = useMemo(() => {
     return customers.map(c => {
       const searchParts = [c.ho_va_ten];

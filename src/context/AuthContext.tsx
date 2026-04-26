@@ -35,8 +35,8 @@ export interface NhanVien {
 }
 
 interface AuthContextType {
-  session: Session | null;
-  supabaseUser: SupabaseUser | null;
+  session: AppSession | null;
+  supabaseUser: AppUser | null;
   nhanVien: NhanVien | null;
   isAdmin: boolean;
   isLoading: boolean;
