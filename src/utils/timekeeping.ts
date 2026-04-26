@@ -1,8 +1,13 @@
+/** Mốc kết thúc ca: sau thời điểm này, phần thời gian từ đây đến giờ ra mới xét tăng ca (nếu ≥ 30p). */
+export const MOC_TANG_CA_TINH_TU = 19 * 60 + 30; // 19:30
+/** Tăng ca chỉ ghi nhận khi (giờ ra − 19:30) ≥ số phút này. */
+export const PHUT_TANG_CA_TOI_THIEU = 30;
+
 export interface AttendanceStatus {
   isLate: boolean;          // Có đi muộn không (checkin > 07:40)
   lateMinutes: number;      // Số phút đi muộn (so với mốc 07:30 gốc)
   isAbsent: boolean;        // Không có dữ liệu ở Ngày đó => Vắng mặt
-  overtimeMinutes: number;  // Tăng ca buổi trưa (12:00-14:00) + Tăng ca buổi tối sau 19h30 (> 30p)
+  overtimeMinutes: number;  // (Giờ ra − 19:30) tính bằng phút, chỉ khi ≥ 30p
   overtimeFormatted: string;// Chuỗi format VD: "1h 30p"
 }
 
@@ -46,39 +51,13 @@ export const calculateAttendanceStatus = (checkin: string | null, checkout: stri
     result.lateMinutes = inMins - 450; // Tính theo mốc 07:30
   }
 
-  // === 2. TÍNH CHỚM CA / TĂNG CA ===
-  // Cấu hình mốc: Sáng (07:30 - 12:00), Chiều (14:00 - 19:30)
-  // Nghĩa là: Trưa rảnh = 12:00 -> 14:00 (720 -> 840)
-  // Tối kết thúc = 19:30 (1170)
-  
-  let ot = 0;
-
-  // Trường hợp 1: Tăng ca trưa (chỉ tính nếu checkin trước mốc trưa và checkout sau mốc trưa, hoặc đi làm thấu trưa)
-  if (inMins > 0 && outMins > 0) {
-     // Họ làm ở lại cả buổi trưa
-     if (inMins <= 720 && outMins >= 840) {
-       ot += 120; // 2 tiếng nghỉ trưa làm hết
-     } 
-     // Check out muộn phần trưa, VD 12:30 (750)
-     else if (inMins <= 720 && outMins > 720 && outMins < 840) {
-       ot += (outMins - 720);
-     }
-     // Check in sớm buổi trưa, VD 13:00 (780)
-     else if (inMins > 720 && inMins < 840 && outMins >= 840) {
-       ot += (840 - inMins);
-     }
-  }
-
-  // Trường hợp 2: Tăng ca tối
-  // Nếu checkout > 20:00 (1200) thì tính số phút tính từ 19:30 (1170)
-  if (outMins >= 1200) { 
-    ot += (outMins - 1170);
-  }
-
-  // Làm tròn hoặc gom OT (nếu tổng OT > 30p mới trả kết quả? Thường cty tính >30p buổi tối mới trả. Trưa thì ko rõ, mình cứ set OT total > 30 để valid chung)
-  if (ot >= 30) {
-    result.overtimeMinutes = ot;
-    result.overtimeFormatted = formatMinutesToHours(ot);
+  // === 2. TĂNG CA: giờ ra − 19:30; nếu < 30 phút thì = 0 (không tính)
+  if (outMins > 0) {
+    const phutSau1930 = outMins - MOC_TANG_CA_TINH_TU;
+    if (phutSau1930 >= PHUT_TANG_CA_TOI_THIEU) {
+      result.overtimeMinutes = phutSau1930;
+      result.overtimeFormatted = formatMinutesToHours(phutSau1930);
+    }
   }
 
   return result;
