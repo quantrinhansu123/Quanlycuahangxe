@@ -10,6 +10,7 @@ import {
   History,
   List,
   Loader2,
+  Plus,
   Search,
   Trash2,
   Upload,
@@ -23,7 +24,7 @@ import * as XLSX from 'xlsx';
 import Pagination from '../components/Pagination';
 import { useAuth } from '../context/AuthContext';
 import type { AttendanceRecord } from '../data/attendanceData';
-import { bulkUpsertAttendanceRecords, deleteAttendanceRecord, getAttendancePaginated, getAttendanceRecords, upsertAttendanceRecord } from '../data/attendanceData';
+import { bulkUpsertAttendanceRecords, createAttendanceRecord, deleteAttendanceRecord, getAttendancePaginated, getAttendanceRecords, upsertAttendanceRecord } from '../data/attendanceData';
 import { getPersonnel, type NhanSu } from '../data/personnelData';
 import { calculateAttendanceStatus } from '../utils/timekeeping';
 
@@ -50,6 +51,7 @@ const AttendanceManagementPage: React.FC = () => {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isNewRecord, setIsNewRecord] = useState(false);
   const [formData, setFormData] = useState<Partial<AttendanceRecord>>({});
   const [originalRecord, setOriginalRecord] = useState<AttendanceRecord | null>(null);
   const [showHistoryRecord, setShowHistoryRecord] = useState<AttendanceRecord | null>(null);
@@ -164,7 +166,7 @@ const AttendanceManagementPage: React.FC = () => {
     } finally {
       if (showLoading) setLoading(false);
     }
-  }, [currentPage, pageSize, debouncedSearch, selectedStaff, startDate, endDate]);
+  }, [currentPage, pageSize, debouncedSearch, selectedStaff, startDate, endDate, isAdmin, nhanVien?.ho_ten]);
 
   useEffect(() => {
     loadRecords(true);
@@ -196,13 +198,30 @@ const AttendanceManagementPage: React.FC = () => {
   };
 
   const handleOpenModal = (record: AttendanceRecord) => {
-    setOriginalRecord(record);
-    setFormData({ ...record });
+    const isMockAbsent = (record as AttendanceRecord & { isMockAbsent?: boolean }).isMockAbsent;
+    if (isMockAbsent) {
+      setIsNewRecord(true);
+      setOriginalRecord(null);
+      setFormData({
+        nhan_su: record.nhan_su,
+        ngay: record.ngay || '',
+        checkin: null,
+        checkout: null,
+        anh: record.anh || null,
+        vi_tri: null,
+        id_cham_cong: null
+      });
+    } else {
+      setIsNewRecord(false);
+      setOriginalRecord(record);
+      setFormData({ ...record });
+    }
     setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
+    setIsNewRecord(false);
   };
 
   const getLocation = () => {
@@ -244,6 +263,25 @@ const AttendanceManagementPage: React.FC = () => {
     try {
       const updatedData = { ...formData };
 
+      if (isNewRecord) {
+        if (!updatedData.nhan_su || !updatedData.ngay) {
+          alert('Vui lòng chọn nhân sự và ngày.');
+          return;
+        }
+        await createAttendanceRecord({
+          nhan_su: updatedData.nhan_su,
+          ngay: updatedData.ngay,
+          checkin: updatedData.checkin ?? null,
+          checkout: updatedData.checkout ?? null,
+          anh: updatedData.anh ?? null,
+          vi_tri: updatedData.vi_tri ?? null,
+          id_cham_cong: updatedData.id_cham_cong ?? undefined
+        });
+        await loadRecords(false);
+        handleCloseModal();
+        return;
+      }
+
       // If editing existing record, track history
       if (originalRecord) {
         const changes: { truong: string; gia_tri_cu: any; gia_tri_moi: any }[] = [];
@@ -252,7 +290,8 @@ const AttendanceManagementPage: React.FC = () => {
           { key: 'nhan_su', label: 'Nhân sự' },
           { key: 'ngay', label: 'Ngày' },
           { key: 'checkin', label: 'Giờ vào' },
-          { key: 'checkout', label: 'Giờ ra' }
+          { key: 'checkout', label: 'Giờ ra' },
+          { key: 'vi_tri', label: 'Vị trí' },
         ];
 
         fieldsToTrack.forEach(({ key, label }) => {
@@ -485,6 +524,8 @@ const AttendanceManagementPage: React.FC = () => {
     });
   }, [records]);
 
+  const tableColSpan = 1 + visibleColumns.length;
+
   return (
     <div className="w-full flex-1 animate-in fade-in slide-in-from-bottom-4 duration-500 text-muted-foreground font-sans">
       <div className="space-y-4">
@@ -663,7 +704,7 @@ const AttendanceManagementPage: React.FC = () => {
               <tbody className="divide-y divide-slate-100 text-[13px]">
                 {loading ? (
                   <tr>
-                    <td colSpan={12} className="px-4 py-12 text-center text-muted-foreground">
+                    <td colSpan={tableColSpan} className="px-4 py-12 text-center text-muted-foreground">
                       <Loader2 className="animate-spin inline-block mr-2" size={20} />
                       Đang tải dữ liệu...
                     </td>
@@ -671,7 +712,7 @@ const AttendanceManagementPage: React.FC = () => {
                 ) : groupedRecords.map(([date, dateRecords]) => (
                   <React.Fragment key={date}>
                     <tr className="bg-muted/40 font-semibold border-y border-border">
-                       <td colSpan={12} className="px-4 py-2 text-primary font-bold bg-primary/5 uppercase text-[12px]">
+                       <td colSpan={tableColSpan} className="px-4 py-2 text-primary font-bold bg-primary/5 uppercase text-[12px]">
                          <div className="flex items-center justify-between w-full md:w-auto md:justify-start md:gap-6">
                            <div className="flex items-center gap-2">
                               <Calendar size={14} className="text-primary/70" />
@@ -748,25 +789,48 @@ const AttendanceManagementPage: React.FC = () => {
                         </td>
                       )}
                       {visibleColumns.includes('actions') && (
-                        <td className="px-4 py-4">
-                          {!isMockAbsent && (
-                            <div className="flex items-center justify-center gap-4">
+                        <td className="px-4 py-4 min-w-[8.5rem]">
+                          {isMockAbsent ? (
+                            <div className="flex items-center justify-center">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenModal(record)}
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-2.5 py-1.5 text-[12px] font-bold text-primary hover:bg-primary/20"
+                                title="Bổ sung bản ghi chấm công cho ngày này"
+                              >
+                                <Plus size={16} className="shrink-0" />
+                                Bổ sung
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-center gap-2 sm:gap-3 flex-nowrap">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenModal(record)}
+                                className="shrink-0 p-1 text-primary hover:text-blue-700"
+                                title="Sửa bản ghi"
+                              >
+                                <Edit2 size={18} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => (record.lich_su_sua && record.lich_su_sua.length > 0 ? setShowHistoryRecord(record) : undefined)}
+                                disabled={!record.lich_su_sua || record.lich_su_sua.length === 0}
+                                className="shrink-0 p-1 text-orange-500 hover:text-orange-600 disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:text-orange-500"
+                                title={record.lich_su_sua && record.lich_su_sua.length > 0 ? 'Xem lịch sử sửa' : 'Chưa có lịch sử sửa'}
+                              >
+                                <History size={18} />
+                              </button>
                               {isAdmin && (
-                                <button onClick={() => handleOpenModal(record)} className="text-primary hover:text-blue-700" title="Sửa bản ghi">
-                                  <Edit2 size={18} />
-                                </button>
-                              )}
-                              {(record.lich_su_sua && record.lich_su_sua.length > 0) && (
-                                <button onClick={() => setShowHistoryRecord(record)} className="text-orange-500 hover:text-orange-600" title="Xem lịch sử sửa">
-                                  <History size={18} />
-                                </button>
-                              )}
-                              {isAdmin && (
-                                <button onClick={() => handleDelete(record.id)} className="text-destructive hover:text-destructive/80" title="Xoá bản ghi">
+                                <button
+                                  type="button"
+                                  onClick={() => handleDelete(record.id)}
+                                  className="shrink-0 p-1 text-destructive hover:text-destructive/80"
+                                  title="Xoá bản ghi"
+                                >
                                   <Trash2 size={18} />
                                 </button>
                               )}
-                              {!isAdmin && <span className="text-[11px] italic text-slate-400">Read-only</span>}
                             </div>
                           )}
                         </td>
@@ -778,7 +842,7 @@ const AttendanceManagementPage: React.FC = () => {
                 ))}
                 {!loading && records.length === 0 && (
                   <tr>
-                    <td colSpan={12} className="px-4 py-8 text-center text-muted-foreground">
+                    <td colSpan={tableColSpan} className="px-4 py-8 text-center text-muted-foreground">
                       Không tìm thấy bản ghi chấm công nào.
                     </td>
                   </tr>
@@ -877,19 +941,36 @@ const AttendanceManagementPage: React.FC = () => {
                       )}
                     </div>
                     {/* Actions */}
-                    {!isMockAbsent && (
-                      <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
-                        <button onClick={() => handleOpenModal(record)} className="p-1.5 rounded-lg text-primary hover:bg-primary/10 transition-colors" title="Sửa">
+                    {isMockAbsent ? (
+                      <div className="flex flex-col items-end gap-1 shrink-0 pt-0.5">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenModal(record)}
+                          className="inline-flex items-center gap-1 rounded-lg border border-primary/40 bg-primary/10 px-2 py-1.5 text-[11px] font-bold text-primary"
+                        >
+                          <Plus size={14} />
+                          Bổ sung
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1 shrink-0 pt-0.5">
+                        <button type="button" onClick={() => handleOpenModal(record)} className="p-1.5 rounded-lg text-primary hover:bg-primary/10 transition-colors" title="Sửa">
                           <Edit2 size={16} />
                         </button>
-                        {(record.lich_su_sua && record.lich_su_sua.length > 0) && (
-                          <button onClick={() => setShowHistoryRecord(record)} className="p-1.5 rounded-lg text-orange-500 hover:bg-orange-50 transition-colors" title="Lịch sử">
-                            <History size={16} />
+                        <button
+                          type="button"
+                          onClick={() => (record.lich_su_sua && record.lich_su_sua.length > 0 ? setShowHistoryRecord(record) : undefined)}
+                          disabled={!record.lich_su_sua || record.lich_su_sua.length === 0}
+                          className="p-1.5 rounded-lg text-orange-500 hover:bg-orange-50 transition-colors disabled:opacity-35 disabled:cursor-not-allowed"
+                          title={record.lich_su_sua && record.lich_su_sua.length > 0 ? 'Lịch sử' : 'Chưa có lịch sử'}
+                        >
+                          <History size={16} />
+                        </button>
+                        {isAdmin && (
+                          <button type="button" onClick={() => handleDelete(record.id)} className="p-1.5 rounded-lg text-destructive hover:bg-red-50 transition-colors" title="Xóa">
+                            <Trash2 size={16} />
                           </button>
                         )}
-                        <button onClick={() => handleDelete(record.id)} className="p-1.5 rounded-lg text-destructive hover:bg-red-50 transition-colors" title="Xóa">
-                          <Trash2 size={16} />
-                        </button>
                       </div>
                     )}
                   </div>
@@ -919,7 +1000,7 @@ const AttendanceManagementPage: React.FC = () => {
             <div className="px-8 py-5 border-b border-border flex items-center justify-between bg-muted/30 shrink-0">
               <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
                 <Edit2 size={20} className="text-primary" />
-                Chỉnh sửa bản ghi
+                {isNewRecord ? 'Thêm bản ghi chấm công' : 'Chỉnh sửa bản ghi'}
               </h3>
               <button onClick={handleCloseModal} className="p-2 rounded-full hover:bg-muted transition-colors text-muted-foreground"><X size={20} /></button>
             </div>
@@ -949,29 +1030,19 @@ const AttendanceManagementPage: React.FC = () => {
                     <User size={14} className="text-primary/70" />
                     Nhân sự <span className="text-red-500">*</span>
                   </label>
-                  {isAdmin ? (
-                    <select
-                      value={formData.nhan_su || ''}
-                      onChange={(e) => setFormData(prev => ({ ...prev, nhan_su: e.target.value }))}
-                      className="w-full px-4 py-2.5 bg-card border border-border rounded-xl font-bold text-[14px] text-foreground focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                    >
-                      <option value="">Chọn nhân sự</option>
-                      {formData.nhan_su && !personnel.some(p => p.ho_ten === formData.nhan_su) && (
-                        <option value={formData.nhan_su}>{formData.nhan_su}</option>
-                      )}
-                      {personnel.map(p => (
-                        <option key={p.id} value={p.ho_ten}>{p.ho_ten}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      type="text"
-                      value={formData.nhan_su || ''}
-                      disabled
-                      className="w-full px-4 py-2.5 bg-muted/30 border border-border rounded-xl font-bold text-[14px] text-foreground cursor-not-allowed opacity-80"
-                    />
-                  )}
-                  {!isAdmin && <p className="text-[10px] text-muted-foreground italic">Tự động lấy theo tài khoản đăng nhập</p>}
+                  <select
+                    value={formData.nhan_su || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, nhan_su: e.target.value }))}
+                    className="w-full px-4 py-2.5 bg-card border border-border rounded-xl font-bold text-[14px] text-foreground focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                  >
+                    <option value="">Chọn nhân sự</option>
+                    {formData.nhan_su && !personnel.some(p => p.ho_ten === formData.nhan_su) && (
+                      <option value={formData.nhan_su}>{formData.nhan_su}</option>
+                    )}
+                    {personnel.map(p => (
+                      <option key={p.id} value={p.ho_ten}>{p.ho_ten}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="space-y-1.5">
@@ -979,62 +1050,72 @@ const AttendanceManagementPage: React.FC = () => {
                     <Calendar size={14} className="text-primary/70" />
                     Ngày <span className="text-red-500">*</span>
                   </label>
-                  {isAdmin ? (
-                    <input
-                      type="date"
-                      value={formData.ngay || ''}
-                      onChange={(e) => setFormData(prev => ({ ...prev, ngay: e.target.value }))}
-                      className="w-full px-4 py-2.5 bg-card border border-border rounded-xl font-bold text-[14px] text-foreground focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                    />
-                  ) : (
-                    <div className="w-full px-4 py-2.5 bg-muted/30 border border-border rounded-xl font-bold text-[14px] text-foreground cursor-not-allowed opacity-80 flex items-center">
-                      {formData.ngay ? new Date(formData.ngay).toLocaleDateString('vi-VN') : '—'}
-                    </div>
-                  )}
+                  <input
+                    type="date"
+                    value={formData.ngay || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, ngay: e.target.value }))}
+                    className="w-full px-4 py-2.5 bg-card border border-border rounded-xl font-bold text-[14px] text-foreground focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                  />
                 </div>
 
-                {isAdmin && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                        <Clock size={14} className="text-emerald-600" />
-                        Giờ vào
-                      </label>
-                      <input
-                        type="time"
-                        step="1"
-                        value={formData.checkin || ''}
-                        onChange={(e) => setFormData(prev => ({ ...prev, checkin: e.target.value }))}
-                        className="w-full px-4 py-2.5 bg-card border border-border rounded-xl font-bold text-[14px] text-foreground focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                        <Clock size={14} className="text-orange-600" />
-                        Giờ ra
-                      </label>
-                      <input
-                        type="time"
-                        step="1"
-                        value={formData.checkout || ''}
-                        onChange={(e) => setFormData(prev => ({ ...prev, checkout: e.target.value }))}
-                        className="w-full px-4 py-2.5 bg-card border border-border rounded-xl font-bold text-[14px] text-foreground focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                      />
-                    </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                      <Clock size={14} className="text-emerald-600" />
+                      Giờ vào
+                    </label>
+                    <input
+                      type="time"
+                      step="1"
+                      value={formData.checkin || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, checkin: e.target.value }))}
+                      className="w-full px-4 py-2.5 bg-card border border-border rounded-xl font-bold text-[14px] text-foreground focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                    />
                   </div>
-                )}
+                  <div className="space-y-1.5">
+                    <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                      <Clock size={14} className="text-orange-600" />
+                      Giờ ra
+                    </label>
+                    <input
+                      type="time"
+                      step="1"
+                      value={formData.checkout || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, checkout: e.target.value }))}
+                      className="w-full px-4 py-2.5 bg-card border border-border rounded-xl font-bold text-[14px] text-foreground focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider">Vị trí (tọa độ / mô tả)</label>
+                    <button
+                      type="button"
+                      onClick={getLocation}
+                      className="text-[11px] font-bold text-primary hover:underline"
+                    >
+                      Lấy vị trí
+                    </button>
+                  </div>
+                  <textarea
+                    value={formData.vi_tri || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, vi_tri: e.target.value || null }))}
+                    rows={2}
+                    placeholder="Ví dụ: 21.273, 105.834"
+                    className="w-full px-4 py-2.5 bg-card border border-border rounded-xl text-[14px] text-foreground focus:ring-2 focus:ring-primary/20 outline-none transition-all resize-y min-h-[72px]"
+                  />
+                </div>
               </div>
 
                 <div className="mt-10 flex items-center justify-end gap-3 pt-6 border-t border-border">
                   <button type="button" onClick={handleCloseModal} className="px-6 py-2.5 rounded-xl text-sm font-bold text-muted-foreground hover:bg-muted border border-border">Đóng lại</button>
-                  {isAdmin && (
-                    <button
-                      type="submit"
-                      className="flex items-center gap-2 px-8 py-2.5 rounded-xl text-sm font-bold text-white bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all active:scale-95"
-                    >
-                      <Edit2 size={16} /> Lưu thay đổi
-                    </button>
-                  )}
+                  <button
+                    type="submit"
+                    className="flex items-center gap-2 px-8 py-2.5 rounded-xl text-sm font-bold text-white bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all active:scale-95"
+                  >
+                    <Edit2 size={16} /> {isNewRecord ? 'Lưu bản ghi' : 'Lưu thay đổi'}
+                  </button>
                 </div>
             </form>
           </div>

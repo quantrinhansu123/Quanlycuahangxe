@@ -4,7 +4,10 @@ export interface NhanSu {
   id: string;
   id_nhan_su?: string | null;
   ho_ten: string;
-  email: string | null;
+  /** Giữ trên bảng cho tài khoản/legacy; không hiển thị trên form quản lý nhân sự. */
+  email?: string | null;
+  ngay_vao_lam?: string | null;
+  luong_co_ban?: number | null;
   sdt: string | null;
   password?: string | null;
   hinh_anh: string | null;
@@ -119,7 +122,7 @@ export const getPersonnelPaginated = async (
     .select('*', { count: 'exact' });
 
   if (searchQuery) {
-    query = query.or(`ho_ten.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,sdt.ilike.%${searchQuery}%,id_nhan_su.ilike.%${searchQuery}%`);
+    query = query.or(`ho_ten.ilike.%${searchQuery}%,sdt.ilike.%${searchQuery}%,id_nhan_su.ilike.%${searchQuery}%`);
   }
 
   if (filters?.branches?.length) {
@@ -144,29 +147,23 @@ export const getPersonnelPaginated = async (
     totalCount: count || 0
   };
 };
+/** Tạo mã NV-#### kế tiếp: lấy max số trong các mã đúng dạng NV-số (không phụ thuộc sort chuỗi). */
 export const getNextPersonnelCode = async (): Promise<string> => {
-  const { data, error } = await supabase
-    .from('nhan_su')
-    .select('id_nhan_su')
-    .order('id_nhan_su', { ascending: false })
-    .limit(1);
+  const { data, error } = await supabase.from('nhan_su').select('id_nhan_su');
 
   if (error) {
     console.error('Error fetching next personnel code:', error);
     return 'NV-0001';
   }
 
-  if (!data || data.length === 0 || !data[0].id_nhan_su) {
-    return 'NV-0001';
+  if (!data?.length) return 'NV-0001';
+
+  let max = 0;
+  for (const row of data) {
+    const m = String(row.id_nhan_su || '').match(/^NV-(\d+)$/i);
+    if (m) max = Math.max(max, parseInt(m[1], 10));
   }
 
-  const lastCode = data[0].id_nhan_su;
-  const match = lastCode.match(/^NV-(\d+)$/);
-  
-  if (match) {
-    const nextNumber = parseInt(match[1]) + 1;
-    return `NV-${nextNumber.toString().padStart(4, '0')}`;
-  }
-
-  return `NV-${(data.length + 1).toString().padStart(4, '0')}`;
+  if (max === 0) return 'NV-0001';
+  return `NV-${String(max + 1).padStart(4, '0')}`;
 };

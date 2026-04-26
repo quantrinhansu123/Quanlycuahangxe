@@ -22,10 +22,13 @@ export interface ThuChi {
   updated_at?: string;
 }
 
-export const getTransactions = async (): Promise<ThuChi[]> => {
-  const { data, error } = await supabase
+export const getTransactions = async (range?: { from: string; to: string }): Promise<ThuChi[]> => {
+  let query = supabase
     .from('thu_chi')
-    .select('*')
+    .select('*');
+  if (range?.from) query = query.gte('ngay', range.from);
+  if (range?.to) query = query.lte('ngay', range.to);
+  const { data, error } = await query
     .order('ngay', { ascending: false })
     .order('gio', { ascending: false });
 
@@ -169,6 +172,69 @@ export const deleteSalesTransactions = async (): Promise<void> => {
 export interface TransactionFilters {
   branches?: string[];
   types?: string[];
+  /** yyyy-MM-dd */
+  dateFrom?: string;
+  /** yyyy-MM-dd */
+  dateTo?: string;
+}
+
+/** Same filters for list, count, and batched sum (PostgREST default row cap ~1000 break naive "fetch all"). */
+function applyTransactionFilters(
+  query: any,
+  searchQuery: string | undefined,
+  filters: TransactionFilters | undefined
+) {
+  if (searchQuery) {
+    query = query.or(
+      `danh_muc.ilike.%${searchQuery}%,ghi_chu.ilike.%${searchQuery}%,id_don.ilike.%${searchQuery}%,id_khach_hang.ilike.%${searchQuery}%,so_tien::text.ilike.%${searchQuery}%,nguoi_nhan.ilike.%${searchQuery}%,nguoi_chi.ilike.%${searchQuery}%`
+    );
+  }
+  if (filters?.branches?.length) {
+    query = query.in('co_so', filters.branches);
+  }
+  if (filters?.types?.length) {
+    query = query.in('loai_phieu', filters.types);
+  }
+  if (filters?.dateFrom) {
+    query = query.gte('ngay', filters.dateFrom);
+  }
+  if (filters?.dateTo) {
+    query = query.lte('ngay', filters.dateTo);
+  }
+  return query;
+}
+
+const THU_CHI_BATCH = 1000;
+
+async function sumTransactionTotalsForFilters(
+  searchQuery: string | undefined,
+  filters: TransactionFilters | undefined
+): Promise<{ totalIncome: number; totalExpense: number }> {
+  let totalIncome = 0;
+  let totalExpense = 0;
+  let lastId: string | null = null;
+  for (;;) {
+    let q: any = supabase.from('thu_chi').select('id, so_tien, loai_phieu, trang_thai');
+    q = applyTransactionFilters(q, searchQuery, filters);
+    if (lastId) q = q.gt('id', lastId);
+    const { data: batch, error } = await q
+      .order('id', { ascending: true })
+      .limit(THU_CHI_BATCH);
+    if (error) {
+      console.error('Error aggregating thu_chi totals:', error);
+      throw error;
+    }
+    if (!batch?.length) break;
+    for (const t of batch) {
+      if (t.trang_thai === 'Hoàn thành') {
+        if (t.loai_phieu === 'phiếu thu') totalIncome += Number(t.so_tien);
+        else if (t.loai_phieu === 'phiếu chi') totalExpense += Number(t.so_tien);
+      }
+    }
+    lastId = batch[batch.length - 1].id;
+    if (batch.length < THU_CHI_BATCH) break;
+  }
+  return { totalIncome, totalExpense };
 }
 
 export const getTransactionsPaginated = async (
@@ -176,80 +242,61 @@ export const getTransactionsPaginated = async (
   pageSize: number,
   searchQuery?: string,
   filters?: TransactionFilters
-): Promise<{ data: ThuChi[], totalCount: number, totalIncome: number, totalExpense: number }> => {
+): Promise<{ data: ThuChi[]; totalCount: number; totalIncome: number; totalExpense: number }> => {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
-  // 1. Build the base query for the main list
-  let query = supabase
-    .from('thu_chi')
-    .select('*', { count: 'exact' });
+  const paged = (async () => {
+    let dataQuery: any = supabase.from('thu_chi').select('*', { count: 'exact' });
+    dataQuery = applyTransactionFilters(dataQuery, searchQuery, filters);
+    return dataQuery
+      .order('ngay', { ascending: false })
+      .order('gio', { ascending: false })
+      .range(from, to);
+  })();
 
-  if (searchQuery) {
-    query = query.or(`danh_muc.ilike.%${searchQuery}%,ghi_chu.ilike.%${searchQuery}%,id_don.ilike.%${searchQuery}%,id_khach_hang.ilike.%${searchQuery}%,so_tien::text.ilike.%${searchQuery}%,nguoi_nhan.ilike.%${searchQuery}%,nguoi_chi.ilike.%${searchQuery}%`);
-  }
+  const [listRes, totals] = await Promise.all([paged, sumTransactionTotalsForFilters(searchQuery, filters)]);
 
-  if (filters?.branches?.length) {
-    query = query.in('co_so', filters.branches);
-  }
-
-  if (filters?.types?.length) {
-    query = query.in('loai_phieu', filters.types);
-  }
-
-  // 2. Fetch all matching records to calculate global totals (limited to common use cases)
-  const { data: allMatching, count, error } = await query
-    .order('ngay', { ascending: false })
-    .order('gio', { ascending: false });
-
+  const { data, count, error } = listRes;
   if (error) {
     console.error('Error fetching paginated transactions:', error);
     throw error;
   }
 
-  const allRecords = (allMatching as ThuChi[]) || [];
-  const pagedData = allRecords.slice(from, to + 1);
-
-  // 3. Calculate filtered totals
-  let totalIncome = 0;
-  let totalExpense = 0;
-
-  allRecords.forEach(t => {
-    if (t.trang_thai === 'Hoàn thành') {
-      if (t.loai_phieu === 'phiếu thu') totalIncome += Number(t.so_tien);
-      else if (t.loai_phieu === 'phiếu chi') totalExpense += Number(t.so_tien);
-    }
-  });
-
   return {
-    data: pagedData,
-    totalCount: count || 0,
-    totalIncome,
-    totalExpense
+    data: (data as ThuChi[]) || [],
+    totalCount: count ?? 0,
+    totalIncome: totals.totalIncome,
+    totalExpense: totals.totalExpense
   };
 };
 
-export const getTransactionStats = async (): Promise<{ income: number, expense: number, balance: number }> => {
-  const { data: incomeData, error: incomeError } = await supabase
-    .from('thu_chi')
-    .select('so_tien')
-    .eq('loai_phieu', 'phiếu thu')
-    .eq('trang_thai', 'Hoàn thành');
+export const getTransactionStats = async (): Promise<{ income: number; expense: number; balance: number }> => {
+  let income = 0;
+  let expense = 0;
+  let lastId: string | null = null;
+  for (;;) {
+    let q: any = supabase
+      .from('thu_chi')
+      .select('id, so_tien, loai_phieu')
+      .eq('trang_thai', 'Hoàn thành')
+      .in('loai_phieu', ['phiếu thu', 'phiếu chi']);
+    if (lastId) q = q.gt('id', lastId);
+    const { data, error } = await q.order('id', { ascending: true }).limit(THU_CHI_BATCH);
 
-  const { data: expenseData, error: expenseError } = await supabase
-    .from('thu_chi')
-    .select('so_tien')
-    .eq('loai_phieu', 'phiếu chi')
-    .eq('trang_thai', 'Hoàn thành');
-
-  if (incomeError || expenseError) {
-    console.error('Error fetching stats:', incomeError || expenseError);
-    return { income: 0, expense: 0, balance: 0 };
+    if (error) {
+      console.error('Error fetching stats:', error);
+      return { income: 0, expense: 0, balance: 0 };
+    }
+    if (!data?.length) break;
+    for (const item of data) {
+      if (item.loai_phieu === 'phiếu thu') income += Number(item.so_tien);
+      else if (item.loai_phieu === 'phiếu chi') expense += Number(item.so_tien);
+    }
+    lastId = data[data.length - 1].id;
+    if (data.length < THU_CHI_BATCH) break;
   }
 
-  const income = (incomeData || []).reduce((sum, item) => sum + Number(item.so_tien), 0);
-  const expense = (expenseData || []).reduce((sum, item) => sum + Number(item.so_tien), 0);
-  
   return {
     income,
     expense,

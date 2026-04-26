@@ -1,4 +1,4 @@
-import { Box, FileText, Users, Wallet, Wrench, BadgeDollarSign } from 'lucide-react';
+import { BarChart2, Box, FileText, ShieldCheck, Users, Wallet, Wrench, BadgeDollarSign } from 'lucide-react';
 import React from 'react';
 import { useOutletContext } from 'react-router-dom';
 
@@ -33,6 +33,13 @@ const dashboardModules: ActionCardProps[] = [
     colorScheme: 'purple'
   },
   {
+    icon: BarChart2,
+    title: 'Báo cáo',
+    description: 'Doanh thu, lợi nhuận, theo ngày/cơ sở và biểu đồ.',
+    href: '/bao-cao/san-pham',
+    colorScheme: 'teal'
+  },
+  {
     icon: Users,
     title: 'Nhân sự',
     description: 'Tuyển dụng, đào tạo, chấm công, lương.',
@@ -52,12 +59,19 @@ const dashboardModules: ActionCardProps[] = [
     description: 'Tồn kho, xuất nhập kho, vận chuyển.',
     href: '/kho-van',
     colorScheme: 'cyan'
+  },
+  {
+    icon: ShieldCheck,
+    title: 'Cài đặt phân quyền',
+    description: 'Quyền theo vị trí: trang chủ, bán hàng, báo cáo…',
+    href: '/cai-dat/phan-quyen',
+    colorScheme: 'pink'
   }
 ];
 
 const Dashboard: React.FC = () => {
   const { globalSearch } = useOutletContext<{ globalSearch: string }>() || { globalSearch: '' };
-  const { hasViewAccess } = useAuth();
+  const { hasViewAccess, isAdmin } = useAuth();
 
   const resolveViewKey = React.useCallback((path?: string): ViewPermissionKey | undefined => {
     if (!path) return undefined;
@@ -68,6 +82,7 @@ const Dashboard: React.FC = () => {
     if (path.startsWith('/nhan-su')) return 'nhan-su';
     if (path.startsWith('/kho-van')) return 'kho-van';
     if (path.startsWith('/tien-luong')) return 'tien-luong';
+    if (path.startsWith('/cai-dat')) return 'cai-dat-phan-quyen';
     return undefined;
   }, []);
 
@@ -83,10 +98,11 @@ const Dashboard: React.FC = () => {
 
   const visibleDashboardModules = React.useMemo(() =>
     dashboardModules.filter((module) => {
+      if (module.href.startsWith('/cai-dat') && !isAdmin) return false;
       const viewKey = resolveViewKey(module.href);
       return !viewKey || hasViewAccess(viewKey);
     }),
-  [hasViewAccess, resolveViewKey]);
+  [hasViewAccess, resolveViewKey, isAdmin]);
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -130,7 +146,7 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-5">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-8 gap-5">
           {visibleDashboardModules.map((module, idx) => (
             <ActionCard
               key={idx}

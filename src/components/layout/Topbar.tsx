@@ -1,6 +1,7 @@
 import { clsx } from 'clsx';
 import {
   AlertTriangle,
+  BarChart2,
   Bell,
   Calendar, CheckCheck,
   CheckCircle2,
@@ -157,6 +158,11 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
 
     // Fallback labels for segments
     const segmentLabels: Record<string, string> = {
+      'bao-cao': 'Báo cáo',
+      'san-pham': 'Tổng hợp',
+      'bieu-do': 'Biểu đồ',
+      'theo-ngay': 'Theo ngày',
+      'co-so': 'Theo cơ sở',
       'nhan-su': 'Nhân sự',
       'ban-hang': 'Bán hàng',
       'kinh-doanh': 'Kinh doanh',
@@ -166,7 +172,9 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
       'kho-van': 'Kho vận',
       'dieu-hanh': 'Điều hành',
       'he-thong': 'Hệ thống',
-      'ung-vien': 'Ứng viên'
+      'ung-vien': 'Ứng viên',
+      'cai-dat': 'Cài đặt',
+      'phan-quyen': 'Phân quyền'
     };
 
     const segment = path.split('/').pop() || '';
@@ -243,9 +251,9 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
   };
 
   return (
-    <header className="h-[55px] bg-card border-b border-border flex items-center justify-between px-4 lg:px-6 z-30 sticky top-0">
+    <header className="h-[55px] w-full min-w-0 bg-card border-b border-border flex items-center gap-2 px-3 sm:px-4 lg:px-6 z-30 sticky top-0">
       {/* Left side: Hamburger, Title & Tabs */}
-      <div className="flex items-center gap-1 flex-1 min-w-0 pr-2">
+      <div className="flex items-center gap-1 flex-1 min-w-0 overflow-hidden">
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
           className="p-1.5 text-muted-foreground hover:bg-muted border border-border/50 rounded-lg bg-card shadow-sm transition-colors shrink-0"
@@ -308,10 +316,27 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
         </div>
       </div>
 
-      {/* Right side: Clock, Notifications, User */}
-      <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+      {/* Right side: Báo cáo, Clock, Notifications, User — shrink-0 + nền để luôn còn chỗ trên màn hẹp */}
+      <div className="flex items-center gap-1.5 sm:gap-3 shrink-0 bg-card pl-1">
+        {/* Báo cáo (MainLayout = đã đăng nhập; không gói session vì state đôi khi lệch) */}
+        <button
+          type="button"
+          onClick={() => navigate('/bao-cao/san-pham')}
+          className={clsx(
+            'shrink-0 flex items-center gap-1 rounded-lg px-1.5 py-1.5 sm:px-2.5 sm:py-2 transition-colors',
+            'border border-primary/35 bg-primary/10 text-primary shadow-sm',
+            'hover:bg-primary/20 active:scale-[0.98]',
+            location.pathname.startsWith('/bao-cao') && 'ring-2 ring-primary/40'
+          )}
+          title="Báo cáo doanh thu"
+          aria-label="Báo cáo doanh thu"
+        >
+          <BarChart2 size={20} className="shrink-0" strokeWidth={2.25} />
+          <span className="hidden md:inline text-[11px] font-black leading-none">Báo cáo</span>
+        </button>
+
         {/* Clock & Date (Hidden on mobile) */}
-        <div className="hidden md:flex items-center bg-card border border-border shadow-sm px-4 py-1.5 rounded-full gap-3 text-[13px]">
+        <div className="hidden md:flex items-center bg-card border border-border shadow-sm px-3 sm:px-4 py-1.5 rounded-full gap-2 sm:gap-3 text-[13px]">
           <div className="flex items-center gap-2">
             <Clock size={16} className="text-primary" />
             <span className="font-bold text-foreground tabular-nums">{formatTime(time)}</span>

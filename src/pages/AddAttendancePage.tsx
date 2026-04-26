@@ -14,6 +14,7 @@ import {
   getPersonnel,
   type NhanSu
 } from '../data/personnelData';
+import { logGeolocationError } from '../lib/geolocationError';
 import { calculateAttendanceStatus, formatMinutesToHours } from '../utils/timekeeping';
 
 
@@ -52,10 +53,10 @@ const AddAttendancePage: React.FC = () => {
           id_cham_cong: autoId,
           nhan_su: fallbackName,
           ngay: todayStr,
-          checkin: '',
-          checkout: '',
-          vi_tri: '',
-          anh: ''
+          checkin: null,
+          checkout: null,
+          vi_tri: null,
+          anh: null
         });
 
         // Check if there is already a record for today
@@ -107,7 +108,7 @@ const AddAttendancePage: React.FC = () => {
         setLocationLoading(false);
       },
       (error) => {
-        console.error("Lỗi theo dõi vị trí:", error);
+        logGeolocationError('watchPosition chấm công', error);
         setLocationLoading(false);
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
@@ -135,7 +136,7 @@ const AddAttendancePage: React.FC = () => {
         }));
       },
       (error) => {
-        console.error("Lỗi lấy vị trí:", error);
+        logGeolocationError('getCurrentPosition chấm công', error);
       },
       { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
     );
@@ -206,8 +207,12 @@ const AddAttendancePage: React.FC = () => {
 
         showToast('Cập nhật chấm công thành công', 'success');
       }
-    } catch (error) {
-      showToast('Không thể lưu thông tin chấm công', 'error');
+    } catch (error: unknown) {
+      const msg =
+        error && typeof error === 'object' && 'message' in error
+          ? String((error as { message: string }).message)
+          : 'Lỗi không xác định';
+      showToast(`Không thể lưu chấm công: ${msg}`, 'error');
     } finally {
       setSubmitting(false);
     }

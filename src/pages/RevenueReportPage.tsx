@@ -19,7 +19,7 @@ import {
   Filter,
 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   Area,
   AreaChart,
@@ -1421,10 +1421,14 @@ function RevenueComparisonView({
 
 const RevenueReportPage: React.FC = () => {
   const navigate = useNavigate();
-  const { tab: tabSlug } = useParams<{ tab: string }>();
-
-  // Derive active tab from URL slug; fall back to 'service'
-  const activeTab: TabKey = SLUG_TO_TAB[tabSlug ?? ''] ?? 'service';
+  const location = useLocation();
+  const { tab: tabFromParams } = useParams<{ tab: string }>();
+  // Đồng bộ tab với URL: một số cấu hình route không đưa :tab lên useParams ở layout cha
+  const tabSlug =
+    tabFromParams ||
+    location.pathname.replace(/^\/bao-cao\/?/, '').split('/').filter(Boolean)[0] ||
+    '';
+  const activeTab: TabKey = SLUG_TO_TAB[tabSlug] ?? 'service';
   const setActiveTab = (key: TabKey) => navigate(`/bao-cao/${TAB_TO_SLUG[key]}`, { replace: false });
 
   const [startDate, setStartDate] = useState(() => {
@@ -1547,14 +1551,14 @@ const RevenueReportPage: React.FC = () => {
                 {activeTab === 'day' && <DayTable data={dayData} summary={summary} />}
                 {activeTab === 'branch' && <BranchTable data={branchData} />}
                 {activeTab === 'personnel' && personnelData && <PersonnelTable data={personnelData} />}
-                {activeTab === 'chart' && personnelData && (
+                {activeTab === 'chart' && (
                   <RevenueComparisonView
                     startDate={startDate}
                     endDate={endDate}
                     dayData={dayData}
                     serviceData={serviceData}
                     branchData={branchData}
-                    personnelData={personnelData.personnel}
+                    personnelData={personnelData?.personnel ?? []}
                   />
                 )}
               </div>

@@ -1,5 +1,21 @@
 import { supabase } from '../lib/supabase';
 
+/** Postgres `time` / text: không gửi chuỗi rỗng. */
+const emptyToNull = (v: string | null | undefined): string | null => {
+  if (v === undefined || v === null) return null;
+  if (typeof v === 'string' && v.trim() === '') return null;
+  return v;
+};
+
+/** Chuẩn hóa trước khi ghi `cham_cong` (tránh lỗi kiểu time với `''`). */
+export const normalizeAttendanceForDb = <T extends Partial<AttendanceRecord>>(record: T): T => ({
+  ...record,
+  checkin: emptyToNull(record.checkin as string | null | undefined) as T['checkin'],
+  checkout: emptyToNull(record.checkout as string | null | undefined) as T['checkout'],
+  anh: emptyToNull(record.anh) as T['anh'],
+  vi_tri: emptyToNull(record.vi_tri) as T['vi_tri'],
+});
+
 export const getNextAttendanceId = async (): Promise<string> => {
   const { data, error } = await supabase
     .from('cham_cong')
@@ -90,14 +106,49 @@ export const getAttendanceRecords = async (staffName?: string): Promise<Attendan
 };
 
 export const upsertAttendanceRecord = async (record: Partial<AttendanceRecord>): Promise<AttendanceRecord> => {
+  const clean = normalizeAttendanceForDb(record);
   const { data, error } = await supabase
     .from('cham_cong')
-    .upsert(record)
+    .upsert(clean)
     .select()
     .single();
 
   if (error) {
-    console.error('Error upserting attendance record:', error);
+    console.error(
+      'Error upserting attendance record:',
+      error.message,
+      error.code,
+      error.details,
+      error.hint
+    );
+    throw error;
+  }
+  return data as AttendanceRecord;
+};
+
+/** Thêm bản ghi mới (không gửi `id` — DB tự sinh UUID). */
+export const createAttendanceRecord = async (
+  record: Pick<AttendanceRecord, 'nhan_su' | 'ngay'> &
+    Partial<Omit<AttendanceRecord, 'id' | 'nhan_su' | 'ngay'>>
+): Promise<AttendanceRecord> => {
+  const id_cham_cong = record.id_cham_cong ?? (await getNextAttendanceId());
+  const payload = normalizeAttendanceForDb({
+    nhan_su: record.nhan_su,
+    ngay: record.ngay,
+    checkin: record.checkin ?? null,
+    checkout: record.checkout ?? null,
+    anh: record.anh ?? null,
+    vi_tri: record.vi_tri ?? null,
+    id_cham_cong
+  });
+  const { data, error } = await supabase
+    .from('cham_cong')
+    .insert(payload)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating attendance record:', error);
     throw error;
   }
   return data as AttendanceRecord;

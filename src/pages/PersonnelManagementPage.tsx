@@ -24,6 +24,46 @@ import PersonnelFormModal from '../components/PersonnelFormModal';
 import type { NhanSu } from '../data/personnelData';
 import { bulkUpsertPersonnel, deletePersonnel, getNextPersonnelCode, getPersonnel, getPersonnelPaginated, upsertPersonnel } from '../data/personnelData';
 
+function formatVnd(n: number | null | undefined): string {
+  if (n == null || Number.isNaN(n as number)) return '—';
+  return new Intl.NumberFormat('vi-VN').format(n);
+}
+
+function formatNgay(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const s = String(iso).slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const [y, m, d] = s.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+/** Excel / CSV: số seri, chuỗi ISO, d/m/yyyy, hoặc đối tượng Date. */
+function parseImportNgayVaoLam(v: unknown): string | null {
+  if (v == null || v === '') return null;
+  if (v instanceof Date && !isNaN(v.getTime())) return v.toISOString().slice(0, 10);
+  // Số seri ngày Excel (ví dụ 45321), không áp dụng cho số năm nhỏ
+  if (typeof v === 'number' && v > 20000 && v < 200000) {
+    const ms = (v - 25569) * 86400 * 1000;
+    return new Date(ms).toISOString().slice(0, 10);
+  }
+  const s = String(v).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const m = s.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
+  if (m) {
+    const d = m[1].padStart(2, '0');
+    const mo = m[2].padStart(2, '0');
+    return `${m[3]}-${mo}-${d}`;
+  }
+  return null;
+}
+
+function parseImportLuong(v: unknown): number | null {
+  if (v == null || v === '') return null;
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  const n = parseFloat(String(v).replace(/\s/g, '').replace(/,/g, ''));
+  return Number.isFinite(n) ? n : null;
+}
+
 const PersonnelManagementPage: React.FC = () => {
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
@@ -117,12 +157,13 @@ const PersonnelManagementPage: React.FC = () => {
       setFormData({
         id_nhan_su: nextCode,
         ho_ten: '',
-        email: '',
         sdt: '',
         password: '',
         hinh_anh: '',
         vi_tri: 'kỹ thuật viên',
-        co_so: 'Cơ sở Bắc Giang'
+        co_so: 'Cơ sở Bắc Giang',
+        ngay_vao_lam: null,
+        luong_co_ban: null
       });
     }
     setIsModalOpen(true);
@@ -136,7 +177,27 @@ const PersonnelManagementPage: React.FC = () => {
 
   const handleSubmit = async (formDataToSave: Partial<NhanSu>) => {
     try {
-      await upsertPersonnel(formDataToSave);
+      const body: Partial<NhanSu> = {
+        ...formDataToSave,
+        ngay_vao_lam: formDataToSave.ngay_vao_lam === '' || formDataToSave.ngay_vao_lam === undefined
+          ? null
+          : (formDataToSave.ngay_vao_lam as string | null),
+        luong_co_ban:
+          formDataToSave.luong_co_ban === undefined ||
+          formDataToSave.luong_co_ban === null ||
+          (typeof formDataToSave.luong_co_ban === 'number' && Number.isNaN(formDataToSave.luong_co_ban))
+            ? null
+            : formDataToSave.luong_co_ban,
+      };
+      if (!editingPerson) {
+        const code = await getNextPersonnelCode();
+        await upsertPersonnel({ ...body, id_nhan_su: code });
+      } else {
+        await upsertPersonnel({
+          ...body,
+          id_nhan_su: editingPerson.id_nhan_su ?? formDataToSave.id_nhan_su,
+        });
+      }
       await loadData();
       handleCloseModal();
     } catch (error) {
@@ -149,7 +210,8 @@ const PersonnelManagementPage: React.FC = () => {
       {
         "id": "NV-001",
         "Họ và tên": "Nguyễn Văn A",
-        "Email": "vana@gmail.com",
+        "Ngày vào làm": "2024-01-15",
+        "Lương cơ bản": 10000000,
         "SĐT": "0912345678",
         "Password": "123456",
         "Hình ảnh": "",
@@ -204,7 +266,12 @@ const PersonnelManagementPage: React.FC = () => {
           const record: Partial<NhanSu> = {
             ho_ten,
             id_nhan_su: String(norm["id"] || '').trim() || null,
-            email: norm["Email"] ? String(norm["Email"]).trim() : null,
+            ngay_vao_lam: parseImportNgayVaoLam(
+              norm["Ngày vào làm"] ?? norm["Ngay vao lam"] ?? norm["Ngay vào"]
+            ),
+            luong_co_ban: parseImportLuong(
+              norm["Lương cơ bản"] ?? norm["Luong co ban"] ?? norm["Lương CB"]
+            ),
             sdt: norm["SĐT"] || norm["SDT"] || norm["Điện thoại"] ? String(norm["SĐT"] || norm["SDT"] || norm["Điện thoại"]).trim() : null,
             password: norm["Password"] || norm["Mật khẩu"] ? String(norm["Password"] || norm["Mật khẩu"]).trim() : null,
             hinh_anh: norm["Hình ảnh"] || norm["Ảnh"] ? String(norm["Hình ảnh"] || norm["Ảnh"]).trim() : null,
@@ -297,7 +364,7 @@ const PersonnelManagementPage: React.FC = () => {
                   setCurrentPage(1);
                 }}
                 className="w-full pl-9 pr-4 py-1.5 border border-border rounded text-[13px] focus:ring-1 focus:ring-primary focus:border-primary placeholder-slate-400 outline-none"
-                placeholder="Tìm tên, email, SĐT..."
+                placeholder="Tìm tên, SĐT, mã ID..."
                 type="text"
               />
             </div>
@@ -405,7 +472,8 @@ const PersonnelManagementPage: React.FC = () => {
                   <th className="px-4 py-3 font-semibold">id</th>
                   <th className="px-4 py-3 font-semibold">Ảnh</th>
                   <th className="px-4 py-3 font-semibold">Họ và tên</th>
-                  <th className="px-4 py-3 font-semibold">Email</th>
+                  <th className="px-4 py-3 font-semibold">Ngày vào làm</th>
+                  <th className="px-4 py-3 font-semibold">Lương cơ bản</th>
                   <th className="px-4 py-3 font-semibold">SĐT</th>
                   <th className="px-4 py-3 font-semibold">Vị trí</th>
                   <th className="px-4 py-3 font-semibold">Cơ sở</th>
@@ -415,7 +483,7 @@ const PersonnelManagementPage: React.FC = () => {
               <tbody className="divide-y divide-slate-100 text-[13px]">
                 {loading ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground">
+                    <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">
                       <Loader2 className="animate-spin inline-block mr-2" size={20} />
                       Đang tải dữ liệu...
                     </td>
@@ -433,7 +501,8 @@ const PersonnelManagementPage: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-4 py-4 font-semibold text-foreground">{person.ho_ten}</td>
-                    <td className="px-4 py-4">{person.email || '—'}</td>
+                    <td className="px-4 py-4 tabular-nums text-[12px]">{formatNgay(person.ngay_vao_lam)}</td>
+                    <td className="px-4 py-4 tabular-nums text-[12px] text-right font-medium text-foreground">{formatVnd(person.luong_co_ban)}</td>
                     <td className="px-4 py-4">{person.sdt || '—'}</td>
                     <td className="px-4 py-4">
                       <span className={clsx(
@@ -460,7 +529,7 @@ const PersonnelManagementPage: React.FC = () => {
                 ))}
                 {!loading && personnel.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">Không có dữ liệu nhân sự.</td>
+                    <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">Không có dữ liệu nhân sự.</td>
                   </tr>
                 )}
               </tbody>
@@ -513,21 +582,18 @@ const PersonnelManagementPage: React.FC = () => {
                         </span>
                       </div>
 
-                      {/* Line 2: Email + Position icon */}
-                      <div className="flex items-center gap-1.5 text-[11px] mt-1 text-muted-foreground font-medium min-w-0">
+                      {/* Line 2: Vị trí + ngày / lương */}
+                      <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 text-[11px] mt-1 text-muted-foreground font-medium min-w-0">
                         <div className="flex items-center gap-1 truncate">
                           <Briefcase size={14} className="text-primary shrink-0" />
                           <span className="font-bold text-foreground truncate">{person.vi_tri}</span>
                         </div>
-                        {person.email && (
-                          <>
-                            <span className="text-border">•</span>
-                            <div className="flex items-center gap-1 truncate">
-                              <Search size={14} className="text-muted-foreground/60 shrink-0" />
-                              <span className="truncate">{person.email}</span>
-                            </div>
-                          </>
-                        )}
+                        <span className="text-border">•</span>
+                        <span className="tabular-nums">Vào: {formatNgay(person.ngay_vao_lam)}</span>
+                        <span className="text-border">•</span>
+                        <span className="tabular-nums text-foreground font-semibold">
+                          {person.luong_co_ban != null && !Number.isNaN(person.luong_co_ban) ? `${formatVnd(person.luong_co_ban)} đ` : '—'}
+                        </span>
                       </div>
 
                       {/* Line 3: Branch + More info */}

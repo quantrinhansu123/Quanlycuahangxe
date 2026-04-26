@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Camera, Save, X, Building2, User, Phone, Mail, Briefcase, Loader2, KeyRound } from 'lucide-react';
+import { Camera, Save, X, Building2, User, Phone, Briefcase, Loader2, KeyRound, Calendar, Banknote } from 'lucide-react';
 import type { NhanSu } from '../data/personnelData';
 import { uploadPersonnelImage } from '../data/personnelData';
 
@@ -40,6 +40,19 @@ const PersonnelFormModal: React.FC<PersonnelFormModalProps> = React.memo(({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+    if (name === 'luong_co_ban') {
+      if (value === '') {
+        setFormData(prev => ({ ...prev, luong_co_ban: null }));
+        return;
+      }
+      const n = parseFloat(value.replace(/\s/g, '').replace(/,/g, ''));
+      setFormData(prev => ({ ...prev, luong_co_ban: Number.isFinite(n) ? n : null }));
+      return;
+    }
+    if (name === 'ngay_vao_lam') {
+      setFormData(prev => ({ ...prev, ngay_vao_lam: value || null }));
+      return;
+    }
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
@@ -99,16 +112,25 @@ const PersonnelFormModal: React.FC<PersonnelFormModalProps> = React.memo(({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5 focus-within:ring-2 focus-within:ring-primary/20 rounded-xl transition-all font-mono">
+              <div className="space-y-1.5 rounded-xl font-mono">
                 <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                   <span className="text-primary font-black">ID</span>
                   Mã nhân sự (ID)
                 </label>
                 <input
-                  type="text" name="id_nhan_su" value={formData.id_nhan_su ?? ''} onChange={handleInputChange} placeholder="NV-XXXX"
-                  tabIndex={0}
-                  className="w-full px-4 py-2 bg-background border border-border rounded-xl outline-none focus:border-primary text-[14px] font-bold text-primary placeholder-slate-300"
+                  type="text"
+                  readOnly
+                  name="id_nhan_su"
+                  value={formData.id_nhan_su ?? ''}
+                  title={editingPerson ? 'Mã cố định sau khi tạo' : 'Hệ thống tự tạo mã'}
+                  tabIndex={-1}
+                  className="w-full px-4 py-2 bg-muted/50 border border-border/80 rounded-xl text-[14px] font-bold text-primary cursor-not-allowed"
                 />
+                <p className="text-[10px] text-muted-foreground leading-snug">
+                  {editingPerson
+                    ? 'Mã gán một lần, không đổi từ giao diện (tránh mất tham chiếu chấm công, phiếu…).'
+                    : 'Hệ thống tự tạo theo dãy NV-… Mã sẽ được gán lại theo dãy tại thời điểm lưu.'}
+                </p>
               </div>
 
               <div className="hidden md:block"></div> {/* Spacer for alignment */}
@@ -140,12 +162,37 @@ const PersonnelFormModal: React.FC<PersonnelFormModalProps> = React.memo(({
 
               <div className="space-y-1.5 focus-within:ring-2 focus-within:ring-primary/20 rounded-xl transition-all">
                 <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                  <Mail size={14} className="text-primary/70" />
-                  Email
+                  <Calendar size={14} className="text-primary/70" />
+                  Ngày vào làm
                 </label>
                 <input
-                  type="text" name="email" value={formData.email ?? ''} onChange={handleInputChange} placeholder="email@example.com"
+                  type="date"
+                  name="ngay_vao_lam"
+                  value={
+                    formData.ngay_vao_lam
+                      ? String(formData.ngay_vao_lam).slice(0, 10)
+                      : ''
+                  }
+                  onChange={handleInputChange}
                   tabIndex={3}
+                  className="w-full px-4 py-2 bg-background border border-border rounded-xl outline-none focus:border-primary text-[14px]"
+                />
+              </div>
+
+              <div className="space-y-1.5 focus-within:ring-2 focus-within:ring-primary/20 rounded-xl transition-all">
+                <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                  <Banknote size={14} className="text-primary/70" />
+                  Lương cơ bản (VNĐ)
+                </label>
+                <input
+                  type="number"
+                  name="luong_co_ban"
+                  min={0}
+                  step={1000}
+                  value={formData.luong_co_ban != null && !Number.isNaN(formData.luong_co_ban) ? formData.luong_co_ban : ''}
+                  onChange={handleInputChange}
+                  placeholder="0"
+                  tabIndex={4}
                   className="w-full px-4 py-2 bg-background border border-border rounded-xl outline-none focus:border-primary text-[14px]"
                 />
               </div>
@@ -161,29 +208,29 @@ const PersonnelFormModal: React.FC<PersonnelFormModalProps> = React.memo(({
                   value={formData.password ?? ''}
                   onChange={handleInputChange}
                   placeholder="Nhập mật khẩu đăng nhập"
-                  tabIndex={4}
+                  tabIndex={5}
                   className="w-full px-4 py-2 bg-background border border-border rounded-xl outline-none focus:border-primary text-[14px]"
                 />
               </div>
 
               <div className="space-y-1.5 focus-within:ring-2 focus-within:ring-primary/20 rounded-xl transition-all">
                 <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2"><Briefcase size={14} className="text-primary/70" />Vị trí</label>
-                <select name="vi_tri" value={formData.vi_tri} onChange={handleInputChange} tabIndex={5} className="w-full px-4 py-2 bg-background border border-border rounded-xl outline-none focus:border-primary text-[14px]">
+                <select name="vi_tri" value={formData.vi_tri} onChange={handleInputChange} tabIndex={6} className="w-full px-4 py-2 bg-background border border-border rounded-xl outline-none focus:border-primary text-[14px]">
                   {positionOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                 </select>
               </div>
 
               <div className="space-y-1.5 md:col-span-2 focus-within:ring-2 focus-within:ring-primary/20 rounded-xl transition-all">
                 <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2"><Building2 size={14} className="text-primary/70" />Cơ sở</label>
-                <select name="co_so" value={formData.co_so} onChange={handleInputChange} tabIndex={6} className="w-full px-4 py-2 bg-background border border-border rounded-xl outline-none focus:border-primary text-[14px]">
+                <select name="co_so" value={formData.co_so} onChange={handleInputChange} tabIndex={7} className="w-full px-4 py-2 bg-background border border-border rounded-xl outline-none focus:border-primary text-[14px]">
                   {branchOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                 </select>
               </div>
             </div>
 
             <div className="mt-8 flex items-center justify-end gap-3 pt-6 border-t border-border">
-              <button type="button" onClick={onClose} tabIndex={8} className="px-6 py-2 rounded-xl text-sm font-bold border border-border hover:bg-muted transition-all">Hủy</button>
-              <button type="submit" tabIndex={7} className="px-8 py-2 rounded-xl text-sm font-bold text-white bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 transition-all flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">
+              <button type="button" onClick={onClose} tabIndex={9} className="px-6 py-2 rounded-xl text-sm font-bold border border-border hover:bg-muted transition-all">Hủy</button>
+              <button type="submit" tabIndex={8} className="px-8 py-2 rounded-xl text-sm font-bold text-white bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 transition-all flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">
                 <Save size={18} /> <span>{editingPerson ? 'Lưu thay đổi' : 'Thêm mới'}</span>
               </button>
             </div>
