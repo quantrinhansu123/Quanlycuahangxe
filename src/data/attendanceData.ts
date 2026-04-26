@@ -1,4 +1,38 @@
+import type { PostgrestError } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+
+function isPostgrestError(e: unknown): e is PostgrestError {
+  return typeof e === 'object' && e !== null && 'code' in e && 'message' in e;
+}
+
+function logPostgrestError(context: string, err: PostgrestError) {
+  console.error(context, {
+    message: err.message,
+    code: err.code,
+    details: err.details,
+    hint: err.hint,
+  });
+}
+
+/** Thông điệp lưu/đồng bộ chấm công dùng cho toast/alert. */
+export function formatAttendanceSaveError(e: unknown): string {
+  if (isPostgrestError(e)) {
+    if (
+      e.code === '42501' ||
+      /row-level security|RLS|permission denied|violates row-level security/i.test(
+        e.message
+      )
+    ) {
+      return [
+        'Không đủ quyền lưu chấm công (RLS/Postgres). Đăng nhập tài khoản quản trị hoặc chạy migration tắt RLS nếu không dùng Supabase Auth. ',
+        e.message ? `Chi tiết: ${e.message}` : '',
+      ].join('');
+    }
+    return e.message || 'Lỗi lưu dữ liệu chấm công';
+  }
+  if (e instanceof Error) return e.message;
+  return 'Lỗi không xác định';
+}
 
 /** Postgres `time` / text: không gửi chuỗi rỗng. */
 const emptyToNull = (v: string | null | undefined): string | null => {
@@ -16,25 +50,33 @@ export const normalizeAttendanceForDb = <T extends Partial<AttendanceRecord>>(re
   vi_tri: emptyToNull(record.vi_tri) as T['vi_tri'],
 });
 
+/**
+ * Mã CC tiếp theo: tìm số lớn nhất trong mọi bản ghi dạng CC-#### (sắp xếp theo chuỗi không đúng số thứ tự thực).
+ */
 export const getNextAttendanceId = async (): Promise<string> => {
-  const { data, error } = await supabase
-    .from('cham_cong')
-    .select('id_cham_cong')
-    .order('id_cham_cong', { ascending: false })
-    .limit(1);
-
-  if (error || !data || data.length === 0 || !data[0].id_cham_cong) {
-    return 'CC-0001';
+  let maxNum = 0;
+  let lastRowId: string | null = null;
+  for (;;) {
+    let q = supabase.from('cham_cong').select('id, id_cham_cong');
+    q = q.not('id_cham_cong', 'is', null);
+    if (lastRowId) q = q.gt('id', lastRowId);
+    const { data, error } = await q
+      .order('id', { ascending: true })
+      .limit(1000);
+    if (error) {
+      logPostgrestError('getNextAttendanceId', error);
+      return 'CC-0001';
+    }
+    if (!data?.length) break;
+    for (const row of data) {
+      const m = String(row.id_cham_cong || '').match(/CC-(\d+)/i);
+      if (m) maxNum = Math.max(maxNum, parseInt(m[1], 10));
+    }
+    lastRowId = data[data.length - 1].id;
+    if (data.length < 1000) break;
   }
-
-  const lastId = data[0].id_cham_cong;
-  const match = lastId.match(/CC-(\d+)/);
-  if (match) {
-    const nextNumber = parseInt(match[1]) + 1;
-    return `CC-${String(nextNumber).padStart(4, '0')}`;
-  }
-
-  return 'CC-0001';
+  if (maxNum === 0) return 'CC-0001';
+  return `CC-${String(maxNum + 1).padStart(4, '0')}`;
 };
 
 export interface AttendanceRecord {
@@ -114,13 +156,7 @@ export const upsertAttendanceRecord = async (record: Partial<AttendanceRecord>):
     .single();
 
   if (error) {
-    console.error(
-      'Error upserting attendance record:',
-      error.message,
-      error.code,
-      error.details,
-      error.hint
-    );
+    logPostgrestError('Error upserting attendance record', error);
     throw error;
   }
   return data as AttendanceRecord;
@@ -148,7 +184,7 @@ export const createAttendanceRecord = async (
     .single();
 
   if (error) {
-    console.error('Error creating attendance record:', error);
+    logPostgrestError('Error creating attendance record', error);
     throw error;
   }
   return data as AttendanceRecord;
@@ -162,12 +198,12 @@ export const bulkUpsertAttendanceRecords = async (records: Partial<AttendanceRec
     // Deduplicate by ID: if multiple items have the same ID, take the last one
     const uniqueRecords = Array.from(new Map(toUpdate.map(item => [item.id, item])).values());
     const { error } = await supabase.from('cham_cong').upsert(uniqueRecords);
-    if (error) { console.error('Error upserting attendance:', error); throw error; }
+    if (error) { logPostgrestError('Error upserting attendance (bulk)', error); throw error; }
   }
   if (toInsert.length > 0) {
     const cleanInserts = toInsert.map(({ id, ...rest }) => rest);
     const { error } = await supabase.from('cham_cong').insert(cleanInserts);
-    if (error) { console.error('Error inserting attendance:', error); throw error; }
+    if (error) { logPostgrestError('Error inserting attendance (bulk)', error); throw error; }
   }
 };
 

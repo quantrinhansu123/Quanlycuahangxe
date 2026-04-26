@@ -152,10 +152,8 @@ const PersonnelManagementPage: React.FC = () => {
       setEditingPerson(person);
       setFormData({ ...person });
     } else {
-      const nextCode = await getNextPersonnelCode();
       setEditingPerson(null);
       setFormData({
-        id_nhan_su: nextCode,
         ho_ten: '',
         sdt: '',
         password: '',

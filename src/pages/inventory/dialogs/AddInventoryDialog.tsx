@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Save, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { addInventoryRecord } from '../../../data/inventoryData';
+import { formatTime24h } from '../../../utils/datetimeFormat';
 
 interface AddInventoryDialogProps {
   isOpen: boolean;
@@ -22,7 +23,7 @@ const AddInventoryDialog: React.FC<AddInventoryDialogProps> = ({ isOpen, onClose
     so_luong: 0,
     gia: 0,
     ngay: new Date().toISOString().split('T')[0],
-    gio: new Date().toLocaleTimeString('vi-VN', { hour12: false, hour: '2-digit', minute: '2-digit' }),
+    gio: formatTime24h(new Date(), false),
     nguoi_thuc_hien: ''
   });
 

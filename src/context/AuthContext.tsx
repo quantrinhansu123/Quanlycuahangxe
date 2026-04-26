@@ -1,9 +1,26 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import type { Session, User as SupabaseUser } from '@supabase/supabase-js';
 import {
   VIEW_PERMISSION_STORAGE_KEY,
   type ViewPermissionKey,
 } from '../data/viewPermissions';
+
+/** Phiên ứng dụng (lưu local); không dùng Supabase Auth. */
+export interface AppUser {
+  id: string;
+  email?: string | null;
+  aud?: string;
+  role?: string;
+  app_metadata?: Record<string, unknown>;
+  user_metadata?: Record<string, unknown>;
+}
+
+export interface AppSession {
+  access_token: string;
+  refresh_token: string;
+  expires_in?: number;
+  token_type?: string;
+  user: AppUser;
+}
 
 // Thông tin nhân viên lấy từ bảng nhan_su
 export interface NhanVien {
@@ -51,8 +68,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }
 
-  const [session, setSession] = useState<Session | null>(
-    (demoRole || localNhanVien) ? ({
+  const [session, setSession] = useState<AppSession | null>(
+    (demoRole || localNhanVien) ? {
       access_token: 'demo-token',
       refresh_token: 'demo-refresh',
       expires_in: 3600,
@@ -65,17 +82,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         app_metadata: { provider: 'email' },
         user_metadata: { ho_ten: localNhanVien?.ho_ten || (demoRole === 'admin' ? 'Demo Admin' : 'Demo Staff') }
       } 
-    } as any) : null
+    } : null
   );
-  const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(
-    (demoRole || localNhanVien) ? ({
+  const [supabaseUser, setSupabaseUser] = useState<AppUser | null>(
+    (demoRole || localNhanVien) ? {
       id: localNhanVien?.auth_user_id || 'demo-uuid', 
       aud: 'authenticated',
       role: 'authenticated',
       email: localNhanVien?.email || 'demo@example.com',
       app_metadata: { provider: 'email' },
       user_metadata: { ho_ten: localNhanVien?.ho_ten || (demoRole === 'admin' ? 'Demo Admin' : 'Demo Staff') }
-    } as any) : null
+    } : null
   );
   const [nhanVien, setNhanVien] = useState<NhanVien | null>(
     localNhanVien ? localNhanVien : demoRole ? ({
@@ -110,7 +127,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             app_metadata: { provider: 'local-nhan-su' },
             user_metadata: { ho_ten: latest.ho_ten },
           },
-        } as any);
+        });
         setSupabaseUser({
           id: latest.auth_user_id || latest.id || 'local-uuid',
           aud: 'authenticated',
@@ -118,7 +135,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           email: latest.email || 'local@example.com',
           app_metadata: { provider: 'local-nhan-su' },
           user_metadata: { ho_ten: latest.ho_ten },
-        } as any);
+        });
       } catch {
         setNhanVien(null);
       }

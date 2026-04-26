@@ -24,6 +24,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { moduleData } from '../../data/moduleData';
 import { extraMenuItems, sidebarMenu } from '../../data/sidebarMenu';
+import { formatTime24h } from '../../utils/datetimeFormat';
 import { SubModuleSwitcher } from '../ui/SubModuleSwitcher';
 import type { ModuleCardProps } from '../ui/ModuleCard';
 
@@ -212,7 +213,7 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
   }, []);
 
   const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('vi-VN', { hour12: false });
+    return formatTime24h(date, true);
   };
 
   const formatDate = (date: Date) => {

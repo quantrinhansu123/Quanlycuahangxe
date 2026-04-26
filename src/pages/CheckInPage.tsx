@@ -10,6 +10,7 @@ import type { NhanSu } from '../data/personnelData';
 import { upsertAttendanceRecord, getAttendanceRecords } from '../data/attendanceData';
 import type { AttendanceRecord } from '../data/attendanceData';
 import { clsx } from 'clsx';
+import { formatTime24h } from '../utils/datetimeFormat';
 
 const CheckInPage: React.FC = () => {
   const navigate = useNavigate();
@@ -62,7 +63,7 @@ const CheckInPage: React.FC = () => {
     try {
       setSubmitting(true);
       const today = new Date().toISOString().split('T')[0];
-      const now = new Date().toLocaleTimeString('vi-VN', { hour12: false, hour: '2-digit', minute: '2-digit' });
+      const now = formatTime24h(new Date(), false);
       const locationStr = location ? `${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}` : 'Không có tọa độ';
 
       // Check if record exists for today and staff

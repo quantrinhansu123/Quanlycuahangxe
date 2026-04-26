@@ -122,7 +122,6 @@ const LoginPage: React.FC = () => {
         return;
       }
 
-      // Bỏ Auth email: chỉ cần khớp SĐT + password trong bảng nhan_su là đăng nhập.
       sessionStorage.setItem('local_nhan_vien', JSON.stringify(matchedUser));
       window.location.assign('/');
     } catch (err) {

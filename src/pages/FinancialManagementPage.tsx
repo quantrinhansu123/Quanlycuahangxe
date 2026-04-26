@@ -22,6 +22,7 @@ import type { KhachHang } from '../data/customerData';
 import { getCustomers } from '../data/customerData';
 import type { SalesCard } from '../data/salesCardData';
 import { getSalesCards } from '../data/salesCardData';
+import { formatTime24h } from '../utils/datetimeFormat';
 
 const FinancialCharts = React.lazy(() => import('../components/FinancialCharts'));
 
@@ -151,6 +152,37 @@ const FinancialManagementPage: React.FC = () => {
     });
   };
 
+  /** Dùng cho lối tắt khoảng ngày (nếu còn trong bản build); tránh ReferenceError nếu JSX cũ còn tham chiếu. */
+  const setFilterRange = (start: string, end: string) => {
+    if (start <= end) {
+      setFilterDateFrom(start);
+      setFilterDateTo(end);
+    } else {
+      setFilterDateFrom(end);
+      setFilterDateTo(start);
+    }
+    setCurrentPage(1);
+  };
+  const setPresetDays = (n: number) => {
+    const e = new Date();
+    e.setHours(0, 0, 0, 0);
+    const s = new Date(e);
+    s.setDate(s.getDate() - (n - 1));
+    setFilterRange(s.toISOString().slice(0, 10), e.toISOString().slice(0, 10));
+  };
+  const setThisMonth = () => {
+    const t = new Date();
+    const s = new Date(t.getFullYear(), t.getMonth(), 1);
+    const e = new Date();
+    setFilterRange(s.toISOString().slice(0, 10), e.toISOString().slice(0, 10));
+  };
+  const setPrevMonth = () => {
+    const t = new Date();
+    const s = new Date(t.getFullYear(), t.getMonth() - 1, 1);
+    const e = new Date(t.getFullYear(), t.getMonth(), 0);
+    setFilterRange(s.toISOString().slice(0, 10), e.toISOString().slice(0, 10));
+  };
+
   const customerOptions = useMemo(() => {
     return customers.map(c => {
       const searchParts = [c.ho_va_ten];
@@ -191,7 +223,7 @@ const FinancialManagementPage: React.FC = () => {
         so_tien: 0,
         trang_thai: 'Hoàn thành',
         ngay: now.toISOString().split('T')[0],
-        gio: now.toTimeString().split(' ')[0].substring(0, 5),
+        gio: formatTime24h(now, false),
         id_don: '',
         id_khach_hang: '',
         nguoi_chi: '',

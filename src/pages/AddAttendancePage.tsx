@@ -5,17 +5,23 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import {
+  formatAttendanceSaveError,
   getAttendancePaginated,
   getNextAttendanceId,
   upsertAttendanceRecord,
   type AttendanceRecord
 } from '../data/attendanceData';
+import { formatTime24h } from '../utils/datetimeFormat';
 import {
   getPersonnel,
   type NhanSu
 } from '../data/personnelData';
 import { logGeolocationError } from '../lib/geolocationError';
-import { calculateAttendanceStatus, formatMinutesToHours } from '../utils/timekeeping';
+import {
+  calculateAttendanceStatus,
+  formatMinutesToHours,
+  overtimeMinutesForDayShifts,
+} from '../utils/timekeeping';
 
 
 const AddAttendancePage: React.FC = () => {
@@ -158,7 +164,7 @@ const AddAttendancePage: React.FC = () => {
 
   const handleQuickSubmit = async (type: 'checkin' | 'checkout') => {
     setSubmitting(true);
-    const now = new Date().toTimeString().split(' ')[0].substring(0, 5);
+    const now = formatTime24h(new Date(), false);
 
     // Check if this type already has a value (duplicate press)
     const existingValue = type === 'checkin' ? formData.checkin : formData.checkout;
@@ -208,11 +214,7 @@ const AddAttendancePage: React.FC = () => {
         showToast('Cập nhật chấm công thành công', 'success');
       }
     } catch (error: unknown) {
-      const msg =
-        error && typeof error === 'object' && 'message' in error
-          ? String((error as { message: string }).message)
-          : 'Lỗi không xác định';
-      showToast(`Không thể lưu chấm công: ${msg}`, 'error');
+      showToast(`Không thể lưu chấm công: ${formatAttendanceSaveError(error)}`, 'error');
     } finally {
       setSubmitting(false);
     }
@@ -245,17 +247,20 @@ const AddAttendancePage: React.FC = () => {
 
       // A day is "late" if ANY of its records are late
       let dayIsLate = false;
-      let dayOvertime = 0;
       let hasCheckin = false;
       let hasCheckout = false;
 
       dayRecords.forEach(record => {
         const status = calculateAttendanceStatus(record.checkin, record.checkout);
         if (status.isLate) dayIsLate = true;
-        dayOvertime += status.overtimeMinutes;
         if (record.checkin) hasCheckin = true;
         if (record.checkout) hasCheckout = true;
       });
+
+      // Tăng ca: cùng quy ước bảng lương — mỗi ngày một lần, lấy giờ **ra** muộn nhất
+      const dayOvertime = overtimeMinutesForDayShifts(
+        dayRecords.map((r) => ({ checkin: r.checkin, checkout: r.checkout }))
+      );
 
       if (dayIsLate) {
         lateCount++;
@@ -683,6 +688,12 @@ const AddAttendancePage: React.FC = () => {
 
                   return recordsToShow.map((item, idx) => {
                     const hasMultiple = item.records.length > 1;
+                    const dayOtMin =
+                      showDetailView === 'overtime'
+                        ? overtimeMinutesForDayShifts(
+                            item.records.map((r) => ({ checkin: r.checkin, checkout: r.checkout }))
+                          )
+                        : 0;
 
                     return (
                       <div key={idx} className="bg-card/50 border border-border rounded-2xl p-4 hover:border-primary/20 transition-all">
@@ -700,11 +711,18 @@ const AddAttendancePage: React.FC = () => {
                               </p>
                             </div>
                           </div>
-                          {hasMultiple && (
-                            <span className="px-2 py-0.5 rounded-full bg-muted text-[10px] font-black text-muted-foreground">
-                              {item.records.length} LẦN BẤM
-                            </span>
-                          )}
+                          <div className="flex flex-col items-end gap-0.5">
+                            {hasMultiple && (
+                              <span className="px-2 py-0.5 rounded-full bg-muted text-[10px] font-black text-muted-foreground">
+                                {item.records.length} LẦN BẤM
+                              </span>
+                            )}
+                            {showDetailView === 'overtime' && dayOtMin > 0 && (
+                              <span className="text-[11px] font-black text-orange-600" title="Một ngày chỉ tính theo giờ ra trễ nhất">
+                                Cộng ngày: +{formatMinutesToHours(dayOtMin)} TC
+                              </span>
+                            )}
+                          </div>
                         </div>
 
                         <div className="space-y-2">

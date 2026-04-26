@@ -6,6 +6,7 @@ import { getRevenueByPersonnel } from '../data/reportData';
 import { removeVietnameseTones } from '../lib/utils';
 import {
   ATTENDANCE_SALARY,
+  demGioTangCaTheoDongCham,
   demSoBuaAnTheoDongCham,
   demSoNgayCongTheoDongCham,
   soNgayTrongThangDuongLich,
@@ -203,10 +204,10 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
     }
   }, [rows, phanTramHoaHongKy, nam, thang]);
 
-  const nhanIdTheoChuanTen = useMemo(() => {
-    const m = new Map<string, string>();
+  const nhanTheoChuanTen = useMemo(() => {
+    const m = new Map<string, { id: string; idNhanSu: string | null }>();
     for (const p of nhanList) {
-      if (p.ho_ten) m.set(chuanHoaTenSoSanh(p.ho_ten), p.id);
+      if (p.ho_ten) m.set(chuanHoaTenSoSanh(p.ho_ten), { id: p.id, idNhanSu: p.id_nhan_su ? String(p.id_nhan_su).trim() : null });
     }
     return m;
   }, [nhanList]);
@@ -214,19 +215,27 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
   const withKetQua = useMemo(
     () =>
       rows.map((r) => {
-        const nhanId = nhanIdTheoChuanTen.get(chuanHoaTenSoSanh(r.hoTen));
-        const b = demSoBuaAnTheoDongCham(chamDong, r.hoTen, nhanId);
-        const c = demSoNgayCongTheoDongCham(chamDong, r.hoTen, nhanId);
+        const nhanMeta = nhanTheoChuanTen.get(chuanHoaTenSoSanh(r.hoTen));
+        const nhanId = nhanMeta?.id;
+        const idNhanSu = nhanMeta?.idNhanSu ?? undefined;
+        const b = demSoBuaAnTheoDongCham(chamDong, r.hoTen, nhanId, idNhanSu);
+        const c = demSoNgayCongTheoDongCham(chamDong, r.hoTen, nhanId, idNhanSu);
+        const gTcTuCham =
+          chamDong.length > 0
+            ? demGioTangCaTheoDongCham(chamDong, r.hoTen, nhanId, idNhanSu)
+            : undefined;
         return {
           input: r,
+          gTcTuCham,
           kq: tinhMotDong(r, nam, thang, {
             phanTramHoaHongTheoKy: phanTramHoaHongKy,
             soBuaAnTheoChamCon: b,
             soNgayCongTheoChamCon: c,
+            soGioTangCaTheoChamCon: gTcTuCham,
           }),
         };
       }),
-    [rows, nam, thang, phanTramHoaHongKy, chamDong, nhanIdTheoChuanTen]
+    [rows, nam, thang, phanTramHoaHongKy, chamDong, nhanTheoChuanTen]
   );
 
   const soNgayThang = soNgayTrongThangDuongLich(nam, thang);
@@ -340,10 +349,11 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
             <strong>{soNgayThang} ngày dương lịch</strong> (bảng lương 28/8). <strong>Tiền ăn</strong> từ chấm công: mỗi
             ngày có
             check-in — 2 bữa tại cơ sở hoặc 1 bữa nếu vị trí gợi ý “từ xa/ở nhà”; thêm 1 bữa khi
-            checkout ≥ 19:00. Giá {formatVnd(ATTENDANCE_SALARY.GIA_MOT_BUA_AN)}/bữa. Tăng ca lương: hệ
+            checkout ≥ 19:00. Giá {formatVnd(ATTENDANCE_SALARY.GIA_MOT_BUA_AN)}/bữa.             Tăng ca lương: hệ
             số{' '}
             {ATTENDANCE_SALARY.HE_SO_TANG_CA * 100}%, tối đa {ATTENDANCE_SALARY.GIO_TANG_CA_TOI_DA_THANG}h, chỉ thợ
-            chính thức; <strong>tiền tăng ca</strong> (theo cột H TC) cộng vào <strong>Tổng</strong>. Cột <strong>PC
+            chính thức. <strong>H TC</strong> từ chấm công tháng (mỗi phút từ sau 19:00 đến giờ ra; mỗi ngày lấy giờ ra
+            muộn nhất; khớp tên / mã nhân sự / UUID hồ sơ); nếu chưa tải chấm công, nhập tay. Cột <strong>PC
             thâm niên</strong> dựa trên thời gian làm: khi <strong>Tạo nhanh</strong> hệ thống lấy ngày tạo hồ sơ nhân
             sự làm mốc.
           </p>
@@ -460,7 +470,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
             </thead>
             <tbody>
               {withKetQua.map((x, i) => {
-                const { input, kq } = x;
+                const { input, kq, gTcTuCham } = x;
                 return (
                   <tr
                     key={input.id}
@@ -509,7 +519,13 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                         type="text"
                         inputMode="numeric"
                         className="w-16 bg-transparent border border-border/60 rounded px-1 py-0.5 text-right font-mono"
-                        value={String(input.soGioTangCa)}
+                        title={
+                          gTcTuCham !== undefined
+                            ? 'Giờ tăng ca từ chấm công (sau 19:00; mỗi ngày giờ ra muộn nhất; khớp tên / mã NV)'
+                            : 'Nhập giờ TC thủ công khi chưa có dữ liệu chấm công tháng'
+                        }
+                        readOnly={gTcTuCham !== undefined}
+                        value={String(gTcTuCham !== undefined ? gTcTuCham : input.soGioTangCa)}
                         onChange={(e) => setNum(input.id, 'soGioTangCa', e.target.value)}
                       />
                     </td>

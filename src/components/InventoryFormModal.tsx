@@ -6,6 +6,7 @@ import { SearchableSelect } from './ui/SearchableSelect';
 import { addInventoryRecord, getNextInventoryId } from '../data/inventoryData';
 import type { InventoryRecord } from '../data/inventoryData';
 import type { DichVu } from '../data/serviceData';
+import { formatTime24h } from '../utils/datetimeFormat';
 
 interface InventoryFormModalProps {
   isOpen: boolean;
@@ -44,7 +45,7 @@ const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
             gia: 0,
             tong_tien: 0,
             ngay: new Date().toISOString().split('T')[0],
-            gio: new Date().toLocaleTimeString('vi-VN', { hour12: false, hour: '2-digit', minute: '2-digit' }),
+            gio: formatTime24h(new Date(), false),
             nguoi_thuc_hien: ''
           });
         };

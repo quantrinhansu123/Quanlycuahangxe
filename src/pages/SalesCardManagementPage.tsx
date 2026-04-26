@@ -44,6 +44,7 @@ import { computeChanges, saveEditHistory } from '../data/salesCardHistoryData';
 import type { DichVu } from '../data/serviceData';
 import { getServices } from '../data/serviceData';
 import { supabase } from '../lib/supabase';
+import { formatTime24h } from '../utils/datetimeFormat';
 
 const SalesCardFormModal = React.lazy(() => import('../components/SalesCardFormModal'));
 
@@ -366,7 +367,7 @@ const SalesCardManagementPage: React.FC = () => {
         setIsReadOnlyModal(false);
         setFormData({
           ngay: new Date().toISOString().split('T')[0],
-          gio: new Date().toLocaleTimeString('vi-VN', { hour12: false, hour: '2-digit', minute: '2-digit' }),
+          gio: formatTime24h(new Date(), false),
           id_bh: nextCode,
           khach_hang_id: customer.ma_khach_hang || customer.id,
           nhan_vien_id: targetNhanVien,
@@ -446,7 +447,7 @@ const SalesCardManagementPage: React.FC = () => {
 
       setFormData({
         ngay: new Date().toISOString().split('T')[0],
-        gio: new Date().toLocaleTimeString('vi-VN', { hour12: false, hour: '2-digit', minute: '2-digit' }),
+        gio: formatTime24h(new Date(), false),
         id_bh: nextCode,
         khach_hang_id: '',
         nhan_vien_id: matchedUser ? matchedUser.ho_ten : '', // TEXT ID (ho_ten)
@@ -686,7 +687,7 @@ const SalesCardManagementPage: React.FC = () => {
         id_don: editingCard.id,
         so_tien: totalAmount,
         ngay: data.ngay || new Date().toISOString().split('T')[0],
-        gio: data.gio || new Date().toLocaleTimeString('vi-VN', { hour12: false, hour: '2-digit', minute: '2-digit' }),
+        gio: data.gio || formatTime24h(new Date(), false),
         co_so: (items.length > 0)
           ? (services.find(s => s.id === items[0].id)?.co_so || 'Cơ sở chính')
           : 'Cơ sở chính',

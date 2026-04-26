@@ -8,6 +8,7 @@ import { getEditHistory } from '../data/salesCardHistoryData';
 import type { DichVu } from '../data/serviceData';
 import { MultiSearchableSelect } from './ui/MultiSearchableSelect';
 import { SearchableSelect } from './ui/SearchableSelect';
+import { formatDateTime24h } from '../utils/datetimeFormat';
 
 // Helper for dynamic classes
 const clsx = (...classes: any[]) => classes.filter(Boolean).join(' ');
@@ -460,10 +461,7 @@ const SalesCardFormModal: React.FC<{
                                 <span className="text-[12px] font-bold text-foreground">{record.nguoi_sua}</span>
                               </div>
                               <span className="text-[10px] text-muted-foreground font-mono">
-                                {new Date(record.thoi_gian).toLocaleString('vi-VN', {
-                                  day: '2-digit', month: '2-digit', year: 'numeric',
-                                  hour: '2-digit', minute: '2-digit'
-                                })}
+                                {formatDateTime24h(new Date(record.thoi_gian))}
                               </span>
                             </div>
                             <div className="space-y-1">

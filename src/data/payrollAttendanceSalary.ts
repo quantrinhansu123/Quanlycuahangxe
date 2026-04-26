@@ -3,6 +3,7 @@
  */
 
 import { removeVietnameseTones } from '../lib/utils';
+import { overtimeMinutesForDayShifts, parseTimeStringToMinutes } from '../utils/timekeeping';
 
 export const ATTENDANCE_SALARY = {
   NGAY_LAM_TRONG_THANG: 28,
@@ -133,15 +134,21 @@ function chuanHoaCham(s: string): string {
   return removeVietnameseTones(s.trim().toLowerCase()).replace(/\s+/g, ' ');
 }
 
+/** Khớp dòng chấm với lương: UUID hồ sơ, mã `id_nhan_su`, hoặc họ tên (bỏ dấu). */
+function dongThuocNhanVien(
+  d: DongChamBuaNhap,
+  hoTenChuan: string,
+  nhanUuid: string | null | undefined,
+  idNhanSu: string | null | undefined
+): boolean {
+  const raw = String(d.nhan_su ?? '').trim();
+  if (nhanUuid && raw === nhanUuid) return true;
+  if (idNhanSu && String(idNhanSu).trim() === raw) return true;
+  return chuanHoaCham(String(d.nhan_su)) === hoTenChuan;
+}
+
 function phutKhoiThoiGian(t: string | null | undefined): number | null {
-  if (t == null || !String(t).trim()) return null;
-  const p = String(t).trim();
-  const m = p.match(/^(\d{1,2}):(\d{0,2})/);
-  if (!m) return null;
-  const hh = parseInt(m[1], 10);
-  const mm = parseInt(m[2] || '0', 10);
-  if (Number.isNaN(hh)) return null;
-  return hh * 60 + (Number.isNaN(mm) ? 0 : mm);
+  return parseTimeStringToMinutes(t);
 }
 
 function viTriLamNgoai(viTri: string | null | undefined): boolean {
@@ -158,13 +165,11 @@ function viTriLamNgoai(viTri: string | null | undefined): boolean {
 export function demSoBuaAnTheoDongCham(
   cacDong: DongChamBuaNhap[],
   hoTen: string,
-  nhanSuId: string | null | undefined
+  nhanSuId: string | null | undefined,
+  idNhanSu: string | null | undefined = undefined
 ): number {
   const hTen = chuanHoaCham(hoTen);
-  const thu = cacDong.filter((d) => {
-    if (nhanSuId && d.nhan_su === nhanSuId) return true;
-    return chuanHoaCham(d.nhan_su) === hTen;
-  });
+  const thu = cacDong.filter((d) => dongThuocNhanVien(d, hTen, nhanSuId, idNhanSu));
   if (thu.length === 0) return 0;
   const theoNgay = new Map<string, DongChamBuaNhap[]>();
   for (const d of thu) {
@@ -200,13 +205,11 @@ export function demSoBuaAnTheoDongCham(
 export function demSoNgayCongTheoDongCham(
   cacDong: DongChamBuaNhap[],
   hoTen: string,
-  nhanSuId: string | null | undefined
+  nhanSuId: string | null | undefined,
+  idNhanSu: string | null | undefined = undefined
 ): number {
   const hTen = chuanHoaCham(hoTen);
-  const thu = cacDong.filter((d) => {
-    if (nhanSuId && d.nhan_su === nhanSuId) return true;
-    return chuanHoaCham(d.nhan_su) === hTen;
-  });
+  const thu = cacDong.filter((d) => dongThuocNhanVien(d, hTen, nhanSuId, idNhanSu));
   const theoNgay = new Map<string, DongChamBuaNhap[]>();
   for (const d of thu) {
     if (!d.ngay) continue;
@@ -223,6 +226,35 @@ export function demSoNgayCongTheoDongCham(
   return soNgay;
 }
 
+/**
+ * Tổng giờ tăng ca (tháng) từ chấm công — cùng quy ước màn hình Tăng ca (sau 19:00, mỗi phút).
+ * Mỗi **ngày** chỉ tính một lần: lấy **giờ ra muộn nhất** nếu có nhiều bản ghi.
+ */
+export function demGioTangCaTheoDongCham(
+  cacDong: DongChamBuaNhap[],
+  hoTen: string,
+  nhanSuId: string | null | undefined,
+  idNhanSu: string | null | undefined = undefined
+): number {
+  const hTen = chuanHoaCham(hoTen);
+  const thu = cacDong.filter((d) => dongThuocNhanVien(d, hTen, nhanSuId, idNhanSu));
+  if (thu.length === 0) return 0;
+  const theoNgay = new Map<string, DongChamBuaNhap[]>();
+  for (const d of thu) {
+    if (!d.ngay) continue;
+    const list = theoNgay.get(d.ngay) || [];
+    list.push(d);
+    theoNgay.set(d.ngay, list);
+  }
+  let totalPhut = 0;
+  for (const [, dongsCuaMNgay] of theoNgay) {
+    totalPhut += overtimeMinutesForDayShifts(
+      dongsCuaMNgay.map((d) => ({ checkin: d.checkin, checkout: d.checkout }))
+    );
+  }
+  return Math.round((totalPhut / 60) * 100) / 100;
+}
+
 export function tinhMotDong(
   row: BangLuongChamCongInput,
   nam: number,
@@ -231,6 +263,8 @@ export function tinhMotDong(
     phanTramHoaHongTheoKy?: number;
     soBuaAnTheoChamCon?: number;
     soNgayCongTheoChamCon?: number;
+    /** Ghi đè cột H TC khi đã tổng hợp từ bảng chấm công. */
+    soGioTangCaTheoChamCon?: number;
   }
 ): BangLuongChamCongKetQua {
   const D = ATTENDANCE_SALARY.NGAY_LAM_TRONG_THANG;
@@ -251,8 +285,12 @@ export function tinhMotDong(
 
   const phuCapThamNien = phuCapThamNienTheoThang(thangLam);
 
+  const gioTangCaNguon =
+    options?.soGioTangCaTheoChamCon !== undefined
+      ? options.soGioTangCaTheoChamCon
+      : row.soGioTangCa;
   let gioTangCaApDung = Math.min(
-    Math.max(0, row.soGioTangCa),
+    Math.max(0, gioTangCaNguon),
     ATTENDANCE_SALARY.GIO_TANG_CA_TOI_DA_THANG
   );
   let luongTangCa = 0;
@@ -292,7 +330,7 @@ export function tinhMotDong(
   ) {
     ghiChu = 'Cảnh báo: tổng ngày tại quán + không tại quán > số ngày công.';
   }
-  if (row.soGioTangCa > ATTENDANCE_SALARY.GIO_TANG_CA_TOI_DA_THANG) {
+  if (gioTangCaNguon > ATTENDANCE_SALARY.GIO_TANG_CA_TOI_DA_THANG) {
     ghiChu = (ghiChu ? ghiChu + ' ' : '') + `Giờ tăng ca chỉ tính tối đa ${ATTENDANCE_SALARY.GIO_TANG_CA_TOI_DA_THANG}h/tháng.`;
   }
 

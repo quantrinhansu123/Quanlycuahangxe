@@ -24,9 +24,23 @@ import * as XLSX from 'xlsx';
 import Pagination from '../components/Pagination';
 import { useAuth } from '../context/AuthContext';
 import type { AttendanceRecord } from '../data/attendanceData';
-import { bulkUpsertAttendanceRecords, createAttendanceRecord, deleteAttendanceRecord, getAttendancePaginated, getAttendanceRecords, upsertAttendanceRecord } from '../data/attendanceData';
+import {
+  bulkUpsertAttendanceRecords,
+  createAttendanceRecord,
+  deleteAttendanceRecord,
+  formatAttendanceSaveError,
+  getAttendancePaginated,
+  getAttendanceRecords,
+  upsertAttendanceRecord
+} from '../data/attendanceData';
 import { getPersonnel, type NhanSu } from '../data/personnelData';
-import { calculateAttendanceStatus } from '../utils/timekeeping';
+import { formatDateTime24h } from '../utils/datetimeFormat';
+import {
+  calculateAttendanceStatus,
+  formatMinutesToHours,
+  overtimeMinutesForDayShifts,
+  parseTimeStringToMinutes,
+} from '../utils/timekeeping';
 
 const AttendanceManagementPage: React.FC = () => {
   const { nhanVien, isAdmin } = useAuth();
@@ -268,8 +282,17 @@ const AttendanceManagementPage: React.FC = () => {
           alert('Vui lòng chọn nhân sự và ngày.');
           return;
         }
+        let nhan_su = updatedData.nhan_su;
+        if (!isAdmin && nhanVien) {
+          const me = personnel.find(
+            p =>
+              (nhanVien.id_nhan_su && p.id_nhan_su === nhanVien.id_nhan_su) ||
+              p.ho_ten.trim() === nhanVien.ho_ten.trim()
+          );
+          if (me) nhan_su = me.ho_ten;
+        }
         await createAttendanceRecord({
-          nhan_su: updatedData.nhan_su,
+          nhan_su,
           ngay: updatedData.ngay,
           checkin: updatedData.checkin ?? null,
           checkout: updatedData.checkout ?? null,
@@ -306,7 +329,7 @@ const AttendanceManagementPage: React.FC = () => {
 
         if (changes.length > 0) {
           const historyEntry = {
-            thoi_gian: new Date().toLocaleString('vi-VN'),
+            thoi_gian: formatDateTime24h(new Date()),
             nguoi_sua: nhanVien?.ho_ten || 'Admin',
             thay_doi: changes
           };
@@ -319,7 +342,7 @@ const AttendanceManagementPage: React.FC = () => {
       await loadRecords(false);
       handleCloseModal();
     } catch (error) {
-      alert('Lỗi: Không thể lưu thông tin chấm công.');
+      alert(`Lỗi: ${formatAttendanceSaveError(error)}`);
     }
   };
 
@@ -524,6 +547,39 @@ const AttendanceManagementPage: React.FC = () => {
     });
   }, [records]);
 
+  /** Tổng phút tăng ca trong ngày (cùng nhân sự): sau 19:00, nhiều lượt → giờ ra muộn nhất. */
+  const tangCaPhutTrongNgay = React.useMemo(() => {
+    const map = new Map<string, number>();
+    const buckets: Record<string, AttendanceRecord[]> = {};
+    for (const r of records) {
+      if ((r as { isMockAbsent?: boolean }).isMockAbsent) continue;
+      if (!r.ngay || !r.nhan_su) continue;
+      const k = `${r.ngay}|||${r.nhan_su}`;
+      if (!buckets[k]) buckets[k] = [];
+      buckets[k].push(r);
+    }
+    for (const [k, list] of Object.entries(buckets)) {
+      const phut = overtimeMinutesForDayShifts(
+        list.map((x) => ({ checkin: x.checkin, checkout: x.checkout }))
+      );
+      map.set(k, phut);
+    }
+    return map;
+  }, [records]);
+
+  const tangCaKey = (r: AttendanceRecord) =>
+    r.ngay && r.nhan_su ? `${r.ngay}|||${r.nhan_su}` : '';
+
+  const titleTangCaKhiKhongHien = (r: AttendanceRecord): string => {
+    if ((r as { isMockAbsent?: boolean }).isMockAbsent) return '';
+    const p = r.checkout ? parseTimeStringToMinutes(r.checkout) : null;
+    if (p == null) return 'Chưa có giờ ra — chưa tính tăng ca';
+    if (p < 19 * 60) {
+      return 'Tăng ca: chỉ tính phút làm sau 19:00 (giờ ra hiện trước 19:00 nên 0p). Nếu làm tối, hãy chấm thêm lượt có giờ ra sau 19:00 cùng ngày.';
+    }
+    return '';
+  };
+
   const tableColSpan = 1 + visibleColumns.length;
 
   return (
@@ -727,6 +783,9 @@ const AttendanceManagementPage: React.FC = () => {
                     {dateRecords.map(record => {
                   const status = calculateAttendanceStatus(record.checkin, record.checkout);
                   const isMockAbsent = (record as any).isMockAbsent;
+                  const phutTangCaNgay = isMockAbsent
+                    ? 0
+                    : (tangCaPhutTrongNgay.get(tangCaKey(record)) ?? 0);
 
                   return (
                     <tr key={record.id} className={clsx("transition-colors", isMockAbsent ? "bg-red-50/50 hover:bg-red-50" : "hover:bg-muted/80")}>
@@ -776,10 +835,21 @@ const AttendanceManagementPage: React.FC = () => {
                       )}
 
                       {visibleColumns.includes('tang_ca') && (
-                        <td className="px-4 py-4 font-bold">
-                          {status.overtimeMinutes >= 30 && !isMockAbsent ? (
-                            <span className="text-orange-600">{status.overtimeFormatted}</span>
-                          ) : '—'}
+                        <td
+                          className="px-4 py-4 font-bold"
+                          title={
+                            !isMockAbsent && phutTangCaNgay > 0
+                              ? 'Tổng tăng ca trong ngày (sau 19:00; nhiều lượt chấm: lấy giờ ra muộn nhất)'
+                              : !isMockAbsent
+                                ? titleTangCaKhiKhongHien(record) || 'Không phát sinh tăng ca'
+                                : undefined
+                          }
+                        >
+                          {!isMockAbsent && phutTangCaNgay > 0 ? (
+                            <span className="text-orange-600">{formatMinutesToHours(phutTangCaNgay)}</span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
                         </td>
                       )}
 
@@ -877,6 +947,9 @@ const AttendanceManagementPage: React.FC = () => {
                       {dateRecords.map(record => {
                         const status = calculateAttendanceStatus(record.checkin, record.checkout);
                   const isMockAbsent = (record as any).isMockAbsent;
+                  const phutTangCaNgay = isMockAbsent
+                    ? 0
+                    : (tangCaPhutTrongNgay.get(tangCaKey(record)) ?? 0);
                   
                   return (
                   <div key={record.id} className={clsx("p-4 flex items-start gap-3 transition-colors", isMockAbsent ? "bg-red-50/50 hover:bg-red-50" : "hover:bg-muted/50")}>
@@ -919,9 +992,12 @@ const AttendanceManagementPage: React.FC = () => {
                            </span>
                         )}
 
-                        {!isMockAbsent && status.overtimeMinutes >= 30 && (
-                           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-orange-50 text-orange-600 text-[11px] font-bold border border-orange-100">
-                             OT: {status.overtimeFormatted}
+                        {!isMockAbsent && phutTangCaNgay > 0 && (
+                           <span
+                             className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-orange-50 text-orange-600 text-[11px] font-bold border border-orange-100"
+                             title="Tổng tăng ca trong ngày (sau 19:00; nhiều lượt: giờ ra muộn nhất)"
+                           >
+                             OT: {formatMinutesToHours(phutTangCaNgay)}
                            </span>
                         )}
                       </div>

@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { Camera, Save, X, Building2, User, Phone, Briefcase, Loader2, KeyRound, Calendar, Banknote } from 'lucide-react';
 import type { NhanSu } from '../data/personnelData';
 import { uploadPersonnelImage } from '../data/personnelData';
+import { formatTienNhap, parseTienNhap } from '../data/payrollAttendanceSalary';
 
 interface PersonnelFormModalProps {
   isOpen: boolean;
@@ -41,12 +42,13 @@ const PersonnelFormModal: React.FC<PersonnelFormModalProps> = React.memo(({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     if (name === 'luong_co_ban') {
-      if (value === '') {
+      const digits = value.replace(/[^\d]/g, '');
+      if (!digits) {
         setFormData(prev => ({ ...prev, luong_co_ban: null }));
         return;
       }
-      const n = parseFloat(value.replace(/\s/g, '').replace(/,/g, ''));
-      setFormData(prev => ({ ...prev, luong_co_ban: Number.isFinite(n) ? n : null }));
+      const n = parseTienNhap(value);
+      setFormData(prev => ({ ...prev, luong_co_ban: n }));
       return;
     }
     if (name === 'ngay_vao_lam') {
@@ -112,29 +114,6 @@ const PersonnelFormModal: React.FC<PersonnelFormModalProps> = React.memo(({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5 rounded-xl font-mono">
-                <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                  <span className="text-primary font-black">ID</span>
-                  Mã nhân sự (ID)
-                </label>
-                <input
-                  type="text"
-                  readOnly
-                  name="id_nhan_su"
-                  value={formData.id_nhan_su ?? ''}
-                  title={editingPerson ? 'Mã cố định sau khi tạo' : 'Hệ thống tự tạo mã'}
-                  tabIndex={-1}
-                  className="w-full px-4 py-2 bg-muted/50 border border-border/80 rounded-xl text-[14px] font-bold text-primary cursor-not-allowed"
-                />
-                <p className="text-[10px] text-muted-foreground leading-snug">
-                  {editingPerson
-                    ? 'Mã gán một lần, không đổi từ giao diện (tránh mất tham chiếu chấm công, phiếu…).'
-                    : 'Hệ thống tự tạo theo dãy NV-… Mã sẽ được gán lại theo dãy tại thời điểm lưu.'}
-                </p>
-              </div>
-
-              <div className="hidden md:block"></div> {/* Spacer for alignment */}
-
               <div className="space-y-1.5 focus-within:ring-2 focus-within:ring-primary/20 rounded-xl transition-all">
                 <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                   <User size={14} className="text-primary/70" />
@@ -185,15 +164,19 @@ const PersonnelFormModal: React.FC<PersonnelFormModalProps> = React.memo(({
                   Lương cơ bản (VNĐ)
                 </label>
                 <input
-                  type="number"
+                  type="text"
                   name="luong_co_ban"
-                  min={0}
-                  step={1000}
-                  value={formData.luong_co_ban != null && !Number.isNaN(formData.luong_co_ban) ? formData.luong_co_ban : ''}
+                  inputMode="numeric"
+                  autoComplete="off"
+                  value={
+                    formData.luong_co_ban != null && !Number.isNaN(formData.luong_co_ban)
+                      ? formatTienNhap(formData.luong_co_ban)
+                      : ''
+                  }
                   onChange={handleInputChange}
-                  placeholder="0"
+                  placeholder="VD: 10.000.000"
                   tabIndex={4}
-                  className="w-full px-4 py-2 bg-background border border-border rounded-xl outline-none focus:border-primary text-[14px]"
+                  className="w-full px-4 py-2 bg-background border border-border rounded-xl outline-none focus:border-primary text-[14px] font-mono tabular-nums"
                 />
               </div>
 

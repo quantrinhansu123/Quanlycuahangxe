@@ -1,13 +1,11 @@
-/** Mốc kết thúc ca: sau thời điểm này, phần thời gian từ đây đến giờ ra mới xét tăng ca (nếu ≥ 30p). */
-export const MOC_TANG_CA_TINH_TU = 19 * 60 + 30; // 19:30
-/** Tăng ca chỉ ghi nhận khi (giờ ra − 19:30) ≥ số phút này. */
-export const PHUT_TANG_CA_TOI_THIEU = 30;
+/** Mốc bắt đầu tính tăng ca (sau giờ ca tối / cùng hệ thống bữa tăng 19:00). */
+export const MOC_TANG_CA_TINH_TU = 19 * 60; // 19:00
 
 export interface AttendanceStatus {
   isLate: boolean;          // Có đi muộn không (checkin > 07:40)
   lateMinutes: number;      // Số phút đi muộn (so với mốc 07:30 gốc)
   isAbsent: boolean;        // Không có dữ liệu ở Ngày đó => Vắng mặt
-  overtimeMinutes: number;  // (Giờ ra − 19:30) tính bằng phút, chỉ khi ≥ 30p
+  overtimeMinutes: number;  // (Giờ ra − 19:00) tính bằng phút, nếu > 0
   overtimeFormatted: string;// Chuỗi format VD: "1h 30p"
 }
 
@@ -20,13 +18,55 @@ export const formatMinutesToHours = (minutes: number): string => {
   return `${m}p`;
 };
 
-// Hàm convert "HH:mm" thành số phút kể từ 00:00 để dễ tính toán
-const timeToMinutes = (timeStr: string | null | undefined): number => {
-  if (!timeStr) return 0;
-  const match = timeStr.match(/^(\d{1,2}):(\d{2})/);
-  if (!match) return 0;
-  return parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
-};
+/**
+ * Chuyển chuỗi giờ từ DB (time / text) hoặc ISO thành phút từ 00:00.
+ * Hỗ trợ: "20:00", "20:00:00", "1970-01-01T20:00:00", khoảng trắng thừa.
+ */
+export function parseTimeStringToMinutes(timeStr: string | null | undefined): number | null {
+  if (timeStr == null) return null;
+  const t = String(timeStr).trim();
+  if (!t) return null;
+  const afterT = t.match(/T(\d{1,2}):(\d{1,2})(?::(\d{2}))?/);
+  if (afterT) {
+    const hh = parseInt(afterT[1], 10);
+    const mm = parseInt(afterT[2], 10);
+    if (Number.isNaN(hh) || Number.isNaN(mm)) return null;
+    return hh * 60 + mm;
+  }
+  const m = t.match(/^(\d{1,2}):(\d{1,2})(?::(\d{2}))?/);
+  if (!m) return null;
+  const hh = parseInt(m[1], 10);
+  const mm = parseInt(m[2], 10);
+  if (Number.isNaN(hh) || Number.isNaN(mm)) return null;
+  return hh * 60 + mm;
+}
+
+const timeToMinutes = (timeStr: string | null | undefined): number =>
+  parseTimeStringToMinutes(timeStr) ?? 0;
+
+/** Các dòng chấm công cùng một ngày: tăng ca = theo **giờ ra muộn nhất** (một lần / ngày). */
+export function overtimeMinutesForDayShifts(
+  rows: { checkin: string | null; checkout: string | null }[]
+): number {
+  const withCo = rows.filter(
+    (r) => r.checkout != null && String(r.checkout).trim() !== ''
+  );
+  if (withCo.length === 0) return 0;
+  let bestOut: string | null = null;
+  let bestM = -1;
+  for (const r of withCo) {
+    const c = r.checkout!;
+    const m = parseTimeStringToMinutes(c);
+    if (m != null && m > bestM) {
+      bestM = m;
+      bestOut = c;
+    }
+  }
+  if (bestOut == null) return 0;
+  const chIn =
+    rows.find((r) => r.checkin != null && String(r.checkin).trim() !== '')?.checkin ?? null;
+  return calculateAttendanceStatus(chIn, bestOut).overtimeMinutes;
+}
 
 export const calculateAttendanceStatus = (checkin: string | null, checkout: string | null): AttendanceStatus => {
   const result: AttendanceStatus = {
@@ -51,12 +91,12 @@ export const calculateAttendanceStatus = (checkin: string | null, checkout: stri
     result.lateMinutes = inMins - 450; // Tính theo mốc 07:30
   }
 
-  // === 2. TĂNG CA: giờ ra − 19:30; nếu < 30 phút thì = 0 (không tính)
+  // === 2. TĂNG CA: mọi phút sau mốc MOC_TANG_CA_TINH_TU (mặc định 19:00)
   if (outMins > 0) {
-    const phutSau1930 = outMins - MOC_TANG_CA_TINH_TU;
-    if (phutSau1930 >= PHUT_TANG_CA_TOI_THIEU) {
-      result.overtimeMinutes = phutSau1930;
-      result.overtimeFormatted = formatMinutesToHours(phutSau1930);
+    const phutSauMoc = outMins - MOC_TANG_CA_TINH_TU;
+    if (phutSauMoc > 0) {
+      result.overtimeMinutes = phutSauMoc;
+      result.overtimeFormatted = formatMinutesToHours(phutSauMoc);
     }
   }
 
