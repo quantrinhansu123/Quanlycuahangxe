@@ -1,5 +1,6 @@
 import {
   BarChart2,
+  LineChart as LineChartIcon,
   TrendingUp,
   TrendingDown,
   Calendar,
@@ -832,7 +833,7 @@ const tabs: { key: TabKey; label: string; icon: React.ElementType }[] = [
   { key: 'day', label: 'Theo ngày', icon: Calendar },
   { key: 'branch', label: 'Theo cơ sở', icon: Building2 },
   { key: 'personnel', label: 'Nhân sự', icon: Users },
-  { key: 'chart', label: 'Biểu đồ', icon: TrendingUp },
+  { key: 'chart', label: 'Biểu đồ', icon: LineChartIcon },
 ];
 
 const CHART_COLORS = ['#eab308', '#3b82f6', '#ef4444', '#10b981', '#8b5cf6', '#f97316', '#06b6d4', '#84cc16'];
@@ -1498,7 +1499,7 @@ const RevenueReportPage: React.FC = () => {
               onClick={() => setActiveTab('chart')}
               className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-primary/30 bg-primary/10 text-primary text-[12px] font-bold hover:bg-primary/15"
             >
-              <TrendingUp size={13} />
+              <LineChartIcon size={13} />
               Biểu đồ so sánh
             </button>
             <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2 shadow-sm">

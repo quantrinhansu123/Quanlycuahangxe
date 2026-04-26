@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Search, Plus, Edit2, Trash2, Camera, Loader2, ChevronDown, 
-  Building2, Wallet, BadgeDollarSign, Download, Upload
+  Building2, Wallet, BadgeDollarSign, Download, Upload, Calendar
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useLocation } from 'react-router-dom';
@@ -35,6 +35,11 @@ const FinancialManagementPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'list' | 'charts'>('list');
   const [allTransactions, setAllTransactions] = useState<ThuChi[]>([]);
+  const [chartDateStart, setChartDateStart] = useState(() => {
+    const t = new Date();
+    return new Date(t.getFullYear(), t.getMonth(), 1).toISOString().slice(0, 10);
+  });
+  const [chartDateEnd, setChartDateEnd] = useState(() => new Date().toISOString().slice(0, 10));
   
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState('');
@@ -138,6 +143,47 @@ const FinancialManagementPage: React.FC = () => {
       setCurrentPage(1); 
       return newFilters;
     });
+  };
+
+  const chartFilteredTransactions = useMemo(() => {
+    if (!chartDateStart || !chartDateEnd) return allTransactions;
+    if (chartDateStart > chartDateEnd) return [];
+    return allTransactions.filter((t) => {
+      const d = (t.ngay || '').slice(0, 10);
+      return d >= chartDateStart && d <= chartDateEnd;
+    });
+  }, [allTransactions, chartDateStart, chartDateEnd]);
+
+  const setChartRange = (start: string, end: string) => {
+    if (start <= end) {
+      setChartDateStart(start);
+      setChartDateEnd(end);
+    } else {
+      setChartDateStart(end);
+      setChartDateEnd(start);
+    }
+  };
+
+  const setPresetDays = (n: number) => {
+    const e = new Date();
+    e.setHours(0, 0, 0, 0);
+    const s = new Date(e);
+    s.setDate(s.getDate() - (n - 1));
+    setChartRange(s.toISOString().slice(0, 10), e.toISOString().slice(0, 10));
+  };
+
+  const setThisMonth = () => {
+    const t = new Date();
+    const s = new Date(t.getFullYear(), t.getMonth(), 1);
+    const e = new Date();
+    setChartRange(s.toISOString().slice(0, 10), e.toISOString().slice(0, 10));
+  };
+
+  const setPrevMonth = () => {
+    const t = new Date();
+    const s = new Date(t.getFullYear(), t.getMonth() - 1, 1);
+    const e = new Date(t.getFullYear(), t.getMonth(), 0);
+    setChartRange(s.toISOString().slice(0, 10), e.toISOString().slice(0, 10));
   };
 
   const customerOptions = useMemo(() => {
@@ -719,10 +765,71 @@ const FinancialManagementPage: React.FC = () => {
             </div>
           </>
         ) : (
-          <div className="w-full">
-             <React.Suspense fallback={<div className="p-12 text-center text-muted-foreground"><Loader2 className="animate-spin inline-block mr-2" /> Đang tải biểu đồ...</div>}>
-               <FinancialCharts transactions={allTransactions} />
-             </React.Suspense>
+          <div className="w-full space-y-4">
+            <div className="bg-card border border-border rounded-xl p-3 sm:p-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:flex-wrap">
+              <div className="flex items-center gap-2 text-foreground min-w-0">
+                <Calendar className="w-4 h-4 text-primary shrink-0" />
+                <span className="text-[13px] font-bold">Lọc theo ngày</span>
+                <span className="text-[11px] text-muted-foreground hidden sm:inline">(áp cả thống kê & biểu đồ)</span>
+              </div>
+              <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 sm:gap-3">
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                  <label className="text-[11px] text-muted-foreground font-medium sm:sr-only">Từ</label>
+                  <input
+                    type="date"
+                    value={chartDateStart}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setChartDateStart(v);
+                      if (v > chartDateEnd) setChartDateEnd(v);
+                    }}
+                    className="px-2 py-1.5 rounded-lg border border-border bg-background text-[13px] font-medium min-h-9"
+                    title="Từ ngày"
+                  />
+                  <span className="text-muted-foreground text-[12px]">—</span>
+                  <input
+                    type="date"
+                    value={chartDateEnd}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setChartDateEnd(v);
+                      if (v < chartDateStart) setChartDateStart(v);
+                    }}
+                    className="px-2 py-1.5 rounded-lg border border-border bg-background text-[13px] font-medium min-h-9"
+                    title="Đến ngày"
+                  />
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { key: '7d', label: '7 ngày', onClick: () => setPresetDays(7) },
+                    { key: '30d', label: '30 ngày', onClick: () => setPresetDays(30) },
+                    { key: 'tm', label: 'Tháng này', onClick: setThisMonth },
+                    { key: 'pm', label: 'Tháng trước', onClick: setPrevMonth },
+                  ].map((p) => (
+                    <button
+                      key={p.key}
+                      type="button"
+                      onClick={p.onClick}
+                      className="px-2.5 py-1.5 rounded-lg border border-border bg-muted/40 hover:bg-muted text-[11px] font-bold text-foreground transition-colors"
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <React.Suspense
+              fallback={
+                <div className="p-12 text-center text-muted-foreground">
+                  <Loader2 className="animate-spin inline-block mr-2" /> Đang tải biểu đồ...
+                </div>
+              }
+            >
+              <FinancialCharts
+                transactions={chartFilteredTransactions}
+                dateRange={{ start: chartDateStart, end: chartDateEnd }}
+              />
+            </React.Suspense>
           </div>
         )}
       </div>

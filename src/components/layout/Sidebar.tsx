@@ -167,27 +167,31 @@ const NavGroup = React.memo(
               <div className="px-2.5 pb-1.5 mb-1 border-b border-border/60 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                 {item.label}
               </div>
-              {visibleChildren.map((child: SidebarSubItem) => (
-                <NavLink
-                  key={child.path}
-                  to={child.path}
-                  role="menuitem"
-                  onClick={() => {
-                    setFlyoutOpen(false);
-                    onNavigate();
-                  }}
-                  className={({ isActive }) =>
-                    clsx(
-                      'block px-3 py-2 text-[13px] font-medium rounded-lg mx-1 transition-colors',
-                      isActive
-                        ? 'bg-primary text-white'
-                        : 'text-foreground hover:bg-accent'
-                    )
-                  }
-                >
-                  {child.label}
-                </NavLink>
-              ))}
+              {visibleChildren.map((child: SidebarSubItem) => {
+                const SubIcon = child.icon;
+                return (
+                  <NavLink
+                    key={child.path}
+                    to={child.path}
+                    role="menuitem"
+                    onClick={() => {
+                      setFlyoutOpen(false);
+                      onNavigate();
+                    }}
+                    className={({ isActive }) =>
+                      clsx(
+                        'flex items-center gap-2 px-3 py-2 text-[13px] font-medium rounded-lg mx-1 transition-colors',
+                        isActive
+                          ? 'bg-primary text-white'
+                          : 'text-foreground hover:bg-accent'
+                      )
+                    }
+                  >
+                    {SubIcon && <SubIcon size={16} strokeWidth={1.75} className="shrink-0 opacity-90" />}
+                    {child.label}
+                  </NavLink>
+                );
+              })}
             </div>
           )}
         </div>
@@ -217,23 +221,27 @@ const NavGroup = React.memo(
         </button>
         {expanded && (
           <div className="mt-1 ml-2 pl-3 border-l border-border/80 space-y-0.5">
-            {visibleChildren.map((child: SidebarSubItem) => (
-              <NavLink
-                key={child.path}
-                to={child.path}
-                onClick={onNavigate}
-                className={({ isActive }) =>
-                  clsx(
-                    'flex items-center rounded-lg text-[13px] font-medium py-2 px-2 transition-colors',
-                    isActive
-                      ? 'bg-primary text-white'
-                      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                  )
-                }
-              >
-                {child.label}
-              </NavLink>
-            ))}
+            {visibleChildren.map((child: SidebarSubItem) => {
+              const SubIcon = child.icon;
+              return (
+                <NavLink
+                  key={child.path}
+                  to={child.path}
+                  onClick={onNavigate}
+                  className={({ isActive }) =>
+                    clsx(
+                      'flex items-center gap-2 rounded-lg text-[13px] font-medium py-2 px-2 transition-colors',
+                      isActive
+                        ? 'bg-primary text-white'
+                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                    )
+                  }
+                >
+                  {SubIcon && <SubIcon size={16} strokeWidth={1.75} className="shrink-0 opacity-90" />}
+                  {child.label}
+                </NavLink>
+              );
+            })}
           </div>
         )}
       </div>

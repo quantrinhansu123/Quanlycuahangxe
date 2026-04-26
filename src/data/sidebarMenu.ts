@@ -6,6 +6,7 @@ import {
   Wallet,
   Wrench,
   BarChart2,
+  LineChart,
   ShieldCheck
 } from 'lucide-react';
 import React from 'react';
@@ -15,6 +16,8 @@ export type SidebarSubItem = {
   label: string;
   path: string;
   viewKey?: ViewPermissionKey;
+  /** Icon Lucide (tuỳ chọn), hiển thị cạnh nhãn trong submenu */
+  icon?: React.ElementType;
 };
 
 export type SidebarItem = {
@@ -40,7 +43,16 @@ export const sidebarMenu: SidebarItem[] = [
   },
   { icon: Wallet, label: 'Thu chi', path: '/thu-chi', viewKey: 'thu-chi' },
   { icon: Wrench, label: 'Dịch vụ', path: '/dich-vu', viewKey: 'dich-vu' },
-  { icon: BarChart2, label: 'Báo cáo', path: '/bao-cao', viewKey: 'bao-cao' },
+  {
+    icon: BarChart2,
+    label: 'Báo cáo',
+    path: '/bao-cao',
+    viewKey: 'bao-cao',
+    children: [
+      { label: 'Tổng hợp', path: '/bao-cao/san-pham' },
+      { label: 'Biểu đồ', path: '/bao-cao/bieu-do', icon: LineChart },
+    ],
+  },
   { icon: Users, label: 'Nhân sự', path: '/nhan-su', viewKey: 'nhan-su' },
   { icon: Wallet, label: 'Tiền lương', path: '/tien-luong', viewKey: 'tien-luong' }, // NV xem lương của mình, admin xem tất cả
   { icon: Box, label: 'Kho vận', path: '/kho-van', viewKey: 'kho-van' },

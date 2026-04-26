@@ -4,17 +4,38 @@ import {
   BarChart, Bar, PieChart, Pie, Cell, LineChart, Line
 } from 'recharts';
 import type { ThuChi } from '../data/financialData';
-import { format, parseISO } from 'date-fns';
+import {
+  eachDayOfInterval,
+  eachMonthOfInterval,
+  endOfMonth,
+  format,
+  parse,
+  differenceInCalendarDays,
+} from 'date-fns';
+import { vi } from 'date-fns/locale';
 import { DollarSign, ArrowUpRight, ArrowDownRight, Activity } from 'lucide-react';
 import { clsx } from 'clsx';
 
+const dayKey = (t: ThuChi) => (t.ngay || '').slice(0, 10);
+const isDone = (t: ThuChi) => t.trang_thai === 'Hoàn thành';
+
+function parseLocalYmd(ymd: string): Date {
+  return parse(ymd.slice(0, 10), 'yyyy-MM-dd', new Date());
+}
+
+export interface FinancialChartsDateRange {
+  start: string;
+  end: string;
+}
+
 interface FinancialChartsProps {
   transactions: ThuChi[];
+  dateRange: FinancialChartsDateRange;
 }
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
 
-const FinancialCharts: React.FC<FinancialChartsProps> = ({ transactions }) => {
+const FinancialCharts: React.FC<FinancialChartsProps> = ({ transactions, dateRange }) => {
   // 1. Stats Calculation
   const stats = useMemo(() => {
     const successTransactions = transactions.filter(t => t.trang_thai === 'Hoàn thành');
@@ -26,26 +47,51 @@ const FinancialCharts: React.FC<FinancialChartsProps> = ({ transactions }) => {
     return { income, expense, balance, count };
   }, [transactions]);
 
-  // 2. Time Series Data (Spline Chart)
+  const rangeMeta = useMemo(() => {
+    const start = parseLocalYmd(dateRange.start);
+    const end = parseLocalYmd(dateRange.end);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) {
+      return { valid: false as const, nDays: 0, start, end };
+    }
+    return {
+      valid: true as const,
+      nDays: differenceInCalendarDays(end, start) + 1,
+      start,
+      end,
+    };
+  }, [dateRange.start, dateRange.end]);
+
+  // 2. Time series: theo khoảng ngày (≤90 ngày: theo từng ngày; dài hơn: theo tháng)
   const timeSeriesData = useMemo(() => {
-    const last12Months = Array.from({ length: 12 }, (_, i) => {
-      const d = new Date();
-      d.setMonth(d.getMonth() - (11 - i));
-      return format(d, 'yyyy-MM');
-    });
+    if (!rangeMeta.valid) return [];
+    const { start, end, nDays } = rangeMeta;
 
-    return last12Months.map(month => {
-      const monthTransactions = transactions.filter(t => t.ngay.startsWith(month) && t.trang_thai === 'Hoàn thành');
-      const income = monthTransactions.filter(t => t.loai_phieu === 'phiếu thu').reduce((sum, t) => sum + t.so_tien, 0);
-      const expense = monthTransactions.filter(t => t.loai_phieu === 'phiếu chi').reduce((sum, t) => sum + t.so_tien, 0);
+    if (nDays <= 90) {
+      return eachDayOfInterval({ start, end }).map((day) => {
+        const key = format(day, 'yyyy-MM-dd');
+        const dtx = transactions.filter((t) => dayKey(t) === key && isDone(t));
+        const income = dtx.filter((t) => t.loai_phieu === 'phiếu thu').reduce((s, t) => s + t.so_tien, 0);
+        const expense = dtx.filter((t) => t.loai_phieu === 'phiếu chi').reduce((s, t) => s + t.so_tien, 0);
+        return {
+          name: format(day, 'dd/MM', { locale: vi }),
+          income,
+          expense,
+        };
+      });
+    }
 
+    return eachMonthOfInterval({ start, end: endOfMonth(end) }).map((monthDate) => {
+      const m = format(monthDate, 'yyyy-MM');
+      const dtx = transactions.filter((t) => isDone(t) && dayKey(t).slice(0, 7) === m);
+      const income = dtx.filter((t) => t.loai_phieu === 'phiếu thu').reduce((s, t) => s + t.so_tien, 0);
+      const expense = dtx.filter((t) => t.loai_phieu === 'phiếu chi').reduce((s, t) => s + t.so_tien, 0);
       return {
-        name: format(parseISO(`${month}-01`), 'MMM yy'),
+        name: format(monthDate, 'MM/yyyy', { locale: vi }),
         income,
-        expense
+        expense,
       };
     });
-  }, [transactions]);
+  }, [transactions, rangeMeta]);
 
   // 3. Category Data (Doughnut)
   const categoryData = useMemo(() => {
@@ -119,7 +165,7 @@ const FinancialCharts: React.FC<FinancialChartsProps> = ({ transactions }) => {
     <div className="space-y-6 pb-12 animate-in fade-in duration-700">
       {/* Top Banner Stats */}
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3">
-        <KPIItem title="Giao dịch" value={stats.count} icon={Activity} color="blue" subtitle="Tất cả" />
+        <KPIItem title="Giao dịch" value={stats.count} icon={Activity} color="blue" subtitle="Theo bộ lọc" />
         <KPIItem title="Thu nhập" value={stats.income} icon={ArrowUpRight} color="emerald" unit="đ" />
         <KPIItem title="Chi phí" value={stats.expense} icon={ArrowDownRight} color="rose" unit="đ" />
         <KPIItem title="Số dư" value={stats.balance} icon={DollarSign} color="amber" unit="đ" />
@@ -131,7 +177,16 @@ const FinancialCharts: React.FC<FinancialChartsProps> = ({ transactions }) => {
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-2">
             <div>
               <h3 className="text-sm font-black text-black tracking-tight uppercase">Biến động tài chính</h3>
-              <p className="text-[10px] text-black font-medium opacity-60">Thu nhập & Chi phí 2024</p>
+              <p className="text-[10px] text-black font-medium opacity-60">
+                {rangeMeta.valid ? (
+                  <>
+                    {format(rangeMeta.start, 'dd/MM/yyyy', { locale: vi })} → {format(rangeMeta.end, 'dd/MM/yyyy', { locale: vi })}{' '}
+                    · {rangeMeta.nDays > 90 ? 'trục: theo tháng' : 'trục: theo ngày'}
+                  </>
+                ) : (
+                  <>Chọn từ ngày ≤ đến ngày</>
+                )}
+              </p>
             </div>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
@@ -190,12 +245,8 @@ const FinancialCharts: React.FC<FinancialChartsProps> = ({ transactions }) => {
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-2">
             <div>
               <h3 className="text-sm font-black text-black tracking-tight uppercase">Cơ cấu Thu - Chi</h3>
-              <p className="text-[10px] text-black font-medium opacity-60">So sánh giữa các chi nhánh</p>
+              <p className="text-[10px] text-black font-medium opacity-60">Theo cơ sở · cùng khoảng lọc</p>
             </div>
-            <select className="bg-muted/30 border border-border px-3 py-1.5 rounded-lg text-xs font-bold focus:ring-1 focus:ring-primary outline-none text-black">
-              <option>Tháng này</option>
-              <option>Tháng trước</option>
-            </select>
           </div>
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -265,7 +316,9 @@ const FinancialCharts: React.FC<FinancialChartsProps> = ({ transactions }) => {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-[12px] font-black text-black">{formatCurrency(item.value)}</span>
-                    <span className="text-[10px] font-bold text-black opacity-40">{((item.value / categoryData.total) * 100).toFixed(0)}%</span>
+                    <span className="text-[10px] font-bold text-black opacity-40">
+                      {categoryData.total > 0 ? ((item.value / categoryData.total) * 100).toFixed(0) : 0}%
+                    </span>
                   </div>
                 </div>
               ))}
