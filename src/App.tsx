@@ -22,6 +22,7 @@ const PayrollPage = lazy(() => import('./pages/PayrollPage'));
 const PayrollSettingsPage = lazy(() => import('./pages/PayrollSettingsPage'));
 const SalaryComponentPage = lazy(() => import('./pages/SalaryComponentPage'));
 const AllowancePolicyPage = lazy(() => import('./pages/AllowancePolicyPage'));
+const PayrollAttendanceSalaryPage = lazy(() => import('./pages/PayrollAttendanceSalaryPage'));
 const RevenueReportPage = lazy(() => import('./pages/RevenueReportPage'));
 const PermissionSettingsPage = lazy(() => import('./pages/PermissionSettingsPage'));
 
@@ -67,6 +68,10 @@ function App() {
             <Route path="/tien-luong" element={<ProtectedRoute viewKey="tien-luong"><ModulePage /></ProtectedRoute>}>
               {/* bang-luong: admin xem tất cả, nhân viên xem của mình (RLS lọc data) */}
               <Route path="bang-luong" element={<ProtectedRoute viewKey="tien-luong"><PayrollPage /></ProtectedRoute>} />
+              <Route
+                path="bang-luong-cham-cong"
+                element={<ProtectedRoute viewKey="tien-luong"><PayrollAttendanceSalaryPage /></ProtectedRoute>}
+              />
               {/* Các trang cấu hình — chỉ admin */}
               <Route path="thong-so" element={<ProtectedRoute viewKey="tien-luong-cau-hinh"><PayrollSettingsPage /></ProtectedRoute>} />
               <Route path="thanh-phan" element={<ProtectedRoute viewKey="tien-luong-cau-hinh"><SalaryComponentPage /></ProtectedRoute>} />

@@ -24,6 +24,35 @@ export interface KhachHang {
   nhan_vien_id?: string | null; // Người tạo khách hàng
 }
 
+const sanitizeCustomerPayload = (customer: Partial<KhachHang>) => {
+  const payload: Partial<KhachHang> = {
+    id: customer.id,
+    ho_va_ten: customer.ho_va_ten?.trim(),
+    so_dien_thoai: customer.so_dien_thoai?.trim(),
+    anh: customer.anh || undefined,
+    dia_chi_hien_tai: customer.dia_chi_hien_tai?.trim(),
+    bien_so_xe: customer.bien_so_xe?.trim(),
+    ngay_dang_ky: customer.ngay_dang_ky || undefined,
+    so_km: typeof customer.so_km === 'number' ? customer.so_km : undefined,
+    so_ngay_thay_dau: typeof customer.so_ngay_thay_dau === 'number' ? customer.so_ngay_thay_dau : undefined,
+    ngay_thay_dau: customer.ngay_thay_dau || undefined,
+    ma_khach_hang: customer.ma_khach_hang?.trim() || undefined,
+    lich_su_thay_dau: customer.lich_su_thay_dau,
+    nhan_vien_id: customer.nhan_vien_id ?? undefined,
+  };
+
+  // Không gửi id tạm dạng PENDING-* lên DB.
+  if (payload.id && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(payload.id)) {
+    delete payload.id;
+  }
+
+  // Chuẩn hóa trường date rỗng để tránh lỗi Postgres date parser.
+  if (payload.ngay_dang_ky === '') payload.ngay_dang_ky = undefined;
+  if (payload.ngay_thay_dau === '') payload.ngay_thay_dau = undefined;
+
+  return payload;
+};
+
 const buildBranchVariants = (branchScope?: string): string[] => {
   const base = (branchScope || '').trim();
   if (!base) return [];
@@ -138,15 +167,49 @@ export const getCustomersPaginated = async (
 };
 
 export const upsertCustomer = async (customer: Partial<KhachHang>): Promise<KhachHang> => {
-  // Ensure we don't send id if it's new for upsert to work correctly if needed
-  const { data, error } = await supabase
-    .from('khach_hang')
-    .upsert(customer)
-    .select()
-    .single();
+  const payload = sanitizeCustomerPayload(customer);
+  let myHoTen = '';
+  let myNhanSuId = '';
+
+  try {
+    const [{ data: hoTenData }, { data: nhanSuIdData }] = await Promise.all([
+      supabase.rpc('get_my_ho_ten'),
+      supabase.rpc('get_my_nhan_su_id'),
+    ]);
+    myHoTen = (hoTenData as string | null) || '';
+    myNhanSuId = (nhanSuIdData as string | null) || '';
+  } catch {
+    // Nếu không gọi được helper RPC, giữ nguyên payload hiện có.
+  }
+
+  // RLS bảng khach_hang yêu cầu nhan_vien_id phải khớp get_my_ho_ten() hoặc get_my_nhan_su_id().
+  const allowedOwners = new Set([myHoTen, myNhanSuId].filter(Boolean));
+  if (allowedOwners.size > 0 && (!payload.nhan_vien_id || !allowedOwners.has(payload.nhan_vien_id))) {
+    payload.nhan_vien_id = myHoTen || myNhanSuId;
+  }
+
+  const hasValidId = !!payload.id;
+  const table = supabase.from('khach_hang');
+
+  const { data, error } = hasValidId
+    ? await table
+      .update(payload)
+      .eq('id', payload.id as string)
+      .select()
+      .single()
+    : await table
+      .insert(payload)
+      .select()
+      .single();
 
   if (error) {
-    console.error('Error upserting customer:', error);
+    console.error('Error upserting customer:', {
+      message: error.message,
+      code: error.code,
+      details: error.details,
+      hint: error.hint,
+      payload,
+    });
     throw error;
   }
   return data as KhachHang;

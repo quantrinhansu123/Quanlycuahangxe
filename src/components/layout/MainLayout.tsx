@@ -21,10 +21,10 @@ const MainLayout: React.FC = () => {
   );
 
   // Extract submodules with memoization to prevent Topbar re-renders
-  const subModules = React.useMemo(() => 
-    moduleData[`/${location.pathname.split('/')[1]}`]?.flatMap(s => s.items) || [],
-    [location.pathname]
-  );
+  const subModules = React.useMemo(() => {
+    const items = moduleData[`/${location.pathname.split('/')[1]}`]?.flatMap(s => s.items) || [];
+    return items.filter((i) => i.showInTopbar !== false);
+  }, [location.pathname]);
 
   // Auto-close sidebar on mobile when navigating
   React.useEffect(() => {

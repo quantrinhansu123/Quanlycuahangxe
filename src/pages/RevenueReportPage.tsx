@@ -835,7 +835,7 @@ const tabs: { key: TabKey; label: string; icon: React.ElementType }[] = [
   { key: 'chart', label: 'Biểu đồ', icon: TrendingUp },
 ];
 
-const CHART_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#14b8a6'];
+const CHART_COLORS = ['#eab308', '#3b82f6', '#ef4444', '#10b981', '#8b5cf6', '#f97316', '#06b6d4', '#84cc16'];
 type ChartVariant = 'line' | 'bar' | 'area';
 
 const compactMoney = (value: number) =>

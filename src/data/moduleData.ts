@@ -3,13 +3,13 @@ import {
   ClipboardList,
   ShoppingCart,
   Users,
-  FileText,
   Wallet,
   Wrench,
   BadgeDollarSign,
   Settings2,
   Braces,
-  Plus
+  Plus,
+  Table2
 } from 'lucide-react';
 import type { ModuleCardProps } from '../components/ui/ModuleCard';
 
@@ -19,9 +19,8 @@ export const moduleData: Record<string, { section: string; items: ModuleCardProp
     {
       section: 'Quản lý bán hàng',
       items: [
-        { icon: Users, title: 'Khách hàng', description: 'Quản lý danh sách và thông tin khách hàng.', colorScheme: 'blue', path: '/ban-hang/khach-hang' },
         { icon: ShoppingCart, title: 'Bán hàng', description: 'Lập hóa đơn và quản lý giao dịch bán hàng.', colorScheme: 'green', path: '/ban-hang/phieu-ban-hang' },
-        { icon: FileText, title: 'Bán hàng CT', description: 'Quản lý hóa đơn chi tiết các hạng mục và phụ tùng.', colorScheme: 'blue', path: '/ban-hang/phieu-ban-hang-ct' }
+        { icon: Users, title: 'Khách hàng', description: 'Quản lý danh sách và thông tin khách hàng.', colorScheme: 'blue', path: '/ban-hang/khach-hang', showInTopbar: false }
       ]
     }
   ],
@@ -55,6 +54,7 @@ export const moduleData: Record<string, { section: string; items: ModuleCardProp
     {
       section: 'Quản lý tiền lương',
       items: [
+        { icon: Table2, title: 'Bảng lương chấm công', description: 'Nhập công, phụ cấp, ăn ca, tăng ca, hoa hồng — tổng theo nghiệp vụ 28/8.', colorScheme: 'teal', path: '/tien-luong/bang-luong-cham-cong' },
         { icon: BadgeDollarSign, title: 'Bảng lương', description: 'Tính toán và quản lý bảng thanh toán lương hàng tháng.', colorScheme: 'emerald', path: '/tien-luong/bang-luong' },
         { icon: Settings2, title: 'Thông số mặc định', description: 'Cấu hình lương cơ sở, mức đóng bảo hiểm và thuế.', colorScheme: 'blue', path: '/tien-luong/thong-so' },
         { icon: Braces, title: 'Thành phần lương', description: 'Định nghĩa các khoản thu nhập và khấu trừ tùy chỉnh.', colorScheme: 'purple', path: '/tien-luong/thanh-phan' },

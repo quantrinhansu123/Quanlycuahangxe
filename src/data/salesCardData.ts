@@ -482,22 +482,50 @@ export const updateSalesCard = async (id: string, card: Partial<SalesCard>): Pro
 };
 
 export const upsertSalesCard = async (card: Partial<SalesCard>, isNew: boolean = false): Promise<SalesCard> => {
+  const normalizedCard: Partial<SalesCard> = { ...card };
+  try {
+    const [{ data: hoTenData }, { data: nhanSuIdData }] = await Promise.all([
+      supabase.rpc('get_my_ho_ten'),
+      supabase.rpc('get_my_nhan_su_id'),
+    ]);
+    const myHoTen = (hoTenData as string | null) || '';
+    const myNhanSuId = (nhanSuIdData as string | null) || '';
+    const allowed = new Set([myHoTen, myNhanSuId].filter(Boolean));
+
+    // RLS bảng the_ban_hang yêu cầu nhan_vien_id khớp 1 trong 2 giá trị trên.
+    if (allowed.size > 0) {
+      const currentStaff = (normalizedCard.nhan_vien_id || '').trim();
+      const tokens = currentStaff
+        ? currentStaff.split(',').map((s) => s.trim()).filter(Boolean)
+        : [];
+      const matchedToken = tokens.find((token) => allowed.has(token));
+
+      if (matchedToken) {
+        normalizedCard.nhan_vien_id = matchedToken;
+      } else if (!currentStaff || !allowed.has(currentStaff)) {
+        normalizedCard.nhan_vien_id = myHoTen || myNhanSuId;
+      }
+    }
+  } catch {
+    // Bỏ qua nếu không gọi được RPC helper (sẽ để backend trả lỗi chi tiết nếu có).
+  }
+
   let attempts = 0;
   const maxAttempts = 3;
 
   while (attempts < maxAttempts) {
-    if (isNew || !card.id) {
+    if (isNew || !normalizedCard.id) {
       // For new records, use insert to prevent accidental overwrites if the generated ID somehow exists
       const { data, error } = await supabase
         .from('the_ban_hang')
-        .insert(card)
+        .insert(normalizedCard)
         .select()
         .single();
 
       if (error) {
         if (error.code === '23505' && attempts < maxAttempts - 1) { // Unique violation
-          console.warn(`Unique constraint violation for ID ${card.id_bh}. Retrying...`);
-          card.id_bh = await getNextSalesCardCode();
+          console.warn(`Unique constraint violation for ID ${normalizedCard.id_bh}. Retrying...`);
+          normalizedCard.id_bh = await getNextSalesCardCode();
           attempts++;
           continue;
         }
@@ -511,8 +539,8 @@ export const upsertSalesCard = async (card: Partial<SalesCard>, isNew: boolean =
     // We already know it has an ID because `!card.id` is handled above
     const { data, error } = await supabase
       .from('the_ban_hang')
-      .update(card)
-      .eq('id', card.id as string)
+      .update(normalizedCard)
+      .eq('id', normalizedCard.id as string)
       .select()
       .single();
 

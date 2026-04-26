@@ -11,6 +11,8 @@ export interface ModuleCardProps {
   colorScheme: 'red' | 'green' | 'pink' | 'blue' | 'orange' | 'teal' | 'purple' | 'cyan' | 'emerald' | 'amber' | 'slate';
   path?: string;
   layoutId?: string;
+  /** When false, the item is hidden from the topbar sub-module tabs (mobile/desktop). */
+  showInTopbar?: boolean;
 }
 
 const colorMap = {

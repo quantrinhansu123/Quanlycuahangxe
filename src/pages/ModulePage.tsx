@@ -16,13 +16,13 @@ const ModulePage: React.FC = () => {
   const subModules = data.length > 0 ? data[0].items : [];
   const navigate = useNavigate();
 
-  // Smart Redirection for Mobile:
-  // If on Mobile and at the root module path, jump directly to the first sub-page.
-  // PC users stay on the overview page to see the Cards (as requested).
+  // Smart Redirection for Mobile: nhảy thẳng trang con cho các module (gọn hơn), trừ Bán hàng — cần
+  // giữ màn hình 2 thẻ (phiếu / khách) thay vì ép vào phiếu bán hàng.
   useEffect(() => {
+    if (baseModulePath === '/ban-hang') return;
     const isMobile = window.innerWidth < 1024;
     const isRootModulePath = location.pathname === baseModulePath;
-    
+
     if (isMobile && isRootModulePath && subModules.length > 0 && subModules[0].path) {
       navigate(subModules[0].path, { replace: true });
     }

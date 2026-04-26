@@ -1,7 +1,6 @@
 import { clsx } from 'clsx';
 import {
   AlertTriangle,
-  BarChart2,
   Bell,
   Calendar, CheckCheck,
   CheckCircle2,
@@ -14,7 +13,6 @@ import {
   PanelLeft,
   PanelLeftClose,
   Settings,
-  ShieldCheck,
   Trash2,
   User,
   Search
@@ -131,7 +129,6 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
   const { avatar } = useTheme();
   const { nhanVien, signOut, hasViewAccess } = useAuth();
   const canOpenPermissionSettings = hasViewAccess('cai-dat-phan-quyen');
-  const canOpenChartReport = hasViewAccess('bao-cao');
 
   const defaultAvatar = "https://ui-avatars.com/api/?name=User&background=random&color=random";
   const userAvatar = avatar || defaultAvatar;
@@ -261,7 +258,7 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
           {/* Breadcrumbs for PC (Home > Module > Page) */}
           <div className={clsx(
             "items-center gap-1.5 shrink-0 text-[11px] sm:text-[13px] font-medium text-muted-foreground",
-            subModules.length > 0 ? "hidden lg:flex" : "flex"
+            subModules.length > 1 ? "hidden lg:flex" : "flex"
           )}>
             <div className="flex items-center gap-1.5">
               <span className="flex items-center gap-1 hover:text-primary transition-colors cursor-pointer" onClick={() => navigate('/')}>
@@ -287,7 +284,7 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
           </div>
 
           {/* Inline Tabs (Mobile only) */}
-          {subModules.length > 0 && (
+          {subModules.length > 1 && (
             <div className="flex lg:hidden items-center h-7">
               <SubModuleSwitcher items={subModules} variant="tabs" />
             </div>
@@ -313,47 +310,6 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
 
       {/* Right side: Clock, Notifications, User */}
       <div className="flex items-center gap-3 sm:gap-4 shrink-0">
-        {/* Quick actions */}
-        <div className="flex items-center gap-1.5 bg-card border border-border rounded-full px-1.5 py-1 shadow-sm">
-          <button
-            onClick={() => {
-              if (!canOpenChartReport) {
-                window.alert('Bạn không có quyền xem biểu đồ doanh thu.');
-                return;
-              }
-              navigate('/bao-cao/bieu-do');
-            }}
-            className={clsx(
-              "p-1.5 rounded-full transition-colors",
-              canOpenChartReport
-                ? "text-muted-foreground hover:bg-accent hover:text-primary"
-                : "text-muted-foreground/50 hover:bg-muted/50"
-            )}
-            title="Biểu đồ doanh thu"
-          >
-            <BarChart2 size={18} />
-          </button>
-
-          <button
-            onClick={() => {
-              if (!canOpenPermissionSettings) {
-                window.alert('Bạn không có quyền vào cài đặt phân quyền.');
-                return;
-              }
-              navigate('/cai-dat/phan-quyen');
-            }}
-            className={clsx(
-              "p-1.5 rounded-full transition-colors",
-              canOpenPermissionSettings
-                ? "text-muted-foreground hover:bg-accent hover:text-primary"
-                : "text-muted-foreground/50 hover:bg-muted/50"
-            )}
-            title="Cài đặt phân quyền"
-          >
-            <ShieldCheck size={18} />
-          </button>
-        </div>
-
         {/* Clock & Date (Hidden on mobile) */}
         <div className="hidden md:flex items-center bg-card border border-border shadow-sm px-4 py-1.5 rounded-full gap-3 text-[13px]">
           <div className="flex items-center gap-2">

@@ -131,15 +131,18 @@ const SalesCardManagementPage: React.FC = () => {
       setNewCustomersCount(cardsResult.newCustomersCount || 0);
       setReturningCustomersCount(cardsResult.returningCustomersCount || 0);
 
-      // Fetch first sale dates by CUSTOMER NAME to determine new vs returning
+      // Fetch first sale dates in background to avoid blocking main list rendering
       const uniqueNames = [...new Set(
         cardsResult.data
           .map(c => c.khach_hang?.ho_va_ten || c.ten_khach_hang || '')
           .filter(n => n.trim())
       )] as string[];
       if (uniqueNames.length > 0) {
-        const firstDates = await getCustomerFirstSaleDates(uniqueNames);
-        setCustomerFirstSaleDateMap(firstDates);
+        void getCustomerFirstSaleDates(uniqueNames)
+          .then((firstDates) => setCustomerFirstSaleDateMap(firstDates))
+          .catch((err) => console.error('Error loading first sale dates:', err));
+      } else {
+        setCustomerFirstSaleDateMap({});
       }
     } catch (error) {
       console.error('Error loading sales cards:', error);
@@ -537,13 +540,26 @@ const SalesCardManagementPage: React.FC = () => {
         if (!dataToSave.id || !uuidRegex.test(dataToSave.id)) {
           delete dataToSave.id;
         }
-        const savedCustomer = await upsertCustomer(dataToSave);
-        cleanData.khach_hang_id = savedCustomer.id;
+        if (!dataToSave.nhan_vien_id) {
+          dataToSave.nhan_vien_id = cleanData.nhan_vien_id || nhanVien?.ho_ten || '';
+        }
+        try {
+          const savedCustomer = await upsertCustomer(dataToSave);
+          cleanData.khach_hang_id = savedCustomer.id;
 
-        // Remove from pending so subsequent saves (if editing without closing) use the new real ID
-        setPendingNewCustomer(null);
-        // Also update local list to remove the "[MỚI]" prefix and update IDs
-        setCustomers(prev => prev.map(c => c.ma_khach_hang === pendingNewCustomer.ma_khach_hang ? { ...savedCustomer } : c));
+          // Remove from pending so subsequent saves (if editing without closing) use the new real ID
+          setPendingNewCustomer(null);
+          // Also update local list to remove the "[MỚI]" prefix and update IDs
+          setCustomers(prev => prev.map(c => c.ma_khach_hang === pendingNewCustomer.ma_khach_hang ? { ...savedCustomer } : c));
+        } catch (err: any) {
+          if (err?.code === '42501') {
+            // RLS không cho ghi bảng khách hàng: vẫn cho phép lưu phiếu bán hàng để không chặn thao tác.
+            cleanData.khach_hang_id = pendingNewCustomer.ma_khach_hang || pendingNewCustomer.id || '';
+            cleanData.ten_khach_hang = pendingNewCustomer.ho_va_ten || cleanData.ten_khach_hang;
+          } else {
+            throw err;
+          }
+        }
       }
 
       // Set the first service as the primary ID for the master record
@@ -573,9 +589,10 @@ const SalesCardManagementPage: React.FC = () => {
         const service = services.find(s => s.id === sId);
         // Look for a manual price override from the modal's state
         const override = (formDataHeader.service_items || []).find(it => it.id === sId);
+        const orderRef = savedCard.id_bh || savedCard.id;
 
         return {
-          id_don_hang: savedCard.id,
+          id_don_hang: orderRef,
           ten_don_hang: formDataHeader.id_bh || `Đơn hàng ${savedCard.id_bh || savedCard.id.slice(0, 8)}`,
           san_pham: service?.ten_dich_vu || override?.ten_dich_vu || 'Dịch vụ',
           co_so: service?.co_so || 'Cơ sở chính',
@@ -616,19 +633,30 @@ const SalesCardManagementPage: React.FC = () => {
           };
           await upsertTransaction(financialRecord);
         })(),
-        savedCard.khach_hang_id ? (() => {
+        savedCard.khach_hang_id ? (async () => {
           const idCol = savedCard.khach_hang_id.length === 36 ? 'id' : 'ma_khach_hang';
-          return supabase.from('khach_hang').update({ created_at: new Date().toISOString() }).eq(idCol, savedCard.khach_hang_id);
+          const { error } = await supabase
+            .from('khach_hang')
+            .update({ created_at: new Date().toISOString() })
+            .eq(idCol, savedCard.khach_hang_id);
+          if (error && error.code !== '42501') {
+            throw error;
+          }
         })() : Promise.resolve()
       ]);
 
-      await loadSalesCards();
       handleCloseModal();
-
       showToast('Lập phiếu bán hàng thành công!', 'success');
-    } catch (error) {
-      console.error(error);
-      showToast('Lỗi: Không thể lưu phiếu bán hàng.', 'error');
+      void loadSalesCards();
+    } catch (error: any) {
+      console.error('Save sales card failed:', {
+        message: error?.message,
+        code: error?.code,
+        details: error?.details,
+        hint: error?.hint,
+        raw: error,
+      });
+      showToast(`Lỗi lưu phiếu: ${error?.message || 'Không thể lưu phiếu bán hàng.'}`, 'error');
     }
   };
 
@@ -676,8 +704,8 @@ const SalesCardManagementPage: React.FC = () => {
       }
 
       showToast(`Đã thu tiền thành công: ${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalAmount)}`, 'success');
-      await loadSalesCards();
       handleCloseModal();
+      void loadSalesCards();
     } catch (error) {
       console.error(error);
       showToast('Lỗi: Không thể thực hiện thu tiền.', 'error');
@@ -1009,8 +1037,8 @@ const SalesCardManagementPage: React.FC = () => {
         </div>
 
         {/* Toolbar */}
-        <div className="bg-card p-2 rounded-xl border border-border shadow-sm flex flex-wrap items-center justify-between gap-1.5 sm:gap-4 font-sans">
-          <div className="flex items-center gap-1.5 sm:gap-3 flex-wrap">
+        <div className="bg-card p-2 rounded-xl border border-border shadow-sm flex items-center justify-between gap-2 sm:gap-4 font-sans overflow-x-auto">
+          <div className="flex items-center gap-1.5 sm:gap-3 flex-nowrap shrink-0">
             <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 px-2 py-1 sm:px-4 sm:py-2 hover:bg-muted rounded-lg text-muted-foreground transition-all border border-transparent hover:border-border shrink-0">
               <ArrowLeft className="size-4 sm:size-5" />
               <span className="font-medium text-[11px] sm:text-[14px]">Quay lại</span>
@@ -1030,16 +1058,17 @@ const SalesCardManagementPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 flex-wrap justify-end">
+          <div className="w-auto shrink-0">
+            <div className="flex items-center gap-1.5 flex-nowrap sm:flex-wrap justify-start sm:justify-end overflow-x-auto">
             {isAdmin && (
-              <>
+              <div className="hidden sm:flex items-center gap-1.5">
                 <button
                   onClick={handleDownloadTemplate}
                   className="px-2 py-1 sm:px-4 sm:py-2 bg-muted/50 hover:bg-muted border border-border rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold text-muted-foreground transition-all shrink-0"
                   title="Tải mẫu Excel"
                 >
                   <Download className="size-4 sm:size-5" />
-                  <span className="hidden lg:inline">Tải mẫu</span>
+                  <span>Tải mẫu</span>
                 </button>
 
                 <div className="relative shrink-0">
@@ -1066,8 +1095,9 @@ const SalesCardManagementPage: React.FC = () => {
                   title="Xóa tất cả phiếu bán hàng"
                 >
                   <Trash2 className="size-4 sm:size-5" />
+                  <span className="sm:hidden text-[11px] font-bold">Xóa</span>
                 </button>
-              </>
+              </div>
             )}
 
             <button
@@ -1077,6 +1107,7 @@ const SalesCardManagementPage: React.FC = () => {
               <Plus className="size-4 sm:size-5" />
               <span>Lập hóa đơn</span>
             </button>
+            </div>
           </div>
         </div>
 
@@ -1130,7 +1161,7 @@ const SalesCardManagementPage: React.FC = () => {
             )}
 
             {/* Month Filter */}
-            <div className="col-span-1 flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-[13px] font-bold text-muted-foreground w-full sm:w-auto">
+            <div className="hidden sm:flex col-span-1 items-center gap-1.5 sm:gap-2 text-[11px] sm:text-[13px] font-bold text-muted-foreground w-full sm:w-auto">
               <span className="hidden sm:inline">Tháng:</span>
               <Calendar size={14} className="shrink-0 sm:hidden" />
               <div className="relative w-full sm:w-auto">
@@ -1204,21 +1235,19 @@ const SalesCardManagementPage: React.FC = () => {
 
         {/* Summary Bar - Tổng đơn & Tổng tiền */}
         {!loading && displayItems.length > 0 && (
-          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-            <div className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-primary/5 border border-primary/20 flex items-center gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 flex-nowrap overflow-x-auto pb-1">
+            <div className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-primary/5 border border-primary/20 flex items-center gap-2 shrink-0 whitespace-nowrap">
               <span className="text-[10px] sm:text-[11px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Tổng đơn:</span>
               <span className="text-sm sm:text-base font-black text-primary">{totalCount}</span>
             </div>
-            <div className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-blue-500/5 border border-blue-500/20 flex items-center gap-2">
+            <div className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-blue-500/5 border border-blue-500/20 flex items-center gap-2 shrink-0 whitespace-nowrap">
               <span className="text-[10px] sm:text-[11px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Tổng khách:</span>
-              <div className="flex flex-col">
-                <span className="text-sm sm:text-base font-black text-blue-600">{totalCustomers}</span>
-                <span className="text-[9px] sm:text-[10px] font-bold text-muted-foreground opacity-80 whitespace-nowrap">
-                  (🆕{newCustomersCount} mới | 🔄{returningCustomersCount} cũ)
-                </span>
-              </div>
+              <span className="text-sm sm:text-base font-black text-blue-600">{totalCustomers}</span>
+              <span className="text-[9px] sm:text-[10px] font-bold text-muted-foreground opacity-80">
+                (🆕{newCustomersCount} mới | 🔄{returningCustomersCount} cũ)
+              </span>
             </div>
-            <div className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-emerald-500/5 border border-emerald-500/20 flex items-center gap-2">
+            <div className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-emerald-500/5 border border-emerald-500/20 flex items-center gap-2 shrink-0 whitespace-nowrap">
               <span className="text-[10px] sm:text-[11px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Tổng tiền:</span>
               <span className="text-sm sm:text-base font-black text-emerald-600">
                 {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalAmount)}
@@ -1237,32 +1266,6 @@ const SalesCardManagementPage: React.FC = () => {
           ) : groupedSales.length > 0 ? (
             groupedSales.map(group => (
               <div key={group.date} className="space-y-3 mb-8">
-                {/* Group Header */}
-                <div className="flex items-center gap-2 px-1">
-                  <div className="h-px bg-border flex-1" />
-                  <div className="flex flex-col items-center gap-1 bg-muted/60 px-4 py-2.5 rounded-2xl border border-border/80 shadow-sm backdrop-blur-sm">
-                    <span className="text-[11px] font-black text-muted-foreground uppercase tracking-widest whitespace-nowrap">
-                      📅 {new Date(group.date).toLocaleDateString('vi-VN')}
-                    </span>
-                    <div className="flex items-center gap-3 text-[10px] font-bold text-primary">
-                      <span className="flex items-center gap-1">🕒 {group.latestTime}</span>
-                      <span className="opacity-20">|</span>
-                      <span className="flex items-center gap-1">
-                        👥 {group.uniqueCustomers.size} khách
-                        <span className="ml-1 text-[9px] opacity-75 font-medium whitespace-nowrap">
-                          (🆕{group.newCustomers.size} mới | 🔄{group.returningCustomers.size} cũ)
-                        </span>
-                      </span>
-                      <span className="opacity-20">|</span>
-                      <span className="flex items-center gap-1">📄 {group.items.length} đơn</span>
-                    </div>
-                    <div className="text-[13px] font-black text-emerald-600 mt-0.5">
-                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(group.totalAmount)}
-                    </div>
-                  </div>
-                  <div className="h-px bg-border flex-1" />
-                </div>
-
                 <div className="space-y-4">
                   {group.items.map(card => {
                     const items = (card as any).the_ban_hang_ct || [];
@@ -1270,102 +1273,37 @@ const SalesCardManagementPage: React.FC = () => {
                     const branch = items.length > 0 ? items[0].co_so : (card.dich_vu?.co_so || 'Cơ sở chính');
 
                     return (
-                      <div key={card.id} className="bg-card p-4 rounded-xl border border-border shadow-sm space-y-4 relative group hover:border-primary/30 transition-all">
-                        {/* Row 1: Ngày / Giờ */}
-                        <div className="flex items-center justify-between border-b border-border/50 pb-2">
-                          <div className="flex items-center gap-2 text-primary font-bold text-[14px]">
-                            <Calendar size={16} />
-                            {card.gio}
+                      <div key={card.id} className="bg-card p-3 rounded-xl border border-border shadow-sm space-y-3 relative group hover:border-primary/30 transition-all">
+                        <div className="flex items-center justify-between gap-2 min-h-7">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <div className="flex items-center gap-1 text-primary font-bold text-[13px] sm:text-[14px] shrink-0">
+                              <Calendar size={14} />
+                              {card.gio}
+                            </div>
+                            <span className="text-muted-foreground/40 shrink-0 text-[10px]">·</span>
+                            <div className="text-[12px] sm:text-[13px] font-bold text-foreground truncate leading-none min-w-0">
+                              👤 {card.nhan_su_list && card.nhan_su_list.length > 0
+                                ? card.nhan_su_list.map((p) => p.ho_ten).filter(Boolean).join(', ')
+                                : (card.nhan_vien_id || 'N/A')}
+                            </div>
                           </div>
-                          <div className="text-[10px] font-mono text-muted-foreground/60 uppercase">#{card.id_bh || card.id.slice(0, 8)}</div>
+                          <div className="text-primary font-black text-[17px] sm:text-[19px] leading-none whitespace-nowrap shrink-0">
+                            {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalAmount)}
+                          </div>
                         </div>
 
-                        {/* Row 2: Khách hàng / SĐT */}
                         <div className="space-y-1">
-                          <div className="text-[16px] font-black text-foreground">
-                            {card.khach_hang?.ho_va_ten || card.ten_khach_hang || 'N/A'}
-                          </div>
-                          <div className="text-[13px] text-muted-foreground flex items-center gap-1.5 font-medium">
-                            📱 {card.khach_hang?.so_dien_thoai || card.so_dien_thoai || 'N/A'} {card.khach_hang?.dia_chi_hien_tai && <span className="opacity-60">• 🏢 {card.khach_hang.dia_chi_hien_tai}</span>}
-                          </div>
-                        </div>
-
-                        {/* Row 3: Dịch vụ - Số tiền - Người phụ trách - Cơ sở */}
-                        <div className="bg-muted/30 p-3 rounded-lg border border-border/40 space-y-3">
-                          <div className="flex flex-wrap gap-1.5">
-                            {items.length > 0 ? (
-                              items.map((ct: any, idx: number) => (
-                                <span key={idx} className="px-2 py-0.5 rounded bg-primary/10 text-primary font-semibold text-[11px]">
-                                  {ct.san_pham}{(ct.so_luong || 1) > 1 && <span className="ml-1 opacity-70">×{ct.so_luong}</span>}
-                                </span>
-                              ))
-                            ) : (
-                              <span className="px-2 py-0.5 rounded bg-primary/10 text-primary font-semibold text-[11px]">
-                                {card.dich_vu?.ten_dich_vu || 'N/A'}
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="flex items-center justify-between text-[13px]">
-                            <div className="flex flex-col gap-0.5">
-                              <div className="text-muted-foreground text-[11px]">Người phụ trách / Cơ sở</div>
-                              <div className="font-bold text-foreground flex flex-col gap-0.5">
-                                {card.nhan_su_list && card.nhan_su_list.length > 0 ? (
-                                  card.nhan_su_list.map((p, idx) => (
-                                    <div key={idx} className="flex items-center gap-1.5 truncate max-w-[150px]">
-                                      👤 {p.ho_ten}
-                                    </div>
-                                  ))
-                                ) : (
-                                  <div className="flex items-center gap-1.5">👤 {card.nhan_vien_id || 'N/A'}</div>
-                                )}
-                                <div className="flex items-center gap-1.5 opacity-60 text-[11px]">🏢 {branch}</div>
-                              </div>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="text-[17px] font-black text-foreground leading-tight truncate">
+                              {card.khach_hang?.ho_va_ten || card.ten_khach_hang || 'N/A'}
                             </div>
-                            <div className="text-right">
-                              <div className="text-primary font-black text-[15px] mb-1">
-                                {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalAmount)}
-                              </div>
-                              {card.thu_chi ? (
-                                <div className="inline-block px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-bold text-[10px] whitespace-nowrap">
-                                  🛡️ {card.thu_chi.phuong_thuc || 'Tiền mặt'}
-                                </div>
-                              ) : (
-                                card.phuong_thuc_thanh_toan ? (
-                                  <div className="inline-block px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-bold text-[10px] whitespace-nowrap">
-                                    ⚠️ {card.phuong_thuc_thanh_toan}
-                                  </div>
-                                ) : (
-                                  <div className="inline-block px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-bold text-[10px] whitespace-nowrap">
-                                    Chưa chọn TT
-                                  </div>
-                                )
-                              )}
+                            <div className="text-[13px] text-muted-foreground truncate shrink-0 max-w-[52%] text-right">
+                              {card.khach_hang?.so_dien_thoai || card.so_dien_thoai || 'N/A'} • {branch}
                             </div>
                           </div>
                         </div>
 
-                        {/* Row 4: Số KM - Ngày nhắc thay dầu */}
-                        <div className="flex items-center justify-between text-[13px] pt-1">
-                          <div className="flex items-center gap-1.5 font-bold text-slate-600">
-                            🚗 {card.so_km?.toLocaleString()} km
-                          </div>
-                          {card.ngay_nhac_thay_dau && (
-                            <div className="flex items-center gap-1.5 text-rose-600 font-bold">
-                              🛢️ Nhắc: {new Date(card.ngay_nhac_thay_dau).toLocaleDateString('vi-VN')}
-                            </div>
-                          )}
-                        </div>
-
-                        {card.ghi_chu && (
-                          <div className="mt-2 flex items-start gap-1.5 p-2.5 bg-amber-50/50 rounded-xl border border-amber-100/50">
-                            <FileText size={14} className="text-amber-600/70 mt-0.5 shrink-0" />
-                            <p className="text-[12px] text-amber-900/70 italic leading-relaxed line-clamp-2">{card.ghi_chu}</p>
-                          </div>
-                        )}
-
-                        {/* Actions Bar for Mobile Card */}
-                        <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/30">
+                        <div className="flex items-center justify-end gap-2 pt-1 border-t border-border/30">
                           <button onClick={() => handleViewCard(card)} className="flex items-center gap-1 px-3 py-1.5 text-blue-600 hover:bg-blue-50 rounded-lg text-[12px] font-bold border border-blue-100 transition-colors">
                             <Eye size={14} /> Xem
                           </button>
