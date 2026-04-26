@@ -606,6 +606,7 @@ const SalesCardManagementPage: React.FC = () => {
 
       // AUTOMATION: Định hình dòng tài chính - Dựa trên detailRecords vừa tính ở trên cho chính xác
       const totalAmount = detailRecords.reduce((sum: number, item: any) => sum + (item.gia_ban * (item.so_luong || 1)), 0);
+      const khachHangId = savedCard.khach_hang_id;
 
       // Bước 3: Đẩy đồng thời TẤT CẢ TÁC VỤ còn lại không phụ thuộc nhau
       await Promise.all([
@@ -633,16 +634,18 @@ const SalesCardManagementPage: React.FC = () => {
           };
           await upsertTransaction(financialRecord);
         })(),
-        savedCard.khach_hang_id ? (async () => {
-          const idCol = savedCard.khach_hang_id.length === 36 ? 'id' : 'ma_khach_hang';
-          const { error } = await supabase
-            .from('khach_hang')
-            .update({ created_at: new Date().toISOString() })
-            .eq(idCol, savedCard.khach_hang_id);
-          if (error && error.code !== '42501') {
-            throw error;
-          }
-        })() : Promise.resolve()
+        khachHangId
+          ? (async () => {
+              const idCol = khachHangId.length === 36 ? 'id' : 'ma_khach_hang';
+              const { error } = await supabase
+                .from('khach_hang')
+                .update({ created_at: new Date().toISOString() })
+                .eq(idCol, khachHangId);
+              if (error && error.code !== '42501') {
+                throw error;
+              }
+            })()
+          : Promise.resolve()
       ]);
 
       handleCloseModal();

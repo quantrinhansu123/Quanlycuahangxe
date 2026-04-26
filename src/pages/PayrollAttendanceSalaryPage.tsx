@@ -79,7 +79,7 @@ function newId(): string {
   return `r-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-function emptyRow(nam: number, thang: number): BangLuongChamCongInput {
+function emptyRow(): BangLuongChamCongInput {
   return {
     id: newId(),
     hoTen: '',
@@ -110,7 +110,7 @@ function loadSheet(
       raw = localStorage.getItem(`${LS_PREFIX_LEGACY}${y}-${m}`);
     }
     if (!raw) {
-      return { phanTramHoaHongKy: DEFAULT_PCT_HH, rows: [emptyRow(y, m)] };
+      return { phanTramHoaHongKy: DEFAULT_PCT_HH, rows: [emptyRow()] };
     }
     const parsed = JSON.parse(raw) as unknown;
     if (Array.isArray(parsed) && parsed.length > 0) {
@@ -126,7 +126,7 @@ function loadSheet(
   } catch {
     // ignore
   }
-  return { phanTramHoaHongKy: DEFAULT_PCT_HH, rows: [emptyRow(y, m)] };
+  return { phanTramHoaHongKy: DEFAULT_PCT_HH, rows: [emptyRow()] };
 }
 
 type NumKey = keyof Pick<
@@ -254,7 +254,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
   );
 
   const addRow = useCallback(() => {
-    setRows((prev) => [...prev, emptyRow(nam, thang)]);
+    setRows((prev) => [...prev, emptyRow()]);
   }, [nam, thang]);
 
   const capNhatDoanhSoTuPhieuBan = useCallback(async () => {
@@ -294,7 +294,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
     try {
       const list = await getPersonnel();
       let newRows: BangLuongChamCongInput[] = list.map((p) => ({
-        ...emptyRow(nam, thang),
+        ...emptyRow(),
         id: newId(),
         hoTen: p.ho_ten,
         ngayBatDauLam: p.created_at ? p.created_at.slice(0, 10) : '',

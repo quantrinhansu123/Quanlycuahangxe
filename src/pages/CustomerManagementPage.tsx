@@ -858,14 +858,15 @@ const CustomerManagementPage: React.FC = () => {
 
 // Optimized Row Component
 const CustomerTableRow: React.FC<{
-  customer: KhachHang,
-  visibleColumns: string[],
-  onEdit: (customer: KhachHang) => void,
-  onDelete: (id: string) => void,
-  today: Date,
-  stats: { totalRevenue: number, visitCount: number },
-  isAdmin: boolean
-}> = React.memo(({ customer, visibleColumns, onEdit, onDelete, today, stats, isAdmin }) => {
+  customer: KhachHang;
+  visibleColumns: string[];
+  onEdit: (customer: KhachHang) => void;
+  onDelete: (id: string) => void;
+  onOpenDetails: (customer: KhachHang) => void;
+  today: Date;
+  stats: { totalRevenue: number; visitCount: number };
+  isAdmin: boolean;
+}> = React.memo(({ customer, visibleColumns, onEdit, onDelete, onOpenDetails, today, stats, isAdmin }) => {
 
 
   const isCầnThayDầu = customer.ngay_thay_dau ? new Date(customer.ngay_thay_dau) <= today : false;
