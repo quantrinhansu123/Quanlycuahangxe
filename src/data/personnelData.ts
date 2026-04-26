@@ -28,6 +28,12 @@ function formatPostgrestErr(err: PostgrestError): string {
   return parts.join(' | ');
 }
 
+function getMissingColumnFromErr(err: PostgrestError): string | null {
+  // Ví dụ: "Could not find the 'luong_co_ban' column of 'nhan_su' in the schema cache"
+  const m = (err.message || '').match(/Could not find the '([^']+)' column/i);
+  return m?.[1] ?? null;
+}
+
 export const getPersonnel = async (): Promise<NhanSu[]> => {
   const { data, error } = await supabase
     .from('nhan_su')
@@ -42,11 +48,32 @@ export const getPersonnel = async (): Promise<NhanSu[]> => {
 };
 
 export const upsertPersonnel = async (personnel: Partial<NhanSu>): Promise<NhanSu> => {
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('nhan_su')
     .upsert(personnel)
     .select()
     .single();
+
+  // Fallback tạm thời cho môi trường DB chưa chạy migration mới (thiếu cột như luong_co_ban).
+  if (error?.code === 'PGRST204') {
+    const missingCol = getMissingColumnFromErr(error);
+    if (missingCol && Object.prototype.hasOwnProperty.call(personnel, missingCol)) {
+      const retryPayload = { ...personnel } as Record<string, unknown>;
+      delete retryPayload[missingCol];
+      const retry = await supabase
+        .from('nhan_su')
+        .upsert(retryPayload)
+        .select()
+        .single();
+      data = retry.data;
+      error = retry.error;
+      if (!error) {
+        console.warn(
+          `[nhan_su] DB chưa có cột '${missingCol}', đã lưu lại sau khi bỏ cột này. Hãy chạy migration mới để đồng bộ schema.`
+        );
+      }
+    }
+  }
 
   if (error) {
     const detail = formatPostgrestErr(error);
