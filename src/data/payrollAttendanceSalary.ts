@@ -2,6 +2,8 @@
  * Tính lương theo nghiệp vụ chấm công – bảng lương (tham số cố định theo mô tả nghiệp vụ).
  */
 
+import { removeVietnameseTones } from '../lib/utils';
+
 export const ATTENDANCE_SALARY = {
   NGAY_LAM_TRONG_THANG: 28,
   GIO_MOT_NGAY: 8,
@@ -16,6 +18,10 @@ export const ATTENDANCE_SALARY = {
   /** Năm thứ 2 trở đi: mỗi năm cộng vào LCB khi tính ngày/giờ */
   HE_SO_TANG_CA: 1.5,
   GIO_TANG_CA_TOI_DA_THANG: 25,
+  /** Checkout từ giờ này (trở lên) → thêm 1 bữa tăng ca sau ăn / ngày. */
+  GIO_CHECKOUT_BU_SUNG_BUA_TANG_CA: 19,
+  BUA_MOT_NGAY_TAI_CO: 2,
+  BUA_MOT_NGAY_NGOAI: 1,
 } as const;
 
 export type LoaiNhanVien = 'chinh_thuc' | 'thoi_vu';
@@ -54,8 +60,24 @@ export interface BangLuongChamCongKetQua {
   gioTangCaApDung: number;
   luongTangCa: number;
   hoaHong: number;
+  /** % hoa hồng dùng để tính (theo kỳ hoặc từ dòng) */
+  phanTramHoaHongApDung: number;
+  /** Ngày công dùng để tính lương (từ chấm công khi truyền options). */
+  soNgayCongDung: number;
+  /** lương ngày × số ngày công */
+  tienTheoCong: number;
   tongCong: number;
   ghiChu: string;
+}
+
+/** Số ngày dương lịch trong tháng (1–12). */
+export function soNgayTrongThangDuongLich(nam: number, thang: number): number {
+  return new Date(nam, thang, 0).getDate();
+}
+
+/** Tối đa ngày công gợi ý: không vượt quy 28 ngày tháng lương, không vượt số ngày tháng dương lịch. */
+export function congGoiYTheoKy(nam: number, thang: number): number {
+  return Math.min(ATTENDANCE_SALARY.NGAY_LAM_TRONG_THANG, soNgayTrongThangDuongLich(nam, thang));
 }
 
 function endOfMonth(year: number, month: number): Date {
@@ -99,10 +121,117 @@ function phuCapThamNienTheoThang(thangLam: number): number {
   return ATTENDANCE_SALARY.PHU_CAP_THAM_NHIEN_12M;
 }
 
+export type DongChamBuaNhap = {
+  nhan_su: string;
+  ngay: string;
+  checkin: string | null;
+  checkout: string | null;
+  vi_tri: string | null;
+};
+
+function chuanHoaCham(s: string): string {
+  return removeVietnameseTones(s.trim().toLowerCase()).replace(/\s+/g, ' ');
+}
+
+function phutKhoiThoiGian(t: string | null | undefined): number | null {
+  if (t == null || !String(t).trim()) return null;
+  const p = String(t).trim();
+  const m = p.match(/^(\d{1,2}):(\d{0,2})/);
+  if (!m) return null;
+  const hh = parseInt(m[1], 10);
+  const mm = parseInt(m[2] || '0', 10);
+  if (Number.isNaN(hh)) return null;
+  return hh * 60 + (Number.isNaN(mm) ? 0 : mm);
+}
+
+function viTriLamNgoai(viTri: string | null | undefined): boolean {
+  if (!viTri) return false;
+  const v = viTri.toLowerCase();
+  return /từ\s*xa|ở\s*nhà|ở nhà|remote|wfh|ngoài\s+cơ|làm\s*ngoài/i.test(v);
+}
+
+/**
+ * Số bữa ăn trong tháng theo từng bản ghi chấm công (Nhân sự → bảng `cham_cong`).
+ * Mỗi **ngày** có chấm (có check-in): 2 bữa tại cơ sở, 1 bữa nếu vị trí gợi ý làm ngoài;
+ * thêm 1 bữa nếu **checkout** ≥ GIO_CHECKOUT (mặc định 19:00) — tăng ca sau giờ ăn.
+ */
+export function demSoBuaAnTheoDongCham(
+  cacDong: DongChamBuaNhap[],
+  hoTen: string,
+  nhanSuId: string | null | undefined
+): number {
+  const hTen = chuanHoaCham(hoTen);
+  const thu = cacDong.filter((d) => {
+    if (nhanSuId && d.nhan_su === nhanSuId) return true;
+    return chuanHoaCham(d.nhan_su) === hTen;
+  });
+  if (thu.length === 0) return 0;
+  const theoNgay = new Map<string, DongChamBuaNhap[]>();
+  for (const d of thu) {
+    if (!d.ngay) continue;
+    const list = theoNgay.get(d.ngay) || [];
+    list.push(d);
+    theoNgay.set(d.ngay, list);
+  }
+  const G0 = 60 * ATTENDANCE_SALARY.GIO_CHECKOUT_BU_SUNG_BUA_TANG_CA;
+  let soBua = 0;
+  for (const [, dongsCuaMNgay] of theoNgay) {
+    const coVao = dongsCuaMNgay.filter((d) => d.checkin && String(d.checkin).trim() !== '');
+    if (coVao.length === 0) continue;
+    const ngoai = coVao.some((d) => viTriLamNgoai(d.vi_tri));
+    const buaGoc = ngoai
+      ? ATTENDANCE_SALARY.BUA_MOT_NGAY_NGOAI
+      : ATTENDANCE_SALARY.BUA_MOT_NGAY_TAI_CO;
+    const buaTang = coVao.some((d) => {
+      const p = phutKhoiThoiGian(d.checkout);
+      return p != null && p >= G0;
+    })
+      ? 1
+      : 0;
+    soBua += buaGoc + buaTang;
+  }
+  return soBua;
+}
+
+/**
+ * Số **ngày công** trong tháng: các ngày (không trùng) có ít nhất một bản ghi có check-in,
+ * khớp tên/ id như phần bữa ăn.
+ */
+export function demSoNgayCongTheoDongCham(
+  cacDong: DongChamBuaNhap[],
+  hoTen: string,
+  nhanSuId: string | null | undefined
+): number {
+  const hTen = chuanHoaCham(hoTen);
+  const thu = cacDong.filter((d) => {
+    if (nhanSuId && d.nhan_su === nhanSuId) return true;
+    return chuanHoaCham(d.nhan_su) === hTen;
+  });
+  const theoNgay = new Map<string, DongChamBuaNhap[]>();
+  for (const d of thu) {
+    if (!d.ngay) continue;
+    const list = theoNgay.get(d.ngay) || [];
+    list.push(d);
+    theoNgay.set(d.ngay, list);
+  }
+  let soNgay = 0;
+  for (const [, dongsCuaMNgay] of theoNgay) {
+    if (dongsCuaMNgay.some((d) => d.checkin && String(d.checkin).trim() !== '')) {
+      soNgay += 1;
+    }
+  }
+  return soNgay;
+}
+
 export function tinhMotDong(
   row: BangLuongChamCongInput,
   nam: number,
-  thang: number
+  thang: number,
+  options?: {
+    phanTramHoaHongTheoKy?: number;
+    soBuaAnTheoChamCon?: number;
+    soNgayCongTheoChamCon?: number;
+  }
 ): BangLuongChamCongKetQua {
   const D = ATTENDANCE_SALARY.NGAY_LAM_TRONG_THANG;
   const H = ATTENDANCE_SALARY.GIO_MOT_NGAY;
@@ -113,9 +242,11 @@ export function tinhMotDong(
   const luongGio = lcbHieuLuc / D / H;
 
   const soBuaAn =
-    row.soNgayLamTaiQuan * 2 +
-    row.soNgayKhongLamTaiQuan * 1 +
-    (row.soNgayTangCaAn || 0);
+    options?.soBuaAnTheoChamCon === undefined
+      ? row.soNgayLamTaiQuan * 2 +
+        row.soNgayKhongLamTaiQuan * 1 +
+        (row.soNgayTangCaAn || 0)
+      : Math.max(0, options.soBuaAnTheoChamCon);
   const tienAn = soBuaAn * ATTENDANCE_SALARY.GIA_MOT_BUA_AN;
 
   const phuCapThamNien = phuCapThamNienTheoThang(thangLam);
@@ -131,8 +262,16 @@ export function tinhMotDong(
     gioTangCaApDung = row.loai === 'thoi_vu' ? 0 : gioTangCaApDung;
   }
 
-  const luongTheoCong = luongNgay * Math.max(0, row.soNgayCong);
-  const hoaHong = (Math.max(0, row.tongDoanhThu) * Math.max(0, row.phanTramHoaHong)) / 100;
+  const congApDung =
+    options?.soNgayCongTheoChamCon !== undefined
+      ? Math.max(0, options.soNgayCongTheoChamCon)
+      : Math.max(0, row.soNgayCong);
+  const luongTheoCong = luongNgay * congApDung;
+  const phanTramHoaHongApDung =
+    options?.phanTramHoaHongTheoKy != null
+      ? Math.max(0, options.phanTramHoaHongTheoKy)
+      : Math.max(0, row.phanTramHoaHong);
+  const hoaHong = (Math.max(0, row.tongDoanhThu) * phanTramHoaHongApDung) / 100;
 
   const tongCong =
     luongTheoCong +
@@ -146,7 +285,11 @@ export function tinhMotDong(
     Math.max(0, row.khoanTru);
 
   let ghiChu = '';
-  if (row.soNgayLamTaiQuan + row.soNgayKhongLamTaiQuan > row.soNgayCong) {
+  if (
+    options?.soBuaAnTheoChamCon === undefined &&
+    options?.soNgayCongTheoChamCon === undefined &&
+    row.soNgayLamTaiQuan + row.soNgayKhongLamTaiQuan > row.soNgayCong
+  ) {
     ghiChu = 'Cảnh báo: tổng ngày tại quán + không tại quán > số ngày công.';
   }
   if (row.soGioTangCa > ATTENDANCE_SALARY.GIO_TANG_CA_TOI_DA_THANG) {
@@ -167,11 +310,43 @@ export function tinhMotDong(
     gioTangCaApDung,
     luongTangCa,
     hoaHong,
+    phanTramHoaHongApDung,
+    soNgayCongDung: congApDung,
+    tienTheoCong: luongTheoCong,
     tongCong,
     ghiChu: ghiChu.trim(),
   };
 }
 
+/** Nhóm 3 chữ số bằng dấu chấm (thói quen hiển thị tiền VN). */
+function nhomSoTien(n: number): string {
+  if (!Number.isFinite(n)) return '0';
+  const v = Math.round(n);
+  const a = Math.abs(v);
+  const s = a.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return v < 0 ? `-${s}` : s;
+}
+
+/**
+ * Số nguyên tiền cho ô nhập: có dấu chấm ngăn cách hàng nghìn, không chữ.
+ */
+export function formatTienNhap(n: number): string {
+  if (!Number.isFinite(n) || n === 0) return n === 0 ? '0' : '';
+  return nhomSoTien(n);
+}
+
+/**
+ * Lấy số từ ô tiền (gỡ dấu chấm, khoảng, ký tự không phải số trừ dấu -).
+ * Chỉ dùng số dương; âm tùy trường hợp bỏ qua.
+ */
+export function parseTienNhap(raw: string): number {
+  const t = raw.replace(/[^\d]/g, '');
+  if (!t) return 0;
+  const n = parseInt(t, 10);
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+}
+
 export function formatVnd(n: number): string {
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Math.round(n));
+  if (!Number.isFinite(n)) return '0 đ';
+  return `${nhomSoTien(n)} đ`;
 }

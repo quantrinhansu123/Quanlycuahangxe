@@ -42,6 +42,33 @@ export interface AttendanceRecord {
   }[];
 }
 
+/** Chỉ dùng cho tổng hợp tiền ăn: khoảng ngày, các trường tối thiểu. */
+export type ChamCongBuaDongNhap = Pick<
+  AttendanceRecord,
+  'nhan_su' | 'ngay' | 'checkin' | 'checkout' | 'vi_tri'
+>;
+
+/**
+ * Tất cả bản ghi chấm công trong khoảng [start, end] (ngày ISO).
+ */
+export async function getChamCongTrongKhoang(
+  start: string,
+  end: string
+): Promise<ChamCongBuaDongNhap[]> {
+  const { data, error } = await supabase
+    .from('cham_cong')
+    .select('nhan_su, ngay, checkin, checkout, vi_tri')
+    .gte('ngay', start)
+    .lte('ngay', end)
+    .order('ngay', { ascending: true });
+
+  if (error) {
+    console.error('getChamCongTrongKhoang:', error);
+    throw error;
+  }
+  return (data as ChamCongBuaDongNhap[]) || [];
+}
+
 export const getAttendanceRecords = async (staffName?: string): Promise<AttendanceRecord[]> => {
   let query = supabase
     .from('cham_cong')
