@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import type { PostgrestError } from '@supabase/supabase-js';
 
 export interface NhanSu {
   id: string;
@@ -15,6 +16,16 @@ export interface NhanSu {
   co_so: string;
   created_at?: string;
   updated_at?: string;
+}
+
+function formatPostgrestErr(err: PostgrestError): string {
+  const parts = [
+    err.message || 'Lỗi PostgREST',
+    err.code ? `(code: ${err.code})` : '',
+    err.details ? `details: ${err.details}` : '',
+    err.hint ? `hint: ${err.hint}` : '',
+  ].filter(Boolean);
+  return parts.join(' | ');
 }
 
 export const getPersonnel = async (): Promise<NhanSu[]> => {
@@ -38,8 +49,10 @@ export const upsertPersonnel = async (personnel: Partial<NhanSu>): Promise<NhanS
     .single();
 
   if (error) {
-    console.error('Error upserting personnel:', error);
-    throw error;
+    const detail = formatPostgrestErr(error);
+    console.error(`Error upserting personnel: ${detail}`);
+    console.error('Personnel payload:', personnel);
+    throw new Error(formatPostgrestErr(error));
   }
   return data as NhanSu;
 };
@@ -50,12 +63,26 @@ export const bulkUpsertPersonnel = async (personnel: Partial<NhanSu>[]): Promise
 
   if (toUpdate.length > 0) {
     const { error } = await supabase.from('nhan_su').upsert(toUpdate);
-    if (error) { console.error('Error upserting personnel:', error); throw error; }
+    if (error) {
+      console.error('Error upserting personnel (bulk update):', formatPostgrestErr(error), {
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      });
+      throw new Error(formatPostgrestErr(error));
+    }
   }
   if (toInsert.length > 0) {
     const cleanInserts = toInsert.map(({ id, ...rest }) => rest);
     const { error } = await supabase.from('nhan_su').insert(cleanInserts);
-    if (error) { console.error('Error inserting personnel:', error); throw error; }
+    if (error) {
+      console.error('Error inserting personnel (bulk insert):', formatPostgrestErr(error), {
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      });
+      throw new Error(formatPostgrestErr(error));
+    }
   }
 };
 

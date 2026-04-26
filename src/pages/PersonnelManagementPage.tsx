@@ -199,7 +199,8 @@ const PersonnelManagementPage: React.FC = () => {
       await loadData();
       handleCloseModal();
     } catch (error) {
-      alert('Lỗi: Không thể lưu thông tin nhân sự.');
+      const msg = error instanceof Error ? error.message : 'Không thể lưu thông tin nhân sự.';
+      alert(`Lỗi lưu nhân sự: ${msg}`);
     }
   };
 
