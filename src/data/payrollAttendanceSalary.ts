@@ -263,7 +263,7 @@ export function tinhMotDong(
     phanTramHoaHongTheoKy?: number;
     soBuaAnTheoChamCon?: number;
     soNgayCongTheoChamCon?: number;
-    /** Ghi đè cột H TC khi đã tổng hợp từ bảng chấm công. */
+    /** Ghi đè cột Tăng ca (giờ) khi đã tổng hợp từ bảng chấm công. */
     soGioTangCaTheoChamCon?: number;
   }
 ): BangLuongChamCongKetQua {

@@ -64,22 +64,27 @@ function parseImportLuong(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+const BRANCH_OPTIONS = ['Cơ sở Bắc Giang', 'Cơ sở Bắc Ninh'] as const;
+
 const PersonnelManagementPage: React.FC = () => {
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [personnel, setPersonnel] = useState<NhanSu[]>([]);
+  const branchOptions = [...BRANCH_OPTIONS];
+  const positionOptions = ['kỹ thuật viên', 'quản lý'];
+
+  const [personnelByBranch, setPersonnelByBranch] = useState<Record<string, NhanSu[]>>({});
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
-  // Pagination
-  const [currentPage, setCurrentPage] = useState(1);
+  /** Mỗi cơ sở một trang riêng (2 bảng độc lập). */
+  const [pageByBranch, setPageByBranch] = useState<Record<string, number>>(() =>
+    Object.fromEntries(BRANCH_OPTIONS.map((b) => [b, 1]))
+  );
   const [pageSize, setPageSize] = useState(20);
-  const [totalCount, setTotalCount] = useState(0);
+  const [totalByBranch, setTotalByBranch] = useState<Record<string, number>>({});
 
-  // Filter states
-  const [selectedBranches, setSelectedBranches] = useState<string[]>([]);
   const [selectedPositions, setSelectedPositions] = useState<string[]>([]);
 
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
@@ -92,9 +97,6 @@ const PersonnelManagementPage: React.FC = () => {
   const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
   const [selectedStatsPerson, setSelectedStatsPerson] = useState<{ id: string, ho_ten: string } | null>(null);
 
-  const positionOptions = ["kỹ thuật viên", "quản lý"];
-  const branchOptions = ["Cơ sở Bắc Giang", "Cơ sở Bắc Ninh"];
-
   // Debounce search
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -104,21 +106,38 @@ const PersonnelManagementPage: React.FC = () => {
   }, [searchQuery]);
 
   // Load data from Supabase
+  const resetAllBranchPages = React.useCallback(() => {
+    setPageByBranch(Object.fromEntries(BRANCH_OPTIONS.map((b) => [b, 1])));
+  }, []);
+
   const loadData = React.useCallback(async () => {
     try {
       setLoading(true);
-      const data = await getPersonnelPaginated(currentPage, pageSize, debouncedSearch, {
-        branches: selectedBranches,
-        positions: selectedPositions
-      });
-      setPersonnel(data.data);
-      setTotalCount(data.totalCount);
+      const results = await Promise.all(
+        BRANCH_OPTIONS.map(async (branch) => {
+          const { data, totalCount } = await getPersonnelPaginated(
+            pageByBranch[branch] ?? 1,
+            pageSize,
+            debouncedSearch,
+            { branches: [branch], positions: selectedPositions }
+          );
+          return { branch, data, totalCount };
+        })
+      );
+      const nextP: Record<string, NhanSu[]> = {};
+      const nextT: Record<string, number> = {};
+      for (const { branch, data, totalCount } of results) {
+        nextP[branch] = data;
+        nextT[branch] = totalCount;
+      }
+      setPersonnelByBranch(nextP);
+      setTotalByBranch(nextT);
     } catch (error) {
       console.error(error);
     } finally {
       setLoading(false);
     }
-  }, [currentPage, pageSize, debouncedSearch, selectedBranches, selectedPositions, location.pathname]);
+  }, [pageByBranch, pageSize, debouncedSearch, selectedPositions, location.pathname]);
 
   useEffect(() => {
     loadData();
@@ -139,15 +158,14 @@ const PersonnelManagementPage: React.FC = () => {
   };
 
   const handleFilterChange = (setter: React.Dispatch<React.SetStateAction<string[]>>, val: string) => {
-    setter(prev => {
+    setter((prev) => {
       const isSelected = prev.includes(val);
-      const newFilters = isSelected ? prev.filter(v => v !== val) : [...prev, val];
-      setCurrentPage(1);
-      return newFilters;
+      return isSelected ? prev.filter((v) => v !== val) : [...prev, val];
     });
+    resetAllBranchPages();
   };
 
-  const handleOpenModal = async (person?: NhanSu) => {
+  const handleOpenModal = async (person?: NhanSu, defaultCoSo?: string) => {
     if (person) {
       setEditingPerson(person);
       setFormData({ ...person });
@@ -159,7 +177,7 @@ const PersonnelManagementPage: React.FC = () => {
         password: '',
         hinh_anh: '',
         vi_tri: 'kỹ thuật viên',
-        co_so: 'Cơ sở Bắc Giang',
+        co_so: defaultCoSo ?? BRANCH_OPTIONS[0],
         ngay_vao_lam: null,
         luong_co_ban: null
       });
@@ -360,39 +378,15 @@ const PersonnelManagementPage: React.FC = () => {
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
-                  setCurrentPage(1);
+                  resetAllBranchPages();
                 }}
                 className="w-full pl-9 pr-4 py-1.5 border border-border rounded text-[13px] focus:ring-1 focus:ring-primary focus:border-primary placeholder-slate-400 outline-none"
-                placeholder="Tìm tên, SĐT, mã ID..."
+                placeholder="Tìm tên, SĐT, mã nhân sự…"
                 type="text"
               />
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              {/* Branch Dropdown */}
-              <div className="relative">
-                <button onClick={() => toggleDropdown('branch')} className="flex items-center gap-2 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground min-w-[140px] justify-between bg-card hover:bg-accent">
-                  <div className="flex items-center gap-2"><Building2 size={18} />Cơ sở</div>
-                  <ChevronDown size={18} />
-                </button>
-                {openDropdown === 'branch' && (
-                  <div className="absolute top-10 left-0 z-50 min-w-[200px] bg-card border border-border rounded shadow-lg overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                    <ul className="py-1 text-[13px] text-muted-foreground">
-                      {branchOptions.map(branch => (
-                        <li key={branch} className="px-3 py-2 hover:bg-accent cursor-pointer flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={selectedBranches.includes(branch)}
-                            onChange={() => handleFilterChange(setSelectedBranches, branch)}
-                            className="rounded border-border text-primary size-4"
-                          /> {branch}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-
               {/* Position Dropdown */}
               <div className="relative">
                 <button onClick={() => toggleDropdown('position')} className="flex items-center gap-2 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground min-w-[120px] justify-between bg-card hover:bg-accent">
@@ -461,191 +455,249 @@ const PersonnelManagementPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Data Table - Desktop */}
-        <div className="bg-card rounded-lg border border-border shadow-sm overflow-hidden">
-          {/* Desktop Table */}
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-muted border-b border-border text-muted-foreground text-[12px] font-bold uppercase tracking-wider">
-                  <th className="px-4 py-3 font-semibold">id</th>
-                  <th className="px-4 py-3 font-semibold">Ảnh</th>
-                  <th className="px-4 py-3 font-semibold">Họ và tên</th>
-                  <th className="px-4 py-3 font-semibold">Ngày vào làm</th>
-                  <th className="px-4 py-3 font-semibold">Lương cơ bản</th>
-                  <th className="px-4 py-3 font-semibold">SĐT</th>
-                  <th className="px-4 py-3 font-semibold">Vị trí</th>
-                  <th className="px-4 py-3 font-semibold">Cơ sở</th>
-                  <th className="px-4 py-3 text-center font-semibold">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-[13px]">
-                {loading ? (
-                  <tr>
-                    <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">
-                      <Loader2 className="animate-spin inline-block mr-2" size={20} />
-                      Đang tải dữ liệu...
-                    </td>
-                  </tr>
-                ) : personnel.map(person => (
-                  <tr key={person.id} className="hover:bg-muted/80 transition-colors">
-                    <td className="px-4 py-4 font-mono text-[11px] font-bold text-muted-foreground">{person.id_nhan_su || '—'}</td>
-                    <td className="px-4 py-4">
-                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary overflow-hidden border border-border shadow-sm">
-                        {person.hinh_anh ? (
-                          <img src={person.hinh_anh} alt="" className="w-full h-full object-cover" />
+        {/* Hai bảng theo từng cơ sở — song song trên màn rộng */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5 items-start">
+          {branchOptions.map((branch) => {
+            const personnel = personnelByBranch[branch] ?? [];
+            const totalCount = totalByBranch[branch] ?? 0;
+            const currentPage = pageByBranch[branch] ?? 1;
+            return (
+              <div key={branch} className="min-w-0 space-y-2">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-0.5">
+                  <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+                    <Building2 className="w-5 h-5 text-primary shrink-0" />
+                    {branch}
+                    <span className="text-xs font-normal text-muted-foreground tabular-nums">
+                      ({totalCount} nhân sự)
+                    </span>
+                  </h2>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={() => void handleOpenModal(undefined, branch)}
+                      className="inline-flex items-center gap-1.5 text-[13px] font-medium text-primary hover:underline w-fit"
+                    >
+                      <Plus size={16} />
+                      Thêm nhân sự tại cơ sở này
+                    </button>
+                  )}
+                </div>
+
+                <div className="bg-card rounded-lg border border-border shadow-sm overflow-hidden">
+                  <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-muted border-b border-border text-muted-foreground text-[12px] font-bold uppercase tracking-wider">
+                          <th className="px-4 py-3 font-semibold">Ảnh</th>
+                          <th className="px-4 py-3 font-semibold">Họ và tên</th>
+                          <th className="px-4 py-3 font-semibold">Ngày vào làm</th>
+                          <th className="px-4 py-3 font-semibold">Lương cơ bản</th>
+                          <th className="px-4 py-3 font-semibold">SĐT</th>
+                          <th className="px-4 py-3 font-semibold">Vị trí</th>
+                          <th className="px-4 py-3 text-center font-semibold">Thao tác</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-[13px]">
+                        {loading ? (
+                          <tr>
+                            <td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">
+                              <Loader2 className="animate-spin inline-block mr-2" size={20} />
+                              Đang tải dữ liệu...
+                            </td>
+                          </tr>
                         ) : (
-                          <User size={20} />
+                          personnel.map((person) => (
+                            <tr key={person.id} className="hover:bg-muted/80 transition-colors">
+                              <td className="px-4 py-4">
+                                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary overflow-hidden border border-border shadow-sm">
+                                  {person.hinh_anh ? (
+                                    <img src={person.hinh_anh} alt="" className="w-full h-full object-cover" />
+                                  ) : (
+                                    <User size={20} />
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-4 py-4 font-semibold text-foreground">{person.ho_ten}</td>
+                              <td className="px-4 py-4 tabular-nums text-[12px]">{formatNgay(person.ngay_vao_lam)}</td>
+                              <td className="px-4 py-4 tabular-nums text-[12px] text-right font-medium text-foreground">
+                                {formatVnd(person.luong_co_ban)}
+                              </td>
+                              <td className="px-4 py-4">{person.sdt || '—'}</td>
+                              <td className="px-4 py-4">
+                                <span
+                                  className={clsx(
+                                    'px-2 py-0.5 rounded text-[11px] font-bold',
+                                    person.vi_tri === 'quản lý'
+                                      ? 'bg-purple-100 text-purple-700'
+                                      : 'bg-blue-100 text-blue-700'
+                                  )}
+                                >
+                                  {person.vi_tri}
+                                </span>
+                              </td>
+                              <td className="px-4 py-4 text-center">
+                                <div className="flex items-center justify-center gap-3">
+                                  <button
+                                    onClick={() => {
+                                      setSelectedStatsPerson({ id: person.id, ho_ten: person.ho_ten });
+                                      setIsStatsModalOpen(true);
+                                    }}
+                                    className="text-emerald-600 hover:text-emerald-800 transition-colors"
+                                    title="Xem thống kê làm việc"
+                                  >
+                                    <Eye size={16} />
+                                  </button>
+                                  {isAdmin && (
+                                    <>
+                                      <button
+                                        onClick={() => void handleOpenModal(person)}
+                                        className="text-primary hover:text-blue-700 transition-colors"
+                                        title="Sửa thông tin"
+                                      >
+                                        <Edit2 size={16} />
+                                      </button>
+                                      <button
+                                        onClick={() => handleDelete(person.id)}
+                                        className="text-destructive hover:text-red-700 transition-colors"
+                                        title="Xóa nhân viên"
+                                      >
+                                        <Trash2 size={16} />
+                                      </button>
+                                    </>
+                                  )}
+                                  {!isAdmin && <span className="text-[11px] italic text-slate-400">Read-only</span>}
+                                </div>
+                              </td>
+                            </tr>
+                          ))
                         )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 font-semibold text-foreground">{person.ho_ten}</td>
-                    <td className="px-4 py-4 tabular-nums text-[12px]">{formatNgay(person.ngay_vao_lam)}</td>
-                    <td className="px-4 py-4 tabular-nums text-[12px] text-right font-medium text-foreground">{formatVnd(person.luong_co_ban)}</td>
-                    <td className="px-4 py-4">{person.sdt || '—'}</td>
-                    <td className="px-4 py-4">
-                      <span className={clsx(
-                        "px-2 py-0.5 rounded text-[11px] font-bold",
-                        person.vi_tri === 'quản lý' ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
-                      )}>
-                        {person.vi_tri}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4 text-[12px]">{person.co_so}</td>
-                    <td className="px-4 py-4 text-center">
-                      <div className="flex items-center justify-center gap-3">
-                        <button onClick={() => { setSelectedStatsPerson({ id: person.id, ho_ten: person.ho_ten }); setIsStatsModalOpen(true); }} className="text-emerald-600 hover:text-emerald-800 transition-colors" title="Xem thống kê làm việc"><Eye size={16} /></button>
-                        {isAdmin && (
-                          <>
-                            <button onClick={async () => await handleOpenModal(person)} className="text-primary hover:text-blue-700 transition-colors" title="Sửa thông tin"><Edit2 size={16} /></button>
-                            <button onClick={() => handleDelete(person.id)} className="text-destructive hover:text-red-700 transition-colors" title="Xóa nhân viên"><Trash2 size={16} /></button>
-                          </>
+                        {!loading && personnel.length === 0 && (
+                          <tr>
+                            <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                              Không có nhân sự tại cơ sở này.
+                            </td>
+                          </tr>
                         )}
-                        {!isAdmin && <span className="text-[11px] italic text-slate-400">Read-only</span>}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {!loading && personnel.length === 0 && (
-                  <tr>
-                    <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">Không có dữ liệu nhân sự.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Mobile Card List - Compact Style */}
-          <div className="md:hidden">
-            {loading ? (
-              <div className="px-4 py-12 text-center text-muted-foreground">
-                <Loader2 className="animate-spin inline-block mr-2" size={20} />
-                Đang tải dữ liệu...
-              </div>
-            ) : personnel.length === 0 ? (
-              <div className="px-4 py-8 text-center text-muted-foreground text-[13px]">Không có dữ liệu nhân sự.</div>
-            ) : (
-              <div className="px-3 py-3 space-y-3">
-                {personnel.map(person => (
-                  <div key={person.id} className="bg-card rounded-2xl p-3 border border-border/30 shadow-sm active:scale-[0.98] transition-transform cursor-pointer flex gap-3.5">
-                    {/* Large Avatar */}
-                    <div className="shrink-0">
-                      <div className="w-16 h-16 rounded-xl overflow-hidden border-2 border-primary/10 shadow-sm bg-primary/5 flex items-center justify-center text-primary">
-                        {person.hinh_anh ? (
-                          <img src={person.hinh_anh} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <User size={28} />
-                        )}
-                      </div>
-                    </div>
-                    {/* Card Content: 3 Lines + Actions */}
-                    <div className="flex-1 min-w-0 flex flex-col justify-center">
-                      {/* Line 1: Name + Phone + Badge */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-baseline gap-1.5 min-w-0 flex-wrap">
-                          <h3 className="font-extrabold text-foreground text-sm truncate">{person.ho_ten}</h3>
-                          {person.id_nhan_su && (
-                            <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-bold uppercase">ID: {person.id_nhan_su}</span>
-                          )}
-                          {person.sdt && (
-                            <span className="text-[11px] text-muted-foreground/80 font-medium whitespace-nowrap">· {person.sdt}</span>
-                          )}
-                        </div>
-                        <span className={clsx(
-                          "px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider shrink-0 ml-2",
-                          person.vi_tri === 'quản lý'
-                            ? "bg-amber-500/10 text-amber-700"
-                            : "bg-blue-500/10 text-blue-700"
-                        )}>
-                          {person.vi_tri}
-                        </span>
-                      </div>
-
-                      {/* Line 2: Vị trí + ngày / lương */}
-                      <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 text-[11px] mt-1 text-muted-foreground font-medium min-w-0">
-                        <div className="flex items-center gap-1 truncate">
-                          <Briefcase size={14} className="text-primary shrink-0" />
-                          <span className="font-bold text-foreground truncate">{person.vi_tri}</span>
-                        </div>
-                        <span className="text-border">•</span>
-                        <span className="tabular-nums">Vào: {formatNgay(person.ngay_vao_lam)}</span>
-                        <span className="text-border">•</span>
-                        <span className="tabular-nums text-foreground font-semibold">
-                          {person.luong_co_ban != null && !Number.isNaN(person.luong_co_ban) ? `${formatVnd(person.luong_co_ban)} đ` : '—'}
-                        </span>
-                      </div>
-
-                      {/* Line 3: Branch + More info */}
-                      <div className="flex items-center gap-1.5 text-[10px] mt-1 text-muted-foreground min-w-0">
-                        <div className="flex items-center gap-0.5 shrink-0">
-                          <Building2 size={12} className="text-muted-foreground/60" />
-                          <span className="font-semibold text-foreground">{person.co_so}</span>
-                        </div>
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex items-center gap-2 mt-2.5 pt-2 border-t border-border/10">
-                        <button
-                          onClick={() => { setSelectedStatsPerson({ id: person.id, ho_ten: person.ho_ten }); setIsStatsModalOpen(true); }}
-                          className="flex items-center gap-1 px-2 py-1 bg-emerald-500/5 text-emerald-600 rounded-lg active:scale-95 transition-transform"
-                        >
-                          <Eye size={14} />
-                          <span className="text-[10px] font-bold">Thống kê</span>
-                        </button>
-                        {isAdmin && (
-                          <>
-                            <button
-                              onClick={async () => await handleOpenModal(person)}
-                              className="flex items-center gap-1 px-2 py-1 bg-primary/5 text-primary rounded-lg active:scale-95 transition-transform"
-                            >
-                              <Edit2 size={14} />
-                              <span className="text-[10px] font-bold">Sửa</span>
-                            </button>
-                            <button
-                              onClick={() => handleDelete(person.id)}
-                              className="flex items-center gap-1 px-2 py-1 bg-destructive/5 text-destructive rounded-lg active:scale-95 transition-transform ml-auto"
-                            >
-                              <Trash2 size={14} />
-                              <span className="text-[10px] font-bold">Xoá</span>
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </div>
+                      </tbody>
+                    </table>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
 
-          <Pagination
-            currentPage={currentPage}
-            pageSize={pageSize}
-            totalCount={totalCount}
-            onPageChange={setCurrentPage}
-            onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }}
-            loading={loading}
-          />
+                  <div className="md:hidden">
+                    {loading ? (
+                      <div className="px-4 py-12 text-center text-muted-foreground">
+                        <Loader2 className="animate-spin inline-block mr-2" size={20} />
+                        Đang tải dữ liệu...
+                      </div>
+                    ) : personnel.length === 0 ? (
+                      <div className="px-4 py-8 text-center text-muted-foreground text-[13px]">
+                        Không có nhân sự tại cơ sở này.
+                      </div>
+                    ) : (
+                      <div className="px-3 py-3 space-y-3">
+                        {personnel.map((person) => (
+                          <div
+                            key={person.id}
+                            className="bg-card rounded-2xl p-3 border border-border/30 shadow-sm active:scale-[0.98] transition-transform flex gap-3.5"
+                          >
+                            <div className="shrink-0">
+                              <div className="w-16 h-16 rounded-xl overflow-hidden border-2 border-primary/10 shadow-sm bg-primary/5 flex items-center justify-center text-primary">
+                                {person.hinh_anh ? (
+                                  <img src={person.hinh_anh} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                  <User size={28} />
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex-1 min-w-0 flex flex-col justify-center">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-baseline gap-1.5 min-w-0 flex-wrap">
+                                  <h3 className="font-extrabold text-foreground text-sm truncate">{person.ho_ten}</h3>
+                                  {person.sdt && (
+                                    <span className="text-[11px] text-muted-foreground/80 font-medium whitespace-nowrap">
+                                      · {person.sdt}
+                                    </span>
+                                  )}
+                                </div>
+                                <span
+                                  className={clsx(
+                                    'px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider shrink-0 ml-2',
+                                    person.vi_tri === 'quản lý'
+                                      ? 'bg-amber-500/10 text-amber-700'
+                                      : 'bg-blue-500/10 text-blue-700'
+                                  )}
+                                >
+                                  {person.vi_tri}
+                                </span>
+                              </div>
+                              <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 text-[11px] mt-1 text-muted-foreground font-medium min-w-0">
+                                <div className="flex items-center gap-1 truncate">
+                                  <Briefcase size={14} className="text-primary shrink-0" />
+                                  <span className="font-bold text-foreground truncate">{person.vi_tri}</span>
+                                </div>
+                                <span className="text-border">•</span>
+                                <span className="tabular-nums">Vào: {formatNgay(person.ngay_vao_lam)}</span>
+                                <span className="text-border">•</span>
+                                <span className="tabular-nums text-foreground font-semibold">
+                                  {person.luong_co_ban != null && !Number.isNaN(person.luong_co_ban)
+                                    ? `${formatVnd(person.luong_co_ban)} đ`
+                                    : '—'}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 mt-2.5 pt-2 border-t border-border/10">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedStatsPerson({ id: person.id, ho_ten: person.ho_ten });
+                                    setIsStatsModalOpen(true);
+                                  }}
+                                  className="flex items-center gap-1 px-2 py-1 bg-emerald-500/5 text-emerald-600 rounded-lg active:scale-95 transition-transform"
+                                >
+                                  <Eye size={14} />
+                                  <span className="text-[10px] font-bold">Thống kê</span>
+                                </button>
+                                {isAdmin && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => void handleOpenModal(person)}
+                                      className="flex items-center gap-1 px-2 py-1 bg-primary/5 text-primary rounded-lg active:scale-95 transition-transform"
+                                    >
+                                      <Edit2 size={14} />
+                                      <span className="text-[10px] font-bold">Sửa</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDelete(person.id)}
+                                      className="flex items-center gap-1 px-2 py-1 bg-destructive/5 text-destructive rounded-lg active:scale-95 transition-transform ml-auto"
+                                    >
+                                      <Trash2 size={14} />
+                                      <span className="text-[10px] font-bold">Xoá</span>
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <Pagination
+                    currentPage={currentPage}
+                    pageSize={pageSize}
+                    totalCount={totalCount}
+                    onPageChange={(p) => setPageByBranch((prev) => ({ ...prev, [branch]: p }))}
+                    onPageSizeChange={(size) => {
+                      setPageSize(size);
+                      resetAllBranchPages();
+                    }}
+                    loading={loading}
+                  />
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 

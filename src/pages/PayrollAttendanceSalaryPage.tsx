@@ -5,11 +5,9 @@ import { getChamCongTrongKhoang } from '../data/attendanceData';
 import { getRevenueByPersonnel } from '../data/reportData';
 import { removeVietnameseTones } from '../lib/utils';
 import {
-  ATTENDANCE_SALARY,
   demGioTangCaTheoDongCham,
   demSoBuaAnTheoDongCham,
   demSoNgayCongTheoDongCham,
-  soNgayTrongThangDuongLich,
   type BangLuongChamCongInput,
   type LoaiNhanVien,
   type DongChamBuaNhap,
@@ -31,15 +29,22 @@ function khoangNgayCuaThang(nam: number, thang: number): { start: string; end: s
   return { start: `${nam}-${sm}-01`, end: `${nam}-${sm}-${se}` };
 }
 
-/** So khớp tên bảng lương với tên ghi trên phiếu bán (bỏ dấu, thường, gộp khoảng trắng). */
+/** So khớp tên bảng lương với tên NV trên đơn hàng / báo cáo (bỏ dấu, thường, gộp khoảng trắng). */
 function chuanHoaTenSoSanh(s: string): string {
   return removeVietnameseTones(s.trim().toLowerCase()).replace(/\s+/g, ' ');
 }
 
+function ngayIsoTuNhanSu(p: NhanSu): string | null {
+  const raw = p.ngay_vao_lam;
+  if (raw == null || String(raw).trim() === '') return null;
+  const s = String(raw).trim().slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
+}
+
 /**
- * Cập nhật cột doanh số từ tổng doanh thu theo NV trong báo cáo (phiếu bán tháng đó,
- * cùng nguồn với Báo cáo doanh thu / theo nhân sự).
- * Khớp theo tên; nếu trên phiếu lưu UUID thì tra thêm theo `nhan_su` (mã = id chuỗi).
+ * Cập nhật cột doanh số từ Đơn hàng (`the_ban_hang`) trong tháng: tổng tiền theo chi tiết đơn (`the_ban_hang_ct`),
+ * gán cho nhân viên trên đơn (cùng logic báo cáo doanh thu theo nhân sự).
+ * Khớp theo tên; nếu trên đơn lưu UUID thì tra thêm theo `nhan_su` (mã = id chuỗi).
  */
 async function gopDoanhSoTheoBaoCao(
   rows: BangLuongChamCongInput[],
@@ -205,12 +210,45 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
   }, [rows, phanTramHoaHongKy, nam, thang]);
 
   const nhanTheoChuanTen = useMemo(() => {
-    const m = new Map<string, { id: string; idNhanSu: string | null }>();
+    const m = new Map<
+      string,
+      { id: string; idNhanSu: string | null; luongCoBan: number; ngayVaoLam: string | null }
+    >();
     for (const p of nhanList) {
-      if (p.ho_ten) m.set(chuanHoaTenSoSanh(p.ho_ten), { id: p.id, idNhanSu: p.id_nhan_su ? String(p.id_nhan_su).trim() : null });
+      if (!p.ho_ten) continue;
+      const raw = p.luong_co_ban;
+      const luongCoBan =
+        raw != null && !Number.isNaN(Number(raw)) ? Number(raw) : 0;
+      m.set(chuanHoaTenSoSanh(p.ho_ten), {
+        id: p.id,
+        idNhanSu: p.id_nhan_su ? String(p.id_nhan_su).trim() : null,
+        luongCoBan,
+        ngayVaoLam: ngayIsoTuNhanSu(p),
+      });
     }
     return m;
   }, [nhanList]);
+
+  /** LCB và ngày bắt đầu làm: khi khớp hồ sơ Nhân sự lấy từ đó (LCB + ngày vào làm). */
+  useEffect(() => {
+    if (nhanTheoChuanTen.size === 0) return;
+    setRows((prev) => {
+      let changed = false;
+      const next = prev.map((r) => {
+        const meta = nhanTheoChuanTen.get(chuanHoaTenSoSanh(r.hoTen));
+        if (!meta) return r;
+        const patch: Partial<BangLuongChamCongInput> = {};
+        const lcb = meta.luongCoBan;
+        if (Math.abs((r.luongCoBan ?? 0) - lcb) >= 0.005) patch.luongCoBan = lcb;
+        const ngayTuNs = meta.ngayVaoLam;
+        if (ngayTuNs && r.ngayBatDauLam !== ngayTuNs) patch.ngayBatDauLam = ngayTuNs;
+        if (Object.keys(patch).length === 0) return r;
+        changed = true;
+        return { ...r, ...patch };
+      });
+      return changed ? next : prev;
+    });
+  }, [nhanTheoChuanTen, rows]);
 
   const withKetQua = useMemo(
     () =>
@@ -237,8 +275,6 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
       }),
     [rows, nam, thang, phanTramHoaHongKy, chamDong, nhanTheoChuanTen]
   );
-
-  const soNgayThang = soNgayTrongThangDuongLich(nam, thang);
 
   const updateRow = useCallback(
     (id: string, patch: Partial<BangLuongChamCongInput>) => {
@@ -302,12 +338,19 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
     setQuickLoading(true);
     try {
       const list = await getPersonnel();
-      let newRows: BangLuongChamCongInput[] = list.map((p) => ({
-        ...emptyRow(),
-        id: newId(),
-        hoTen: p.ho_ten,
-        ngayBatDauLam: p.created_at ? p.created_at.slice(0, 10) : '',
-      }));
+      let newRows: BangLuongChamCongInput[] = list.map((p) => {
+        const raw = p.luong_co_ban;
+        const luongCoBan =
+          raw != null && !Number.isNaN(Number(raw)) ? Number(raw) : 0;
+        return {
+          ...emptyRow(),
+          id: newId(),
+          hoTen: p.ho_ten,
+          luongCoBan,
+          ngayBatDauLam:
+            ngayIsoTuNhanSu(p) ?? (p.created_at ? p.created_at.slice(0, 10) : ''),
+        };
+      });
       newRows = await gopDoanhSoTheoBaoCao(newRows, nam, thang);
       setRows(newRows);
       const { start, end } = khoangNgayCuaThang(nam, thang);
@@ -327,7 +370,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
 
   const thCell = (short: string, full: string) => (
     <th
-      className="sticky top-0 z-[1] bg-muted/80 backdrop-blur border-b border-border px-1.5 py-1.5 text-left text-[10px] font-semibold text-muted-foreground whitespace-nowrap"
+      className="sticky top-0 z-[1] bg-muted/80 backdrop-blur border-b border-border px-2.5 py-3 text-left text-xs sm:text-sm font-semibold text-muted-foreground whitespace-nowrap"
       title={full}
     >
       {short}
@@ -335,36 +378,21 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
   );
 
   return (
-    <div className="flex flex-col h-full min-h-0 p-3 md:p-4 gap-3">
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 shrink-0">
+    <div className="flex flex-col h-full min-h-0 p-2 md:p-3 gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 shrink-0">
         <div>
-          <h1 className="text-lg font-bold text-foreground flex items-center gap-2">
-            <Table2 className="w-5 h-5 text-primary" />
+          <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
+            <Table2 className="w-6 h-6 text-primary" />
             Bảng lương chấm công
           </h1>
-          <p className="text-[12px] text-muted-foreground mt-0.5 max-w-2xl">
-            <strong>Số ngày công</strong> và <strong>doanh số tháng</strong> theo kỳ; cột Công = số ngày (không
-            trùng) có check-in trên bảng chấm công. Bấm <strong>Doanh số</strong> để lấy doanh thu từ phiếu bán. Hoa
-            hồng = doanh số × % tháng. Quy ước: ngày lương = LCB ÷ {ATTENDANCE_SALARY.NGAY_LAM_TRONG_THANG}. Tháng có{' '}
-            <strong>{soNgayThang} ngày dương lịch</strong> (bảng lương 28/8). <strong>Tiền ăn</strong> từ chấm công: mỗi
-            ngày có
-            check-in — 2 bữa tại cơ sở hoặc 1 bữa nếu vị trí gợi ý “từ xa/ở nhà”; thêm 1 bữa khi
-            checkout ≥ 19:00. Giá {formatVnd(ATTENDANCE_SALARY.GIA_MOT_BUA_AN)}/bữa.             Tăng ca lương: hệ
-            số{' '}
-            {ATTENDANCE_SALARY.HE_SO_TANG_CA * 100}%, tối đa {ATTENDANCE_SALARY.GIO_TANG_CA_TOI_DA_THANG}h, chỉ thợ
-            chính thức. <strong>H TC</strong> từ chấm công tháng (mỗi phút từ sau 19:00 đến giờ ra; mỗi ngày lấy giờ ra
-            muộn nhất; khớp tên / mã nhân sự / UUID hồ sơ); nếu chưa tải chấm công, nhập tay. Cột <strong>PC
-            thâm niên</strong> dựa trên thời gian làm: khi <strong>Tạo nhanh</strong> hệ thống lấy ngày tạo hồ sơ nhân
-            sự làm mốc.
-          </p>
         </div>
         <div className="flex flex-col gap-1.5 shrink-0 w-full min-w-0 sm:w-auto sm:max-w-[min(100%,42rem)] sm:ml-auto sm:items-end">
           <div className="flex flex-nowrap items-center gap-1.5 min-w-0 w-full sm:justify-end overflow-x-auto py-0.5">
-            <div className="flex shrink-0 items-center gap-1 rounded-md border border-border bg-background px-1.5 py-0.5">
-              <Calendar className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-              <span className="text-[10px] text-muted-foreground shrink-0">Kỳ</span>
+            <div className="flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1">
+              <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
+              <span className="text-xs text-muted-foreground shrink-0">Kỳ</span>
               <select
-                className="bg-transparent text-[11px] font-medium outline-none min-w-0"
+                className="bg-transparent text-sm font-medium outline-none min-w-0"
                 value={thang}
                 onChange={(e) => setThang(Number(e.target.value))}
               >
@@ -374,9 +402,9 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                   </option>
                 ))}
               </select>
-              <span className="text-muted-foreground/50 text-[10px]">/</span>
+              <span className="text-muted-foreground/50 text-xs">/</span>
               <select
-                className="bg-transparent text-[11px] font-medium outline-none w-[3.2rem] min-w-0"
+                className="bg-transparent text-sm font-medium outline-none w-[4rem] min-w-0"
                 value={nam}
                 onChange={(e) => setNam(Number(e.target.value))}
               >
@@ -388,14 +416,14 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
               </select>
             </div>
             <div
-              className="flex shrink-0 items-center gap-1 rounded-md border border-border bg-primary/5 border-primary/20 px-1.5 py-0.5"
+              className="flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-primary/5 border-primary/20 px-2 py-1"
               title="% hoa hồng tháng (cùng kỳ), áp cả bảng"
             >
-              <span className="text-[10px] text-muted-foreground">HH</span>
+              <span className="text-xs text-muted-foreground">HH</span>
               <input
                 type="text"
                 inputMode="decimal"
-                className="w-9 bg-background border border-border/60 rounded px-0.5 py-0.5 text-[11px] font-mono text-right"
+                className="w-11 bg-background border border-border/60 rounded px-1 py-1 text-sm font-mono text-right"
                 value={String(phanTramHoaHongKy)}
                 onChange={(e) => {
                   const n = parseFloat(e.target.value.replace(/,/g, ''));
@@ -404,91 +432,99 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                 title="% hoa hồng tháng (cùng kỳ đang chọn)"
                 aria-label="% hoa hồng tháng"
               />
-              <span className="text-[11px] font-medium">%</span>
+              <span className="text-sm font-medium">%</span>
             </div>
           </div>
-          <div className="flex flex-nowrap items-center gap-1.5 min-w-0 w-full sm:justify-end overflow-x-auto pb-0.5 -mx-0.5 px-0.5">
+          <div className="flex flex-nowrap items-center gap-2 min-w-0 w-full sm:justify-end overflow-x-auto py-0.5 -mx-0.5 px-0.5">
             <button
               type="button"
               onClick={capNhatDoanhSoTuPhieuBan}
               disabled={revenueLoading || quickLoading}
-              className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border bg-primary/10 border-primary/30 text-primary text-[11px] font-medium px-2 py-1 hover:bg-primary/15 disabled:opacity-50"
-              title="Lấy tổng doanh thu từ phiếu bán trong tháng, ghép theo tên (khớp tên trên bảng với tên ghi ở phiếu)"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-primary/10 border-primary/30 text-primary text-sm font-medium px-3 py-2 hover:bg-primary/15 disabled:opacity-50"
+              title="Lấy tổng doanh thu từ Đơn hàng trong tháng (the_ban_hang + chi tiết), ghép theo tên NV trên đơn"
             >
-              {revenueLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <TrendingUp className="w-3.5 h-3.5" />}
+              {revenueLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <TrendingUp className="w-4 h-4" />}
               Doanh số
             </button>
             <button
               type="button"
               onClick={taoNhanh}
               disabled={quickLoading || revenueLoading}
-              className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border bg-background text-[11px] font-medium px-2 py-1 hover:bg-muted/50 disabled:opacity-50"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-background text-sm font-medium px-3 py-2 hover:bg-muted/50 disabled:opacity-50"
             >
-              {quickLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UserPlus className="w-3.5 h-3.5" />}
+              {quickLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
               Tạo nhanh
             </button>
             <button
               type="button"
               onClick={addRow}
-              className="inline-flex shrink-0 items-center gap-1 rounded-md bg-primary text-primary-foreground text-[11px] font-medium px-2 py-1 hover:opacity-90"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium px-3 py-2 hover:opacity-90"
             >
-              <Plus className="w-3.5 h-3.5" />
+              <Plus className="w-4 h-4" />
               Thêm dòng
             </button>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 rounded-xl border border-border bg-card/30 overflow-hidden">
-        <div className="h-full overflow-auto">
-          <table className="w-max min-w-full border-collapse text-[11px]">
+      <div className="flex-1 min-h-0 flex flex-col rounded-xl border border-border bg-card/30 overflow-hidden">
+        <div className="flex-1 min-h-[min(75vh,56rem)] overflow-auto">
+          <table className="w-max min-w-full border-collapse text-sm">
             <thead>
               <tr>
-                <th className="sticky top-0 left-0 z-[2] bg-muted/80 backdrop-blur border-b border-r border-border px-1.5 py-1.5 text-left text-[10px] font-semibold w-8">
+                <th className="sticky top-0 left-0 z-[2] bg-muted/80 backdrop-blur border-b border-r border-border px-2.5 py-3 text-left text-xs sm:text-sm font-semibold w-10">
                   #
                 </th>
                 {thCell('Họ tên', 'Tên nhân viên')}
                 {thCell('Loại', 'Chính thức / thời vụ')}
                 {thCell('LCB', 'Lương cơ bản (tháng)')}
+                {thCell(
+                  'Thâm niên',
+                  'Số tháng làm việc đến hết tháng kỳ đang chọn, từ ngày bắt đầu làm trên dòng (ưu tiên Ngày vào làm trong Nhân sự khi khớp tên). Dùng để cộng vào LCB và phụ cấp thâm niên.'
+                )}
                 {thCell('Công', 'Số ngày có bản ghi chấm công (có check-in) trong tháng đang chọn')}
                 {thCell(
                   'Lương theo công',
                   'Lương theo công = lương ngày × số công. Lương ngày = (LCB + cộng thâm niên vào LCB) ÷ 28 (bảng 28/8), không phải LCB tháng × công thô'
                 )}
-                {thCell('H TC', 'Số giờ tăng ca')}
-                {thCell('Doanh số tháng', 'Doanh số / doanh thu tháng (cùng kỳ) — hoa hồng = × % ở trên')}
+                {thCell('Tăng ca', 'Số giờ tăng ca')}
+                {thCell(
+                  'Doanh số tháng',
+                  'Tổng thành tiền đơn hàng trong kỳ (bảng Đơn hàng + chi tiết); hoa hồng = × % ở trên'
+                )}
                 {thCell('Bữa', 'Số bữa ăn theo bảng chấm công tháng')}
                 {thCell('Ăn', 'Tiền ăn = số bữa × giá 1 bữa (từ chấm công)')}
-                {thCell('PCcc', 'Phụ cấp chuyên cần')}
-                {thCell('PCxăng', 'Phụ cấp xăng/ĐT')}
-                {thCell('PCtn', 'Phụ cấp thâm niên tháng')}
-                {thCell('Hoa hồng', 'Doanh số tháng × % hoa hồng tháng')}
+                {thCell('Phụ cấp chuyên cần', 'Mức phụ cấp chuyên cần trong bảng lương')}
+                {thCell('Phụ cấp xăng và điện thoại', 'Phụ cấp xăng xe và điện thoại')}
+                {thCell('Phụ cấp thâm niên tháng', 'Phụ cấp thâm niên theo số tháng làm việc')}
+                {thCell('Tiền hoa hồng tháng', 'Doanh số tháng × phần trăm hoa hồng tháng (ô % HH ở trên)')}
                 {thCell('Tổng', 'Tổng cộng')}
                 {thCell('Ghi chú', 'Cảnh báo')}
-                <th className="sticky top-0 z-[1] bg-muted/80 w-8 border-b border-border" />
+                <th className="sticky top-0 z-[1] bg-muted/80 w-11 border-b border-border" />
               </tr>
             </thead>
             <tbody>
               {withKetQua.map((x, i) => {
                 const { input, kq, gTcTuCham } = x;
+                const khopNhanSu = Boolean(nhanTheoChuanTen.get(chuanHoaTenSoSanh(input.hoTen)));
                 return (
                   <tr
                     key={input.id}
                     className={clsx('border-b border-border/60 hover:bg-muted/20', i % 2 === 0 && 'bg-muted/5')}
                   >
-                    <td className="sticky left-0 z-[1] bg-card/90 border-r border-border px-1.5 py-1 text-muted-foreground">
+                    <td className="sticky left-0 z-[1] bg-card/90 border-r border-border px-2.5 py-2.5 text-muted-foreground tabular-nums">
                       {i + 1}
                     </td>
-                    <td className="px-1 py-0.5 min-w-[14rem]">
+                    <td className="px-2 py-1.5 min-w-[16rem]">
                       <input
-                        className="w-full min-w-0 min-h-[1.75rem] bg-transparent border border-border/60 rounded px-1.5 py-0.5"
+                        className="w-full min-w-0 min-h-10 text-sm bg-transparent border border-border/60 rounded-md px-2.5 py-2"
                         value={input.hoTen}
                         onChange={(e) => updateRow(input.id, { hoTen: e.target.value })}
                       />
                     </td>
-                    <td className="px-1 py-0.5">
+                    <td className="px-2 py-1.5">
                       <select
-                        className="w-[84px] bg-background border border-border/60 rounded px-0.5 py-0.5"
+                        className="w-[7.5rem] min-h-10 text-sm bg-background border border-border/60 rounded-md px-1.5 py-1.5"
                         value={input.loai}
                         onChange={(e) => updateRow(input.id, { loai: e.target.value as LoaiNhanVien })}
                       >
@@ -496,76 +532,95 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                         <option value="thoi_vu">Thời vụ</option>
                       </select>
                     </td>
-                    <td className="px-1 py-0.5">
+                    <td className="px-2 py-1.5">
                       <input
                         type="text"
                         inputMode="numeric"
-                        className="w-28 min-w-0 bg-transparent border border-border/60 rounded px-1 py-0.5 text-right font-mono"
+                        className={clsx(
+                          'w-32 min-w-0 min-h-10 text-sm border border-border/60 rounded-md px-2 py-1.5 text-right font-mono',
+                          khopNhanSu ? 'bg-muted/40 text-muted-foreground cursor-not-allowed' : 'bg-transparent'
+                        )}
+                        title={
+                          khopNhanSu
+                            ? 'Lương cơ bản lấy từ Nhân sự (cột Lương cơ bản); sửa tại trang Nhân sự.'
+                            : 'Nhập LCB thủ công khi chưa có hồ sơ nhân sự trùng tên'
+                        }
+                        readOnly={khopNhanSu}
                         value={formatTienNhap(input.luongCoBan)}
                         onChange={(e) => setTien(input.id, 'luongCoBan', e.target.value)}
                       />
                     </td>
                     <td
-                      className="px-1.5 py-1 text-center tabular-nums font-medium text-foreground"
+                      className="px-2.5 py-2.5 text-center tabular-nums text-muted-foreground whitespace-nowrap w-12 text-sm"
+                      title={
+                        input.ngayBatDauLam
+                          ? `Số tháng làm việc đến hết ${String(thang).padStart(2, '0')}/${nam}. Mốc: ${input.ngayBatDauLam}`
+                          : 'Chưa có ngày bắt đầu làm — khớp Nhân sự (Ngày vào làm) hoặc bổ sung trong dữ liệu'
+                      }
+                    >
+                      {(input.ngayBatDauLam || '').trim() ? kq.thangLamViec : '—'}
+                    </td>
+                    <td
+                      className="px-2.5 py-2.5 text-center tabular-nums font-medium text-foreground text-sm"
                       title="Số ngày có chấm công (cùng tháng/kỳ)"
                     >
                       {kq.soNgayCongDung}
                     </td>
-                    <td className="px-1.5 py-1 text-right font-mono whitespace-nowrap" title="(LCB hiệu lực ÷ 28) × công">
+                    <td className="px-2.5 py-2.5 text-right font-mono whitespace-nowrap text-sm" title="(LCB hiệu lực ÷ 28) × công">
                       {formatVnd(kq.tienTheoCong)}
                     </td>
-                    <td className="px-1 py-0.5">
+                    <td className="px-2 py-1.5">
                       <input
                         type="text"
                         inputMode="numeric"
-                        className="w-16 bg-transparent border border-border/60 rounded px-1 py-0.5 text-right font-mono"
+                        className="w-[4.5rem] min-h-10 text-sm bg-transparent border border-border/60 rounded-md px-2 py-1.5 text-right font-mono"
                         title={
                           gTcTuCham !== undefined
                             ? 'Giờ tăng ca từ chấm công (sau 19:00; mỗi ngày giờ ra muộn nhất; khớp tên / mã NV)'
-                            : 'Nhập giờ TC thủ công khi chưa có dữ liệu chấm công tháng'
+                            : 'Nhập giờ tăng ca thủ công khi chưa có dữ liệu chấm công tháng'
                         }
                         readOnly={gTcTuCham !== undefined}
                         value={String(gTcTuCham !== undefined ? gTcTuCham : input.soGioTangCa)}
                         onChange={(e) => setNum(input.id, 'soGioTangCa', e.target.value)}
                       />
                     </td>
-                    <td className="px-1 py-0.5">
+                    <td className="px-2 py-1.5">
                       <input
                         type="text"
                         inputMode="numeric"
-                        className="w-28 min-w-0 bg-transparent border border-border/60 rounded px-1 py-0.5 text-right font-mono"
+                        className="w-32 min-w-0 min-h-10 text-sm bg-transparent border border-border/60 rounded-md px-2 py-1.5 text-right font-mono"
                         value={formatTienNhap(input.tongDoanhThu)}
                         onChange={(e) => setTien(input.id, 'tongDoanhThu', e.target.value)}
                       />
                     </td>
-                    <td className="px-1.5 py-1 text-center tabular-nums text-muted-foreground">
+                    <td className="px-2.5 py-2.5 text-center tabular-nums text-muted-foreground text-sm">
                       {kq.soBuaAn}
                     </td>
-                    <td className="px-1.5 py-1 text-right font-mono whitespace-nowrap">{formatVnd(kq.tienAn)}</td>
-                    <td className="px-1.5 py-1 text-right font-mono whitespace-nowrap">
+                    <td className="px-2.5 py-2.5 text-right font-mono whitespace-nowrap text-sm">{formatVnd(kq.tienAn)}</td>
+                    <td className="px-2.5 py-2.5 text-right font-mono whitespace-nowrap text-sm">
                       {formatVnd(kq.phuCapChuyenCan)}
                     </td>
-                    <td className="px-1.5 py-1 text-right font-mono whitespace-nowrap">
+                    <td className="px-2.5 py-2.5 text-right font-mono whitespace-nowrap text-sm">
                       {formatVnd(kq.phuCapXangDienThoai)}
                     </td>
-                    <td className="px-1.5 py-1 text-right font-mono whitespace-nowrap">
+                    <td className="px-2.5 py-2.5 text-right font-mono whitespace-nowrap text-sm">
                       {formatVnd(kq.phuCapThamNien)}
                     </td>
-                    <td className="px-1.5 py-1 text-right font-mono whitespace-nowrap">{formatVnd(kq.hoaHong)}</td>
-                    <td className="px-1.5 py-1 text-right font-bold text-primary whitespace-nowrap">
+                    <td className="px-2.5 py-2.5 text-right font-mono whitespace-nowrap text-sm">{formatVnd(kq.hoaHong)}</td>
+                    <td className="px-2.5 py-2.5 text-right font-bold text-primary whitespace-nowrap text-sm">
                       {formatVnd(kq.tongCong)}
                     </td>
-                    <td className="px-1.5 py-1 text-[10px] text-amber-600 dark:text-amber-500 max-w-[140px]">
+                    <td className="px-2.5 py-2.5 text-xs sm:text-sm text-amber-600 dark:text-amber-500 max-w-[200px]">
                       {kq.ghiChu}
                     </td>
-                    <td className="px-0.5 py-0.5 text-center">
+                    <td className="px-1 py-1.5 text-center">
                       <button
                         type="button"
                         onClick={() => removeRow(input.id)}
-                        className="p-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                        className="p-2 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                         title="Xóa dòng"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </td>
                   </tr>

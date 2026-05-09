@@ -321,11 +321,13 @@ export async function getRevenueByPersonnel(
     fetchAllCTRecords(startDate, endDate),
   ]);
 
+  /** Gộp thành tiền theo mã đơn (id_don_hang ↔ id_bh / id trên bảng the_ban_hang). Khóa chữ thường để khớp ổn định. */
   const orderRevenueMap = new Map<string, { revenue: number; profit: number; date: string }>();
-  ctRecords.forEach(r => {
-    const key = r.id_don_hang || '';
-    if (!key) return;
-    const existing = orderRevenueMap.get(key) || { revenue: 0, profit: 0, date: r.ngay };
+  ctRecords.forEach((r) => {
+    const raw = (r.id_don_hang || '').trim();
+    if (!raw) return;
+    const key = raw.toLowerCase();
+    const existing = orderRevenueMap.get(key) || { revenue: 0, profit: 0, date: r.ngay || '' };
     const rev = r.thanh_tien || r.gia_ban * r.so_luong || 0;
     const pro = rev - (r.gia_von || 0) * (r.so_luong || 1);
     existing.revenue += rev;
@@ -334,11 +336,16 @@ export async function getRevenueByPersonnel(
     orderRevenueMap.set(key, existing);
   });
 
-  const headerLookup = new Map<string, { nhan_vien_id: string; ngay: string }>();
-  headers.forEach(h => {
-    if (h.id) headerLookup.set(h.id, { nhan_vien_id: h.nhan_vien_id || '', ngay: h.ngay });
-    if (h.id_bh) headerLookup.set(h.id_bh, { nhan_vien_id: h.nhan_vien_id || '', ngay: h.ngay });
-  });
+  const revenueChoDonHang = (h: { id: string; id_bh?: string | null; ngay: string }) => {
+    const candidates = [h.id_bh, h.id]
+      .filter(Boolean)
+      .map((x) => String(x).trim().toLowerCase());
+    for (const k of candidates) {
+      const v = orderRevenueMap.get(k);
+      if (v) return v;
+    }
+    return null;
+  };
 
   const personnelMap = new Map<string, {
     revenue: number;
@@ -347,25 +354,29 @@ export async function getRevenueByPersonnel(
     daily: Map<string, { revenue: number; profit: number }>;
   }>();
 
-  orderRevenueMap.forEach((value, orderId) => {
-    const header = headerLookup.get(orderId);
-    if (!header || !header.nhan_vien_id) return;
-    const staffNames = header.nhan_vien_id.split(',').map(s => s.trim()).filter(Boolean);
-    const date = value.date || header.ngay;
-    staffNames.forEach(name => {
+  /** Mỗi bản ghi Đơn hàng (the_ban_hang) trong kỳ: gán doanh thu (từ chi tiết đơn) cho NV trên đơn. */
+  for (const h of headers as Array<{ id: string; id_bh?: string | null; ngay: string; nhan_vien_id?: string | null }>) {
+    const staffRaw = (h.nhan_vien_id || '').trim();
+    if (!staffRaw) continue;
+    const value = revenueChoDonHang(h);
+    if (!value) continue;
+    const orderKey = String(h.id_bh || h.id);
+    const staffNames = staffRaw.split(',').map((s) => s.trim()).filter(Boolean);
+    const date = value.date || h.ngay;
+    staffNames.forEach((name) => {
       const existing = personnelMap.get(name) || {
-        revenue: 0, profit: 0, orders: new Set<string>(), daily: new Map<string, { revenue: number; profit: number }>()
+        revenue: 0, profit: 0, orders: new Set<string>(), daily: new Map<string, { revenue: number; profit: number }>(),
       };
       existing.revenue += value.revenue;
       existing.profit += value.profit;
-      existing.orders.add(orderId);
+      existing.orders.add(orderKey);
       const dayData = existing.daily.get(date) || { revenue: 0, profit: 0 };
       dayData.revenue += value.revenue;
       dayData.profit += value.profit;
       existing.daily.set(date, dayData);
       personnelMap.set(name, existing);
     });
-  });
+  }
 
   const allDates = new Set<string>();
   personnelMap.forEach(v => v.daily.forEach((_, date) => allDates.add(date)));
