@@ -11,8 +11,11 @@ import { statusConfig } from '../data';
 interface Props {
   candidateId: string | null;
   isClosing: boolean;
+  /** Nếu false, ẩn nút Sửa / Xóa (khớp bảng nhan_su, chỉ admin thao tác ghi). */
+  isAdmin?: boolean;
   onClose: () => void;
   onEdit: () => void;
+  onDelete?: () => void | Promise<void>;
   onAddDocument: () => void;
   onOpenInterviewModal: () => void;
   onOpenInterviewDetail: (idx: number) => void;
@@ -24,8 +27,10 @@ interface Props {
 const CandidateDetailDialog: React.FC<Props> = ({
   candidateId,
   isClosing,
+  isAdmin = true,
   onClose,
   onEdit,
+  onDelete,
   onAddDocument,
   onOpenInterviewModal,
   onOpenInterviewDetail,
@@ -366,17 +371,30 @@ const CandidateDetailDialog: React.FC<Props> = ({
             Đóng
           </button>
           <div className="flex items-center gap-3">
-            <button
-              onClick={onEdit}
-              className="flex items-center gap-2 px-6 py-2 rounded-lg bg-primary text-white text-[13px] font-bold hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all"
-            >
-              <Edit size={16} />
-              Sửa
-            </button>
-            <button className="flex items-center gap-2 px-6 py-2 rounded-lg border border-red-200 text-red-600 text-[13px] font-bold hover:bg-red-50 transition-all">
-              <Trash size={16} />
-              Xóa
-            </button>
+            {isAdmin && (
+              <>
+                <button
+                  type="button"
+                  onClick={onEdit}
+                  className="flex items-center gap-2 px-6 py-2 rounded-lg bg-primary text-white text-[13px] font-bold hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all"
+                >
+                  <Edit size={16} />
+                  Sửa
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void onDelete?.()}
+                  disabled={!onDelete}
+                  className="flex items-center gap-2 px-6 py-2 rounded-lg border border-red-200 text-red-600 text-[13px] font-bold hover:bg-red-50 transition-all disabled:opacity-40 disabled:pointer-events-none"
+                >
+                  <Trash size={16} />
+                  Xóa
+                </button>
+              </>
+            )}
+            {!isAdmin && (
+              <span className="text-[12px] text-muted-foreground italic">Chỉ xem — cần quyền quản trị để sửa/xóa.</span>
+            )}
           </div>
         </div>
       </div>

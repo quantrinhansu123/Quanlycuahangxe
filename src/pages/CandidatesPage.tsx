@@ -1,17 +1,16 @@
 import {
   Users, Search, Plus, Filter,
-  Mail, Phone, Calendar,
+  Mail, Phone, Calendar, MapPin,
   ChevronRight, ChevronLeft, Download, Edit2, Eye, Trash2,
   Loader2,
 } from 'lucide-react';
 import { clsx } from 'clsx';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { statusConfig, positionOptions, mockInterviewSessions } from './candidates/data';
 import AddEditCandidateDialog from './candidates/dialogs/AddEditCandidateDialog';
 import CandidateDetailDialog from './candidates/dialogs/CandidateDetailDialog';
-import PersonnelDailyStatsModal from '../components/PersonnelDailyStatsModal';
 import { motion } from 'framer-motion';
 import { useEffect } from 'react';
 import { getCandidatesPaginated, getNextCandidateCode, upsertCandidate, deleteCandidate } from '../data/candidateData';
@@ -21,6 +20,8 @@ const CandidatesPage: React.FC = () => {
   const { isAdmin } = useAuth();
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState(0);
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -28,9 +29,6 @@ const CandidatesPage: React.FC = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
   const [candidateDetailOpen, setCandidateDetailOpen] = useState(false);
-
-  const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
-  const [selectedStatsPerson, setSelectedStatsPerson] = useState<{ id: string, ho_ten: string } | null>(null);
 
   const [formState, setFormState] = useState<CandidateFormState>({
     formName: '',
@@ -60,11 +58,15 @@ const CandidatesPage: React.FC = () => {
   const loadData = React.useCallback(async () => {
     try {
       setLoading(true);
+      setFetchError(null);
       const result = await getCandidatesPaginated(1, 100, debouncedSearch);
       setCandidates(result.data);
       setTotalCount(result.totalCount);
     } catch (error) {
       console.error(error);
+      setCandidates([]);
+      setTotalCount(0);
+      setFetchError(error instanceof Error ? error.message : String(error));
     } finally {
       setLoading(false);
     }
@@ -76,7 +78,142 @@ const CandidatesPage: React.FC = () => {
 
   const filteredCandidates = candidates;
 
+  const candidatesByBranch = useMemo(() => {
+    const m = new Map<string, Candidate[]>();
+    for (const c of filteredCandidates) {
+      const key = (c.co_so ?? '').trim() || 'Chưa xác định';
+      const list = m.get(key);
+      if (list) list.push(c);
+      else m.set(key, [c]);
+    }
+    return [...m.entries()].sort(([a], [b]) => a.localeCompare(b, 'vi'));
+  }, [filteredCandidates]);
+
   const navigate = useNavigate();
+
+  const renderCandidateRows = (branchRows: Candidate[]) =>
+    branchRows.map((candidate) => (
+      <tr
+        key={candidate.id}
+        className="hover:bg-muted/20 transition-colors group cursor-pointer"
+        onClick={() => {
+          setSelectedCandidate(candidate);
+          setCandidateDetailOpen(true);
+        }}
+      >
+        <td className="px-4 py-3 sm:px-6 sm:py-4">
+          <div className="flex flex-col">
+            <span className="text-[14px] font-bold text-foreground group-hover:text-primary transition-colors">
+              {candidate.name}
+            </span>
+            <div className="flex flex-col gap-0.5 mt-1">
+              <span className="text-[12px] text-muted-foreground flex items-center gap-1.5 leading-none">
+                <Mail size={12} className="opacity-50 shrink-0" /> {candidate.email || '—'}
+              </span>
+              <span className="text-[12px] text-muted-foreground flex items-center gap-1.5 mt-0.5 leading-none">
+                <Phone size={12} className="opacity-50 shrink-0" /> {candidate.phone || '—'}
+              </span>
+            </div>
+          </div>
+        </td>
+        <td className="px-4 py-3 sm:px-6 sm:py-4">
+          <div className="flex flex-col">
+            <span className="text-[13px] font-medium text-foreground">{candidate.position}</span>
+            <span className="text-[11px] font-mono text-primary mt-0.5 font-bold uppercase">
+              {candidate.id_ung_vien || '—'}
+            </span>
+          </div>
+        </td>
+        <td className="px-4 py-3 sm:px-6 sm:py-4">
+          <span
+            className={clsx(
+              'inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold border',
+              statusConfig[candidate.status as keyof typeof statusConfig]?.classes ||
+                'bg-slate-100 text-slate-600 border-slate-200',
+            )}
+          >
+            {statusConfig[candidate.status as keyof typeof statusConfig]?.label || 'Không xác định'}
+          </span>
+        </td>
+        <td className="px-4 py-3 sm:px-6 sm:py-4">
+          <div className="flex flex-col">
+            <span className="text-[13px] text-foreground">{candidate.latestInterview || '—'}</span>
+            <span className="text-[11px] text-muted-foreground mt-0.5 truncate max-w-[150px] italic">
+              {candidate.latestResult}
+            </span>
+          </div>
+        </td>
+        <td className="px-4 py-3 sm:px-6 sm:py-4 text-right">
+          <div className="flex items-center justify-end gap-0.5 sm:gap-1" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedCandidate(candidate);
+                setCandidateDetailOpen(true);
+              }}
+              className="p-2 hover:bg-muted text-foreground rounded-lg transition-colors border border-transparent hover:border-border"
+              title="Xem chi tiết"
+            >
+              <Eye size={16} />
+            </button>
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setFormState({
+                    formName: candidate.name,
+                    formEmail: candidate.email,
+                    formPhone: candidate.phone,
+                    formAddress: candidate.co_so ?? '',
+                    formBirthYear: candidate.birthYear,
+                    formBirthDate: '',
+                    formSource: candidate.source,
+                    formPosition: candidate.positionId,
+                    formCandidateCode: candidate.id_ung_vien || '',
+                    formStatus: candidate.status,
+                    formLatestInterview: candidate.latestInterview,
+                    formLatestResult: candidate.latestResult,
+                    formInternalNotes: '',
+                    formDocuments: candidate.documents || [],
+                  });
+                  setSelectedCandidate(candidate);
+                  setIsAddDialogOpen(true);
+                }}
+                className="p-2 hover:bg-primary/10 text-primary rounded-lg transition-colors border border-transparent hover:border-primary/20"
+                title="Sửa"
+              >
+                <Edit2 size={16} />
+              </button>
+            )}
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  if (window.confirm('Bạn có chắc muốn xóa ứng viên này?')) {
+                    try {
+                      await deleteCandidate(candidate.id);
+                      loadData();
+                    } catch (err) {
+                      window.alert('Không xóa được: ' + (err instanceof Error ? err.message : String(err)));
+                    }
+                  }
+                }}
+                className="p-2 hover:bg-red-50 text-red-500 rounded-lg transition-colors border border-transparent hover:border-red-200"
+                title="Xóa"
+              >
+                <Trash2 size={16} />
+              </button>
+            )}
+            {!isAdmin && (
+              <span className="text-[11px] italic text-muted-foreground px-1">Chỉ xem</span>
+            )}
+          </div>
+        </td>
+      </tr>
+    ));
 
   return (
     <motion.div 
@@ -104,7 +241,7 @@ const CandidatesPage: React.FC = () => {
             Quản lý ứng viên
           </h1>
           <p className="text-muted-foreground text-[13px] mt-1 italic ml-13">
-            Hệ thống quản lý và theo dõi hồ sơ ứng tuyển
+            Hồ sơ nhân sự nhóm theo cơ sở — trên màn hình lớn hiển thị hai bảng cạnh nhau
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -175,149 +312,91 @@ const CandidatesPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Table Section */}
-      <div className="flex-1 bg-card rounded-2xl border border-border shadow-sm overflow-hidden flex flex-col min-h-[400px]">
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left">
-            <thead>
-              <tr className="bg-muted/30 border-b border-border">
-                <th className="px-6 py-4 text-[12px] font-bold text-muted-foreground uppercase tracking-wider">Họ tên & Thông tin</th>
-                <th className="px-6 py-4 text-[12px] font-bold text-muted-foreground uppercase tracking-wider">Vị trí ứng tuyển</th>
-                <th className="px-6 py-4 text-[12px] font-bold text-muted-foreground uppercase tracking-wider">Trạng thái</th>
-                <th className="px-6 py-4 text-[12px] font-bold text-muted-foreground uppercase tracking-wider">Phỏng vấn gần nhất</th>
-                <th className="px-6 py-4 text-[12px] font-bold text-muted-foreground uppercase tracking-wider text-right">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {filteredCandidates.map((candidate) => (
-                <tr 
-                  key={candidate.id} 
-                  className="hover:bg-muted/20 transition-colors group cursor-pointer"
-                  onClick={() => {
-                    setSelectedCandidate(candidate);
-                    setCandidateDetailOpen(true);
-                  }}
-                >
-                  <td className="px-6 py-4">
-                    <div className="flex flex-col">
-                      <span className="text-[14px] font-bold text-foreground group-hover:text-primary transition-colors">
-                        {candidate.name}
-                      </span>
-                      <div className="flex flex-col gap-0.5 mt-1">
-                        <span className="text-[12px] text-muted-foreground flex items-center gap-1.5 leading-none">
-                          <Mail size={12} className="opacity-50" /> {candidate.email}
-                        </span>
-                        <span className="text-[12px] text-muted-foreground flex items-center gap-1.5 mt-0.5 leading-none">
-                          <Phone size={12} className="opacity-50" /> {candidate.phone}
-                        </span>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex flex-col">
-                      <span className="text-[13px] font-medium text-foreground">{candidate.position}</span>
-                      <span className="text-[11px] font-mono text-primary mt-0.5 font-bold uppercase">{candidate.id_ung_vien}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={clsx(
-                      "inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold border",
-                      statusConfig[candidate.status as keyof typeof statusConfig]?.classes || 'bg-slate-100 text-slate-600 border-slate-200'
-                    )}>
-                      {statusConfig[candidate.status as keyof typeof statusConfig]?.label || 'Không xác định'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex flex-col">
-                      <span className="text-[13px] text-foreground">{candidate.latestInterview}</span>
-                      <span className="text-[11px] text-muted-foreground mt-0.5 truncate max-w-[150px] italic">
-                        {candidate.latestResult}
-                      </span>
-                    </div>
-                  </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
-                          <button onClick={(e) => { e.stopPropagation(); setSelectedStatsPerson({ id: candidate.id, ho_ten: candidate.name }); setIsStatsModalOpen(true); }} className="p-2 hover:bg-emerald-50 text-emerald-600 rounded-lg transition-colors" title="Xem KPI trong ngày">
-                            <Eye size={16} />
-                          </button>
-                          {isAdmin && (
-                            <button 
-                              onClick={(e) => { 
-                                e.stopPropagation(); 
-                                setFormState({
-                                  formName: candidate.name,
-                                  formEmail: candidate.email,
-                                  formPhone: candidate.phone,
-                                  formAddress: '', // Fallback or mapping
-                                  formBirthYear: candidate.birthYear,
-                                  formBirthDate: '', // Fallback or mapping
-                                  formSource: candidate.source,
-                                  formPosition: candidate.positionId,
-                                  formCandidateCode: candidate.id_ung_vien || '',
-                                  formStatus: candidate.status,
-                                  formLatestInterview: candidate.latestInterview,
-                                  formLatestResult: candidate.latestResult,
-                                  formInternalNotes: '', // Mapping needed
-                                  formDocuments: candidate.documents || []
-                                });
-                                setSelectedCandidate(candidate); 
-                                setIsAddDialogOpen(true); 
-                              }} 
-                              className="p-2 hover:bg-primary/10 text-primary rounded-lg transition-colors" 
-                              title="Sửa"
-                            >
-                              <Edit2 size={16} />
-                            </button>
-                          )}
-                          {isAdmin && (
-                            <button 
-                              onClick={async (e) => { 
-                                e.stopPropagation(); 
-                                if (window.confirm('Bạn có chắc muốn xóa ứng viên này?')) {
-                                  await deleteCandidate(candidate.id);
-                                  loadData();
-                                }
-                              }} 
-                              className="p-2 hover:bg-red-50 text-red-500 rounded-lg transition-colors" 
-                              title="Xóa"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          )}
-                          {!isAdmin && <span className="text-[11px] italic text-slate-400">Read-only</span>}
-                        </div>
-                      </td>
-                </tr>
-              ))}
-              {loading && (
-                <tr>
-                  <td colSpan={5} className="px-6 py-20 text-center">
-                    <Loader2 className="animate-spin inline-block mr-2" size={24} />
-                    Đang tải dữ liệu...
-                  </td>
-                </tr>
-              )}
-              {!loading && filteredCandidates.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-6 py-20 text-center">
-                    <div className="flex flex-col items-center justify-center text-muted-foreground">
-                      <div className="w-16 h-16 rounded-full bg-muted/20 flex items-center justify-center mb-4">
-                        <Users size={32} className="opacity-20" />
-                      </div>
-                      <p className="text-[14px] font-medium italic">Không tìm thấy ứng viên nào phù hợp</p>
-                      <button 
-                        onClick={() => setSearchQuery('')}
-                        className="mt-4 text-primary font-bold text-[13px] hover:underline"
-                      >
-                        Xóa tất cả bộ lọc
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+      {fetchError && (
+        <div className="mb-6 rounded-2xl px-4 py-3 text-sm bg-destructive/10 text-destructive border border-destructive/20">
+          <strong>Không tải được dữ liệu.</strong> {fetchError} — kiểm tra bảng <code className="text-xs">nhan_su</code>,
+          RLS (quyền đọc), hoặc cột <code className="text-xs">created_at</code> trên Supabase.
         </div>
+      )}
+
+      {/* Hai cột: mỗi cơ sở một bảng (xl+); mobile xếp dọc */}
+      <div className="flex-1 grid grid-cols-1 xl:grid-cols-2 gap-6 min-h-[200px]">
+        {loading && (
+          <div className="xl:col-span-2 bg-card rounded-2xl border border-border shadow-sm flex items-center justify-center py-20">
+            <div className="text-muted-foreground text-[13px] flex items-center gap-2">
+              <Loader2 className="animate-spin" size={24} />
+              Đang tải dữ liệu...
+            </div>
+          </div>
+        )}
+
+        {!loading &&
+          candidatesByBranch.map(([branchLabel, branchRows]) => (
+            <div
+              key={branchLabel}
+              className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden flex flex-col min-h-[280px]"
+            >
+              <div className="px-4 py-3 sm:px-5 border-b border-border bg-muted/25 flex items-center gap-2 shrink-0">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/15 flex items-center justify-center text-emerald-700">
+                  <MapPin size={18} />
+                </div>
+                <div>
+                  <h2 className="text-[15px] font-bold text-foreground leading-tight">{branchLabel}</h2>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    {branchRows.length} nhân sự
+                  </p>
+                </div>
+              </div>
+              <div className="overflow-x-auto flex-1">
+                <table className="w-full border-collapse text-left">
+                  <thead>
+                    <tr className="bg-muted/30 border-b border-border">
+                      <th className="px-4 py-3 sm:px-6 sm:py-3.5 text-[11px] sm:text-[12px] font-bold text-muted-foreground uppercase tracking-wider">
+                        Họ tên & Thông tin
+                      </th>
+                      <th className="px-4 py-3 sm:px-6 sm:py-3.5 text-[11px] sm:text-[12px] font-bold text-muted-foreground uppercase tracking-wider">
+                        Vị trí
+                      </th>
+                      <th className="px-4 py-3 sm:px-6 sm:py-3.5 text-[11px] sm:text-[12px] font-bold text-muted-foreground uppercase tracking-wider">
+                        Trạng thái
+                      </th>
+                      <th className="px-4 py-3 sm:px-6 sm:py-3.5 text-[11px] sm:text-[12px] font-bold text-muted-foreground uppercase tracking-wider">
+                        Ngày vào làm
+                      </th>
+                      <th className="px-4 py-3 sm:px-6 sm:py-3.5 text-[11px] sm:text-[12px] font-bold text-muted-foreground uppercase tracking-wider text-right">
+                        Thao tác
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">{renderCandidateRows(branchRows)}</tbody>
+                </table>
+              </div>
+            </div>
+          ))}
+
+        {!loading && !fetchError && filteredCandidates.length === 0 && (
+          <div className="xl:col-span-2 bg-card rounded-2xl border border-border shadow-sm">
+            <div className="px-6 py-20 text-center">
+              <div className="flex flex-col items-center justify-center text-muted-foreground">
+                <div className="w-16 h-16 rounded-full bg-muted/20 flex items-center justify-center mb-4">
+                  <Users size={32} className="opacity-20" />
+                </div>
+                <p className="text-[14px] font-medium italic">Chưa có ứng viên hoặc không khớp tìm kiếm</p>
+                <p className="text-[12px] mt-2 max-w-md">
+                  Nếu đã có dữ liệu trên Supabase mà vẫn trống, kiểm tra chính sách RLS cho bảng{' '}
+                  <code className="text-xs">nhan_su</code> (role <code className="text-xs">authenticated</code> cần SELECT).
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="mt-4 text-primary font-bold text-[13px] hover:underline"
+                >
+                  Xóa ô tìm kiếm
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Simplified Pagination */}
@@ -351,10 +430,18 @@ const CandidatesPage: React.FC = () => {
           formState={formState}
           setFormField={(k, v) => setFormState(prev => ({ ...prev, [k]: v }))}
           positionOptions={positionOptions}
-          isSaving={loading}
+          isSaving={saving}
           onSave={async () => {
+            if (!formState.formName.trim()) {
+              window.alert('Vui lòng nhập họ tên.');
+              return;
+            }
+            if (!formState.formPosition.trim()) {
+              window.alert('Vui lòng chọn hoặc nhập vị trí.');
+              return;
+            }
             try {
-              setLoading(true);
+              setSaving(true);
               const payload: Partial<Candidate> = {
                 id: selectedCandidate?.id,
                 name: formState.formName,
@@ -363,20 +450,22 @@ const CandidatesPage: React.FC = () => {
                 birthYear: formState.formBirthYear,
                 position: positionOptions.find(p => p.id === formState.formPosition)?.label || formState.formPosition,
                 positionId: formState.formPosition,
-                id_ung_vien: formState.formCandidateCode,
+                id_ung_vien: formState.formCandidateCode.trim() || undefined,
                 status: formState.formStatus as any,
                 source: formState.formSource,
                 latestInterview: formState.formLatestInterview,
                 latestResult: formState.formLatestResult,
-                documents: formState.formDocuments
+                documents: formState.formDocuments,
+                co_so: formState.formAddress.trim() || selectedCandidate?.co_so || undefined,
               };
               await upsertCandidate(payload);
               setIsAddDialogOpen(false);
-              loadData();
+              setSelectedCandidate(null);
+              await loadData();
             } catch (err) {
-              alert('Lỗi khi lưu ứng viên: ' + (err as any).message);
+              window.alert('Lỗi khi lưu: ' + (err instanceof Error ? err.message : String(err)));
             } finally {
-              setLoading(false);
+              setSaving(false);
             }
           }}
         />
@@ -386,14 +475,18 @@ const CandidatesPage: React.FC = () => {
         <CandidateDetailDialog 
           candidateId={selectedCandidate?.id || null}
           isClosing={false}
-          onClose={() => setCandidateDetailOpen(false)}
+          isAdmin={isAdmin}
+          onClose={() => {
+            setCandidateDetailOpen(false);
+            setSelectedCandidate(null);
+          }}
           onEdit={() => {
             if (selectedCandidate) {
               setFormState({
                 formName: selectedCandidate.name,
                 formEmail: selectedCandidate.email,
                 formPhone: selectedCandidate.phone,
-                formAddress: '',
+                formAddress: selectedCandidate.co_so ?? '',
                 formBirthYear: selectedCandidate.birthYear,
                 formBirthDate: '',
                 formSource: selectedCandidate.source,
@@ -409,6 +502,18 @@ const CandidatesPage: React.FC = () => {
               setIsAddDialogOpen(true);
             }
           }}
+          onDelete={async () => {
+            if (!selectedCandidate) return;
+            if (!window.confirm('Bạn có chắc muốn xóa hồ sơ này khỏi danh sách nhân sự?')) return;
+            try {
+              await deleteCandidate(selectedCandidate.id);
+              setCandidateDetailOpen(false);
+              setSelectedCandidate(null);
+              await loadData();
+            } catch (err) {
+              window.alert('Không xóa được: ' + (err instanceof Error ? err.message : String(err)));
+            }
+          }}
           onAddDocument={() => {}}
           onOpenInterviewModal={() => {}}
           onOpenInterviewDetail={() => {}}
@@ -418,12 +523,6 @@ const CandidatesPage: React.FC = () => {
         />
       )}
 
-      <PersonnelDailyStatsModal
-        isOpen={isStatsModalOpen}
-        onClose={() => setIsStatsModalOpen(false)}
-        personnelId={selectedStatsPerson?.id || ''}
-        personnelName={selectedStatsPerson?.ho_ten || ''}
-      />
     </motion.div>
   );
 };

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Calendar, Loader2, Plus, Table2, Trash2, TrendingUp, UserPlus } from 'lucide-react';
+import { Calculator, Calendar, Loader2, Plus, Table2, Trash2, TrendingUp, UserPlus } from 'lucide-react';
 import { clsx } from 'clsx';
 import { getChamCongTrongKhoang } from '../data/attendanceData';
-import { getRevenueByPersonnel } from '../data/reportData';
+import { getRevenueByPersonnelFromTongTien } from '../data/reportData';
 import { removeVietnameseTones } from '../lib/utils';
 import {
   demGioTangCaTheoDongCham,
@@ -17,6 +17,7 @@ import {
   tinhMotDong,
 } from '../data/payrollAttendanceSalary';
 import { getPersonnel, type NhanSu } from '../data/personnelData';
+import { recalculateTheBanHangTongTien } from '../data/salesCardData';
 
 const LS_PREFIX = 'payrollChamCongLuongV2:';
 const LS_PREFIX_LEGACY = 'payrollChamCongLuongV1:';
@@ -42,22 +43,16 @@ function ngayIsoTuNhanSu(p: NhanSu): string | null {
 }
 
 /**
- * Cập nhật cột doanh số từ Đơn hàng (`the_ban_hang`) trong tháng: tổng tiền theo chi tiết đơn (`the_ban_hang_ct`),
- * gán cho nhân viên trên đơn (cùng logic báo cáo doanh thu theo nhân sự).
- * Khớp theo tên; nếu trên đơn lưu UUID thì tra thêm theo `nhan_su` (mã = id chuỗi).
+ * Cập nhật cột doanh số tháng từ `the_ban_hang.tong_tien` trong kỳ.
+ * Khớp `nhan_vien_id` với tên dòng bảng lương (chuẩn hóa); nhiều tên cách bởi dấu phẩy → chia đều tiền.
+ * Nếu trên đơn lưu mã/id thay vì họ tên, tra thêm qua danh sách nhân sự (id → họ tên).
  */
 async function gopDoanhSoTheoBaoCao(
   rows: BangLuongChamCongInput[],
   nam: number,
   thang: number
 ): Promise<BangLuongChamCongInput[]> {
-  const { start, end } = khoangNgayCuaThang(nam, thang);
-  const { personnel } = await getRevenueByPersonnel(start, end);
-  const map = new Map<string, number>();
-  for (const p of personnel) {
-    const k = chuanHoaTenSoSanh(p.nhan_vien_name);
-    map.set(k, (map.get(k) || 0) + p.total_revenue);
-  }
+  const map = await getRevenueByPersonnelFromTongTien(nam, thang);
   let nhanList: { id: string; ho_ten: string }[] = [];
   try {
     const list = await getPersonnel();
@@ -68,7 +63,10 @@ async function gopDoanhSoTheoBaoCao(
     // bỏ qua — vẫn map theo tên từ báo cáo
   }
   return rows.map((r) => {
-    const kTen = chuanHoaTenSoSanh(r.hoTen);
+    const ten = (r.hoTen || '').trim();
+    if (!ten) return { ...r, tongDoanhThu: 0 };
+
+    const kTen = chuanHoaTenSoSanh(ten);
     let rev = map.get(kTen) ?? 0;
     if (rev === 0 && nhanList.length > 0) {
       const ns = nhanList.find((x) => chuanHoaTenSoSanh(x.ho_ten) === kTen);
@@ -140,6 +138,16 @@ type NumKey = keyof Pick<
   'luongCoBan' | 'soGioTangCa' | 'tongDoanhThu'
 >;
 
+/** Các năm trong Kỳ; luôn gộp `namDangChon` để select không bị trống khi nằm ngoài dải mặc định. */
+function danhSachNamKy(referenceYear: number, namDangChon: number): number[] {
+  const tu = referenceYear - 20;
+  const den = referenceYear + 10;
+  const set = new Set<number>();
+  for (let y = tu; y <= den; y++) set.add(y);
+  if (Number.isFinite(namDangChon)) set.add(Math.trunc(namDangChon));
+  return Array.from(set).sort((a, b) => a - b);
+}
+
 const PayrollAttendanceSalaryPage: React.FC = () => {
   const now = new Date();
   const [nam, setNam] = useState(now.getFullYear());
@@ -151,6 +159,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
   const [rows, setRows] = useState<BangLuongChamCongInput[]>(initial.rows);
   const [quickLoading, setQuickLoading] = useState(false);
   const [revenueLoading, setRevenueLoading] = useState(false);
+  const [tongTienSyncing, setTongTienSyncing] = useState(false);
   const [chamDong, setChamDong] = useState<DongChamBuaNhap[]>([]);
   const [nhanList, setNhanList] = useState<NhanSu[]>([]);
   /** Tránh ghi localStorage bằng dòng dữ liệu tháng cũ khi vừa đổi kỳ (chờ load xong). */
@@ -388,32 +397,44 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
         </div>
         <div className="flex flex-col gap-1.5 shrink-0 w-full min-w-0 sm:w-auto sm:max-w-[min(100%,42rem)] sm:ml-auto sm:items-end">
           <div className="flex flex-nowrap items-center gap-1.5 min-w-0 w-full sm:justify-end overflow-x-auto py-0.5">
-            <div className="flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1">
-              <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
-              <span className="text-xs text-muted-foreground shrink-0">Kỳ</span>
-              <select
-                className="bg-transparent text-sm font-medium outline-none min-w-0"
-                value={thang}
-                onChange={(e) => setThang(Number(e.target.value))}
-              >
-                {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-              <span className="text-muted-foreground/50 text-xs">/</span>
-              <select
-                className="bg-transparent text-sm font-medium outline-none w-[4rem] min-w-0"
-                value={nam}
-                onChange={(e) => setNam(Number(e.target.value))}
-              >
-                {Array.from({ length: 6 }, (_, i) => now.getFullYear() - 2 + i).map((y) => (
-                  <option key={y} value={y}>
-                    {y}
-                  </option>
-                ))}
-              </select>
+            <div
+              className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-border bg-background px-2.5 py-1.5"
+              title="Chọn tháng và năm kỳ lương (khớp tháng/năm cột ngay trên đơn khi lấy Doanh số)"
+            >
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
+                <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">Kỳ</span>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="text-xs text-muted-foreground whitespace-nowrap">Tháng</span>
+                <select
+                  className="bg-background text-sm font-medium outline-none rounded border border-border/60 px-1.5 py-1 min-w-[3rem]"
+                  value={thang}
+                  onChange={(e) => setThang(Number(e.target.value))}
+                  aria-label="Tháng kỳ"
+                >
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="text-xs text-muted-foreground whitespace-nowrap">Năm</span>
+                <select
+                  className="bg-background text-sm font-medium outline-none rounded border border-border/60 px-1.5 py-1 min-w-[4.5rem]"
+                  value={nam}
+                  onChange={(e) => setNam(Number(e.target.value))}
+                  aria-label="Năm kỳ"
+                >
+                  {danhSachNamKy(now.getFullYear(), nam).map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div
               className="flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-primary/5 border-primary/20 px-2 py-1"
@@ -439,17 +460,49 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
             <button
               type="button"
               onClick={capNhatDoanhSoTuPhieuBan}
-              disabled={revenueLoading || quickLoading}
+              disabled={revenueLoading || quickLoading || tongTienSyncing}
               className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-primary/10 border-primary/30 text-primary text-sm font-medium px-3 py-2 hover:bg-primary/15 disabled:opacity-50"
-              title="Lấy tổng doanh thu từ Đơn hàng trong tháng (the_ban_hang + chi tiết), ghép theo tên NV trên đơn"
+              title="Đơn có ngày (cột ngay) thuộc đúng tháng/năm kỳ; cộng tong_tien theo Họ tên (nhan_vien_id, nhiều tên cách phẩy → chia đều). Dòng không Họ tên → doanh số 0."
             >
               {revenueLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <TrendingUp className="w-4 h-4" />}
               Doanh số
             </button>
             <button
               type="button"
+              disabled={revenueLoading || quickLoading || tongTienSyncing}
+              onClick={async () => {
+                if (
+                  !window.confirm(
+                    'Đồng bộ tổng tiền cho toàn bộ đơn hàng? Thao tác cập nhật nhiều dòng trong the_ban_hang.'
+                  )
+                ) {
+                  return;
+                }
+                try {
+                  setTongTienSyncing(true);
+                  await recalculateTheBanHangTongTien();
+                  window.alert('Đã cập nhật cột tong_tien trên the_ban_hang.');
+                } catch (e) {
+                  const msg = e instanceof Error ? e.message : String(e);
+                    window.alert(
+                      `Lỗi: ${msg}\n\n` +
+                        `– Thiếu cột/hàm: chạy src/database/migrations/20260209_the_ban_hang_tong_tien.sql trên Supabase.\n` +
+                        `– Hết thời gian (57014 / timeout): chạy src/database/migrations/20260212_recalculate_tong_tien_chunked.sql trên Supabase (đồng bộ theo lô).`
+                    );
+                } finally {
+                  setTongTienSyncing(false);
+                }
+              }}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-100 text-sm font-medium px-3 py-2 hover:bg-amber-500/15 disabled:opacity-50"
+              title="Cộng thanh_tien chi tiết đơn → ghi tong_tien trên the_ban_hang (id_don_hang khớp id_bh hoặc id đơn)"
+            >
+              {tongTienSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Calculator className="w-4 h-4" />}
+              Tính tổng tiền
+            </button>
+            <button
+              type="button"
               onClick={taoNhanh}
-              disabled={quickLoading || revenueLoading}
+              disabled={quickLoading || revenueLoading || tongTienSyncing}
               className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-background text-sm font-medium px-3 py-2 hover:bg-muted/50 disabled:opacity-50"
             >
               {quickLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
@@ -458,7 +511,8 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
             <button
               type="button"
               onClick={addRow}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium px-3 py-2 hover:opacity-90"
+              disabled={tongTienSyncing}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium px-3 py-2 hover:opacity-90 disabled:opacity-50"
             >
               <Plus className="w-4 h-4" />
               Thêm dòng
@@ -476,6 +530,10 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                   #
                 </th>
                 {thCell('Họ tên', 'Tên nhân viên')}
+                {thCell(
+                  'Doanh số tháng',
+                  'Đơn có tháng/năm cột ngay = kỳ; tổng tong_tien ghép theo Họ tên (khớp nhan_vien_id); nhiều NV trên đơn (phẩy) chia đều. Hoa hồng = × % ở trên'
+                )}
                 {thCell('Loại', 'Chính thức / thời vụ')}
                 {thCell('LCB', 'Lương cơ bản (tháng)')}
                 {thCell(
@@ -488,15 +546,14 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                   'Lương theo công = lương ngày × số công. Lương ngày = (LCB + cộng thâm niên vào LCB) ÷ 28 (bảng 28/8), không phải LCB tháng × công thô'
                 )}
                 {thCell('Tăng ca', 'Số giờ tăng ca')}
-                {thCell(
-                  'Doanh số tháng',
-                  'Tổng thành tiền đơn hàng trong kỳ (bảng Đơn hàng + chi tiết); hoa hồng = × % ở trên'
-                )}
                 {thCell('Bữa', 'Số bữa ăn theo bảng chấm công tháng')}
                 {thCell('Ăn', 'Tiền ăn = số bữa × giá 1 bữa (từ chấm công)')}
                 {thCell('Phụ cấp chuyên cần', 'Mức phụ cấp chuyên cần trong bảng lương')}
                 {thCell('Phụ cấp xăng và điện thoại', 'Phụ cấp xăng xe và điện thoại')}
-                {thCell('Phụ cấp thâm niên tháng', 'Phụ cấp thâm niên theo số tháng làm việc')}
+                {thCell(
+                  'Phụ cấp thâm niên tháng',
+                  '50.000đ × số tháng làm việc đến hết kỳ (cột Thâm niên), tối đa 600.000đ'
+                )}
                 {thCell('Tiền hoa hồng tháng', 'Doanh số tháng × phần trăm hoa hồng tháng (ô % HH ở trên)')}
                 {thCell('Tổng', 'Tổng cộng')}
                 {thCell('Ghi chú', 'Cảnh báo')}
@@ -520,6 +577,16 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                         className="w-full min-w-0 min-h-10 text-sm bg-transparent border border-border/60 rounded-md px-2.5 py-2"
                         value={input.hoTen}
                         onChange={(e) => updateRow(input.id, { hoTen: e.target.value })}
+                      />
+                    </td>
+                    <td className="px-2 py-1.5 bg-primary/5">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        className="w-32 min-w-0 min-h-10 text-sm bg-transparent border border-primary/30 rounded-md px-2 py-1.5 text-right font-mono"
+                        title="Tổng tong_tien đơn trong kỳ (theo Họ tên). Bấm « Doanh số » để lấy từ hệ thống."
+                        value={formatTienNhap(input.tongDoanhThu)}
+                        onChange={(e) => setTien(input.id, 'tongDoanhThu', e.target.value)}
                       />
                     </td>
                     <td className="px-2 py-1.5">
@@ -582,15 +649,6 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                         readOnly={gTcTuCham !== undefined}
                         value={String(gTcTuCham !== undefined ? gTcTuCham : input.soGioTangCa)}
                         onChange={(e) => setNum(input.id, 'soGioTangCa', e.target.value)}
-                      />
-                    </td>
-                    <td className="px-2 py-1.5">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        className="w-32 min-w-0 min-h-10 text-sm bg-transparent border border-border/60 rounded-md px-2 py-1.5 text-right font-mono"
-                        value={formatTienNhap(input.tongDoanhThu)}
-                        onChange={(e) => setTien(input.id, 'tongDoanhThu', e.target.value)}
                       />
                     </td>
                     <td className="px-2.5 py-2.5 text-center tabular-nums text-muted-foreground text-sm">

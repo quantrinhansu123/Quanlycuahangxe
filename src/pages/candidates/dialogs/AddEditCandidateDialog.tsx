@@ -102,7 +102,7 @@ const AddEditCandidateDialog: React.FC<Props> = ({
             </div>
             <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-[13px] font-bold text-foreground lowercase">Mã ứng viên <span className="text-red-500">*</span></label>
+                <label className="text-[13px] font-bold text-foreground lowercase">Mã ứng viên</label>
                 <div className="relative">
                   <FileText className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/40" size={16} />
                   <input
@@ -158,12 +158,12 @@ const AddEditCandidateDialog: React.FC<Props> = ({
                 </div>
               </div>
               <div className="space-y-1.5">
-                <label className="text-[13px] font-bold text-foreground">Địa chỉ</label>
+                <label className="text-[13px] font-bold text-foreground">Cơ sở / chi nhánh</label>
                 <div className="relative">
                   <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/40" size={16} />
                   <input
                     type="text"
-                    placeholder="Địa chỉ (tùy chọn)"
+                    placeholder="Ví dụ: Cơ sở Bắc Giang"
                     value={formAddress}
                     onChange={e => setFormField('formAddress', e.target.value)}
                     className="w-full pl-10 pr-4 py-2 bg-muted/10 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all"
@@ -235,24 +235,24 @@ const AddEditCandidateDialog: React.FC<Props> = ({
             </div>
           </div>
 
-          {/* PHỎNG VẤN GẦN NHẤT */}
+          {/* Ngày vào làm (cột nhan_su.ngay_vao_lam) */}
           <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
             <div className="px-5 py-3 border-b border-border bg-muted/5 flex items-center gap-2">
               <Calendar size={16} className="text-primary" />
-              <span className="text-[12px] font-bold text-primary uppercase tracking-wider">Phỏng vấn gần nhất</span>
+              <span className="text-[12px] font-bold text-primary uppercase tracking-wider">Ngày vào làm</span>
             </div>
             <div className="p-5 space-y-4">
               <div className="space-y-1.5">
-                <label className="text-[13px] font-bold text-foreground">Ngày phỏng vấn gần nhất</label>
+                <label className="text-[13px] font-bold text-foreground">Ngày vào làm</label>
                 <input
-                  type="datetime-local"
-                  value={formLatestInterview}
+                  type="date"
+                  value={formLatestInterview.length >= 10 ? formLatestInterview.slice(0, 10) : formLatestInterview}
                   onChange={e => setFormField('formLatestInterview', e.target.value)}
                   className="w-full px-4 py-2 bg-muted/10 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all"
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-[13px] font-bold text-foreground">Kết quả phỏng vấn gần nhất</label>
+                <label className="text-[13px] font-bold text-foreground">Ghi chú (chỉ trên form, chưa lưu DB)</label>
                 <textarea
                   placeholder="Ghi chú kết quả..."
                   rows={3}

@@ -54,7 +54,15 @@ const AuthContext = createContext<AuthContextType>({
   signOut: async () => {},
 });
 
-const ADMIN_ROLES = ['Quản trị viên', 'admin'];
+/** Khớp public.is_admin() (migration 20260428): quyền thao tác đầy đủ trên app. */
+function isAdminViTri(viTri: string | null | undefined): boolean {
+  const v = (viTri ?? '').toLowerCase().trim();
+  if (!v) return false;
+  if (v.includes('quản trị viên') || v.includes('admin')) return true;
+  if (['chủ cửa hàng', 'quản lý', 'quản trị viên'].includes(v)) return true;
+  if (v.includes('chủ cửa')) return true;
+  return false;
+}
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const demoRole = sessionStorage.getItem('demo_role');
@@ -153,9 +161,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     location.reload();
   };
 
-  const isAdmin = nhanVien
-    ? ADMIN_ROLES.some(role => (nhanVien.vi_tri ?? '').toLowerCase().includes(role.toLowerCase()))
-    : false;
+  const isAdmin = nhanVien ? isAdminViTri(nhanVien.vi_tri) : false;
 
   const hasViewAccess = (viewKey: ViewPermissionKey): boolean => {
     if (isAdmin) return true;

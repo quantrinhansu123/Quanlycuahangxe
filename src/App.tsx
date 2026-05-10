@@ -9,7 +9,7 @@ const LoginPage = lazy(() => import('./pages/LoginPage'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const AttendanceManagementPage = lazy(() => import('./pages/AttendanceManagementPage'));
 const AddAttendancePage = lazy(() => import('./pages/AddAttendancePage'));
-const PersonnelManagementPage = lazy(() => import('./pages/PersonnelManagementPage'));
+const CandidatesPage = lazy(() => import('./pages/CandidatesPage'));
 const CheckInPage = lazy(() => import('./pages/CheckInPage'));
 const CustomerManagementPage = lazy(() => import('./pages/CustomerManagementPage'));
 const InventoryManagementPage = lazy(() => import('./pages/InventoryManagementPage'));
@@ -54,7 +54,7 @@ function App() {
               <Route path="them-cham-cong" element={<ProtectedRoute viewKey="nhan-su"><AddAttendancePage /></ProtectedRoute>} />
               <Route path="bang-cham-cong" element={<ProtectedRoute viewKey="nhan-su"><AttendanceManagementPage /></ProtectedRoute>} />
               {/* Quản lý nhân viên — chỉ admin */}
-              <Route path="ung-vien" element={<ProtectedRoute viewKey="nhan-su-ung-vien"><PersonnelManagementPage /></ProtectedRoute>} />
+              <Route path="ung-vien" element={<ProtectedRoute viewKey="nhan-su-ung-vien"><CandidatesPage /></ProtectedRoute>} />
             </Route>
 
             <Route path="/cham-cong" element={<ProtectedRoute viewKey="cham-cong"><CheckInPage /></ProtectedRoute>} />

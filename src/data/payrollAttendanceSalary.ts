@@ -11,10 +11,9 @@ export const ATTENDANCE_SALARY = {
   GIA_MOT_BUA_AN: 30_000,
   PHU_CAP_CHUYEN_CAN: 200_000,
   PHU_CAP_XANG_DT: 100_000,
-  /** Sau 6 tháng, trước 12 tháng */
-  PHU_CAP_THAM_NHIEN_6M: 50_000,
-  /** Từ đủ 12 tháng (áp mức 600k, không cộng thêm 50k) */
-  PHU_CAP_THAM_NHIEN_12M: 600_000,
+  /** Phụ cấp thâm niên tháng: mỗi tháng làm việc (đến hết kỳ) × mức này, trần tối đa. */
+  PHU_CAP_THAM_NHIEN_MOI_THANG: 50_000,
+  PHU_CAP_THAM_NHIEN_TOI_DA: 600_000,
   TANG_MOI_NAM_VAO_LCB: 100_000,
   /** Năm thứ 2 trở đi: mỗi năm cộng vào LCB khi tính ngày/giờ */
   HE_SO_TANG_CA: 1.5,
@@ -117,9 +116,9 @@ function tangLcbTheoThamNienThangLam(thangLam: number): number {
 }
 
 function phuCapThamNienTheoThang(thangLam: number): number {
-  if (thangLam < 6) return 0;
-  if (thangLam < 12) return ATTENDANCE_SALARY.PHU_CAP_THAM_NHIEN_6M;
-  return ATTENDANCE_SALARY.PHU_CAP_THAM_NHIEN_12M;
+  if (thangLam <= 0) return 0;
+  const raw = thangLam * ATTENDANCE_SALARY.PHU_CAP_THAM_NHIEN_MOI_THANG;
+  return Math.min(raw, ATTENDANCE_SALARY.PHU_CAP_THAM_NHIEN_TOI_DA);
 }
 
 export type DongChamBuaNhap = {

@@ -1,4 +1,48 @@
 import { supabase } from '../lib/supabase';
+import { removeVietnameseTones } from '../lib/utils';
+
+/** Chuẩn hóa tên để khớp bảng lương / nhan_vien_id trên đơn (bỏ dấu, thường, gộp khoảng trắng). */
+function chuanHoaTenTheoDon(s: string): string {
+  return removeVietnameseTones(s.trim().toLowerCase()).replace(/\s+/g, ' ');
+}
+
+function khoangNgayCuaThangReport(nam: number, thang: number): { start: string; end: string } {
+  const sm = String(thang).padStart(2, '0');
+  const last = new Date(nam, thang, 0).getDate();
+  const se = String(last).padStart(2, '0');
+  return { start: `${nam}-${sm}-01`, end: `${nam}-${sm}-${se}` };
+}
+
+/**
+ * Lấy (năm, tháng) lịch từ cột `the_ban_hang.ngay` (và tương tự).
+ *
+ * **Supabase / Postgres `date`:** API trả chuỗi dạng `YYYY-MM-DD`, ví dụ `2026-05-07` — đây là dạng chuẩn.
+ * **`timestamptz`:** lấy phần ngày trước `T` (ví dụ `2026-05-07T00:00:00+00` → tháng 5 năm 2026).
+ * Cũng chấp nhận tháng/ngày một chữ số (`2026-5-7`) và dự phòng `DD/MM/YYYY`.
+ */
+export function extractNamThangTuNgayCot(ngayRaw: unknown): { nam: number; thang: number } | null {
+  if (ngayRaw == null) return null;
+  const s = String(ngayRaw).trim();
+  const head = s.split(/[T\s]/)[0] ?? s;
+
+  const iso = head.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (iso) {
+    const nam = Number(iso[1]);
+    const thang = Number(iso[2]);
+    if (!Number.isFinite(nam) || !Number.isFinite(thang) || thang < 1 || thang > 12) return null;
+    return { nam, thang };
+  }
+
+  const dmy = head.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (dmy) {
+    const thang = Number(dmy[2]);
+    const nam = Number(dmy[3]);
+    if (!Number.isFinite(nam) || !Number.isFinite(thang) || thang < 1 || thang > 12) return null;
+    return { nam, thang };
+  }
+
+  return null;
+}
 
 export interface DailyItem {
   date: string;
@@ -403,4 +447,77 @@ export async function getRevenueByPersonnel(
       : 0;
 
   return { personnel, avg_revenue_per_person, date_list };
+}
+
+/**
+ * Gom doanh số theo nhân viên từ `the_ban_hang.tong_tien`.
+ * Chỉ tính đơn có **tháng/năm lịch của cột `ngay`** trùng `thang`/`nam` (kỳ bảng lương).
+ * `nhan_vien_id` khớp theo tên (đã chuẩn hóa); nhiều tên cách phẩy → chia đều `tong_tien`.
+ */
+export async function getRevenueByPersonnelFromTongTien(
+  nam: number,
+  thang: number
+): Promise<Map<string, number>> {
+  const { start: startDate, end: endDate } = khoangNgayCuaThangReport(nam, thang);
+
+  if (isDemo()) {
+    const map = new Map<string, number>();
+    const staff = ['Nguyễn Văn A', 'Trần Thị B', 'Lê Văn C', 'Phạm Văn D'];
+    for (let i = 0; i < 20; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() - (i % 14));
+      if (d.getFullYear() !== nam || d.getMonth() + 1 !== thang) continue;
+      let staffList = staff[i % staff.length];
+      if (i % 5 === 0) staffList += `, ${staff[(i + 1) % staff.length]}`;
+      const amount = 500_000 + i * 10_000;
+      const parts = staffList.split(',').map((s) => s.trim()).filter(Boolean);
+      const share = amount / parts.length;
+      for (const n of parts) {
+        const k = chuanHoaTenTheoDon(n);
+        map.set(k, (map.get(k) || 0) + share);
+      }
+    }
+    return map;
+  }
+
+  const map = new Map<string, number>();
+  const pageSize = 1000;
+  let offset = 0;
+
+  for (;;) {
+    const { data, error } = await supabase
+      .from('the_ban_hang')
+      .select('nhan_vien_id, tong_tien, ngay')
+      .gte('ngay', startDate)
+      .lte('ngay', endDate)
+      .order('ngay', { ascending: true })
+      .order('id', { ascending: true })
+      .range(offset, offset + pageSize - 1);
+
+    if (error) throw error;
+
+    const chunk = data ?? [];
+    for (const h of chunk) {
+      const ky = extractNamThangTuNgayCot(h.ngay);
+      if (ky !== null && (ky.nam !== nam || ky.thang !== thang)) continue;
+
+      const staffRaw = String(h.nhan_vien_id ?? '').trim();
+      if (!staffRaw) continue;
+      const amount = Number(h.tong_tien ?? 0);
+      if (!Number.isFinite(amount) || amount <= 0) continue;
+      const names = staffRaw.split(',').map((s) => s.trim()).filter(Boolean);
+      if (names.length === 0) continue;
+      const share = amount / names.length;
+      for (const name of names) {
+        const k = chuanHoaTenTheoDon(name);
+        if (!k) continue;
+        map.set(k, (map.get(k) || 0) + share);
+      }
+    }
+
+    if (chunk.length < pageSize) break;
+    offset += pageSize;
+  }
+
+  return map;
 }

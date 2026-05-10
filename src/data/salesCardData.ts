@@ -30,6 +30,8 @@ export interface SalesCard {
   ten_khach_hang: string | null;
   so_dien_thoai: string | null;
   phuong_thuc_thanh_toan?: string | null;
+  /** Tổng tiền đơn (cột DB); đồng bộ từ chi tiết qua recalculate_the_ban_hang_tong_tien. */
+  tong_tien?: number | null;
   created_at?: string;
 
   // Joined fields
@@ -245,7 +247,10 @@ export const getSalesCardsPaginated = async (
   // 1. Build the base filter query for the main table (without range yet)
   let baseQuery = supabase
     .from('the_ban_hang')
-    .select(`id, id_bh, dich_vu_id, ngay, gio, khach_hang_id, nhan_vien_id, ten_khach_hang, so_dien_thoai`, { count: 'exact' });
+    .select(
+      `id, id_bh, dich_vu_id, ngay, gio, khach_hang_id, nhan_vien_id, ten_khach_hang, so_dien_thoai, tong_tien`,
+      { count: 'exact' }
+    );
 
   if (searchQuery && searchQuery.trim()) {
     const term = searchQuery.trim();
@@ -460,6 +465,47 @@ export const normalizeSalesCards = async () => {
     await supabase.from('the_ban_hang_ct').update({ id_don_hang: idBh }).eq('id_don_hang', card.id);
   }
 };
+
+/** Gọi RPC trên Supabase: cộng thanh_tien từ the_ban_hang_ct (theo id_don_hang = id_bh hoặc id đơn) → ghi vào the_ban_hang.tong_tien. */
+export async function recalculateTheBanHangTongTien(): Promise<void> {
+  const { data: runId, error: startErr } = await supabase.rpc('recalculate_the_ban_hang_tong_tien_start');
+  if (startErr) {
+    throw new Error(
+      [startErr.message, startErr.code ? `(code: ${startErr.code})` : ''].filter(Boolean).join(' ')
+    );
+  }
+  if (runId == null || String(runId).trim() === '') {
+    throw new Error('recalculate_the_ban_hang_tong_tien_start không trả về run_id');
+  }
+
+  let after: string | null = null;
+  try {
+    for (;;) {
+      const { data, error } = await supabase.rpc('recalculate_the_ban_hang_tong_tien_step', {
+        p_run_id: runId,
+        p_after: after,
+        p_limit: 400,
+      });
+      if (error) {
+        throw new Error(
+          [error.message, error.code ? `(code: ${error.code})` : ''].filter(Boolean).join(' ')
+        );
+      }
+      const row = Array.isArray(data) ? data[0] : data;
+      const processed = row && typeof row === 'object' && 'processed' in row ? Number((row as { processed: unknown }).processed) : 0;
+      const lastId =
+        row && typeof row === 'object' && 'last_id' in row
+          ? ((row as { last_id: string | null }).last_id as string | null)
+          : null;
+      if (!Number.isFinite(processed) || processed <= 0) break;
+      after = lastId;
+      if (after == null) break;
+    }
+  } finally {
+    const { error: finErr } = await supabase.rpc('recalculate_the_ban_hang_tong_tien_finish', { p_run_id: runId });
+    if (finErr) console.error('recalculate_the_ban_hang_tong_tien_finish', finErr);
+  }
+}
 
 export const createSalesCard = async (card: Partial<SalesCard>): Promise<SalesCard> => {
   // Use `upsertSalesCard` which has retry logic built-in to prevent unique key violations

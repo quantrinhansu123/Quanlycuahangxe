@@ -6,16 +6,20 @@ import {
 } from '../data/payrollSettingsData';
 import type { ThongSoLuong, BieuThueTNCN } from '../data/payrollSettingsData';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Calculator, Loader2 } from 'lucide-react';
 import { cn, formatNumberVietnamese, parseNumberVietnamese } from '../lib/utils';
+import { useAuth } from '../context/AuthContext';
+import { recalculateTheBanHangTongTien } from '../data/salesCardData';
 
 const PayrollSettingsPage: React.FC = () => {
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState<'luong' | 'thue' | 'bao-hiem'>('luong');
   const [settings, setSettings] = useState<ThongSoLuong[]>([]);
   const [taxBrackets, setTaxBrackets] = useState<BieuThueTNCN[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [tongTienSyncing, setTongTienSyncing] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -121,6 +125,52 @@ const PayrollSettingsPage: React.FC = () => {
           </button>
         ))}
       </div>
+
+      {isAdmin && (
+        <div className="max-w-6xl rounded-xl border border-amber-200 bg-amber-50/60 p-4 sm:p-5 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                <Calculator className="w-4 h-4 text-amber-700" />
+                Tổng tiền đơn hàng (bảng Đơn)
+              </h2>
+              <p className="text-xs text-gray-600 mt-1 max-w-xl">
+                Cộng cột <strong>thanh_tien</strong> trong <code className="text-[11px] bg-white/80 px-1 rounded">the_ban_hang_ct</code>{' '}
+                theo từng <strong>id_don_hang</strong> khớp <strong>id_bh</strong> hoặc <strong>id</strong> của đơn trên{' '}
+                <code className="text-[11px] bg-white/80 px-1 rounded">the_ban_hang</code>, rồi ghi vào cột{' '}
+                <code className="text-[11px] bg-white/80 px-1 rounded">tong_tien</code>. Chạy sau khi đã migrate DB (thêm cột + hàm RPC).
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={tongTienSyncing}
+              onClick={async () => {
+                if (!window.confirm('Đồng bộ tổng tiền cho toàn bộ đơn hàng? Thao tác cập nhật nhiều dòng trong the_ban_hang.')) {
+                  return;
+                }
+                try {
+                  setTongTienSyncing(true);
+                  await recalculateTheBanHangTongTien();
+                  window.alert('Đã cập nhật cột tong_tien trên the_ban_hang.');
+                } catch (e) {
+                  const msg = e instanceof Error ? e.message : String(e);
+                    window.alert(
+                      `Lỗi: ${msg}\n\n` +
+                        `– Thiếu cột/hàm: chạy src/database/migrations/20260209_the_ban_hang_tong_tien.sql trên Supabase.\n` +
+                        `– Hết thời gian (57014 / timeout): chạy src/database/migrations/20260212_recalculate_tong_tien_chunked.sql trên Supabase (đồng bộ theo lô).`
+                    );
+                } finally {
+                  setTongTienSyncing(false);
+                }
+              }}
+              className="inline-flex items-center justify-center gap-2 shrink-0 px-4 py-2.5 rounded-lg bg-amber-600 text-white text-sm font-bold hover:bg-amber-700 disabled:opacity-60 shadow-sm"
+            >
+              {tongTienSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Calculator className="w-4 h-4" />}
+              Tính tổng tiền
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-6xl">
         {activeTab === 'luong' && (
