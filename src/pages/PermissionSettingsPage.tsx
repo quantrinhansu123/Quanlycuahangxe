@@ -4,7 +4,7 @@ import { VIEW_PERMISSION_OPTIONS, VIEW_PERMISSION_STORAGE_KEY, type ViewPermissi
 
 type PermissionMap = Record<string, ViewPermissionKey[]>;
 
-const POSITION_OPTIONS = ['kỹ thuật viên', 'quản lý', 'admin', 'kế toán', 'bán hàng'];
+const POSITION_OPTIONS = ['Kỹ thuật viên', 'Quản lý', 'Admin', 'Kế toán', 'Bán hàng'];
 
 const normalizePosition = (value: string) => value.trim().toLowerCase();
 

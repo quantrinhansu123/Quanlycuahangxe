@@ -71,7 +71,7 @@ const PersonnelManagementPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const branchOptions = [...BRANCH_OPTIONS];
-  const positionOptions = ['kỹ thuật viên', 'quản lý', 'admin', 'kế toán', 'bán hàng'];
+  const positionOptions = ['Kỹ thuật viên', 'Quản lý', 'Admin', 'Kế toán', 'Bán hàng'];
 
   const [personnelByBranch, setPersonnelByBranch] = useState<Record<string, NhanSu[]>>({});
   const [loading, setLoading] = useState(true);
@@ -200,8 +200,8 @@ const PersonnelManagementPage: React.FC = () => {
           : (formDataToSave.ngay_vao_lam as string | null),
         luong_co_ban:
           formDataToSave.luong_co_ban === undefined ||
-          formDataToSave.luong_co_ban === null ||
-          (typeof formDataToSave.luong_co_ban === 'number' && Number.isNaN(formDataToSave.luong_co_ban))
+            formDataToSave.luong_co_ban === null ||
+            (typeof formDataToSave.luong_co_ban === 'number' && Number.isNaN(formDataToSave.luong_co_ban))
             ? null
             : formDataToSave.luong_co_ban,
       };
