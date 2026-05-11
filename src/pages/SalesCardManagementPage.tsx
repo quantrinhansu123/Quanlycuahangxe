@@ -78,9 +78,16 @@ const SalesCardManagementPage: React.FC = () => {
   const [editingCard, setEditingCard] = useState<SalesCard | null>(null);
   const [formData, setFormData] = useState<Partial<SalesCard & { dich_vu_ids?: string[], service_items?: any[] }>>({});
 
-  // Date filtering states
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  // Date filtering states - mặc định lọc theo hôm nay (giờ địa phương VN)
+  const todayStr = useMemo(() => {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }, []);
+  const [startDate, setStartDate] = useState(todayStr);
+  const [endDate, setEndDate] = useState(todayStr);
   const [selectedMonth, setSelectedMonth] = useState('');
   const [selectedStaff, setSelectedStaff] = useState('');
   const [selectedBranch, setSelectedBranch] = useState('');
@@ -1431,6 +1438,27 @@ const SalesCardManagementPage: React.FC = () => {
           ) : groupedSales.length > 0 ? (
             groupedSales.map(group => (
               <div key={group.date} className="space-y-3 mb-8">
+                {/* Group Header (Mobile) - báo cáo theo ngày */}
+                <div className="bg-primary/5 border border-primary/20 rounded-xl px-3 py-2.5 flex items-center justify-between gap-2 shadow-sm">
+                  <div className="flex items-center gap-1.5 text-primary font-bold text-[12px] whitespace-nowrap shrink-0">
+                    <Calendar size={14} />
+                    {new Date(group.date).toLocaleDateString('vi-VN')}
+                  </div>
+                  <div className="flex items-center gap-2 text-[11px] font-bold text-muted-foreground flex-wrap justify-end">
+                    <span className="flex items-center gap-1 whitespace-nowrap">
+                      👥 {group.uniqueCustomers.size} khách
+                    </span>
+                    <span className="opacity-30">|</span>
+                    <span className="flex items-center gap-1 whitespace-nowrap">
+                      📄 {group.items.length} đơn
+                    </span>
+                    <span className="opacity-30">|</span>
+                    <span className="text-emerald-600 font-black text-[13px] whitespace-nowrap">
+                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(group.totalAmount)}
+                    </span>
+                  </div>
+                </div>
+
                 <div className="space-y-4">
                   {group.items.map(card => {
                     const items = (card as any).the_ban_hang_ct || [];
