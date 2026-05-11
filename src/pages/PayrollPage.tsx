@@ -14,6 +14,8 @@ import { clsx } from 'clsx';
 import { removeVietnameseTones } from '../lib/utils';
 import * as XLSX from 'xlsx';
 import { useAuth } from '../context/AuthContext';
+import PayslipModal from '../components/PayslipModal';
+import { Eye } from 'lucide-react';
 
 
 
@@ -35,6 +37,8 @@ const PayrollPage: React.FC = () => {
   const [visibleColumns, setVisibleColumns] = useState<string[]>([
     'selection', 'stt', 'ho_ten', 'don_vi', 'doanh_so', 'doanh_so_mt', 'ty_le', 'luong_ngay', 'luong_doanh_so', 'phu_cap', 'thuc_linh'
   ]);
+  const [selectedPayroll, setSelectedPayroll] = useState<BangLuong | null>(null);
+  const [showPayslip, setShowPayslip] = useState(false);
   const colConfigRef = useRef<HTMLDivElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
 
@@ -595,6 +599,7 @@ const PayrollPage: React.FC = () => {
                 {visibleColumns.includes('thuc_linh') && (
                   <th className="sticky right-0 bg-slate-50 border-l border-slate-200 px-8 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest text-right min-w-[160px] z-40">Thực lĩnh</th>
                 )}
+                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-center w-20"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -727,6 +732,15 @@ const PayrollPage: React.FC = () => {
                       </div>
                     </td>
                   )}
+                  <td className="px-4 py-4 text-center">
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); setSelectedPayroll(item); setShowPayslip(true); }}
+                      className="p-2 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all"
+                      title="Xem phiếu lương"
+                    >
+                      <Eye size={18} />
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -790,22 +804,17 @@ const PayrollPage: React.FC = () => {
                         <span className="font-bold text-slate-700">{formatCurrency(item.doanh_so)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-slate-400">Lương ngày</span>
-                        <span className="font-bold text-slate-700">{formatCurrency(item.luong_ngay_cong)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">Phụ cấp</span>
-                        <span className="font-bold text-emerald-600">+{formatCurrency(item.tong_phu_cap || 0)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">Khấu trừ</span>
-                        <span className="font-bold text-rose-500">-{formatCurrency((item.bhxh || 0) + (item.thue_tncn || 0))}</span>
+                        <span className="text-slate-400 font-bold">Thực lĩnh</span>
+                        <span className="font-black text-emerald-600">{formatCurrency(item.thuc_linh)}</span>
                       </div>
                     </div>
-                    <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between">
-                      <span className="text-[11px] font-black text-slate-400 uppercase">Thực lĩnh</span>
-                      <span className="text-[15px] font-black text-emerald-700">{formatCurrency(item.thuc_linh)}</span>
-                    </div>
+
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); setSelectedPayroll(item); setShowPayslip(true); }}
+                      className="mt-4 w-full py-2.5 bg-[#14532D]/5 text-[#14532D] rounded-xl text-xs font-black uppercase tracking-widest border border-[#14532D]/10 hover:bg-[#14532D]/10 transition-all"
+                    >
+                      Xem phiếu lương chi tiết
+                    </button>
                   </div>
                 </div>
               ))}
@@ -835,8 +844,13 @@ const PayrollPage: React.FC = () => {
       <SelectPayrollEmployeeModal 
         isOpen={showAddEmployee}
         onClose={() => setShowAddEmployee(false)}
-        onAdd={handleAddPersonnel}
-        existingIds={payrollData.map(item => item.nhan_su_id)}
+        onSelect={handleAddPersonnel}
+      />
+
+      <PayslipModal 
+        isOpen={showPayslip}
+        onClose={() => setShowPayslip(false)}
+        data={selectedPayroll}
       />
     </div>
   );

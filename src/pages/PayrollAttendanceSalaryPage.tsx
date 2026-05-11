@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Calculator, Calendar, Loader2, Plus, Table2, Trash2, TrendingUp, UserPlus } from 'lucide-react';
+import { Calculator, Calendar, Eye, Loader2, Plus, Table2, Trash2, TrendingUp, UserPlus } from 'lucide-react';
+import PayslipModal from '../components/PayslipModal';
+import type { BangLuong } from '../data/payrollData';
 import { clsx } from 'clsx';
 import { getChamCongTrongKhoang } from '../data/attendanceData';
 import { getRevenueByPersonnelFromTongTien } from '../data/reportData';
@@ -162,6 +164,8 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
   const [tongTienSyncing, setTongTienSyncing] = useState(false);
   const [chamDong, setChamDong] = useState<DongChamBuaNhap[]>([]);
   const [nhanList, setNhanList] = useState<NhanSu[]>([]);
+  const [selectedPayroll, setSelectedPayroll] = useState<BangLuong | null>(null);
+  const [showPayslip, setShowPayslip] = useState(false);
   /** Tránh ghi localStorage bằng dòng dữ liệu tháng cũ khi vừa đổi kỳ (chờ load xong). */
   const loadedKyRef = useRef(`${y0}-${m0}`);
 
@@ -521,9 +525,9 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 flex flex-col rounded-xl border border-border bg-card/30 overflow-hidden">
-        <div className="flex-1 min-h-[min(75vh,56rem)] overflow-auto">
-          <table className="w-max min-w-full border-collapse text-sm">
+      <div className="flex-1 min-h-0 flex flex-col rounded-xl border border-border bg-card/30 overflow-hidden shadow-sm">
+        <div className="flex-1 overflow-x-auto overflow-y-auto bg-white">
+          <table className="w-max min-w-[1500px] border-collapse text-sm">
             <thead>
               <tr>
                 <th className="sticky top-0 left-0 z-[2] bg-muted/80 backdrop-blur border-b border-r border-border px-2.5 py-3 text-left text-xs sm:text-sm font-semibold w-10">
@@ -557,6 +561,9 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                 {thCell('Tiền hoa hồng tháng', 'Doanh số tháng × phần trăm hoa hồng tháng (ô % HH ở trên)')}
                 {thCell('Tổng', 'Tổng cộng')}
                 {thCell('Ghi chú', 'Cảnh báo')}
+                <th className="sticky top-0 z-[1] bg-muted/80 backdrop-blur border-b border-border px-2.5 py-3 text-center text-xs sm:text-sm font-semibold text-muted-foreground w-12">
+                  Xem
+                </th>
                 <th className="sticky top-0 z-[1] bg-muted/80 w-11 border-b border-border" />
               </tr>
             </thead>
@@ -671,6 +678,44 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                     <td className="px-2.5 py-2.5 text-xs sm:text-sm text-amber-600 dark:text-amber-500 max-w-[200px]">
                       {kq.ghiChu}
                     </td>
+                    <td className="px-2 py-1.5 text-center">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          // Map input + kq to BangLuong format for Modal
+                          const mockPayroll: BangLuong = {
+                            id: input.id,
+                            nhan_su_id: '', 
+                            nhan_su: {
+                              id: '',
+                              ho_ten: input.hoTen,
+                              vi_tri: input.loai === 'chinh_thuc' ? 'Chính thức' : 'Thời vụ',
+                              hinh_anh: '',
+                              id_nhan_su: ''
+                            } as any,
+                            thang: thang,
+                            nam: nam,
+                            co_so: 'Cửa hàng',
+                            trang_thai: 'Chờ duyệt',
+                            doanh_so: input.tongDoanhThu,
+                            doanh_so_muc_tieu: 0,
+                            luong_ngay_cong: kq.tienTheoCong,
+                            luong_doanh_so: kq.hoaHong,
+                            tong_phu_cap: kq.phuCapChuyenCan + kq.phuCapXangDienThoai + kq.phuCapThamNien + (input.thuongKhac || 0),
+                            bhxh: 0,
+                            thue_tncn: 0,
+                            thuc_linh: kq.tongCong,
+                            khoan_tru: input.khoanTru || 0
+                          };
+                          setSelectedPayroll(mockPayroll);
+                          setShowPayslip(true);
+                        }}
+                        className="p-2 rounded-md text-primary hover:bg-primary/10"
+                        title="Xem chi tiết phiếu lương"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                    </td>
                     <td className="px-1 py-1.5 text-center">
                       <button
                         type="button"
@@ -688,6 +733,12 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
           </table>
         </div>
       </div>
+      
+      <PayslipModal 
+        isOpen={showPayslip}
+        onClose={() => setShowPayslip(false)}
+        data={selectedPayroll}
+      />
     </div>
   );
 };

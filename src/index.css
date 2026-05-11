@@ -84,21 +84,23 @@
 
 /* Custom Scrollbar */
 .custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 10px;
+  height: 10px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: var(--color-border);
+  background: #f1f5f9;
   border-radius: 10px;
 }
 
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 10px;
+  border: 2px solid #f1f5f9;
+}
+
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: var(--color-muted-foreground);
+  background: #64748b;
 }
 
 /* Animations */
@@ -175,4 +177,44 @@
 
 .slide-in-from-bottom-2 {
   animation-name: slide-in-from-bottom-2;
+}
+
+@media print {
+  /* Hide everything by default using visibility */
+  body * {
+    visibility: hidden !important;
+  }
+  
+  /* Show only the modal content and its children */
+  .fixed.inset-0.z-\[100\],
+  .fixed.inset-0.z-\[100\] * {
+    visibility: visible !important;
+  }
+
+  /* Position the modal container to fill the print page */
+  .fixed.inset-0.z-\[100\] {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: flex-start !important;
+    background: white !important;
+    z-index: 99999 !important;
+  }
+
+  /* Hide backdrop and buttons during print */
+  .backdrop-blur-sm, 
+  button,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Ensure modal has no fixed height or scroll during print */
+  div[class*="max-h-"] {
+    max-height: none !important;
+    overflow: visible !important;
+  }
 }
