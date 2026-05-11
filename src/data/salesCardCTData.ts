@@ -16,6 +16,8 @@ export interface SalesCardCT {
   chi_phi: number;
   ngay: string;
   created_at?: string;
+  // Tên dịch vụ đã resolve qua dich_vu.id_dich_vu (chỉ dùng để hiển thị, không lưu DB)
+  ten_dich_vu?: string;
 }
 
 export const getSalesCardCTs = async (idDonHang?: string): Promise<SalesCardCT[]> => {

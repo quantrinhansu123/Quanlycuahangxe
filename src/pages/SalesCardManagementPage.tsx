@@ -9,6 +9,7 @@ import {
   FileText,
   Loader2,
   Plus,
+  RefreshCw,
   Search,
   ShoppingCart,
   Trash2,
@@ -228,6 +229,152 @@ const SalesCardManagementPage: React.FC = () => {
       return new Date(b.date).getTime() - new Date(a.date).getTime();
     });
   }, [displayItems]);
+
+  const [isSyncingServiceNames, setIsSyncingServiceNames] = useState(false);
+
+  const fetchAllRows = async <T extends Record<string, unknown>>(
+    table: 'the_ban_hang_ct' | 'the_ban_hang',
+    select: string,
+    pageSize = 1000
+  ): Promise<T[]> => {
+    const out: T[] = [];
+    let from = 0;
+    for (;;) {
+      const { data, error } = await supabase
+        .from(table)
+        .select(select)
+        .range(from, from + pageSize - 1);
+      if (error) throw error;
+      const batch = (data || []) as T[];
+      out.push(...batch);
+      if (batch.length < pageSize) break;
+      from += pageSize;
+    }
+    return out;
+  };
+
+  // Đồng bộ toàn DB: san_pham / dich_vu_id khớp dich_vu.id_dich_vu -> ten_dich_vu (query trực tiếp DB)
+  const handleSyncServiceNames = async () => {
+    if (!isAdmin) {
+      showToast('Bạn không có quyền thực hiện thao tác này.', 'error');
+      return;
+    }
+
+    const ok = window.confirm(
+      'Đồng bộ TOÀN BỘ dữ liệu dịch vụ trong database (đối chiếu theo cột dich_vu.id_dich_vu):\n\n' +
+        '• the_ban_hang_ct.san_pham: nếu khớp dich_vu.id_dich_vu → ghi thành ten_dich_vu.\n' +
+        '• the_ban_hang.dich_vu_id: tương tự (phiếu không có chi tiết).\n\n' +
+        'Tiếp tục?'
+    );
+    if (!ok) return;
+
+    try {
+      setIsSyncingServiceNames(true);
+
+      const ctRows = await fetchAllRows<{ id: string; san_pham: string | null }>('the_ban_hang_ct', 'id, san_pham');
+      const headerRows = await fetchAllRows<{ id: string; dich_vu_id: string | null }>('the_ban_hang', 'id, dich_vu_id');
+
+      // Gom tất cả mã cần tra rồi query một lần (hoặc theo chunk) bảng dich_vu
+      const codes = new Set<string>();
+      for (const r of ctRows) {
+        const v = (r.san_pham || '').trim();
+        if (v) codes.add(v);
+      }
+      for (const r of headerRows) {
+        const v = (r.dich_vu_id || '').trim();
+        if (v) codes.add(v);
+      }
+
+      const codeToName = new Map<string, string>();
+      const codeArr = [...codes];
+      const chunkSize = 200;
+      for (let i = 0; i < codeArr.length; i += chunkSize) {
+        const chunk = codeArr.slice(i, i + chunkSize);
+        const { data: dv, error } = await supabase
+          .from('dich_vu')
+          .select('id_dich_vu, ten_dich_vu')
+          .in('id_dich_vu', chunk);
+        if (error) throw error;
+        (dv || []).forEach((s: { id_dich_vu: string | null; ten_dich_vu: string | null }) => {
+          if (s.id_dich_vu && s.ten_dich_vu) {
+            codeToName.set(s.id_dich_vu.trim().toLowerCase(), s.ten_dich_vu);
+          }
+        });
+      }
+
+      const rowsToUpdateCt: { id: string; san_pham: string }[] = [];
+      for (const row of ctRows) {
+        const sp = row.san_pham;
+        if (!sp) continue;
+        const newName = codeToName.get(sp.trim().toLowerCase());
+        if (newName && newName !== sp) rowsToUpdateCt.push({ id: row.id, san_pham: newName });
+      }
+
+      const rowsToUpdateHeader: { id: string; dich_vu_id: string }[] = [];
+      for (const row of headerRows) {
+        const dv = row.dich_vu_id;
+        if (!dv) continue;
+        const newName = codeToName.get(dv.trim().toLowerCase());
+        if (newName && newName !== dv) rowsToUpdateHeader.push({ id: row.id, dich_vu_id: newName });
+      }
+
+      if (rowsToUpdateCt.length === 0 && rowsToUpdateHeader.length === 0) {
+        showToast('Không có bản ghi nào cần đồng bộ tên dịch vụ.', 'info');
+        return;
+      }
+
+      const runBatchedUpdates = async (
+        table: 'the_ban_hang_ct' | 'the_ban_hang',
+        rows: { id: string; patch: Record<string, string> }[],
+        concurrency = 25
+      ) => {
+        let ok = 0;
+        let fail = 0;
+        for (let i = 0; i < rows.length; i += concurrency) {
+          const chunk = rows.slice(i, i + concurrency);
+          const results = await Promise.allSettled(
+            chunk.map(r => supabase.from(table).update(r.patch).eq('id', r.id))
+          );
+          for (const res of results) {
+            if (res.status === 'fulfilled' && !(res.value as { error?: unknown }).error) ok++;
+            else fail++;
+          }
+        }
+        return { ok, fail };
+      };
+
+      const ctRes = await runBatchedUpdates(
+        'the_ban_hang_ct',
+        rowsToUpdateCt.map(r => ({ id: r.id, patch: { san_pham: r.san_pham } }))
+      );
+      const hdrRes = await runBatchedUpdates(
+        'the_ban_hang',
+        rowsToUpdateHeader.map(r => ({ id: r.id, patch: { dich_vu_id: r.dich_vu_id } }))
+      );
+
+      const updatedCount = ctRes.ok + hdrRes.ok;
+      const failedCount = ctRes.fail + hdrRes.fail;
+
+      if (failedCount > 0) {
+        showToast(
+          `Đồng bộ: ${ctRes.ok}/${rowsToUpdateCt.length} chi tiết, ${hdrRes.ok}/${rowsToUpdateHeader.length} phiếu. Lỗi: ${failedCount}.`,
+          'warning'
+        );
+      } else {
+        showToast(
+          `Đã đồng bộ xong: ${ctRes.ok} chi tiết (the_ban_hang_ct), ${hdrRes.ok} phiếu (the_ban_hang.dich_vu_id).`,
+          'success'
+        );
+      }
+      await loadSalesCards();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Không xác định';
+      console.error('[SyncServiceNames] Lỗi:', err);
+      showToast(`Lỗi đồng bộ tên dịch vụ: ${message}`, 'error');
+    } finally {
+      setIsSyncingServiceNames(false);
+    }
+  };
 
   // ---- AUTO-OPEN MODAL WHEN REDIRECTED FROM CUSTOMER PAGE ----
   // Use a ref to store the pending customer ID so it survives re-renders
@@ -1094,6 +1241,20 @@ const SalesCardManagementPage: React.FC = () => {
                 </div>
 
                 <button
+                  onClick={handleSyncServiceNames}
+                  disabled={isSyncingServiceNames}
+                  className="px-2 py-1 sm:px-4 sm:py-2 bg-indigo-500/5 hover:bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold transition-all shrink-0 disabled:opacity-60 disabled:cursor-not-allowed"
+                  title="Đồng bộ toàn DB: the_ban_hang_ct.san_pham và the_ban_hang.dich_vu_id (id / mã dịch vụ → tên dịch vụ)"
+                >
+                  {isSyncingServiceNames ? (
+                    <Loader2 className="size-4 sm:size-5 animate-spin" />
+                  ) : (
+                    <RefreshCw className="size-4 sm:size-5" />
+                  )}
+                  <span>{isSyncingServiceNames ? 'Đang đồng bộ...' : 'Đồng bộ tên DV (toàn DB)'}</span>
+                </button>
+
+                <button
                   onClick={handleDeleteAll}
                   className="px-2 py-1 sm:px-2.5 sm:py-2 bg-rose-500/5 hover:bg-rose-500/10 text-rose-600 border border-rose-500/20 rounded-lg flex items-center gap-1.5 transition-all shrink-0"
                   title="Xóa tất cả phiếu bán hàng"
@@ -1364,7 +1525,6 @@ const SalesCardManagementPage: React.FC = () => {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-muted border-b border-border text-muted-foreground text-[13px] font-bold tracking-tight">
-                  <th className="px-4 py-3 font-semibold text-center">id</th>
                   <th className="px-4 py-3 font-semibold text-center">Thời gian</th>
                   <th className="px-4 py-3 font-semibold">Tên khách hàng</th>
                   <th className="px-4 py-3 font-semibold">SĐT</th>
@@ -1383,7 +1543,7 @@ const SalesCardManagementPage: React.FC = () => {
               <tbody className="divide-y divide-slate-100 text-[14px]">
                 {loading ? (
                   <tr>
-                    <td colSpan={14} className="px-4 py-12 text-center text-muted-foreground">
+                    <td colSpan={13} className="px-4 py-12 text-center text-muted-foreground">
                       <Loader2 className="animate-spin inline-block mr-2" size={20} />
                       Đang tải dữ liệu phiếu bán hàng...
                     </td>
@@ -1393,7 +1553,7 @@ const SalesCardManagementPage: React.FC = () => {
                     <React.Fragment key={group.date}>
                       {/* Group Header Row */}
                       <tr className="bg-muted/40 border-y border-border/60 backdrop-blur-sm">
-                        <td colSpan={14} className="px-4 py-3">
+                        <td colSpan={13} className="px-4 py-3">
                           <div className="flex items-center gap-4">
                             <span className="text-[12px] font-black text-primary uppercase tracking-widest bg-primary/10 px-3 py-1 rounded-full border border-primary/20">
                               📅 {new Date(group.date).toLocaleDateString('vi-VN')}
@@ -1419,9 +1579,6 @@ const SalesCardManagementPage: React.FC = () => {
                       </tr>
                       {group.items.map(card => (
                   <tr key={card.id} className="hover:bg-muted/80 transition-colors">
-                    <td className="px-4 py-4 text-center font-mono text-[12px] font-bold text-muted-foreground">
-                      {card.id_bh || card.id.slice(0, 8)}
-                    </td>
                     <td className="px-4 py-4 text-center">
                       <div className="font-bold text-foreground whitespace-nowrap">{new Date(card.ngay).toLocaleDateString('vi-VN')}</div>
                       <div className="text-[11px] text-muted-foreground font-mono">{card.gio}</div>
@@ -1453,12 +1610,12 @@ const SalesCardManagementPage: React.FC = () => {
                         {(card as any).the_ban_hang_ct && (card as any).the_ban_hang_ct.length > 0 ? (
                           (card as any).the_ban_hang_ct.map((ct: any, idx: number) => (
                             <span key={idx} className="px-2 py-1 rounded bg-purple-50 text-purple-700 font-medium text-[11px] flex items-center gap-1.5 w-fit">
-                              {ct.san_pham}{(ct.so_luong || 1) > 1 && <span className="opacity-60 font-bold">×{ct.so_luong}</span>}
+                              {ct.ten_dich_vu || ct.san_pham}{(ct.so_luong || 1) > 1 && <span className="opacity-60 font-bold">×{ct.so_luong}</span>}
                             </span>
                           ))
                         ) : (
                           <span className="px-2 py-1 rounded bg-purple-50 text-purple-700 font-medium text-[11px] flex items-center gap-1.5 w-fit">
-                            {card.dich_vu?.ten_dich_vu || 'N/A'}
+                            {card.dich_vu?.ten_dich_vu || card.dich_vu_id || 'N/A'}
                           </span>
                         )}
                       </div>
@@ -1523,14 +1680,14 @@ const SalesCardManagementPage: React.FC = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={14} className="px-4 py-12 text-center text-muted-foreground italic border-b border-dashed border-border">
+                    <td colSpan={13} className="px-4 py-12 text-center text-muted-foreground italic border-b border-dashed border-border">
                       Chưa có phiếu bán hàng nào được lập.
                     </td>
                   </tr>
                 )}
                 {!loading && groupedSales.length > 0 && (
                   <tr className="bg-primary/5 font-black border-t-2 border-primary/20">
-                    <td colSpan={8} className="px-4 py-5 text-right">
+                    <td colSpan={7} className="px-4 py-5 text-right">
                       <div className="flex flex-col items-end">
                         <span className="text-muted-foreground text-[11px] tracking-widest uppercase mb-1">Tổng khách (toàn bộ):</span>
                         <div className="flex items-center gap-2">

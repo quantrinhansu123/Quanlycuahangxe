@@ -73,8 +73,32 @@ async function attachDetails(cards: SalesCard[]) {
     }));
 
     if (allDetails.length > 0) {
+      // Đối chiếu san_pham với dich_vu.id_dich_vu để hiển thị ten_dich_vu
+      const sanPhamCodes = [...new Set(
+        allDetails.map(d => (d.san_pham || '').trim()).filter(Boolean)
+      )];
+      const codeToName = new Map<string, string>();
+      if (sanPhamCodes.length > 0) {
+        const codeChunks = chunkArray(sanPhamCodes, 100);
+        await Promise.all(codeChunks.map(async (chunk) => {
+          const { data: services } = await supabase
+            .from('dich_vu')
+            .select('id_dich_vu, ten_dich_vu')
+            .in('id_dich_vu', chunk);
+          (services || []).forEach((s: { id_dich_vu: string | null; ten_dich_vu: string | null }) => {
+            if (s.id_dich_vu && s.ten_dich_vu) {
+              codeToName.set(s.id_dich_vu.trim().toLowerCase(), s.ten_dich_vu);
+            }
+          });
+        }));
+      }
+
       const detailMap = new Map<string, SalesCardCT[]>();
       allDetails.forEach((d: SalesCardCT) => {
+        const code = (d.san_pham || '').trim().toLowerCase();
+        const resolved = code ? codeToName.get(code) : undefined;
+        (d as SalesCardCT & { ten_dich_vu?: string }).ten_dich_vu = resolved || d.san_pham;
+
         if (d.id_don_hang) {
           const lowerId = d.id_don_hang.toLowerCase();
           const list = detailMap.get(lowerId) || [];
