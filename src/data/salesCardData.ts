@@ -505,19 +505,24 @@ export async function recalculateTheBanHangTongTien(): Promise<void> {
   let after: string | null = null;
   try {
     for (;;) {
-      const { data, error } = await supabase.rpc('recalculate_the_ban_hang_tong_tien_step', {
+      const stepRes = await supabase.rpc('recalculate_the_ban_hang_tong_tien_step', {
         p_run_id: runId,
         p_after: after,
         p_limit: 400,
       });
+      const data: unknown = stepRes.data;
+      const error = stepRes.error;
       if (error) {
         throw new Error(
           [error.message, error.code ? `(code: ${error.code})` : ''].filter(Boolean).join(' ')
         );
       }
-      const row = Array.isArray(data) ? data[0] : data;
-      const processed = row && typeof row === 'object' && 'processed' in row ? Number((row as { processed: unknown }).processed) : 0;
-      const lastId =
+      const row: unknown = Array.isArray(data) ? data[0] : data;
+      const processed: number =
+        row && typeof row === 'object' && 'processed' in row
+          ? Number((row as { processed: unknown }).processed)
+          : 0;
+      const lastId: string | null =
         row && typeof row === 'object' && 'last_id' in row
           ? ((row as { last_id: string | null }).last_id as string | null)
           : null;

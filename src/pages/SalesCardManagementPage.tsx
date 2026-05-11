@@ -252,7 +252,7 @@ const SalesCardManagementPage: React.FC = () => {
         .select(select)
         .range(from, from + pageSize - 1);
       if (error) throw error;
-      const batch = (data || []) as T[];
+      const batch = ((data || []) as unknown) as T[];
       out.push(...batch);
       if (batch.length < pageSize) break;
       from += pageSize;
@@ -359,7 +359,6 @@ const SalesCardManagementPage: React.FC = () => {
         rowsToUpdateHeader.map(r => ({ id: r.id, patch: { dich_vu_id: r.dich_vu_id } }))
       );
 
-      const updatedCount = ctRes.ok + hdrRes.ok;
       const failedCount = ctRes.fail + hdrRes.fail;
 
       if (failedCount > 0) {
