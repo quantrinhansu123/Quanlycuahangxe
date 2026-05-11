@@ -639,8 +639,8 @@ const AddAttendancePage: React.FC = () => {
               <div className="p-6 border-b border-border flex items-center justify-between bg-card">
                 <div className="flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${showDetailView === 'total' ? 'bg-blue-500/10 text-blue-600' :
-                      showDetailView === 'late' ? 'bg-red-500/10 text-red-600' :
-                        'bg-orange-500/10 text-orange-600'
+                    showDetailView === 'late' ? 'bg-red-500/10 text-red-600' :
+                      'bg-orange-500/10 text-orange-600'
                     }`}>
                     {showDetailView === 'total' ? <Calendar size={20} /> :
                       showDetailView === 'late' ? <Clock size={20} /> :
@@ -691,8 +691,8 @@ const AddAttendancePage: React.FC = () => {
                     const dayOtMin =
                       showDetailView === 'overtime'
                         ? overtimeMinutesForDayShifts(
-                            item.records.map((r) => ({ checkin: r.checkin, checkout: r.checkout }))
-                          )
+                          item.records.map((r) => ({ checkin: r.checkin, checkout: r.checkout }))
+                        )
                         : 0;
 
                     return (
@@ -730,8 +730,8 @@ const AddAttendancePage: React.FC = () => {
                             const status = calculateAttendanceStatus(r.checkin, r.checkout);
                             return (
                               <div key={rIdx} className={`p-3 rounded-xl border flex items-center justify-between ${r.checkin && calculateAttendanceStatus(r.checkin, null).isLate
-                                  ? 'bg-red-500/5 border-red-500/10'
-                                  : 'bg-emerald-500/5 border-emerald-500/10'
+                                ? 'bg-red-500/5 border-red-500/10'
+                                : 'bg-emerald-500/5 border-emerald-500/10'
                                 }`}>
                                 <div className="flex items-center gap-4">
                                   <div>
