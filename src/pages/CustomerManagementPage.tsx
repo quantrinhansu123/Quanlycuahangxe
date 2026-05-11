@@ -216,6 +216,7 @@ const CustomerManagementPage: React.FC = () => {
     }
     setIsModalOpen(false);
     setEditingCustomer(null);
+    showToast(`Đã lưu thông tin khách hàng ${customer.ho_va_ten} thành công!`, 'success');
 
     if (shouldCreateOrder) {
       if (isTemp) {

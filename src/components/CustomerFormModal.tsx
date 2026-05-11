@@ -1,6 +1,9 @@
 import {
+  AlertCircle,
   Calendar,
   Camera,
+  ChevronDown,
+  ChevronUp,
   CreditCard,
   Edit2,
   History,
@@ -19,8 +22,12 @@ import {
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import type { KhachHang, OilChangeEntry } from '../data/customerData';
 import { getCustomerByPhone, getCustomerByPlate, uploadCustomerImage, upsertCustomer } from '../data/customerData';
+import { computeCustomerChanges, getCustomerEditHistory, saveCustomerEditHistory, type CustomerEditHistory } from '../data/customerHistoryData';
+import { formatDateTime24h } from '../utils/datetimeFormat';
+import { useToast } from '../context/ToastContext';
 
 interface CustomerFormModalProps {
   isOpen: boolean;
@@ -36,6 +43,15 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const { nhanVien } = useAuth();
+
+  const [historyRecords, setHistoryRecords] = useState<CustomerEditHistory[]>([]);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { showToast } = useToast();
+
+  const [duplicateWarning, setDuplicateWarning] = useState<KhachHang | null>(null);
 
   const formatDateForInput = (dateStr: string | undefined) => {
     if (!dateStr) return '';
@@ -95,23 +111,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
         const existing: KhachHang | null = await getCustomerByPlate(plate);
         if (existing && existing.id !== (customer ? customer.id : '')) {
           if (!customer) {
-            // Determine if we should navigate or just return result to parent
-            const isOnSalesPage = location.pathname.includes('/ban-hang/phieu-ban-hang');
-
-            if (!isOnSalesPage) {
-              const confirmed = window.confirm(
-                `⚠️ Biển số "${plate}" đã thuộc về khách hàng: ${existing.ho_va_ten}\n\n` +
-                `Bạn có muốn lập Phiếu Bán hàng mới cho khách hàng này không?`
-              );
-              if (confirmed) {
-                navigate('/ban-hang/phieu-ban-hang', { state: { pendingCustomerId: existing.id } });
-                onClose();
-              }
-            } else {
-              // If already on sales page (in a modal), just select the customer
-              onSuccess(existing);
-              onClose();
-            }
+            setDuplicateWarning(existing);
           } else {
             // If editing, just warn or log
             console.warn(`Biển số [${plate}] trùng với khách hàng: ${existing.ho_va_ten}`);
@@ -137,21 +137,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
         const existing: KhachHang | null = await getCustomerByPhone(phone);
         if (existing && existing.id !== (customer ? customer.id : '')) {
           if (!customer) {
-            const isOnSalesPage = location.pathname.includes('/ban-hang/phieu-ban-hang');
-
-            if (!isOnSalesPage) {
-              const confirmed = window.confirm(
-                `⚠️ Số điện thoại "${phone}" đã thuộc về khách hàng: ${existing.ho_va_ten}\n\n` +
-                `Bạn có muốn lập Phiếu Bán hàng mới cho khách hàng này không?`
-              );
-              if (confirmed) {
-                navigate('/ban-hang/phieu-ban-hang', { state: { pendingCustomerId: existing.id } });
-                onClose();
-              }
-            } else {
-              onSuccess(existing);
-              onClose();
-            }
+            setDuplicateWarning(existing);
           }
         }
       } catch (err) {
@@ -246,8 +232,36 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
 
   const handleSubmit = async (e: React.FormEvent, shouldOrder: boolean = false) => {
     e.preventDefault();
-    if (uploadingImage) return;
+    if (uploadingImage || isSubmitting) return;
+
     try {
+      setIsSubmitting(true);
+      // 1. Kiểm tra trùng SĐT trước khi lưu
+      const phone = formData.so_dien_thoai?.trim();
+      if (phone && phone.length >= 4) {
+        const existing = await getCustomerByPhone(phone);
+        if (existing && existing.id !== (customer ? customer.id : '')) {
+          const ok = window.confirm(`⚠️ CẢNH BÁO: Số điện thoại "${phone}" đã thuộc về khách hàng "${existing.ho_va_ten}".\n\nBạn có chắc chắn muốn tiếp tục lưu bản ghi trùng này không?`);
+          if (!ok) {
+            setIsSubmitting(false);
+            return;
+          }
+        }
+      }
+
+      // 2. Kiểm tra trùng Biển số trước khi lưu
+      const plate = formData.bien_so_xe?.trim();
+      if (plate && plate.length >= 4 && plate !== 'Xe Chưa Biển') {
+        const existing = await getCustomerByPlate(plate);
+        if (existing && existing.id !== (customer ? customer.id : '')) {
+          const ok = window.confirm(`⚠️ CẢNH BÁO: Biển số "${plate}" đã thuộc về khách hàng "${existing.ho_va_ten}".\n\nBạn có chắc chắn muốn tiếp tục lưu bản ghi trùng này không?`);
+          if (!ok) {
+            setIsSubmitting(false);
+            return;
+          }
+        }
+      }
+
       const dataToSave = { ...formData };
       if (!dataToSave.ma_khach_hang) delete dataToSave.ma_khach_hang;
       if (!dataToSave.anh) delete dataToSave.anh;
@@ -265,12 +279,23 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
         if (!customer && currentStaffId) {
           dataToSave.nhan_vien_id = currentStaffId;
         }
+
+        // LƯU LỊCH SỬ CHỈNH SỬA
+        if (customer) {
+          const changes = computeCustomerChanges(customer as any, dataToSave);
+          if (changes.length > 0) {
+            void saveCustomerEditHistory(customer.id, nhanVien?.ho_ten || 'Hệ thống', changes);
+          }
+        }
+
         const savedCustomer = await upsertCustomer(dataToSave);
         onSuccess(savedCustomer, shouldOrder, false);
         onClose();
       }
     } catch (error: any) {
       alert(`Lỗi: ${error.message || 'Không thể lưu.'}`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -393,6 +418,74 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
             </div>
           </div>
 
+          {/* Lịch sử chỉnh sửa */}
+          {customer && (
+            <div className="mt-8 pt-6 border-t border-border">
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!isHistoryOpen && historyRecords.length === 0) {
+                    setIsLoadingHistory(true);
+                    const records = await getCustomerEditHistory(customer.id);
+                    setHistoryRecords(records);
+                    setIsLoadingHistory(false);
+                  }
+                  setIsHistoryOpen(prev => !prev);
+                }}
+                className="flex items-center gap-2 text-[12px] font-bold text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <History size={14} />
+                <span>Lịch sử chỉnh sửa thông tin</span>
+                {isHistoryOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              </button>
+
+              {isHistoryOpen && (
+                <div className="mt-3 space-y-3 max-h-[250px] overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-2 duration-200">
+                  {isLoadingHistory ? (
+                    <div className="flex items-center justify-center py-6 text-muted-foreground">
+                      <Loader2 className="animate-spin mr-2" size={16} />
+                      <span className="text-[12px]">Đang tải...</span>
+                    </div>
+                  ) : historyRecords.length === 0 ? (
+                    <div className="text-center py-6 text-muted-foreground text-[12px]">
+                      Chưa có lịch sử chỉnh sửa nào.
+                    </div>
+                  ) : (
+                    historyRecords.map((record) => (
+                      <div key={record.id} className="bg-muted/30 p-3 rounded-xl border border-border/50 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary">
+                              {(record.nguoi_sua || '?')[0]}
+                            </div>
+                            <span className="text-[12px] font-bold text-foreground">{record.nguoi_sua}</span>
+                          </div>
+                          <span className="text-[10px] text-muted-foreground font-mono">
+                            {formatDateTime24h(new Date(record.thoi_gian || record.created_at))}
+                          </span>
+                        </div>
+                        <div className="space-y-1">
+                          {(record.thay_doi || []).map((change, i) => (
+                            <div key={i} className="flex items-start gap-2 text-[11px] pl-8">
+                              <span className="font-bold text-muted-foreground shrink-0 min-w-[100px]">{change.label}:</span>
+                              <span className="text-red-500 line-through truncate max-w-[150px]" title={String(change.old_value ?? 'Trống')}>
+                                {change.old_value || 'Trống'}
+                              </span>
+                              <span className="text-muted-foreground">→</span>
+                              <span className="text-emerald-600 font-bold truncate max-w-[150px]" title={String(change.new_value ?? 'Trống')}>
+                                {change.new_value || 'Trống'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="mt-10 flex items-center justify-end gap-3 pt-6 border-t border-border flex-wrap sm:flex-nowrap">
             <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-xl text-sm font-bold text-muted-foreground hover:bg-muted border border-border transition-all">Hủy bỏ</button>
             <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -425,6 +518,55 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
           </div>
         </form>
       </div>
+
+      {/* Duplicate Warning Modal */}
+      {duplicateWarning && (
+        <div className="fixed inset-0 flex items-center justify-center p-4 bg-black/40" style={{ zIndex: 10000001 }}>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-border shadow-2xl max-w-md w-full p-6 animate-in zoom-in-95 duration-200">
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0 w-12 h-12 rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center">
+                <AlertCircle className="w-6 h-6 text-yellow-600 dark:text-yellow-500" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-lg font-bold text-foreground">Khách hàng trùng</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Khách hàng <span className="font-semibold text-foreground">{duplicateWarning.ho_va_ten}</span> đã tồn tại trong hệ thống với:
+                </p>
+                <div className="mt-3 space-y-1 text-sm">
+                  {duplicateWarning.so_dien_thoai && (
+                    <p className="text-muted-foreground">📞 <span className="font-mono">{duplicateWarning.so_dien_thoai}</span></p>
+                  )}
+                  {duplicateWarning.bien_so_xe && (
+                    <p className="text-muted-foreground">🚗 <span className="font-mono">{duplicateWarning.bien_so_xe}</span></p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  navigate('/ban-hang/phieu-ban-hang', { state: { pendingCustomerId: duplicateWarning.id } });
+                  setDuplicateWarning(null);
+                  onClose();
+                }}
+                className="flex-1 px-4 py-2.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary/90 transition-all flex items-center justify-center gap-2"
+              >
+                <ShoppingCart size={16} />
+                <span>Sang Bán hàng</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setDuplicateWarning(null)}
+                className="flex-1 px-4 py-2.5 bg-muted hover:bg-muted/80 text-foreground font-semibold rounded-lg transition-all"
+              >
+                <span>Tiếp tục</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>,
     document.body
   );

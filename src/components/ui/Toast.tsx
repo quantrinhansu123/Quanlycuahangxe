@@ -23,7 +23,7 @@ export const ToastContainer: React.FC = () => {
 
   return (
     <div 
-      className="fixed z-9999 flex flex-col gap-3 pointer-events-none p-4 w-full sm:w-auto"
+      className="fixed z-[100000000] flex flex-col gap-3 pointer-events-none p-4 w-full sm:w-auto"
       style={{
         // Desktop: Top Right, Mobile: Top Center
         top: 0,
