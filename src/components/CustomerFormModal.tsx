@@ -42,7 +42,6 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
-  const location = useLocation();
   const { nhanVien } = useAuth();
 
   const [historyRecords, setHistoryRecords] = useState<CustomerEditHistory[]>([]);
@@ -289,6 +288,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
         }
 
         const savedCustomer = await upsertCustomer(dataToSave);
+        showToast('Đã lưu thông tin khách hàng thành công!', 'success');
         onSuccess(savedCustomer, shouldOrder, false);
         onClose();
       }
