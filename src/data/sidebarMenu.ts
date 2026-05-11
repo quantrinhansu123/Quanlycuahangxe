@@ -53,7 +53,17 @@ export const sidebarMenu: SidebarItem[] = [
       { label: 'Biểu đồ', path: '/bao-cao/bieu-do', icon: LineChart },
     ],
   },
-  { icon: Users, label: 'Nhân sự', path: '/nhan-su', viewKey: 'nhan-su' },
+  {
+    icon: Users,
+    label: 'Nhân sự',
+    path: '/nhan-su',
+    viewKey: 'nhan-su',
+    children: [
+      { label: 'Danh sách nhân viên', path: '/nhan-su/danh-sach' },
+      { label: 'Chấm công', path: '/nhan-su/bang-cham-cong' },
+      { label: 'Ứng viên', path: '/nhan-su/ung-vien' },
+    ]
+  },
   { icon: Wallet, label: 'Tiền lương', path: '/tien-luong', viewKey: 'tien-luong' }, // NV xem lương của mình, admin xem tất cả
   { icon: Box, label: 'Kho vận', path: '/kho-van', viewKey: 'kho-van' },
   { icon: ShieldCheck, label: 'Cài đặt phân quyền', path: '/cai-dat/phan-quyen', adminOnly: true, viewKey: 'cai-dat-phan-quyen' },

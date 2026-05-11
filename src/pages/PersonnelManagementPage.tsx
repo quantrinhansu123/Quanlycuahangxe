@@ -71,7 +71,7 @@ const PersonnelManagementPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const branchOptions = [...BRANCH_OPTIONS];
-  const positionOptions = ['kỹ thuật viên', 'quản lý'];
+  const positionOptions = ['kỹ thuật viên', 'quản lý', 'admin', 'kế toán', 'bán hàng'];
 
   const [personnelByBranch, setPersonnelByBranch] = useState<Record<string, NhanSu[]>>({});
   const [loading, setLoading] = useState(true);
