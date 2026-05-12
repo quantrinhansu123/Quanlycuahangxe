@@ -22,6 +22,9 @@ import {
   formatMinutesToHours,
   overtimeMinutesForDayShifts,
 } from '../utils/timekeeping';
+import { reverseGeocode } from '../utils/geocoding';
+import DonutChart from '../components/ui/DonutChart';
+import { Bell, History, Settings, MoreHorizontal, CheckCircle2, Home } from 'lucide-react';
 
 
 const AddAttendancePage: React.FC = () => {
@@ -38,6 +41,9 @@ const AddAttendancePage: React.FC = () => {
   // Monthly records for stats
   const [monthlyRecords, setMonthlyRecords] = useState<AttendanceRecord[]>([]);
   const [locationLoading, setLocationLoading] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [address, setAddress] = useState<string>('Đang xác định vị trí...');
+  const [statsToday, setStatsToday] = useState({ total: 0, checkedIn: 0, absent: 0 });
   const watchIdRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -89,6 +95,20 @@ const AddAttendancePage: React.FC = () => {
         });
         setMonthlyRecords(monthData || []);
 
+        // Stats for donut chart (all personnel today)
+        const { data: todayAll } = await getAttendancePaginated(1, 500, undefined, '', {
+          startDate: todayStr,
+          endDate: todayStr
+        });
+        const totalP = personnelData.length || 0;
+        const checkedInSet = new Set(todayAll?.map(r => r.nhan_su) || []);
+        const checkedInCount = checkedInSet.size;
+        setStatsToday({
+          total: totalP,
+          checkedIn: checkedInCount,
+          absent: Math.max(0, totalP - checkedInCount)
+        });
+
       } catch (err) {
         console.error("Lỗi khởi tạo AddAttendancePage:", err);
       } finally {
@@ -99,6 +119,26 @@ const AddAttendancePage: React.FC = () => {
 
     initData();
   }, [nhanVien]);
+
+  // Clock timer
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Reverse geocoding when location changes
+  useEffect(() => {
+    if (formData.vi_tri) {
+      const parts = formData.vi_tri.split(',').map(s => s.trim());
+      if (parts.length === 2) {
+        const lat = parseFloat(parts[0]);
+        const lon = parseFloat(parts[1]);
+        if (!isNaN(lat) && !isNaN(lon)) {
+          reverseGeocode(lat, lon).then(setAddress);
+        }
+      }
+    }
+  }, [formData.vi_tri]);
 
   // Auto-track location via watchPosition
   useEffect(() => {
@@ -315,311 +355,510 @@ const AddAttendancePage: React.FC = () => {
 
   return (
     <>
-      <div className="w-full flex-1 animate-in fade-in slide-in-from-bottom-4 duration-500 font-sans p-4 sm:p-6 lg:p-8 pb-24">
-        <div className="max-w-2xl mx-auto space-y-6">
-          {/* Header */}
-          <div className="flex items-center gap-4 mb-6">
-            <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 px-4 py-2 border border-border rounded-xl text-[13px] font-bold text-muted-foreground hover:bg-card transition-all shadow-sm active:scale-95">
-              <ArrowLeft size={18} /> Quay lại
-            </button>
-            <h1 className="text-2xl font-black text-foreground tracking-tight">Chấm công</h1>
-          </div>
-
-          {/* Monthly Stats Cards */}
-          <div className="grid grid-cols-3 gap-3">
-            <button
-              onClick={() => setShowDetailView('total')}
-              className="group bg-card rounded-2xl border border-border p-4 text-center shadow-sm hover:shadow-md hover:border-blue-200 hover:-translate-y-1 transition-all active:scale-95 outline-none"
-            >
-              <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-600 mx-auto mb-2 group-hover:scale-110 transition-transform">
-                <Calendar size={20} />
-              </div>
-              <p className="text-2xl font-black text-foreground">{monthlyStats.totalDays}</p>
-              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Ngày công</p>
-            </button>
-
-            <button
-              onClick={() => setShowDetailView('late')}
-              className="group bg-card rounded-2xl border border-border p-4 text-center shadow-sm hover:shadow-md hover:border-red-200 hover:-translate-y-1 transition-all active:scale-95 outline-none"
-            >
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform ${monthlyStats.lateCount > 0 ? 'bg-red-500/10 text-red-600' : 'bg-emerald-500/10 text-emerald-600'}`}>
-                <Clock size={20} />
-              </div>
-              <p className={`text-2xl font-black ${monthlyStats.lateCount > 0 ? 'text-red-600' : 'text-foreground'}`}>{monthlyStats.lateCount}</p>
-              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Đi muộn</p>
-            </button>
-
-            <button
-              onClick={() => setShowDetailView('overtime')}
-              className="group bg-card rounded-2xl border border-border p-4 text-center shadow-sm hover:shadow-md hover:border-orange-200 hover:-translate-y-1 transition-all active:scale-95 outline-none"
-            >
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform ${monthlyStats.totalOvertimeMinutes > 0 ? 'bg-orange-500/10 text-orange-600' : 'bg-muted text-muted-foreground'}`}>
-                <TrendingUp size={20} />
-              </div>
-              <p className={`text-2xl font-black ${monthlyStats.totalOvertimeMinutes > 0 ? 'text-orange-600' : 'text-foreground'}`}>
-                {monthlyStats.overtimeFormatted || '0p'}
-              </p>
-              <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Tăng ca</p>
-            </button>
-          </div>
-          <p className="text-[11px] text-center text-muted-foreground font-medium -mt-3">
-            Thống kê {currentMonthLabel}
-          </p>
-
-          {/* Missing Check-in/out Warnings */}
-          {monthlyStats.missingRecords.length > 0 && (
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-2 shadow-sm animate-in fade-in duration-300">
-              <div className="flex items-center gap-2 mb-1">
-                <AlertTriangle size={18} className="text-amber-600 shrink-0" />
-                <h3 className="text-[13px] font-bold text-amber-800">
-                  Cảnh báo: Quên quẹt giờ ({monthlyStats.missingRecords.length} ngày)
-                </h3>
-              </div>
-              <div className="space-y-1.5 max-h-[150px] overflow-y-auto custom-scrollbar">
-                {monthlyStats.missingRecords.map((item, idx) => {
-                  const dateFormatted = new Date(item.ngay).toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit' });
-                  return (
-                    <div key={idx} className="flex items-center gap-2 px-3 py-1.5 bg-white/70 rounded-lg border border-amber-100 text-[12px]">
-                      <Calendar size={14} className="text-amber-500 shrink-0" />
-                      <span className="font-bold text-amber-900">{dateFormatted}</span>
-                      <span className="text-amber-700">—</span>
-                      <span className={`font-bold ${item.missing === 'checkout' ? 'text-orange-600' : 'text-red-600'}`}>
-                        {item.missing === 'checkout' ? 'Thiếu giờ RA' : 'Thiếu giờ VÀO'}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-              <p className="text-[10px] text-amber-600 italic mt-1">
-                Báo cho quản lý để được bổ sung giờ chấm công.
-              </p>
+      {/* Desktop View - Hidden on Mobile */}
+      <div className="hidden sm:block">
+        <div className="w-full flex-1 animate-in fade-in slide-in-from-bottom-4 duration-500 font-sans p-4 sm:p-6 lg:p-8 pb-24">
+          <div className="max-w-2xl mx-auto space-y-6">
+            {/* Header */}
+            <div className="flex items-center gap-4 mb-6">
+              <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 px-4 py-2 border border-border rounded-xl text-[13px] font-bold text-muted-foreground hover:bg-card transition-all shadow-sm active:scale-95">
+                <ArrowLeft size={18} /> Quay lại
+              </button>
+              <h1 className="text-2xl font-black text-foreground tracking-tight">Chấm công</h1>
             </div>
-          )}
 
-          {/* Main Card */}
-          <div className="bg-card rounded-3xl border border-border shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-300">
-            <div className="p-6 sm:p-8">
-              <div className="flex flex-col items-center mb-8">
-                <div className="relative group">
-                  <div className="w-32 h-32 rounded-3xl border-4 border-card bg-primary/10 flex items-center justify-center text-primary overflow-hidden shadow-inner">
-                    {formData.anh ? (
-                      <img src={formData.anh} alt="Preview" className="w-full h-full object-cover" />
-                    ) : (
-                      <Camera size={48} className="opacity-50" />
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="absolute bottom-[-10px] right-[-10px] w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-all border-4 border-card"
-                  >
-                    <Camera size={20} />
-                  </button>
-                  <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" capture="user" />
+            {/* Monthly Stats Cards */}
+            <div className="grid grid-cols-3 gap-3">
+              <button
+                onClick={() => setShowDetailView('total')}
+                className="group bg-card rounded-2xl border border-border p-4 text-center shadow-sm hover:shadow-md hover:border-blue-200 hover:-translate-y-1 transition-all active:scale-95 outline-none"
+              >
+                <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-600 mx-auto mb-2 group-hover:scale-110 transition-transform">
+                  <Calendar size={20} />
                 </div>
-                <p className="mt-4 text-[12px] text-muted-foreground text-center">Chụp hoặc tải ảnh check-in</p>
-              </div>
+                <p className="text-2xl font-black text-foreground">{monthlyStats.totalDays}</p>
+                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Ngày công</p>
+              </button>
 
-              {/* Location Map */}
-              {/* Location Map */}
-              <div className="mb-6 rounded-2xl overflow-hidden border border-border shadow-sm">
-                <div className="flex items-center gap-2 px-4 py-2 bg-muted/50 border-b border-border">
-                  <MapPin size={14} className="text-primary" />
-                  <span className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider">Vị trí chấm công</span>
-                  {coordinates && (
-                    <span className="text-[10px] text-muted-foreground font-mono hidden sm:inline">{formData.vi_tri}</span>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setLocationLoading(true);
-                      getLocation();
-                      setTimeout(() => setLocationLoading(false), 3000);
-                    }}
-                    className="ml-auto flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold text-primary bg-primary/5 hover:bg-primary/10 active:scale-95 transition-all border border-primary/20"
-                    title="Cập nhật vị trí"
-                  >
-                    <RefreshCw size={12} className={locationLoading ? 'animate-spin' : ''} />
-                    <span className="hidden sm:inline">Cập nhật</span>
-                  </button>
+              <button
+                onClick={() => setShowDetailView('late')}
+                className="group bg-card rounded-2xl border border-border p-4 text-center shadow-sm hover:shadow-md hover:border-red-200 hover:-translate-y-1 transition-all active:scale-95 outline-none"
+              >
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform ${monthlyStats.lateCount > 0 ? 'bg-red-500/10 text-red-600' : 'bg-emerald-500/10 text-emerald-600'}`}>
+                  <Clock size={20} />
                 </div>
-                {coordinates ? (
-                  <iframe
-                    key={`${coordinates.lat}-${coordinates.lon}`}
-                    title="Vị trí chấm công"
-                    width="100%"
-                    height="200"
-                    style={{ border: 0 }}
-                    loading="lazy"
-                    referrerPolicy="no-referrer-when-downgrade"
-                    src={`https://www.openstreetmap.org/export/embed.html?bbox=${coordinates.lon - 0.005}%2C${coordinates.lat - 0.003}%2C${coordinates.lon + 0.005}%2C${coordinates.lat + 0.003}&layer=mapnik&marker=${coordinates.lat}%2C${coordinates.lon}`}
-                  />
-                ) : (
-                  <div className="h-[120px] flex flex-col items-center justify-center gap-2 text-muted-foreground bg-muted/20">
-                    {locationLoading ? (
-                      <>
-                        <Loader2 size={20} className="animate-spin text-primary" />
-                        <span className="text-[12px] font-medium">Đang lấy vị trí...</span>
-                      </>
-                    ) : (
-                      <>
-                        <MapPin size={24} className="opacity-30" />
-                        <span className="text-[12px]">Chưa có vị trí. Bấm "Cập nhật" để lấy.</span>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
+                <p className={`text-2xl font-black ${monthlyStats.lateCount > 0 ? 'text-red-600' : 'text-foreground'}`}>{monthlyStats.lateCount}</p>
+                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Đi muộn</p>
+              </button>
 
-              <div className="space-y-5">
-                <div className="space-y-1.5">
-                  <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                    <User size={14} className="text-primary/70" />
-                    Nhân sự <span className="text-red-500">*</span>
-                  </label>
-                  {isAdmin ? (
-                    <select
-                      value={formData.nhan_su || ''}
-                      onChange={(e) => setFormData(prev => ({ ...prev, nhan_su: e.target.value }))}
-                      className="w-full px-4 py-3 bg-card border border-border rounded-xl font-bold text-[14px] text-foreground focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                    >
-                      <option value="">Chọn nhân sự</option>
-                      {formData.nhan_su && !personnel.some(p => p.ho_ten === formData.nhan_su) && (
-                        <option value={formData.nhan_su}>{formData.nhan_su}</option>
-                      )}
-                      {personnel.map(p => (
-                        <option key={p.id} value={p.ho_ten}>{p.ho_ten}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      type="text"
-                      value={formData.nhan_su || ''}
-                      disabled
-                      className="w-full px-4 py-3 bg-muted/30 border border-border rounded-xl font-bold text-[14px] text-foreground cursor-not-allowed opacity-80"
-                    />
-                  )}
-                  {!isAdmin && <p className="text-[10px] text-muted-foreground italic">Tự động lấy theo tài khoản đăng nhập.</p>}
+              <button
+                onClick={() => setShowDetailView('overtime')}
+                className="group bg-card rounded-2xl border border-border p-4 text-center shadow-sm hover:shadow-md hover:border-orange-200 hover:-translate-y-1 transition-all active:scale-95 outline-none"
+              >
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-2 group-hover:scale-110 transition-transform ${monthlyStats.totalOvertimeMinutes > 0 ? 'bg-orange-500/10 text-orange-600' : 'bg-muted text-muted-foreground'}`}>
+                  <TrendingUp size={20} />
                 </div>
+                <p className={`text-2xl font-black ${monthlyStats.totalOvertimeMinutes > 0 ? 'text-orange-600' : 'text-foreground'}`}>
+                  {monthlyStats.overtimeFormatted || '0p'}
+                </p>
+                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Tăng ca</p>
+              </button>
+            </div>
+            <p className="text-[11px] text-center text-muted-foreground font-medium -mt-3">
+              Thống kê {currentMonthLabel}
+            </p>
 
-                <div className="space-y-1.5">
-                  <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                    <Calendar size={14} className="text-primary/70" />
-                    Ngày <span className="text-red-500">*</span>
-                  </label>
-                  {isAdmin ? (
-                    <input
-                      type="date"
-                      value={formData.ngay || ''}
-                      onChange={(e) => setFormData(prev => ({ ...prev, ngay: e.target.value }))}
-                      className="w-full px-4 py-3 bg-card border border-border rounded-xl font-bold text-[14px] text-foreground focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                    />
-                  ) : (
-                    <div className="w-full px-4 py-3 bg-muted/30 border border-border rounded-xl font-bold text-[14px] text-foreground cursor-not-allowed opacity-80 flex items-center">
-                      {formData.ngay ? new Date(formData.ngay).toLocaleDateString('vi-VN') : '—'}
-                    </div>
-                  )}
+            {/* Missing Check-in/out Warnings */}
+            {monthlyStats.missingRecords.length > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-2 shadow-sm animate-in fade-in duration-300">
+                <div className="flex items-center gap-2 mb-1">
+                  <AlertTriangle size={18} className="text-amber-600 shrink-0" />
+                  <h3 className="text-[13px] font-bold text-amber-800">
+                    Cảnh báo: Quên quẹt giờ ({monthlyStats.missingRecords.length} ngày)
+                  </h3>
                 </div>
-
-                {/* Box chấm công thông minh */}
-                <div className="flex flex-col gap-4 mt-8 pt-6 border-t border-border">
-                  {/* Hiển thị trạng thái hiện tại nếu đã có dữ liệu */}
-                  {(formData.checkin || formData.checkout) && (
-                    <div className="p-4 bg-muted/30 border border-border rounded-2xl text-center space-y-1.5 mb-2 shadow-inner">
-                      <p className="text-[12px] font-bold text-muted-foreground uppercase tracking-widest opacity-70">Trạng thái hôm nay</p>
-                      <div className="flex justify-center gap-6">
-                        {formData.checkin && (
-                          <div className="text-center">
-                            <p className="text-[10px] uppercase font-bold text-emerald-600/70">Giờ vào</p>
-                            <p className="text-lg font-black text-emerald-700">{formData.checkin}</p>
-                          </div>
-                        )}
-                        {formData.checkout && (
-                          <div className="text-center">
-                            <p className="text-[10px] uppercase font-bold text-orange-600/70">Giờ ra</p>
-                            <p className="text-lg font-black text-orange-700">{formData.checkout}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {(() => {
-                    const hour = new Date().getHours();
-                    const isMorning = hour >= 5 && hour < 12;
-                    const isAfternoon = hour >= 14 && hour < 22;
-
-                    if (isMorning) {
-                      return (
-                        <button
-                          type="button"
-                          disabled={submitting}
-                          onClick={() => handleQuickSubmit('checkin')}
-                          className="w-full py-4 rounded-xl text-lg font-bold text-white bg-emerald-500 hover:bg-emerald-600 shadow-lg shadow-emerald-500/30 transition-all active:scale-95 flex flex-col items-center justify-center gap-1 disabled:opacity-50"
-                        >
-                          <div className="flex items-center gap-2">
-                            {submitting ? <Loader2 className="animate-spin" /> : <Clock size={24} />}
-                            <span>CHẤM CÔNG GIỜ VÀO</span>
-                          </div>
-                          <span className="text-[11px] font-medium opacity-80">(Tự động nhận diện buổi sáng: 5h-12h)</span>
-                        </button>
-                      );
-                    }
-
-                    if (isAfternoon) {
-                      return (
-                        <button
-                          type="button"
-                          disabled={submitting}
-                          onClick={() => handleQuickSubmit('checkout')}
-                          className="w-full py-4 rounded-xl text-lg font-bold text-white bg-orange-500 hover:bg-orange-600 shadow-lg shadow-orange-500/30 transition-all active:scale-95 flex flex-col items-center justify-center gap-1 disabled:opacity-50"
-                        >
-                          <div className="flex items-center gap-2">
-                            {submitting ? <Loader2 className="animate-spin" /> : <Clock size={24} />}
-                            <span>CHẤM CÔNG GIỜ RA</span>
-                          </div>
-                          <span className="text-[11px] font-medium opacity-80">(Tự động nhận diện buổi chiều: 14h-22h)</span>
-                        </button>
-                      );
-                    }
-
-                    // Ngoài khung giờ auto hoặc giờ nghỉ trưa
+                <div className="space-y-1.5 max-h-[150px] overflow-y-auto custom-scrollbar">
+                  {monthlyStats.missingRecords.map((item, idx) => {
+                    const dateFormatted = new Date(item.ngay).toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit' });
                     return (
-                      <div className="space-y-3">
-                        <p className="text-[12px] text-center text-muted-foreground font-bold italic mb-1">Hiện tại ngoài khung giờ tự động, vui lòng chọn thủ công:</p>
-                        <div className="grid grid-cols-2 gap-3">
+                      <div key={idx} className="flex items-center gap-2 px-3 py-1.5 bg-white/70 rounded-lg border border-amber-100 text-[12px]">
+                        <Calendar size={14} className="text-amber-500 shrink-0" />
+                        <span className="font-bold text-amber-900">{dateFormatted}</span>
+                        <span className="text-amber-700">—</span>
+                        <span className={`font-bold ${item.missing === 'checkout' ? 'text-orange-600' : 'text-red-600'}`}>
+                          {item.missing === 'checkout' ? 'Thiếu giờ RA' : 'Thiếu giờ VÀO'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-[10px] text-amber-600 italic mt-1">
+                  Báo cho quản lý để được bổ sung giờ chấm công.
+                </p>
+              </div>
+            )}
+
+            {/* Main Card */}
+            <div className="bg-card rounded-3xl border border-border shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-300">
+              <div className="p-6 sm:p-8">
+                <div className="flex flex-col items-center mb-8">
+                  <div className="relative group">
+                    <div className="w-32 h-32 rounded-3xl border-4 border-card bg-primary/10 flex items-center justify-center text-primary overflow-hidden shadow-inner">
+                      {formData.anh ? (
+                        <img src={formData.anh} alt="Preview" className="w-full h-full object-cover" />
+                      ) : (
+                        <Camera size={48} className="opacity-50" />
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="absolute bottom-[-10px] right-[-10px] w-12 h-12 bg-primary text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-all border-4 border-card"
+                    >
+                      <Camera size={20} />
+                    </button>
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" capture="user" />
+                  </div>
+                  <p className="mt-4 text-[12px] text-muted-foreground text-center">Chụp hoặc tải ảnh check-in</p>
+                </div>
+
+                {/* Location Map */}
+                <div className="mb-6 rounded-2xl overflow-hidden border border-border shadow-sm">
+                  <div className="flex items-center gap-2 px-4 py-2 bg-muted/50 border-b border-border">
+                    <MapPin size={14} className="text-primary" />
+                    <span className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider">Vị trí chấm công</span>
+                    {coordinates && (
+                      <span className="text-[10px] text-muted-foreground font-mono hidden sm:inline">{formData.vi_tri}</span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLocationLoading(true);
+                        getLocation();
+                        setTimeout(() => setLocationLoading(false), 3000);
+                      }}
+                      className="ml-auto flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold text-primary bg-primary/5 hover:bg-primary/10 active:scale-95 transition-all border border-primary/20"
+                      title="Cập nhật vị trí"
+                    >
+                      <RefreshCw size={12} className={locationLoading ? 'animate-spin' : ''} />
+                      <span className="hidden sm:inline">Cập nhật</span>
+                    </button>
+                  </div>
+                  {coordinates ? (
+                    <iframe
+                      key={`${coordinates.lat}-${coordinates.lon}`}
+                      title="Vị trí chấm công"
+                      width="100%"
+                      height="200"
+                      style={{ border: 0 }}
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                      src={`https://www.openstreetmap.org/export/embed.html?bbox=${coordinates.lon - 0.005}%2C${coordinates.lat - 0.003}%2C${coordinates.lon + 0.005}%2C${coordinates.lat + 0.003}&layer=mapnik&marker=${coordinates.lat}%2C${coordinates.lon}`}
+                    />
+                  ) : (
+                    <div className="h-[120px] flex flex-col items-center justify-center gap-2 text-muted-foreground bg-muted/20">
+                      {locationLoading ? (
+                        <>
+                          <Loader2 size={20} className="animate-spin text-primary" />
+                          <span className="text-[12px] font-medium">Đang lấy vị trí...</span>
+                        </>
+                      ) : (
+                        <>
+                          <MapPin size={24} className="opacity-30" />
+                          <span className="text-[12px]">Chưa có vị trí. Bấm "Cập nhật" để lấy.</span>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-5">
+                  <div className="space-y-1.5">
+                    <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                      <User size={14} className="text-primary/70" />
+                      Nhân sự <span className="text-red-500">*</span>
+                    </label>
+                    {isAdmin ? (
+                      <select
+                        value={formData.nhan_su || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, nhan_su: e.target.value }))}
+                        className="w-full px-4 py-3 bg-card border border-border rounded-xl font-bold text-[14px] text-foreground focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                      >
+                        <option value="">Chọn nhân sự</option>
+                        {formData.nhan_su && !personnel.some(p => p.ho_ten === formData.nhan_su) && (
+                          <option value={formData.nhan_su}>{formData.nhan_su}</option>
+                        )}
+                        {personnel.map(p => (
+                          <option key={p.id} value={p.ho_ten}>{p.ho_ten}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        value={formData.nhan_su || ''}
+                        disabled
+                        className="w-full px-4 py-3 bg-muted/30 border border-border rounded-xl font-bold text-[14px] text-foreground cursor-not-allowed opacity-80"
+                      />
+                    )}
+                    {!isAdmin && <p className="text-[10px] text-muted-foreground italic">Tự động lấy theo tài khoản đăng nhập.</p>}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                      <Calendar size={14} className="text-primary/70" />
+                      Ngày <span className="text-red-500">*</span>
+                    </label>
+                    {isAdmin ? (
+                      <input
+                        type="date"
+                        value={formData.ngay || ''}
+                        onChange={(e) => setFormData(prev => ({ ...prev, ngay: e.target.value }))}
+                        className="w-full px-4 py-3 bg-card border border-border rounded-xl font-bold text-[14px] text-foreground focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                      />
+                    ) : (
+                      <div className="w-full px-4 py-3 bg-muted/30 border border-border rounded-xl font-bold text-[14px] text-foreground cursor-not-allowed opacity-80 flex items-center">
+                        {formData.ngay ? new Date(formData.ngay).toLocaleDateString('vi-VN') : '—'}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Box chấm công thông minh */}
+                  <div className="flex flex-col gap-4 mt-8 pt-6 border-t border-border">
+                    {/* Hiển thị trạng thái hiện tại nếu đã có dữ liệu */}
+                    {(formData.checkin || formData.checkout) && (
+                      <div className="p-4 bg-muted/30 border border-border rounded-2xl text-center space-y-1.5 mb-2 shadow-inner">
+                        <p className="text-[12px] font-bold text-muted-foreground uppercase tracking-widest opacity-70">Trạng thái hôm nay</p>
+                        <div className="flex justify-center gap-6">
+                          {formData.checkin && (
+                            <div className="text-center">
+                              <p className="text-[10px] uppercase font-bold text-emerald-600/70">Giờ vào</p>
+                              <p className="text-lg font-black text-emerald-700">{formData.checkin}</p>
+                            </div>
+                          )}
+                          {formData.checkout && (
+                            <div className="text-center">
+                              <p className="text-[10px] uppercase font-bold text-orange-600/70">Giờ ra</p>
+                              <p className="text-lg font-black text-orange-700">{formData.checkout}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {(() => {
+                      const hour = new Date().getHours();
+                      const isMorning = hour >= 5 && hour < 12;
+                      const isAfternoon = hour >= 14 && hour < 22;
+
+                      if (isMorning) {
+                        return (
                           <button
                             type="button"
                             disabled={submitting}
                             onClick={() => handleQuickSubmit('checkin')}
-                            className="py-3 rounded-xl text-[14px] font-bold text-white bg-emerald-500 hover:bg-emerald-600 shadow-md transition-all active:scale-95 disabled:opacity-50"
+                            className="w-full py-4 rounded-xl text-lg font-bold text-white bg-emerald-500 hover:bg-emerald-600 shadow-lg shadow-emerald-500/30 transition-all active:scale-95 flex flex-col items-center justify-center gap-1 disabled:opacity-50"
                           >
-                            CHẤM GIỜ VÀO
+                            <div className="flex items-center gap-2">
+                              {submitting ? <Loader2 className="animate-spin" /> : <Clock size={24} />}
+                              <span>CHẤM CÔNG GIỜ VÀO</span>
+                            </div>
+                            <span className="text-[11px] font-medium opacity-80">(Tự động nhận diện buổi sáng: 5h-12h)</span>
                           </button>
+                        );
+                      }
+
+                      if (isAfternoon) {
+                        return (
                           <button
                             type="button"
                             disabled={submitting}
                             onClick={() => handleQuickSubmit('checkout')}
-                            className="py-3 rounded-xl text-[14px] font-bold text-white bg-orange-500 hover:bg-orange-600 shadow-md transition-all active:scale-95 disabled:opacity-50"
+                            className="w-full py-4 rounded-xl text-lg font-bold text-white bg-orange-500 hover:bg-orange-600 shadow-lg shadow-orange-500/30 transition-all active:scale-95 flex flex-col items-center justify-center gap-1 disabled:opacity-50"
                           >
-                            CHẤM GIỜ RA
+                            <div className="flex items-center gap-2">
+                              {submitting ? <Loader2 className="animate-spin" /> : <Clock size={24} />}
+                              <span>CHẤM CÔNG GIỜ RA</span>
+                            </div>
+                            <span className="text-[11px] font-medium opacity-80">(Tự động nhận diện buổi chiều: 14h-22h)</span>
                           </button>
+                        );
+                      }
+
+                      return (
+                        <div className="space-y-3">
+                          <p className="text-[12px] text-center text-muted-foreground font-bold italic mb-1">Hiện tại ngoài khung giờ tự động, vui lòng chọn thủ công:</p>
+                          <div className="grid grid-cols-2 gap-3">
+                            <button
+                              type="button"
+                              disabled={submitting}
+                              onClick={() => handleQuickSubmit('checkin')}
+                              className="py-3 rounded-xl text-[14px] font-bold text-white bg-emerald-500 hover:bg-emerald-600 shadow-md transition-all active:scale-95 disabled:opacity-50"
+                            >
+                              CHẤM GIỜ VÀO
+                            </button>
+                            <button
+                              type="button"
+                              disabled={submitting}
+                              onClick={() => handleQuickSubmit('checkout')}
+                              className="py-3 rounded-xl text-[14px] font-bold text-white bg-orange-500 hover:bg-orange-600 shadow-md transition-all active:scale-95 disabled:opacity-50"
+                            >
+                              CHẤM GIỜ RA
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })()}
+                      );
+                    })()}
+                  </div>
                 </div>
               </div>
-
             </div>
           </div>
         </div>
       </div>
 
-      {/* Stats Detail Overlay */}
+      {/* Mobile View - Premium App Style */}
+      <div className="block sm:hidden min-h-screen bg-[#061e1a] text-white font-sans pb-24 animate-in fade-in duration-500">
+        {/* Header */}
+        <div className="px-6 pt-12 pb-8 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/20 overflow-hidden flex items-center justify-center shadow-inner">
+              {nhanVien?.anh ? (
+                <img src={nhanVien.anh} className="w-full h-full object-cover" alt="Profile" />
+              ) : (
+                <User size={24} className="text-white/60" />
+              )}
+            </div>
+            <div>
+              <p className="text-[11px] font-bold text-white/50 uppercase tracking-widest">Xin chào,</p>
+              <p className="text-base font-black text-white">{nhanVien?.ho_ten || 'Bạn'}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Content Cards */}
+        <div className="px-6 space-y-6">
+          {/* Status Card */}
+          <div className="bg-white rounded-[32px] p-6 text-[#061e1a] shadow-2xl">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-sm font-black uppercase tracking-tight opacity-70">Trạng thái hôm nay</h2>
+              <MoreHorizontal 
+                size={20} 
+                className="opacity-40 cursor-pointer active:scale-125 transition-all" 
+                onClick={() => setShowDetailView('total')}
+              />
+            </div>
+
+            <div className="flex flex-col items-center py-4">
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 mb-2">
+                <CheckCircle2 size={14} />
+                <span className="text-[11px] font-bold uppercase tracking-wide">
+                  {formData.checkin ? 'Đã check-in' : 'Chưa check-in'}
+                </span>
+              </div>
+              <p className="text-6xl font-black tracking-tighter mb-1">
+                {currentTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false })}
+              </p>
+              <p className="text-[13px] font-bold opacity-50">
+                {currentTime.toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mt-4">
+              <button
+                onClick={() => handleQuickSubmit('checkin')}
+                disabled={submitting}
+                className={`py-4 rounded-2xl flex items-center justify-center gap-2 font-black text-sm transition-all active:scale-95 ${formData.checkin ? 'bg-[#061e1a]/5 text-[#061e1a]/40' : 'bg-[#061e1a] text-white shadow-lg'
+                  }`}
+              >
+                <Clock size={18} />
+                CHECK-IN
+              </button>
+              <button
+                onClick={() => handleQuickSubmit('checkout')}
+                disabled={submitting}
+                className={`py-4 rounded-2xl flex items-center justify-center gap-2 font-black text-sm transition-all active:scale-95 border-2 ${formData.checkout ? 'bg-orange-50 text-orange-600 border-orange-100' : 'border-[#061e1a]/10 text-[#061e1a]/60'
+                  }`}
+              >
+                <Clock size={18} />
+                CHECK-OUT
+              </button>
+            </div>
+          </div>
+
+          {/* Location Card */}
+          <div className="bg-white rounded-[28px] p-5 flex items-center gap-4 shadow-xl">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0 overflow-hidden">
+              {formData.anh ? (
+                <img src={formData.anh} className="w-full h-full object-cover" alt="Check-in" />
+              ) : (
+                <MapPin size={24} />
+              )}
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <p className="text-[11px] font-bold text-black/40 uppercase tracking-widest mb-0.5">Vị trí hiện tại</p>
+              <p className="text-[13px] font-black text-black leading-tight line-clamp-2">{address}</p>
+            </div>
+            <div className="flex gap-1.5">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="w-10 h-10 rounded-xl bg-black/5 flex items-center justify-center text-black/60 active:scale-90 transition-all border border-black/5"
+              >
+                <Camera size={18} />
+              </button>
+              <button
+                onClick={() => getLocation()}
+                className="px-3 py-1.5 rounded-xl bg-black/5 text-[10px] font-black text-black/60 uppercase active:scale-90 transition-all border border-black/5"
+              >
+                GPS
+              </button>
+            </div>
+          </div>
+
+          {/* Stats Row */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-white rounded-[28px] p-5 shadow-xl">
+              <div className="flex items-center gap-2 mb-3">
+                <Calendar size={18} className="text-emerald-600" />
+                <p className="text-[11px] font-black text-black/40 uppercase tracking-widest">Lịch làm việc</p>
+              </div>
+              <p className="text-[14px] font-black text-black">
+                {new Date().toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+              </p>
+              <div className="mt-3 flex gap-1">
+                {[...Array(7)].map((_, i) => (
+                  <div key={i} className={`w-1.5 h-1.5 rounded-full ${i === 4 ? 'bg-emerald-500' : 'bg-black/10'}`}></div>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-white rounded-[28px] p-5 shadow-xl">
+              <div className="flex items-center gap-2 mb-3">
+                <Clock size={18} className="text-blue-600" />
+                <p className="text-[11px] font-black text-black/40 uppercase tracking-widest">Tổng thời gian</p>
+              </div>
+              <p className="text-2xl font-black text-black">
+                {formData.checkin && formData.checkout
+                  ? calculateAttendanceStatus(formData.checkin, formData.checkout).totalTime
+                  : '0h 0m'}
+              </p>
+              <p className="text-[10px] font-bold text-black/40 uppercase mt-1">Hôm nay</p>
+            </div>
+          </div>
+
+          {/* Personnel Overview */}
+          <div className="bg-white rounded-[32px] p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-sm font-black text-black uppercase tracking-tight">Tổng quan nhân sự</h3>
+              <p 
+                onClick={() => navigate('/nhan-su/bang-cham-cong')}
+                className="text-[11px] font-bold text-emerald-600 uppercase cursor-pointer active:scale-95 transition-all"
+              >
+                Xem tất cả ›
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between gap-4">
+              <DonutChart
+                data={[
+                  { label: 'Đã check-in', value: statsToday.checkedIn, color: '#10b981' },
+                  { label: 'Vắng mặt', value: statsToday.absent, color: '#ef4444' }
+                ]}
+                className="shrink-0"
+              />
+
+              <div className="flex-1 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+                    <span className="text-[11px] font-bold text-black/60">Đã check-in</span>
+                  </div>
+                  <span className="text-[11px] font-black text-black">
+                    {statsToday.checkedIn} ({statsToday.total > 0 ? Math.round((statsToday.checkedIn / statsToday.total) * 100) : 0}%)
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                    <span className="text-[11px] font-bold text-black/60">Vắng mặt</span>
+                  </div>
+                  <span className="text-[11px] font-black text-black">
+                    {statsToday.absent} ({statsToday.total > 0 ? Math.round((statsToday.absent / statsToday.total) * 100) : 0}%)
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Nav Bar */}
+        <div className="fixed bottom-0 left-0 right-0 h-20 bg-white border-t border-black/5 flex items-center justify-around px-4 rounded-t-[32px] shadow-[0_-10px_40px_rgba(0,0,0,0.05)] z-50">
+          <div className="flex flex-col items-center gap-1 text-emerald-600" onClick={() => navigate('/')}>
+            <Home size={22} />
+            <span className="text-[9px] font-bold uppercase">Trang chủ</span>
+          </div>
+          <div className="flex flex-col items-center gap-1 text-black/30" onClick={() => setShowDetailView('total')}>
+            <History size={22} />
+            <span className="text-[9px] font-bold uppercase">Lịch sử</span>
+          </div>
+          <div className="flex flex-col items-center gap-1 text-black/30" onClick={() => navigate('/nhan-su/danh-sach')}>
+            <User size={22} />
+            <span className="text-[9px] font-bold uppercase">Nhân sự</span>
+          </div>
+          <div className="flex flex-col items-center gap-1 text-black/30" onClick={() => navigate('/bao-cao')}>
+            <TrendingUp size={22} />
+            <span className="text-[9px] font-bold uppercase">Báo cáo</span>
+          </div>
+          <div className="flex flex-col items-center gap-1 text-black/30">
+            <Settings size={22} />
+            <span className="text-[9px] font-bold uppercase">Cài đặt</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats Detail Overlay (Common) */}
       <AnimatePresence>
         {showDetailView && (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}

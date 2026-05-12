@@ -25,6 +25,13 @@ export interface BangLuong {
   thuc_linh: number;
   trang_thai: string;
   ghi_chu: string | null;
+  // Bổ sung các trường hiển thị chi tiết (không nhất thiết có trong DB)
+  so_gio_tang_ca?: number;
+  tien_an?: number;
+  thuong_khac?: number;
+  phu_cap_chuyen_can?: number;
+  phu_cap_xang_xe?: number;
+  phu_cap_tham_nien?: number;
   nhan_su?: {
     id: string;
     ho_ten: string;
