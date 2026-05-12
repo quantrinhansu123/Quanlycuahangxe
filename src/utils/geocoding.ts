@@ -18,28 +18,15 @@ export async function reverseGeocode(lat: number, lon: number): Promise<string> 
 
     const data = await response.json();
     
-    // Build a nice address string
-    const addr = data.address;
-    if (!addr) return `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+    if (!data.display_name) return `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
 
-    const parts = [];
-    if (addr.building) parts.push(addr.building);
-    else if (addr.amenity) parts.push(addr.amenity);
-    else if (addr.shop) parts.push(addr.shop);
-    else if (addr.office) parts.push(addr.office);
-
-    if (addr.house_number || addr.road) {
-      parts.push([addr.house_number, addr.road].filter(Boolean).join(' '));
-    }
-    
-    if (addr.suburb) parts.push(addr.suburb);
-    else if (addr.neighbourhood) parts.push(addr.neighbourhood);
-    
-    if (addr.city_district || addr.district) parts.push(addr.city_district || addr.district);
-    
-    if (addr.city || addr.state) parts.push(addr.city || addr.state);
-
-    return parts.length > 0 ? parts.join(', ') : data.display_name;
+    // Use the full display name provided by OSM, but clean it up for the UI
+    // Remove postal codes, country names, and extra whitespace
+    return data.display_name
+      .replace(/, \d{5,}/g, '') // Remove postal codes (e.g., 100000)
+      .replace(/, Việt Nam$/i, '') // Remove country
+      .replace(/, Vietnam$/i, '') // Remove country (English)
+      .trim();
   } catch (error) {
     console.error('Error in reverseGeocode:', error);
     return `${lat.toFixed(6)}, ${lon.toFixed(6)}`;

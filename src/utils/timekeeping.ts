@@ -5,8 +5,10 @@ export interface AttendanceStatus {
   isLate: boolean;          // Có đi muộn không (checkin > 07:40)
   lateMinutes: number;      // Số phút đi muộn (so với mốc 07:30 gốc)
   isAbsent: boolean;        // Không có dữ liệu ở Ngày đó => Vắng mặt
-  overtimeMinutes: number;  // (Giờ ra − 19:00) tính bằng phút, nếu > 0
+  overtimeMinutes: number;  // Tính bằng phút
   overtimeFormatted: string;// Chuỗi format VD: "1h 30p"
+  totalMinutes: number;     // Tổng thời gian làm việc (phút)
+  totalTime: string;        // Chuỗi format VD: "8h 15p"
 }
 
 // Hàm format phút thành hh:mm dễ nhìn
@@ -74,7 +76,9 @@ export const calculateAttendanceStatus = (checkin: string | null, checkout: stri
     lateMinutes: 0,
     isAbsent: !checkin && !checkout,
     overtimeMinutes: 0,
-    overtimeFormatted: ''
+    overtimeFormatted: '',
+    totalMinutes: 0,
+    totalTime: '0h 0m'
   };
 
   if (result.isAbsent) return result;
@@ -93,11 +97,22 @@ export const calculateAttendanceStatus = (checkin: string | null, checkout: stri
 
   // === 2. TĂNG CA: mọi phút sau mốc MOC_TANG_CA_TINH_TU (mặc định 19:00)
   if (outMins > 0) {
-    const phutSauMoc = outMins - MOC_TANG_CA_TINH_TU;
+    // Mốc bắt đầu thực tế để tính tăng ca: 
+    // Nếu vào sau 19:00 thì tính từ lúc vào, nếu vào trước 19:00 thì tính từ 19:00
+    const startOtMins = Math.max(inMins, MOC_TANG_CA_TINH_TU);
+    const phutSauMoc = outMins - startOtMins;
+    
     if (phutSauMoc > 0) {
       result.overtimeMinutes = phutSauMoc;
       result.overtimeFormatted = formatMinutesToHours(phutSauMoc);
     }
+  }
+
+  // === 3. TỔNG THỜI GIAN LÀM VIỆC ===
+  if (inMins > 0 && outMins > inMins) {
+    const total = outMins - inMins;
+    result.totalMinutes = total;
+    result.totalTime = formatMinutesToHours(total) || '0h 0m';
   }
 
   return result;

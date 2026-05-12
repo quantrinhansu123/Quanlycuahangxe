@@ -157,7 +157,7 @@ const AddAttendancePage: React.FC = () => {
         logGeolocationError('watchPosition chấm công', error);
         setLocationLoading(false);
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 10000 }
     );
 
     return () => {
@@ -184,7 +184,7 @@ const AddAttendancePage: React.FC = () => {
       (error) => {
         logGeolocationError('getCurrentPosition chấm công', error);
       },
-      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
     );
   };
 
@@ -206,52 +206,52 @@ const AddAttendancePage: React.FC = () => {
     setSubmitting(true);
     const now = formatTime24h(new Date(), false);
 
-    // Check if this type already has a value (duplicate press)
-    const existingValue = type === 'checkin' ? formData.checkin : formData.checkout;
-    const isDuplicate = !!existingValue;
-
     try {
-      if (isDuplicate) {
-        // Create a NEW record in DB (separate row) to preserve both presses
+      // Logic: 
+      // - If CHECK-IN and already has check-in -> Create NEW session (new shift)
+      // - If CHECK-OUT -> Always update the current session's check-out time
+      const isNewShift = type === 'checkin' && !!formData.checkin;
+      
+      if (isNewShift) {
         const newId = await getNextAttendanceId();
         const newRecord: Partial<AttendanceRecord> = {
           id_cham_cong: newId,
           nhan_su: formData.nhan_su,
           ngay: formData.ngay,
-          checkin: type === 'checkin' ? now : null,
-          checkout: type === 'checkout' ? now : null,
-          vi_tri: formData.vi_tri || null,
+          checkin: now,
+          checkout: null,
+          vi_tri: address && address !== 'Đang xác định vị trí...' ? address : (formData.vi_tri || null),
           anh: formData.anh || null,
         };
 
         const savedRecord = await upsertAttendanceRecord(newRecord);
-
-        // Update local stats list
+        setFormData(savedRecord);
         setMonthlyRecords(prev => [savedRecord, ...prev]);
-
-        showToast(`Bấm ${type === 'checkin' ? 'giờ vào' : 'giờ ra'} mới thành công`, 'warning');
+        showToast('Đã bắt đầu ca làm việc mới', 'success');
       } else {
-        // First press: update the current record
         const updatedData = { ...formData, [type]: now };
-        setFormData(updatedData);
-
+        
         const dbPayload = {
           ...updatedData,
+          // Use the human-readable address if we have it, otherwise fallback to coordinates
+          vi_tri: address && address !== 'Đang xác định vị trí...' ? address : (updatedData.vi_tri || null),
           checkin: updatedData.checkin || null,
           checkout: updatedData.checkout || null,
-          vi_tri: updatedData.vi_tri || null,
           anh: updatedData.anh || null,
         };
 
         const savedRecord = await upsertAttendanceRecord(dbPayload);
-
-        // Update local stats list (replace old one if exists or add new)
+        setFormData(savedRecord);
+        
         setMonthlyRecords(prev => {
-          const filtered = prev.filter(r => r.id !== savedRecord.id);
+          const filtered = prev.filter(r => 
+            (savedRecord.id && r.id !== savedRecord.id) || 
+            (r.id_cham_cong !== savedRecord.id_cham_cong)
+          );
           return [savedRecord, ...filtered];
         });
 
-        showToast('Cập nhật chấm công thành công', 'success');
+        showToast(type === 'checkin' ? 'Check-in thành công' : 'Check-out thành công', 'success');
       }
     } catch (error: unknown) {
       showToast(`Không thể lưu chấm công: ${formatAttendanceSaveError(error)}`, 'error');
@@ -716,8 +716,13 @@ const AddAttendancePage: React.FC = () => {
               <button
                 onClick={() => handleQuickSubmit('checkout')}
                 disabled={submitting}
-                className={`py-4 rounded-2xl flex items-center justify-center gap-2 font-black text-sm transition-all active:scale-95 border-2 ${formData.checkout ? 'bg-orange-50 text-orange-600 border-orange-100' : 'border-[#061e1a]/10 text-[#061e1a]/60'
-                  }`}
+                className={`py-4 rounded-2xl flex items-center justify-center gap-2 font-black text-sm transition-all active:scale-95 border-2 ${
+                  formData.checkout 
+                    ? 'bg-orange-50 text-orange-600 border-orange-100' 
+                    : (formData.checkin 
+                        ? 'bg-emerald-500 text-white border-emerald-500 shadow-lg shadow-emerald-200' 
+                        : 'border-[#061e1a]/10 text-[#061e1a]/60')
+                }`}
               >
                 <Clock size={18} />
                 CHECK-OUT
