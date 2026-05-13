@@ -26,9 +26,8 @@ export const statusOptions: FilterOption[] = [
 ];
 
 export const positionOptions: FilterOption[] = [
-  { id: 'DX-2025-001', label: 'DX-2025-001 · Lập trình viên Senior', count: 2 },
-  { id: 'DX-2025-002', label: 'DX-2025-002 · Chuyên viên Tuyển dụng', count: 1 },
-  { id: 'DX-2025-004', label: 'DX-2025-004 · Lập trình viên Frontend', count: 1 },
+  { id: 'Quản lý', label: 'Quản lý', count: 0 },
+  { id: 'Kỹ thuật viên', label: 'Kỹ thuật viên', count: 0 },
 ];
 
 export const sourceOptions: FilterOption[] = [

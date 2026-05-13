@@ -437,19 +437,20 @@ const CandidatesPage: React.FC = () => {
               return;
             }
             if (!formState.formPosition.trim()) {
-              window.alert('Vui lòng chọn hoặc nhập vị trí.');
+              window.alert('Vui lòng chọn vị trí ứng tuyển (Quản lý hoặc Kỹ thuật viên).');
               return;
             }
             try {
               setSaving(true);
+              const viTri = formState.formPosition.trim();
               const payload: Partial<Candidate> = {
                 id: selectedCandidate?.id,
                 name: formState.formName,
                 email: formState.formEmail,
                 phone: formState.formPhone,
                 birthYear: formState.formBirthYear,
-                position: positionOptions.find(p => p.id === formState.formPosition)?.label || formState.formPosition,
-                positionId: formState.formPosition,
+                position: viTri,
+                positionId: viTri,
                 id_ung_vien: formState.formCandidateCode.trim() || undefined,
                 status: formState.formStatus as any,
                 source: formState.formSource,
