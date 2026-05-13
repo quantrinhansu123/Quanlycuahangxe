@@ -17,7 +17,7 @@ import {
   tinhMotDong,
 } from '../data/payrollAttendanceSalary';
 import { getPersonnel, type NhanSu } from '../data/personnelData';
-import { recalculateTheBanHangTongTien } from '../data/salesCardData';
+import { describeRecalculateTongTienResult, formatRecalculateTongTienError, recalculateTheBanHangTongTien } from '../data/salesCardData';
 
 const LS_PREFIX = 'payrollChamCongLuongV2:';
 const LS_PREFIX_LEGACY = 'payrollChamCongLuongV1:';
@@ -374,7 +374,11 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
   }, [rows, nam, thang]);
 
   const removeRow = useCallback((id: string) => {
-    setRows((prev) => (prev.length <= 1 ? prev : prev.filter((r) => r.id !== id)));
+    if (!window.confirm('Xóa dòng này khỏi bảng lương tháng đang chọn?')) return;
+    setRows((prev) => {
+      const next = prev.filter((r) => r.id !== id);
+      return next.length > 0 ? next : [emptyRow()];
+    });
   }, []);
 
   const thCell = (short: string, full: string) => (
@@ -480,15 +484,10 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                 }
                 try {
                   setTongTienSyncing(true);
-                  await recalculateTheBanHangTongTien();
-                  window.alert('Đã cập nhật cột tong_tien trên the_ban_hang.');
+                  const result = await recalculateTheBanHangTongTien();
+                  window.alert(describeRecalculateTongTienResult(result));
                 } catch (e) {
-                  const msg = e instanceof Error ? e.message : String(e);
-                    window.alert(
-                      `Lỗi: ${msg}\n\n` +
-                        `– Thiếu cột/hàm: chạy src/database/migrations/20260209_the_ban_hang_tong_tien.sql trên Supabase.\n` +
-                        `– Hết thời gian (57014 / timeout): chạy src/database/migrations/20260212_recalculate_tong_tien_chunked.sql trên Supabase (đồng bộ theo lô).`
-                    );
+                  window.alert(formatRecalculateTongTienError(e));
                 } finally {
                   setTongTienSyncing(false);
                 }
@@ -557,7 +556,9 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                 {thCell('Tiền hoa hồng tháng', 'Doanh số tháng × phần trăm hoa hồng tháng (ô % HH ở trên)')}
                 {thCell('Tổng', 'Tổng cộng')}
                 {thCell('Ghi chú', 'Cảnh báo')}
-                <th className="sticky top-0 z-[1] bg-muted/80 w-11 border-b border-border" />
+                <th className="sticky top-0 right-0 z-[2] bg-muted/80 backdrop-blur border-b border-l border-border px-2 py-3 text-center text-xs sm:text-sm font-semibold text-muted-foreground whitespace-nowrap w-14">
+                  Xóa
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -671,14 +672,16 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                     <td className="px-2.5 py-2.5 text-xs sm:text-sm text-amber-600 dark:text-amber-500 max-w-[200px]">
                       {kq.ghiChu}
                     </td>
-                    <td className="px-1 py-1.5 text-center">
+                    <td className="sticky right-0 z-[1] bg-card/95 border-l border-border px-1 py-1.5 text-center">
                       <button
                         type="button"
                         onClick={() => removeRow(input.id)}
-                        className="p-2 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                        className="inline-flex items-center justify-center gap-1 p-2 rounded-md text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/20"
                         title="Xóa dòng"
+                        aria-label="Xóa dòng"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-4 h-4 shrink-0" />
+                        <span className="sr-only sm:not-sr-only sm:text-xs sm:font-semibold">Xóa</span>
                       </button>
                     </td>
                   </tr>

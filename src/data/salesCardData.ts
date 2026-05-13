@@ -490,8 +490,44 @@ export const normalizeSalesCards = async () => {
   }
 };
 
-/** Gọi RPC trên Supabase: cộng thanh_tien từ the_ban_hang_ct (theo id_don_hang = id_bh hoặc id đơn) → ghi vào the_ban_hang.tong_tien. */
-export async function recalculateTheBanHangTongTien(): Promise<void> {
+/** Kết quả đồng bộ tong_tien từ chi tiết đơn. */
+export type TongTienRecalcMode = 'rpc-chunked' | 'rpc-legacy' | 'client-batched';
+
+export type RecalculateTongTienResult = {
+  mode: TongTienRecalcMode;
+  updated: number;
+};
+
+function normalizeOrderRef(value: string | null | undefined): string {
+  return (value || '').trim().toLowerCase();
+}
+
+function lineAmount(row: {
+  thanh_tien?: number | null;
+  gia_ban?: number | null;
+  so_luong?: number | null;
+}): number {
+  if (row.thanh_tien != null && Number.isFinite(Number(row.thanh_tien))) {
+    return Number(row.thanh_tien);
+  }
+  return Number(row.gia_ban || 0) * Number(row.so_luong || 1);
+}
+
+function isRpcMissingOrTimeout(error: unknown): boolean {
+  const e = error as { message?: string; code?: string };
+  const msg = (e.message || '').toLowerCase();
+  const code = (e.code || '').toLowerCase();
+  return (
+    code === '57014' ||
+    code === '42883' ||
+    msg.includes('statement timeout') ||
+    msg.includes('does not exist') ||
+    msg.includes('could not find the function') ||
+    msg.includes('recalculate_the_ban_hang_tong_tien')
+  );
+}
+
+async function recalculateTongTienViaRpcChunked(): Promise<number> {
   const { data: runId, error: startErr } = await supabase.rpc('recalculate_the_ban_hang_tong_tien_start');
   if (startErr) {
     throw new Error(
@@ -503,6 +539,7 @@ export async function recalculateTheBanHangTongTien(): Promise<void> {
   }
 
   let after: string | null = null;
+  let updated = 0;
   try {
     for (;;) {
       const stepRes = await supabase.rpc('recalculate_the_ban_hang_tong_tien_step', {
@@ -527,12 +564,158 @@ export async function recalculateTheBanHangTongTien(): Promise<void> {
           ? ((row as { last_id: string | null }).last_id as string | null)
           : null;
       if (!Number.isFinite(processed) || processed <= 0) break;
+      updated += processed;
       after = lastId;
       if (after == null) break;
     }
   } finally {
     const { error: finErr } = await supabase.rpc('recalculate_the_ban_hang_tong_tien_finish', { p_run_id: runId });
     if (finErr) console.error('recalculate_the_ban_hang_tong_tien_finish', finErr);
+  }
+  return updated;
+}
+
+async function recalculateTongTienViaRpcLegacy(): Promise<void> {
+  const { error } = await supabase.rpc('recalculate_the_ban_hang_tong_tien');
+  if (error) {
+    throw new Error(
+      [error.message, error.code ? `(code: ${error.code})` : ''].filter(Boolean).join(' ')
+    );
+  }
+}
+
+async function buildDetailTotalsByRef(): Promise<Map<string, number>> {
+  const agg = new Map<string, number>();
+  let lastId: string | null = null;
+  const pageSize = 1000;
+  for (;;) {
+    let query = supabase
+      .from('the_ban_hang_ct')
+      .select('id, id_don_hang, thanh_tien, gia_ban, so_luong')
+      .order('id', { ascending: true })
+      .limit(pageSize);
+    if (lastId) query = query.gt('id', lastId);
+    const { data, error } = await query;
+    if (error) throw error;
+    const rows = data || [];
+    if (rows.length === 0) break;
+    for (const row of rows) {
+      const ref = normalizeOrderRef(row.id_don_hang);
+      if (!ref) continue;
+      agg.set(ref, (agg.get(ref) || 0) + lineAmount(row));
+    }
+    lastId = rows[rows.length - 1]!.id;
+    if (rows.length < pageSize) break;
+  }
+  return agg;
+}
+
+function tongForCard(
+  agg: Map<string, number>,
+  idBh: string | null | undefined,
+  id: string
+): number {
+  const byBh = normalizeOrderRef(idBh);
+  const byId = normalizeOrderRef(id);
+  const a = byBh ? agg.get(byBh) : undefined;
+  const b = byId ? agg.get(byId) : undefined;
+  if (a == null && b == null) return 0;
+  if (a == null) return b!;
+  if (b == null) return a;
+  return Math.max(a, b);
+}
+
+async function recalculateTongTienClientBatched(): Promise<number> {
+  const agg = await buildDetailTotalsByRef();
+  let updated = 0;
+  let lastId: string | null = null;
+  const pageSize = 200;
+  for (;;) {
+    let query = supabase
+      .from('the_ban_hang')
+      .select('id, id_bh')
+      .order('id', { ascending: true })
+      .limit(pageSize);
+    if (lastId) query = query.gt('id', lastId);
+    const { data, error } = await query;
+    if (error) throw error;
+    const rows = data || [];
+    if (rows.length === 0) break;
+
+    const concurrency = 25;
+    for (let i = 0; i < rows.length; i += concurrency) {
+      const chunk = rows.slice(i, i + concurrency);
+      const results = await Promise.allSettled(
+        chunk.map(row =>
+          supabase
+            .from('the_ban_hang')
+            .update({
+              tong_tien: tongForCard(agg, row.id_bh, row.id),
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', row.id)
+        )
+      );
+      for (const res of results) {
+        if (res.status === 'fulfilled' && !res.value.error) updated++;
+      }
+    }
+
+    lastId = rows[rows.length - 1]!.id;
+    if (rows.length < pageSize) break;
+  }
+  return updated;
+}
+
+export function describeRecalculateTongTienResult(result: RecalculateTongTienResult): string {
+  if (result.updated === 0) {
+    return 'Không có đơn hàng nào cần cập nhật tong_tien.';
+  }
+  if (result.mode === 'rpc-chunked') {
+    return `Đã cập nhật tong_tien cho ${result.updated} đơn (RPC theo lô trên Supabase).`;
+  }
+  if (result.mode === 'rpc-legacy') {
+    return `Đã cập nhật tong_tien cho toàn bộ đơn (RPC một lần trên Supabase).`;
+  }
+  return `Đã cập nhật tong_tien cho ${result.updated} đơn (đồng bộ theo lô phía ứng dụng — dùng khi RPC timeout).`;
+}
+
+export function formatRecalculateTongTienError(error: unknown): string {
+  const msg = error instanceof Error ? error.message : String(error);
+  return (
+    `Lỗi: ${msg}\n\n` +
+    '– Nếu DB chưa migrate: chạy src/database/migrations/20260209_the_ban_hang_tong_tien.sql và 20260212_recalculate_tong_tien_chunked.sql trên Supabase.\n' +
+    '– Nếu timeout (57014): ứng dụng sẽ tự thử đồng bộ theo lô phía client; nếu vẫn lỗi, kiểm tra số dòng the_ban_hang_ct (chi tiết mồ côi sau khi xóa phiếu).'
+  );
+}
+
+/** Gọi RPC trên Supabase: cộng thanh_tien từ the_ban_hang_ct (theo id_don_hang = id_bh hoặc id đơn) → ghi vào the_ban_hang.tong_tien. */
+export async function recalculateTheBanHangTongTien(): Promise<RecalculateTongTienResult> {
+  const { count, error: countErr } = await supabase
+    .from('the_ban_hang')
+    .select('id', { count: 'exact', head: true });
+  if (countErr) {
+    throw new Error(
+      [countErr.message, countErr.code ? `(code: ${countErr.code})` : ''].filter(Boolean).join(' ')
+    );
+  }
+  if (!count) {
+    return { mode: 'client-batched', updated: 0 };
+  }
+
+  try {
+    const updated = await recalculateTongTienViaRpcChunked();
+    return { mode: 'rpc-chunked', updated };
+  } catch (chunkErr) {
+    if (!isRpcMissingOrTimeout(chunkErr)) throw chunkErr;
+    try {
+      await recalculateTongTienViaRpcLegacy();
+      return { mode: 'rpc-legacy', updated: count };
+    } catch (legacyErr) {
+      if (!isRpcMissingOrTimeout(legacyErr)) throw legacyErr;
+      const updated = await recalculateTongTienClientBatched();
+      return { mode: 'client-batched', updated };
+    }
   }
 }
 

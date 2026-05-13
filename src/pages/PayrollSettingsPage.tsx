@@ -9,7 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Calculator, Loader2 } from 'lucide-react';
 import { cn, formatNumberVietnamese, parseNumberVietnamese } from '../lib/utils';
 import { useAuth } from '../context/AuthContext';
-import { recalculateTheBanHangTongTien } from '../data/salesCardData';
+import { describeRecalculateTongTienResult, formatRecalculateTongTienError, recalculateTheBanHangTongTien } from '../data/salesCardData';
 
 const PayrollSettingsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -150,15 +150,10 @@ const PayrollSettingsPage: React.FC = () => {
                 }
                 try {
                   setTongTienSyncing(true);
-                  await recalculateTheBanHangTongTien();
-                  window.alert('Đã cập nhật cột tong_tien trên the_ban_hang.');
+                  const result = await recalculateTheBanHangTongTien();
+                  window.alert(describeRecalculateTongTienResult(result));
                 } catch (e) {
-                  const msg = e instanceof Error ? e.message : String(e);
-                    window.alert(
-                      `Lỗi: ${msg}\n\n` +
-                        `– Thiếu cột/hàm: chạy src/database/migrations/20260209_the_ban_hang_tong_tien.sql trên Supabase.\n` +
-                        `– Hết thời gian (57014 / timeout): chạy src/database/migrations/20260212_recalculate_tong_tien_chunked.sql trên Supabase (đồng bộ theo lô).`
-                    );
+                  window.alert(formatRecalculateTongTienError(e));
                 } finally {
                   setTongTienSyncing(false);
                 }
