@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Camera, Save, X, Building2, User, Phone, Briefcase, Loader2, KeyRound, Calendar, Banknote } from 'lucide-react';
+import { Camera, Save, X, Building2, User, Phone, Briefcase, Loader2, KeyRound, Calendar, Banknote, Hash } from 'lucide-react';
 import type { NhanSu } from '../data/personnelData';
 import { uploadPersonnelImage } from '../data/personnelData';
 import { formatTienNhap, parseTienNhap } from '../data/payrollAttendanceSalary';
@@ -116,13 +116,29 @@ const PersonnelFormModal: React.FC<PersonnelFormModalProps> = React.memo(({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5 focus-within:ring-2 focus-within:ring-primary/20 rounded-xl transition-all">
                 <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                  <Hash size={14} className="text-primary/70" />
+                  Mã nhân sự
+                </label>
+                <input
+                  type="text"
+                  name="id_nhan_su"
+                  value={formData.id_nhan_su ?? ''}
+                  onChange={handleInputChange}
+                  placeholder="NV-0001"
+                  tabIndex={1}
+                  className="w-full px-4 py-2 bg-background border border-border rounded-xl outline-none focus:border-primary text-[14px] font-bold text-primary"
+                />
+              </div>
+
+              <div className="space-y-1.5 focus-within:ring-2 focus-within:ring-primary/20 rounded-xl transition-all">
+                <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                   <User size={14} className="text-primary/70" />
                   Họ và tên <span className="text-red-500">*</span>
                 </label>
                 <input
                   ref={nameInputRef}
                   type="text" name="ho_ten" value={formData.ho_ten ?? ''} onChange={handleInputChange} required placeholder="Nguyễn Văn A"
-                  tabIndex={1}
+                  tabIndex={2}
                   className="w-full px-4 py-2 bg-background border border-border rounded-xl outline-none focus:border-primary text-[14px]"
                 />
               </div>
@@ -134,7 +150,7 @@ const PersonnelFormModal: React.FC<PersonnelFormModalProps> = React.memo(({
                 </label>
                 <input
                   type="text" name="sdt" value={formData.sdt ?? ''} onChange={handleInputChange} placeholder="09xxxxxxx"
-                  tabIndex={2}
+                  tabIndex={3}
                   className="w-full px-4 py-2 bg-background border border-border rounded-xl outline-none focus:border-primary text-[14px]"
                 />
               </div>
@@ -153,7 +169,7 @@ const PersonnelFormModal: React.FC<PersonnelFormModalProps> = React.memo(({
                       : ''
                   }
                   onChange={handleInputChange}
-                  tabIndex={3}
+                  tabIndex={4}
                   className="w-full px-4 py-2 bg-background border border-border rounded-xl outline-none focus:border-primary text-[14px]"
                 />
               </div>
@@ -175,7 +191,7 @@ const PersonnelFormModal: React.FC<PersonnelFormModalProps> = React.memo(({
                   }
                   onChange={handleInputChange}
                   placeholder="VD: 10.000.000"
-                  tabIndex={4}
+                  tabIndex={5}
                   className="w-full px-4 py-2 bg-background border border-border rounded-xl outline-none focus:border-primary text-[14px] font-mono tabular-nums"
                 />
               </div>
@@ -191,29 +207,29 @@ const PersonnelFormModal: React.FC<PersonnelFormModalProps> = React.memo(({
                   value={formData.password ?? ''}
                   onChange={handleInputChange}
                   placeholder="Nhập mật khẩu đăng nhập"
-                  tabIndex={5}
+                  tabIndex={6}
                   className="w-full px-4 py-2 bg-background border border-border rounded-xl outline-none focus:border-primary text-[14px]"
                 />
               </div>
 
               <div className="space-y-1.5 focus-within:ring-2 focus-within:ring-primary/20 rounded-xl transition-all">
                 <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2"><Briefcase size={14} className="text-primary/70" />Vị trí</label>
-                <select name="vi_tri" value={formData.vi_tri} onChange={handleInputChange} tabIndex={6} className="w-full px-4 py-2 bg-background border border-border rounded-xl outline-none focus:border-primary text-[14px]">
+                <select name="vi_tri" value={formData.vi_tri} onChange={handleInputChange} tabIndex={7} className="w-full px-4 py-2 bg-background border border-border rounded-xl outline-none focus:border-primary text-[14px]">
                   {positionOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                 </select>
               </div>
 
               <div className="space-y-1.5 md:col-span-2 focus-within:ring-2 focus-within:ring-primary/20 rounded-xl transition-all">
                 <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2"><Building2 size={14} className="text-primary/70" />Cơ sở</label>
-                <select name="co_so" value={formData.co_so} onChange={handleInputChange} tabIndex={7} className="w-full px-4 py-2 bg-background border border-border rounded-xl outline-none focus:border-primary text-[14px]">
+                <select name="co_so" value={formData.co_so} onChange={handleInputChange} tabIndex={8} className="w-full px-4 py-2 bg-background border border-border rounded-xl outline-none focus:border-primary text-[14px]">
                   {branchOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                 </select>
               </div>
             </div>
 
             <div className="mt-8 flex items-center justify-end gap-3 pt-6 border-t border-border">
-              <button type="button" onClick={onClose} tabIndex={9} className="px-6 py-2 rounded-xl text-sm font-bold border border-border hover:bg-muted transition-all">Hủy</button>
-              <button type="submit" tabIndex={8} className="px-8 py-2 rounded-xl text-sm font-bold text-white bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 transition-all flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">
+              <button type="button" onClick={onClose} tabIndex={10} className="px-6 py-2 rounded-xl text-sm font-bold border border-border hover:bg-muted transition-all">Hủy</button>
+              <button type="submit" tabIndex={9} className="px-8 py-2 rounded-xl text-sm font-bold text-white bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 transition-all flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">
                 <Save size={18} /> <span>{editingPerson ? 'Lưu thay đổi' : 'Thêm mới'}</span>
               </button>
             </div>

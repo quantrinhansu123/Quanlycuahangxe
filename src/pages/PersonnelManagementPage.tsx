@@ -171,7 +171,9 @@ const PersonnelManagementPage: React.FC = () => {
       setFormData({ ...person });
     } else {
       setEditingPerson(null);
+      const nextCode = await getNextPersonnelCode();
       setFormData({
+        id_nhan_su: nextCode,
         ho_ten: '',
         sdt: '',
         password: '',
@@ -206,7 +208,9 @@ const PersonnelManagementPage: React.FC = () => {
             : formDataToSave.luong_co_ban,
       };
       if (!editingPerson) {
-        const code = await getNextPersonnelCode();
+        const code = typeof body.id_nhan_su === 'string' && body.id_nhan_su.trim()
+          ? body.id_nhan_su.trim()
+          : await getNextPersonnelCode();
         await upsertPersonnel({ ...body, id_nhan_su: code });
       } else {
         await upsertPersonnel({

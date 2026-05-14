@@ -152,27 +152,23 @@ export const getServicesPaginated = async (
 export const getNextServiceCode = async (): Promise<string> => {
   const { data, error } = await supabase
     .from('dich_vu')
-    .select('id_dich_vu')
-    .order('id_dich_vu', { ascending: false })
-    .limit(1);
+    .select('id_dich_vu');
 
   if (error) {
     console.error('Error fetching next service code:', error);
     return 'DV-0001';
   }
 
-  if (!data || data.length === 0 || !data[0].id_dich_vu) {
+  if (!data?.length) {
     return 'DV-0001';
   }
 
-  const lastCode = data[0].id_dich_vu;
-  const match = lastCode.match(/^DV-(\d+)$/);
-  
-  if (match) {
-    const nextNumber = parseInt(match[1]) + 1;
-    return `DV-${nextNumber.toString().padStart(4, '0')}`;
+  let max = 0;
+  for (const row of data) {
+    const match = String(row.id_dich_vu || '').match(/^DV-(\d+)$/i);
+    if (match) max = Math.max(max, parseInt(match[1], 10));
   }
 
-  // Fallback if the format doesn't match
-  return `DV-${(data.length + 1).toString().padStart(4, '0')}`;
+  if (max === 0) return 'DV-0001';
+  return `DV-${String(max + 1).padStart(4, '0')}`;
 };
