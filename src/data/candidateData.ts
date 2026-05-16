@@ -2,7 +2,9 @@ import { supabase } from '../lib/supabase';
 import type { Candidate } from '../pages/candidates/types';
 import { deletePersonnel, getNextPersonnelCode, upsertPersonnel, type NhanSu } from './personnelData';
 
-const isDemo = () => typeof window !== 'undefined' && !!window.sessionStorage.getItem('demo_role');
+import { getStoredDemoRole } from '../lib/authStorage';
+
+const isDemo = () => typeof window !== 'undefined' && !!getStoredDemoRole();
 
 function isUuid(s: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);

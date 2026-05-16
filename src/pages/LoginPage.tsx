@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth, type NhanVien } from '../context/AuthContext';
 import { getDefaultHomePath } from '../data/viewPermissions';
 import { supabase } from '../lib/supabase';
 
@@ -81,8 +81,9 @@ const callPhoneLoginRpc = async (phone: string, password: string): Promise<{
 };
 
 const LoginPage: React.FC = () => {
-  const { session, isLoading, nhanVien, isAdmin } = useAuth();
+  const { session, isLoading, nhanVien, isAdmin, persistLogin } = useAuth();
   const routeLocation = useLocation();
+  const navigate = useNavigate();
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -124,12 +125,12 @@ const LoginPage: React.FC = () => {
         return;
       }
 
-      sessionStorage.setItem('local_nhan_vien', JSON.stringify(matchedUser));
+      persistLogin(matchedUser as NhanVien);
       const homePath = getDefaultHomePath(
         matchedUser.vi_tri,
         /quản trị|admin|chủ cửa|quản lý/i.test(matchedUser.vi_tri)
       );
-      window.location.assign(homePath);
+      navigate(homePath, { replace: true });
     } catch (err) {
       console.error('Unexpected login error:', err);
       setError('Không thể kết nối tới server. Vui lòng kiểm tra kết nối mạng.');

@@ -1,3 +1,4 @@
+import { getStoredDemoRole } from '../lib/authStorage';
 import { supabase } from '../lib/supabase';
 import { removeVietnameseTones } from '../lib/utils';
 
@@ -110,7 +111,7 @@ export interface ReportSummary {
 }
 
 // Helper to detect demo mode
-const isDemo = () => typeof window !== 'undefined' && !!window.sessionStorage.getItem('demo_role');
+const isDemo = () => typeof window !== 'undefined' && !!getStoredDemoRole();
 
 // Fetch all CT records within a date range
 async function fetchAllCTRecords(startDate?: string, endDate?: string) {

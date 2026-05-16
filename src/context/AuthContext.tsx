@@ -1,9 +1,15 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import {
   canAccessView,
   isTechnicianViTri,
   type ViewPermissionKey,
 } from '../data/viewPermissions';
+import {
+  clearStoredAuth,
+  getStoredDemoRole,
+  getStoredNhanVien,
+  setStoredNhanVien,
+} from '../lib/authStorage';
 
 /** Phiên ứng dụng (lưu local); không dùng Supabase Auth. */
 export interface AppUser {
@@ -45,6 +51,7 @@ interface AuthContextType {
   canModifyData: boolean;
   isLoading: boolean;
   hasViewAccess: (viewKey: ViewPermissionKey) => boolean;
+  persistLogin: (nhanVien: NhanVien) => void;
   signOut: () => Promise<void>;
 }
 
@@ -57,6 +64,7 @@ const AuthContext = createContext<AuthContextType>({
   canModifyData: true,
   isLoading: true,
   hasViewAccess: () => true,
+  persistLogin: () => {},
   signOut: async () => {},
 });
 
@@ -70,101 +78,79 @@ function isAdminViTri(viTri: string | null | undefined): boolean {
   return false;
 }
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const demoRole = sessionStorage.getItem('demo_role');
-  const localNhanVienRaw = sessionStorage.getItem('local_nhan_vien');
-  let localNhanVien: NhanVien | null = null;
-  if (localNhanVienRaw) {
-    try {
-      localNhanVien = JSON.parse(localNhanVienRaw) as NhanVien;
-    } catch {
-      sessionStorage.removeItem('local_nhan_vien');
-    }
-  }
+function buildDemoNhanVien(demoRole: string): NhanVien {
+  return {
+    id: 'demo-nv-uuid',
+    id_nhan_su: 'DEMO-001',
+    ho_ten: 'Demo ' + (demoRole === 'admin' ? 'Quản trị viên' : 'Nhân viên'),
+    vi_tri: demoRole === 'admin' ? 'Chủ cửa hàng' : 'Nhân viên',
+    co_so: 'Cơ sở Bắc Ninh',
+    email: 'demo@example.com',
+    auth_user_id: 'demo-uuid',
+  };
+}
 
-  const [session, setSession] = useState<AppSession | null>(
-    (demoRole || localNhanVien) ? {
-      access_token: 'demo-token',
-      refresh_token: 'demo-refresh',
+function sessionFromNhanVien(nhanVien: NhanVien): { session: AppSession; supabaseUser: AppUser } {
+  const user: AppUser = {
+    id: nhanVien.auth_user_id || nhanVien.id || 'local-uuid',
+    email: nhanVien.email || 'local@example.com',
+    aud: 'authenticated',
+    role: 'authenticated',
+    app_metadata: { provider: 'local-nhan-su' },
+    user_metadata: { ho_ten: nhanVien.ho_ten },
+  };
+  return {
+    session: {
+      access_token: 'local-token',
+      refresh_token: 'local-refresh',
       expires_in: 3600,
       token_type: 'bearer',
-      user: { 
-        id: localNhanVien?.auth_user_id || 'demo-uuid', 
-        email: localNhanVien?.email || 'demo@example.com',
-        aud: 'authenticated',
-        role: 'authenticated',
-        app_metadata: { provider: 'email' },
-        user_metadata: { ho_ten: localNhanVien?.ho_ten || (demoRole === 'admin' ? 'Demo Admin' : 'Demo Staff') }
-      } 
-    } : null
-  );
-  const [supabaseUser, setSupabaseUser] = useState<AppUser | null>(
-    (demoRole || localNhanVien) ? {
-      id: localNhanVien?.auth_user_id || 'demo-uuid', 
-      aud: 'authenticated',
-      role: 'authenticated',
-      email: localNhanVien?.email || 'demo@example.com',
-      app_metadata: { provider: 'email' },
-      user_metadata: { ho_ten: localNhanVien?.ho_ten || (demoRole === 'admin' ? 'Demo Admin' : 'Demo Staff') }
-    } : null
-  );
-  const [nhanVien, setNhanVien] = useState<NhanVien | null>(
-    localNhanVien ? localNhanVien : demoRole ? ({
-      id: 'demo-nv-uuid',
-      id_nhan_su: 'DEMO-001',
-      ho_ten: 'Demo ' + (demoRole === 'admin' ? 'Quản trị viên' : 'Nhân viên'),
-      vi_tri: demoRole === 'admin' ? 'Chủ cửa hàng' : 'Nhân viên',
-      co_so: 'Cơ sở Bắc Ninh',
-      email: 'demo@example.com',
-      auth_user_id: 'demo-uuid'
-    } as any) : null
-  );
-  const [isLoading] = useState(false);
+      user,
+    },
+    supabaseUser: user,
+  };
+}
 
-  useEffect(() => {
-    // Đồng bộ state khi local session thay đổi.
-    const latestRaw = sessionStorage.getItem('local_nhan_vien');
-    if (latestRaw) {
-      try {
-        const latest = JSON.parse(latestRaw) as NhanVien;
-        setNhanVien(latest);
-        setSession({
-          access_token: 'local-token',
-          refresh_token: 'local-refresh',
-          expires_in: 3600,
-          token_type: 'bearer',
-          user: {
-            id: latest.auth_user_id || latest.id || 'local-uuid',
-            email: latest.email || 'local@example.com',
-            aud: 'authenticated',
-            role: 'authenticated',
-            app_metadata: { provider: 'local-nhan-su' },
-            user_metadata: { ho_ten: latest.ho_ten },
-          },
-        });
-        setSupabaseUser({
-          id: latest.auth_user_id || latest.id || 'local-uuid',
-          aud: 'authenticated',
-          role: 'authenticated',
-          email: latest.email || 'local@example.com',
-          app_metadata: { provider: 'local-nhan-su' },
-          user_metadata: { ho_ten: latest.ho_ten },
-        });
-      } catch {
-        setNhanVien(null);
-      }
-    }
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [session, setSession] = useState<AppSession | null>(null);
+  const [supabaseUser, setSupabaseUser] = useState<AppUser | null>(null);
+  const [nhanVien, setNhanVien] = useState<NhanVien | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const applyNhanVien = useCallback((nv: NhanVien) => {
+    const { session: nextSession, supabaseUser: nextUser } = sessionFromNhanVien(nv);
+    setNhanVien(nv);
+    setSession(nextSession);
+    setSupabaseUser(nextUser);
   }, []);
 
-  const signOut = async () => {
-    if (demoRole || localNhanVien) {
-      sessionStorage.removeItem('demo_role');
-      sessionStorage.removeItem('local_nhan_vien');
-      location.reload();
-      return;
+  const persistLogin = useCallback(
+    (nv: NhanVien) => {
+      setStoredNhanVien(nv);
+      applyNhanVien(nv);
+    },
+    [applyNhanVien]
+  );
+
+  useEffect(() => {
+    const demoRole = getStoredDemoRole();
+    const stored = getStoredNhanVien();
+
+    if (stored) {
+      applyNhanVien(stored);
+    } else if (demoRole) {
+      applyNhanVien(buildDemoNhanVien(demoRole));
     }
-    sessionStorage.removeItem('local_nhan_vien');
-    location.reload();
+
+    setIsLoading(false);
+  }, [applyNhanVien]);
+
+  const signOut = async () => {
+    clearStoredAuth();
+    setSession(null);
+    setSupabaseUser(null);
+    setNhanVien(null);
+    window.location.assign('/login');
   };
 
   const isAdmin = nhanVien ? isAdminViTri(nhanVien.vi_tri) : false;
@@ -185,6 +171,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         canModifyData,
         isLoading,
         hasViewAccess,
+        persistLogin,
         signOut,
       }}
     >
