@@ -34,7 +34,7 @@ import { getCustomerLastSaleDates, getCustomerStats } from '../data/salesCardDat
 const CustomerManagementPage: React.FC = () => {
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const { isAdmin, nhanVien } = useAuth();
+  const { isAdmin, nhanVien, canModifyData } = useAuth();
   const branchScope = isAdmin ? undefined : (nhanVien?.co_so || undefined);
   const [customers, setCustomers] = useState<KhachHang[]>([]);
   const [loading, setLoading] = useState(true);
@@ -201,9 +201,13 @@ const CustomerManagementPage: React.FC = () => {
 
 
   const handleOpenModal = useCallback((customer?: KhachHang) => {
+    if (!canModifyData) {
+      showToast('Kỹ thuật viên chỉ được xem dữ liệu.', 'error');
+      return;
+    }
     setEditingCustomer(customer || null);
     setIsModalOpen(true);
-  }, []);
+  }, [canModifyData]);
 
   const handleCloseModal = useCallback(() => {
     setIsModalOpen(false);
@@ -359,6 +363,10 @@ const CustomerManagementPage: React.FC = () => {
   };
 
   const handleDelete = useCallback(async (id: string) => {
+    if (!canModifyData) {
+      showToast('Kỹ thuật viên không có quyền xóa.', 'error');
+      return;
+    }
     if (window.confirm('Bạn có chắc chắn muốn xóa khách hàng này?')) {
       try {
         await deleteCustomer(id);
@@ -367,7 +375,7 @@ const CustomerManagementPage: React.FC = () => {
         showToast('Lỗi: Không thể xóa khách hàng.', 'error');
       }
     }
-  }, [loadCustomers]);
+  }, [loadCustomers, canModifyData]);
 
   const handleDeleteAll = async () => {
     if (window.confirm('CẢNH BÁO: Bạn có chắc chắn muốn XÓA TẤT CẢ khách hàng?')) {
@@ -706,6 +714,7 @@ const CustomerManagementPage: React.FC = () => {
 
                             {/* Actions */}
                             <div className="flex items-center flex-wrap gap-1.5 mt-2.5 pt-2 border-t border-border/10" onClick={(e) => e.stopPropagation()}>
+                              {canModifyData && (
                               <button
                                 type="button"
                                 onClick={() =>
@@ -722,6 +731,8 @@ const CustomerManagementPage: React.FC = () => {
                                 <FileText size={14} className="shrink-0" />
                                 <span className="text-[10px] font-bold">Lên đơn</span>
                               </button>
+                              )}
+                              {canModifyData && (
                               <button
                                 type="button"
                                 onClick={() => handleOpenModal(customer)}
@@ -730,7 +741,8 @@ const CustomerManagementPage: React.FC = () => {
                                 <Edit2 size={14} />
                                 <span className="text-[10px] font-bold">Sửa</span>
                               </button>
-                              {isAdmin && (
+                              )}
+                              {isAdmin && canModifyData && (
                                 <button
                                   type="button"
                                   onClick={() => handleDelete(customer.id)}
@@ -810,6 +822,7 @@ const CustomerManagementPage: React.FC = () => {
                         onOpenDetails={handleOpenDetails}
                         today={today}
                         stats={customerStats[customer.id] || (customer.ma_khach_hang && customerStats[customer.ma_khach_hang]) || { totalRevenue: 0, visitCount: 0 }}
+                        canModifyData={canModifyData}
                         isAdmin={isAdmin}
                       />
 
@@ -866,8 +879,9 @@ const CustomerTableRow: React.FC<{
   onOpenDetails: (customer: KhachHang) => void;
   today: Date;
   stats: { totalRevenue: number; visitCount: number };
+  canModifyData: boolean;
   isAdmin: boolean;
-}> = React.memo(({ customer, visibleColumns, onEdit, onDelete, onOpenDetails, today, stats, isAdmin }) => {
+}> = React.memo(({ customer, visibleColumns, onEdit, onDelete, onOpenDetails, today, stats, canModifyData, isAdmin }) => {
 
 
   const isCầnThayDầu = customer.ngay_thay_dau ? new Date(customer.ngay_thay_dau) <= today : false;
@@ -960,14 +974,16 @@ const CustomerTableRow: React.FC<{
             <button type="button" onClick={() => onOpenDetails(customer)} className="p-2 text-blue-500 hover:bg-blue-50 rounded transition-colors" title="Chi tiết / lịch sử">
               <History size={18} />
             </button>
-            {isAdmin && (
+            {canModifyData && (
               <>
                 <button type="button" onClick={() => onEdit(customer)} className="p-2 text-primary hover:bg-primary/5 rounded transition-colors" title="Sửa">
                   <Edit2 size={18} />
                 </button>
-                <button type="button" onClick={() => onDelete(customer.id)} className="p-2 text-destructive hover:bg-destructive/5 rounded transition-colors" title="Xóa">
-                  <Trash2 size={18} />
-                </button>
+                {isAdmin && (
+                  <button type="button" onClick={() => onDelete(customer.id)} className="p-2 text-destructive hover:bg-destructive/5 rounded transition-colors" title="Xóa">
+                    <Trash2 size={18} />
+                  </button>
+                )}
               </>
             )}
           </div>

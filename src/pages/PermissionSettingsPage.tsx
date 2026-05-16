@@ -1,6 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { Save } from 'lucide-react';
-import { VIEW_PERMISSION_OPTIONS, VIEW_PERMISSION_STORAGE_KEY, type ViewPermissionKey } from '../data/viewPermissions';
+import {
+  DEFAULT_VIEW_PERMISSIONS_BY_POSITION,
+  VIEW_PERMISSION_OPTIONS,
+  VIEW_PERMISSION_STORAGE_KEY,
+  type ViewPermissionKey,
+} from '../data/viewPermissions';
 
 type PermissionMap = Record<string, ViewPermissionKey[]>;
 
@@ -12,9 +17,17 @@ const PermissionSettingsPage: React.FC = () => {
   const [permissions, setPermissions] = useState<PermissionMap>(() => {
     try {
       const raw = localStorage.getItem(VIEW_PERMISSION_STORAGE_KEY);
-      return raw ? (JSON.parse(raw) as PermissionMap) : {};
+      const stored = raw ? (JSON.parse(raw) as PermissionMap) : {};
+      const merged = { ...stored };
+      for (const [position, views] of Object.entries(DEFAULT_VIEW_PERMISSIONS_BY_POSITION)) {
+        const key = normalizePosition(position);
+        if (!Object.prototype.hasOwnProperty.call(merged, key)) {
+          merged[key] = views;
+        }
+      }
+      return merged;
     } catch {
-      return {};
+      return { ...DEFAULT_VIEW_PERMISSIONS_BY_POSITION };
     }
   });
 
@@ -22,7 +35,8 @@ const PermissionSettingsPage: React.FC = () => {
 
   const getAllowedViews = (position: string): ViewPermissionKey[] => {
     const key = normalizePosition(position);
-    return permissions[key] || [];
+    if (permissions[key]) return permissions[key];
+    return DEFAULT_VIEW_PERMISSIONS_BY_POSITION[key] || [];
   };
 
   const toggleView = (position: string, viewKey: ViewPermissionKey) => {

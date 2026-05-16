@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import {
-  VIEW_PERMISSION_STORAGE_KEY,
+  canAccessView,
+  isTechnicianViTri,
   type ViewPermissionKey,
 } from '../data/viewPermissions';
 
@@ -39,6 +40,9 @@ interface AuthContextType {
   supabaseUser: AppUser | null;
   nhanVien: NhanVien | null;
   isAdmin: boolean;
+  isTechnician: boolean;
+  /** false = kỹ thuật viên (chỉ xem, không sửa/xóa) */
+  canModifyData: boolean;
   isLoading: boolean;
   hasViewAccess: (viewKey: ViewPermissionKey) => boolean;
   signOut: () => Promise<void>;
@@ -49,6 +53,8 @@ const AuthContext = createContext<AuthContextType>({
   supabaseUser: null,
   nhanVien: null,
   isAdmin: false,
+  isTechnician: false,
+  canModifyData: true,
   isLoading: true,
   hasViewAccess: () => true,
   signOut: async () => {},
@@ -162,26 +168,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const isAdmin = nhanVien ? isAdminViTri(nhanVien.vi_tri) : false;
+  const isTechnician = nhanVien ? isTechnicianViTri(nhanVien.vi_tri) : false;
+  const canModifyData = !isTechnician;
 
-  const hasViewAccess = (viewKey: ViewPermissionKey): boolean => {
-    if (isAdmin) return true;
-    const positionKey = (nhanVien?.vi_tri || '').trim().toLowerCase();
-    if (!positionKey) return true;
-
-    try {
-      const raw = localStorage.getItem(VIEW_PERMISSION_STORAGE_KEY);
-      if (!raw) return true;
-      const parsed = JSON.parse(raw) as Record<string, ViewPermissionKey[]>;
-      const allowedViews = parsed[positionKey];
-      if (!allowedViews) return true;
-      return allowedViews.includes(viewKey);
-    } catch {
-      return true;
-    }
-  };
+  const hasViewAccess = (viewKey: ViewPermissionKey): boolean =>
+    canAccessView(nhanVien?.vi_tri, viewKey, isAdmin);
 
   return (
-    <AuthContext.Provider value={{ session, supabaseUser, nhanVien, isAdmin, isLoading, hasViewAccess, signOut }}>
+    <AuthContext.Provider
+      value={{
+        session,
+        supabaseUser,
+        nhanVien,
+        isAdmin,
+        isTechnician,
+        canModifyData,
+        isLoading,
+        hasViewAccess,
+        signOut,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

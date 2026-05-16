@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { getDefaultHomePath } from '../data/viewPermissions';
 import { supabase } from '../lib/supabase';
 
 interface PhoneLoginResult {
@@ -80,7 +81,7 @@ const callPhoneLoginRpc = async (phone: string, password: string): Promise<{
 };
 
 const LoginPage: React.FC = () => {
-  const { session, isLoading } = useAuth();
+  const { session, isLoading, nhanVien, isAdmin } = useAuth();
   const routeLocation = useLocation();
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -88,7 +89,8 @@ const LoginPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   if (!isLoading && session) {
-    const redirectTo = (routeLocation.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? '/';
+    const fromPath = (routeLocation.state as { from?: { pathname?: string } } | null)?.from?.pathname;
+    const redirectTo = fromPath ?? getDefaultHomePath(nhanVien?.vi_tri, isAdmin);
     return <Navigate to={redirectTo} replace />;
   }
 
@@ -123,7 +125,11 @@ const LoginPage: React.FC = () => {
       }
 
       sessionStorage.setItem('local_nhan_vien', JSON.stringify(matchedUser));
-      window.location.assign('/');
+      const homePath = getDefaultHomePath(
+        matchedUser.vi_tri,
+        /quản trị|admin|chủ cửa|quản lý/i.test(matchedUser.vi_tri)
+      );
+      window.location.assign(homePath);
     } catch (err) {
       console.error('Unexpected login error:', err);
       setError('Không thể kết nối tới server. Vui lòng kiểm tra kết nối mạng.');

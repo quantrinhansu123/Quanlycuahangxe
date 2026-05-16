@@ -40,10 +40,17 @@ function App() {
           <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
             <Route path="/" element={<ProtectedRoute viewKey="dashboard"><Dashboard /></ProtectedRoute>} />
 
-            <Route path="/ban-hang" element={<ProtectedRoute viewKey="ban-hang"><ModulePage /></ProtectedRoute>}>
-              <Route path="khach-hang" element={<ProtectedRoute viewKey="ban-hang"><CustomerManagementPage /></ProtectedRoute>} />
-              <Route path="phieu-ban-hang" element={<ProtectedRoute viewKey="ban-hang"><SalesCardManagementPage /></ProtectedRoute>} />
-              <Route path="phieu-ban-hang-ct" element={<ProtectedRoute viewKey="ban-hang"><SalesCardCTManagementPage /></ProtectedRoute>} />
+            <Route
+              path="/ban-hang"
+              element={
+                <ProtectedRoute anyViewKey={['ban-hang', 'khach-hang', 'don-hang']}>
+                  <ModulePage />
+                </ProtectedRoute>
+              }
+            >
+              <Route path="khach-hang" element={<ProtectedRoute viewKey="khach-hang"><CustomerManagementPage /></ProtectedRoute>} />
+              <Route path="phieu-ban-hang" element={<ProtectedRoute viewKey="don-hang"><SalesCardManagementPage /></ProtectedRoute>} />
+              <Route path="phieu-ban-hang-ct" element={<ProtectedRoute viewKey="don-hang"><SalesCardCTManagementPage /></ProtectedRoute>} />
             </Route>
 
             {/* Thu chi — chỉ admin */}
@@ -51,9 +58,16 @@ function App() {
 
             <Route path="/dich-vu" element={<ProtectedRoute viewKey="dich-vu"><ServiceManagementPage /></ProtectedRoute>} />
 
-            <Route path="/nhan-su" element={<ProtectedRoute viewKey="nhan-su"><ModulePage /></ProtectedRoute>}>
+            <Route
+              path="/nhan-su"
+              element={
+                <ProtectedRoute anyViewKey={['nhan-su', 'nhan-su-ung-vien', 'cham-cong']}>
+                  <ModulePage />
+                </ProtectedRoute>
+              }
+            >
               <Route path="them-cham-cong" element={<ProtectedRoute viewKey="nhan-su"><AddAttendancePage /></ProtectedRoute>} />
-              <Route path="bang-cham-cong" element={<ProtectedRoute viewKey="nhan-su"><AttendanceManagementPage /></ProtectedRoute>} />
+              <Route path="bang-cham-cong" element={<ProtectedRoute viewKey="cham-cong"><AttendanceManagementPage /></ProtectedRoute>} />
               <Route path="danh-sach" element={<ProtectedRoute viewKey="nhan-su"><PersonnelManagementPage /></ProtectedRoute>} />
               {/* Quản lý nhân viên — chỉ admin */}
               <Route path="ung-vien" element={<ProtectedRoute viewKey="nhan-su-ung-vien"><CandidatesPage /></ProtectedRoute>} />

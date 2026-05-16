@@ -196,7 +196,7 @@ const CandidatesPage: React.FC = () => {
                   e.stopPropagation();
                   if (window.confirm('Bạn có chắc muốn xóa ứng viên này?')) {
                     try {
-                      await deleteCandidate(candidate.id);
+                      await deleteCandidate(candidate.id, candidate.id_ung_vien);
                       loadData();
                     } catch (err) {
                       window.alert('Không xóa được: ' + (err instanceof Error ? err.message : String(err)));
@@ -512,7 +512,7 @@ const CandidatesPage: React.FC = () => {
             if (!selectedCandidate) return;
             if (!window.confirm('Bạn có chắc muốn xóa hồ sơ này khỏi danh sách nhân sự?')) return;
             try {
-              await deleteCandidate(selectedCandidate.id);
+              await deleteCandidate(selectedCandidate.id, selectedCandidate.id_ung_vien);
               setCandidateDetailOpen(false);
               setSelectedCandidate(null);
               await loadData();

@@ -43,7 +43,7 @@ import {
 } from '../utils/timekeeping';
 
 const AttendanceManagementPage: React.FC = () => {
-  const { nhanVien, isAdmin } = useAuth();
+  const { nhanVien, isAdmin, canModifyData } = useAuth();
   const navigate = useNavigate();
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [personnel, setPersonnel] = useState<NhanSu[]>([]);
@@ -212,6 +212,10 @@ const AttendanceManagementPage: React.FC = () => {
   };
 
   const handleOpenModal = (record: AttendanceRecord) => {
+    if (!canModifyData) {
+      window.alert('Kỹ thuật viên chỉ được xem dữ liệu chấm công.');
+      return;
+    }
     const isMockAbsent = (record as AttendanceRecord & { isMockAbsent?: boolean }).isMockAbsent;
     if (isMockAbsent) {
       setIsNewRecord(true);
@@ -274,6 +278,9 @@ const AttendanceManagementPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canModifyData) {
+      return;
+    }
     try {
       const updatedData = { ...formData };
 
@@ -522,6 +529,9 @@ const AttendanceManagementPage: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
+    if (!canModifyData) {
+      return;
+    }
     if (window.confirm('Bạn có chắc chắn muốn xóa bản ghi chấm công này?')) {
       try {
         await deleteAttendanceRecord(id);
@@ -861,6 +871,7 @@ const AttendanceManagementPage: React.FC = () => {
                       {visibleColumns.includes('actions') && (
                         <td className="px-4 py-4 min-w-[8.5rem]">
                           {isMockAbsent ? (
+                            canModifyData ? (
                             <div className="flex items-center justify-center">
                               <button
                                 type="button"
@@ -872,8 +883,12 @@ const AttendanceManagementPage: React.FC = () => {
                                 Bổ sung
                               </button>
                             </div>
+                            ) : (
+                              <span className="text-[11px] text-muted-foreground italic">—</span>
+                            )
                           ) : (
                             <div className="flex items-center justify-center gap-2 sm:gap-3 flex-nowrap">
+                              {canModifyData && (
                               <button
                                 type="button"
                                 onClick={() => handleOpenModal(record)}
@@ -882,6 +897,7 @@ const AttendanceManagementPage: React.FC = () => {
                               >
                                 <Edit2 size={18} />
                               </button>
+                              )}
                               <button
                                 type="button"
                                 onClick={() => (record.lich_su_sua && record.lich_su_sua.length > 0 ? setShowHistoryRecord(record) : undefined)}
@@ -1018,6 +1034,7 @@ const AttendanceManagementPage: React.FC = () => {
                     </div>
                     {/* Actions */}
                     {isMockAbsent ? (
+                      canModifyData ? (
                       <div className="flex flex-col items-end gap-1 shrink-0 pt-0.5">
                         <button
                           type="button"
@@ -1028,11 +1045,14 @@ const AttendanceManagementPage: React.FC = () => {
                           Bổ sung
                         </button>
                       </div>
+                      ) : null
                     ) : (
                       <div className="flex items-center gap-1 shrink-0 pt-0.5">
+                        {canModifyData && (
                         <button type="button" onClick={() => handleOpenModal(record)} className="p-1.5 rounded-lg text-primary hover:bg-primary/10 transition-colors" title="Sửa">
                           <Edit2 size={16} />
                         </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => (record.lich_su_sua && record.lich_su_sua.length > 0 ? setShowHistoryRecord(record) : undefined)}

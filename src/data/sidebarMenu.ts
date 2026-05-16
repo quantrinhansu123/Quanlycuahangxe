@@ -37,8 +37,8 @@ export const sidebarMenu: SidebarItem[] = [
     path: '/ban-hang',
     viewKey: 'ban-hang',
     children: [
-      { label: 'Phiếu bán hàng', path: '/ban-hang/phieu-ban-hang' },
-      { label: 'Khách hàng', path: '/ban-hang/khach-hang' },
+      { label: 'Phiếu bán hàng', path: '/ban-hang/phieu-ban-hang', viewKey: 'don-hang' },
+      { label: 'Khách hàng', path: '/ban-hang/khach-hang', viewKey: 'khach-hang' },
     ],
   },
   { icon: Wallet, label: 'Thu chi', path: '/thu-chi', viewKey: 'thu-chi' },
@@ -59,9 +59,9 @@ export const sidebarMenu: SidebarItem[] = [
     path: '/nhan-su',
     viewKey: 'nhan-su',
     children: [
-      { label: 'Danh sách nhân viên', path: '/nhan-su/danh-sach' },
-      { label: 'Chấm công', path: '/nhan-su/bang-cham-cong' },
-      { label: 'Ứng viên', path: '/nhan-su/ung-vien' },
+      { label: 'Danh sách nhân viên', path: '/nhan-su/danh-sach', viewKey: 'nhan-su' },
+      { label: 'Chấm công', path: '/nhan-su/bang-cham-cong', viewKey: 'cham-cong' },
+      { label: 'Ứng viên', path: '/nhan-su/ung-vien', viewKey: 'nhan-su-ung-vien' },
     ]
   },
   { icon: Wallet, label: 'Tiền lương', path: '/tien-luong', viewKey: 'tien-luong' }, // NV xem lương của mình, admin xem tất cả

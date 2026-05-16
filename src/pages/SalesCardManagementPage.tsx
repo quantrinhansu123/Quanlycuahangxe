@@ -50,7 +50,7 @@ import { formatTime24h } from '../utils/datetimeFormat';
 const SalesCardFormModal = React.lazy(() => import('../components/SalesCardFormModal'));
 
 const SalesCardManagementPage: React.FC = () => {
-  const { nhanVien, isAdmin } = useAuth();
+  const { nhanVien, isAdmin, canModifyData } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [salesCards, setSalesCards] = useState<SalesCard[]>([]);
@@ -540,6 +540,14 @@ const SalesCardManagementPage: React.FC = () => {
   }, [loading, customers.length]); // Runs when loading finishes and customers are ready
 
   const handleOpenModal = async (card?: SalesCard) => {
+    if (!canModifyData) {
+      if (card) {
+        handleViewCard(card);
+      } else {
+        showToast('Kỹ thuật viên chỉ được xem đơn hàng.', 'error');
+      }
+      return;
+    }
     if (card && !isAdmin) {
       showToast('Bạn không có quyền chỉnh sửa phiếu này.', 'error');
       return;
@@ -659,6 +667,10 @@ const SalesCardManagementPage: React.FC = () => {
 
   const handleSubmit = async (formDataHeader: Partial<SalesCard & { dich_vu_ids?: string[], service_items?: { id: string, ten_dich_vu: string, gia_ban: number, so_luong?: number }[] }>) => {
     try {
+      if (!canModifyData) {
+        showToast('Kỹ thuật viên chỉ được xem đơn hàng.', 'error');
+        return;
+      }
       if (editingCard && !isAdmin) {
         showToast('Bạn không có quyền cập nhật dữ liệu.', 'error');
         return;
@@ -1109,7 +1121,7 @@ const SalesCardManagementPage: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!isAdmin) {
+    if (!canModifyData || !isAdmin) {
       showToast('Bạn không có quyền xóa dữ liệu.', 'error');
       return;
     }
@@ -1271,6 +1283,7 @@ const SalesCardManagementPage: React.FC = () => {
               </div>
             )}
 
+            {canModifyData && (
             <button
               onClick={() => handleOpenModal()}
               className="px-2.5 py-1 sm:px-4 sm:py-2 bg-primary hover:bg-primary/90 text-white rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[14px] font-bold transition-all shrink-0 shadow-lg shadow-primary/20"
@@ -1278,6 +1291,7 @@ const SalesCardManagementPage: React.FC = () => {
               <Plus className="size-4 sm:size-5" />
               <span>Lập hóa đơn</span>
             </button>
+            )}
             </div>
           </div>
         </div>
@@ -1499,7 +1513,7 @@ const SalesCardManagementPage: React.FC = () => {
                           <button onClick={() => handleViewCard(card)} className="flex items-center gap-1 px-3 py-1.5 text-blue-600 hover:bg-blue-50 rounded-lg text-[12px] font-bold border border-blue-100 transition-colors">
                             <Eye size={14} /> Xem
                           </button>
-                          {isAdmin && (
+                          {canModifyData && isAdmin && (
                             <>
                               {!card.thu_chi && (
                                 <button onClick={() => handleOpenModal(card)} className="flex items-center gap-1 px-3 py-1.5 text-primary hover:bg-primary/10 rounded-lg text-[12px] font-bold border border-primary/20 transition-colors">
@@ -1691,7 +1705,7 @@ const SalesCardManagementPage: React.FC = () => {
                     <td className="px-4 py-4 text-center">
                       <div className="flex items-center justify-center gap-2">
                         <button onClick={() => handleViewCard(card)} className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Xem chi tiết"><Eye size={18} /></button>
-                        {isAdmin && (
+                        {canModifyData && isAdmin && (
                           <>
                             {!card.thu_chi && (
                               <button onClick={() => handleOpenModal(card)} className="p-2 text-primary hover:bg-primary/10 rounded transition-colors" title="Chỉnh sửa"><Edit2 size={18} /></button>

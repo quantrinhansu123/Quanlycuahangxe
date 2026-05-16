@@ -225,7 +225,7 @@ export const upsertCandidate = async (candidate: Partial<Candidate>): Promise<Ca
   return mapDbToCandidate(saved as unknown as Record<string, unknown>);
 };
 
-export const deleteCandidate = async (id: string): Promise<void> => {
+export const deleteCandidate = async (id: string, candidateCode?: string | null): Promise<void> => {
   if (isDemo()) {
     const list = getDemoList();
     const i = list.findIndex((c) => c.id === id);
@@ -233,11 +233,39 @@ export const deleteCandidate = async (id: string): Promise<void> => {
     return;
   }
 
-  if (!isUuid(id)) {
-    throw new Error('Không xóa được: thiếu mã định danh hợp lệ (UUID). Hãy tải lại trang.');
+  const tryDeleteBy = async (column: 'id' | 'id_nhan_su', value: string): Promise<boolean> => {
+    const { data, error } = await supabase
+      .from('nhan_su')
+      .delete()
+      .eq(column, value)
+      .select('id')
+      .limit(1);
+    if (error) throw new Error(error.message || 'Khong xoa duoc theo khoa xoa.');
+    return !!(data && data.length > 0);
+  };
+
+  const codeCandidates = [
+    candidateCode?.trim() || '',
+    id.startsWith('code:') ? id.slice(5).trim() : '',
+    !isUuid(id) && !id.startsWith('row:') ? id.trim() : '',
+  ].filter(Boolean);
+
+  if (isUuid(id)) {
+    try {
+      await deletePersonnel(id);
+      return;
+    } catch {
+      // fallback below
+    }
+  } else if (!id.startsWith('row:') && id.trim()) {
+    if (await tryDeleteBy('id', id.trim())) return;
   }
 
-  await deletePersonnel(id);
+  for (const code of codeCandidates) {
+    if (await tryDeleteBy('id_nhan_su', code)) return;
+  }
+
+  throw new Error('Khong xoa duoc: khong tim thay ban ghi phu hop de xoa.');
 };
 
 export const getCandidatesPaginated = async (

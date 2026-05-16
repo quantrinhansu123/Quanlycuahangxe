@@ -1,16 +1,23 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { getDefaultHomePath } from '../../data/viewPermissions';
 import type { ViewPermissionKey } from '../../data/viewPermissions';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
   adminOnly?: boolean;
   viewKey?: ViewPermissionKey;
+  anyViewKey?: ViewPermissionKey[];
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, adminOnly = false, viewKey }) => {
-  const { session, isAdmin, isLoading, hasViewAccess } = useAuth();
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
+  children,
+  adminOnly = false,
+  viewKey,
+  anyViewKey,
+}) => {
+  const { session, isAdmin, isLoading, hasViewAccess, nhanVien } = useAuth();
   const location = useLocation();
 
   // Chờ auth state khởi tạo xong (tránh flash redirect)
@@ -32,8 +39,15 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, adminOnly = f
     return <Navigate to="/" replace />;
   }
 
-  if (viewKey && !hasViewAccess(viewKey)) {
-    return <Navigate to="/" replace />;
+  const deniedByViewKey = viewKey && !hasViewAccess(viewKey);
+  const deniedByAnyViewKey =
+    anyViewKey &&
+    anyViewKey.length > 0 &&
+    !anyViewKey.some((key) => hasViewAccess(key));
+
+  if (deniedByViewKey || deniedByAnyViewKey) {
+    const fallback = getDefaultHomePath(nhanVien?.vi_tri, isAdmin);
+    return <Navigate to={fallback} replace />;
   }
 
   return <>{children}</>;

@@ -75,14 +75,19 @@ const Dashboard: React.FC = () => {
 
   const resolveViewKey = React.useCallback((path?: string): ViewPermissionKey | undefined => {
     if (!path) return undefined;
+    if (path.includes('/ban-hang/khach-hang')) return 'khach-hang';
+    if (path.includes('/ban-hang/phieu-ban-hang')) return 'don-hang';
     if (path.startsWith('/ban-hang')) return 'ban-hang';
+    if (path.includes('/nhan-su/bang-cham-cong') || path.startsWith('/cham-cong')) return 'cham-cong';
+    if (path.includes('/nhan-su/ung-vien')) return 'nhan-su-ung-vien';
+    if (path.startsWith('/nhan-su')) return 'nhan-su';
     if (path.startsWith('/thu-chi')) return 'thu-chi';
     if (path.startsWith('/dich-vu')) return 'dich-vu';
     if (path.startsWith('/bao-cao')) return 'bao-cao';
-    if (path.startsWith('/nhan-su')) return 'nhan-su';
     if (path.startsWith('/kho-van')) return 'kho-van';
     if (path.startsWith('/tien-luong')) return 'tien-luong';
     if (path.startsWith('/cai-dat')) return 'cai-dat-phan-quyen';
+    if (path === '/') return 'dashboard';
     return undefined;
   }, []);
 
