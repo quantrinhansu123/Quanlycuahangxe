@@ -145,6 +145,10 @@ function candidateToNhanSuPayload(candidate: Partial<Candidate>): Partial<NhanSu
     ho_ten: hoTen,
     email: candidate.email?.trim() || null,
     sdt: candidate.phone?.trim() || null,
+    password:
+      candidate.password !== undefined
+        ? (String(candidate.password).trim() || null)
+        : undefined,
     vi_tri: viTri,
     co_so: coSo,
   };

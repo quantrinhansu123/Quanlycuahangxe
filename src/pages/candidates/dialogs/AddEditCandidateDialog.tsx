@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { SearchableSelect } from '../../../components/ui/SearchableSelect';
+
 import type { CandidateDocument, CandidateFormState, FilterOption } from '../types';
 
 interface Props {
@@ -44,9 +44,9 @@ const AddEditCandidateDialog: React.FC<Props> = ({
   if (!isOpen && !isClosing) return null;
 
   const {
-    formName, formEmail, formPhone, formAddress, formBirthDate,
-    formSource, formPosition, formCandidateCode, formStatus, formLatestInterview,
-    formLatestResult, formInternalNotes, formDocuments,
+    formName, formEmail, formPhone, formPassword, formAddress, formBirthDate,
+    formPosition, formCandidateCode, formLatestInterview,
+    formInternalNotes, formDocuments,
   } = formState;
 
   const setFormDocuments = (updater: (prev: CandidateDocument[]) => CandidateDocument[]) => {
@@ -157,17 +157,31 @@ const AddEditCandidateDialog: React.FC<Props> = ({
                   />
                 </div>
               </div>
+              {isEditMode && (
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-bold text-foreground">{'M\u1eadt kh\u1ea9u'}</label>
+                  <input
+                    type="password"
+                    placeholder={'Nh\u1eadp m\u1eadt kh\u1ea9u m\u1edbi'}
+                    value={formPassword}
+                    onChange={e => setFormField('formPassword', e.target.value)}
+                    className="w-full px-4 py-2 bg-muted/10 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all"
+                  />
+                </div>
+              )}
               <div className="space-y-1.5">
-                <label className="text-[13px] font-bold text-foreground">Cơ sở / chi nhánh</label>
+                <label className="text-[13px] font-bold text-foreground">{'C\u01a1 s\u1edf / chi nh\u00e1nh'}</label>
                 <div className="relative">
                   <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/40" size={16} />
-                  <input
-                    type="text"
-                    placeholder="Ví dụ: Cơ sở Bắc Giang"
+                  <select
                     value={formAddress}
                     onChange={e => setFormField('formAddress', e.target.value)}
                     className="w-full pl-10 pr-4 py-2 bg-muted/10 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all"
-                  />
+                  >
+                    <option value="">{'Ch\u1ecdn c\u01a1 s\u1edf'}</option>
+                    <option value={'C\u01a1 s\u1edf B\u1eafc Giang'}>{'C\u01a1 s\u1edf B\u1eafc Giang'}</option>
+                    <option value={'C\u01a1 s\u1edf B\u1eafc Ninh'}>{'C\u01a1 s\u1edf B\u1eafc Ninh'}</option>
+                  </select>
                 </div>
               </div>
               <div className="space-y-1.5 md:col-span-2">
@@ -189,11 +203,11 @@ const AddEditCandidateDialog: React.FC<Props> = ({
           <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
             <div className="px-5 py-3 border-b border-border bg-muted/5 flex items-center gap-2">
               <Briefcase size={16} className="text-primary" />
-              <span className="text-[12px] font-bold text-primary uppercase tracking-wider">Vị trí ứng tuyển</span>
+              <span className="text-[12px] font-bold text-primary uppercase tracking-wider">{'V\u1ecb tr\u00ed'}</span>
             </div>
             <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-[13px] font-bold text-foreground">Vị trí ứng tuyển <span className="text-red-500">*</span></label>
+                <label className="text-[13px] font-bold text-foreground">{'V\u1ecb tr\u00ed'}</label>
                 <select
                   value={formPosition}
                   onChange={e => setFormField('formPosition', e.target.value)}
@@ -209,37 +223,6 @@ const AddEditCandidateDialog: React.FC<Props> = ({
                     <option value={formPosition}>{formPosition}</option>
                   ) : null}
                 </select>
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[13px] font-bold text-foreground">Trạng thái <span className="text-red-500">*</span></label>
-                <SearchableSelect
-                  options={[
-                    { value: 'new', label: 'Mới' },
-                    { value: 'reviewing', label: 'Đang xem xét' },
-                    { value: 'interviewing', label: 'Mời phỏng vấn' },
-                    { value: 'interviewed', label: 'Đã phỏng vấn' },
-                    { value: 'hired', label: 'Đã nhận việc' },
-                    { value: 'rejected', label: 'Từ chối' },
-                  ]}
-                  value={formStatus}
-                  onValueChange={(v: string) => setFormField('formStatus', v)}
-                  placeholder="Chọn trạng thái"
-                />
-              </div>
-              <div className="space-y-1.5 md:col-span-2">
-                <label className="text-[13px] font-bold text-foreground">Nguồn ứng tuyển</label>
-                <SearchableSelect
-                  options={[
-                    { value: 'website', label: 'Website công ty' },
-                    { value: 'linkedin', label: 'LinkedIn' },
-                    { value: 'referral', label: 'Giới thiệu nội bộ' },
-                    { value: 'jobboard', label: 'Vieclam24h / Job board' },
-                    { value: 'careerfair', label: 'Hội chợ việc làm' },
-                  ]}
-                  value={formSource}
-                  onValueChange={(v: string) => setFormField('formSource', v)}
-                  placeholder="Chọn kênh (tùy chọn)"
-                />
               </div>
             </div>
           </div>
@@ -258,16 +241,6 @@ const AddEditCandidateDialog: React.FC<Props> = ({
                   value={formLatestInterview.length >= 10 ? formLatestInterview.slice(0, 10) : formLatestInterview}
                   onChange={e => setFormField('formLatestInterview', e.target.value)}
                   className="w-full px-4 py-2 bg-muted/10 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[13px] font-bold text-foreground">Ghi chú (chỉ trên form, chưa lưu DB)</label>
-                <textarea
-                  placeholder="Ghi chú kết quả..."
-                  rows={3}
-                  value={formLatestResult}
-                  onChange={e => setFormField('formLatestResult', e.target.value)}
-                  className="w-full px-4 py-3 bg-muted/10 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all resize-none"
                 />
               </div>
             </div>
@@ -426,3 +399,7 @@ const AddEditCandidateDialog: React.FC<Props> = ({
 };
 
 export default AddEditCandidateDialog;
+
+
+
+
