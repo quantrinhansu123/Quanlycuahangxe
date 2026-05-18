@@ -28,7 +28,7 @@ import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import type { KhachHang } from '../data/customerData';
 import { bulkDeleteCustomers, bulkUpsertCustomers, deleteCustomer, getCustomersForSelect, getCustomersPaginated } from '../data/customerData';
-import { getCustomerLastSaleDates, getCustomerStats } from '../data/salesCardData';
+import { getCustomerOrderAggregatesByPhone } from '../data/salesCardData';
 
 
 const CustomerManagementPage: React.FC = () => {
@@ -115,17 +115,14 @@ const CustomerManagementPage: React.FC = () => {
 
       // Fetch last order dates & revenues for the current list
       if (data.length > 0) {
-        const ids = [
-          ...data.map(c => c.id),
-          ...data.map(c => c.ma_khach_hang).filter(Boolean) as string[]
-        ];
-        const [datesMap, statsMap] = await Promise.all([
-          getCustomerLastSaleDates(ids),
-          getCustomerStats(ids)
-        ]);
+        const phoneRows = data.map((c) => ({
+          id: c.id,
+          ma_khach_hang: c.ma_khach_hang,
+          so_dien_thoai: c.so_dien_thoai,
+        }));
+        const { lastOrderDates: datesMap, stats: statsMap } = await getCustomerOrderAggregatesByPhone(phoneRows);
         setLastOrderDates(datesMap);
         setCustomerStats(statsMap);
-
       }
 
 
@@ -862,6 +859,7 @@ const CustomerManagementPage: React.FC = () => {
       />
 
       <CustomerDetailsModal
+        key={selectedCustomer?.id ?? 'closed'}
         isOpen={isDetailsOpen}
         onClose={handleCloseDetails}
         customer={selectedCustomer}

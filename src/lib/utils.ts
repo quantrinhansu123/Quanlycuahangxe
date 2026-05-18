@@ -24,3 +24,11 @@ export function parseNumberVietnamese(str: string) {
   if (!str) return 0;
   return parseInt(str.replace(/\D/g, ''), 10) || 0;
 }
+
+/** YYYY-MM-DD theo giờ local (tránh lệch ngày do `toISOString()` UTC). */
+export function formatLocalDateYYYYMMDD(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}

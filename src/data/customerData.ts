@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { enrichSalesCards, type SalesCard } from './salesCardData';
+import { phoneLookupVariants } from '../lib/phoneUtils';
 
 export interface OilChangeEntry {
   ngay: string;
@@ -283,21 +284,40 @@ export const uploadCustomerImage = async (file: File): Promise<string> => {
   return data.publicUrl;
 };
 
+/** Lọc phiếu bán theo SĐT (cột so_dien_thoai / khach_hang_id) và mã KH — không dùng UUID id. */
+function buildTheBanHangPhoneOrMaFilter(soDienThoai: string | null | undefined, maKhachHang?: string | null): string | null {
+  const parts: string[] = [];
+  const seen = new Set<string>();
+  const push = (fragment: string) => {
+    if (!fragment || seen.has(fragment)) return;
+    seen.add(fragment);
+    parts.push(fragment);
+  };
+
+  for (const v of phoneLookupVariants(soDienThoai)) {
+    push(`so_dien_thoai.eq.${v}`);
+    push(`khach_hang_id.eq.${v}`);
+  }
+
+  const ma = (maKhachHang || '').trim();
+  if (ma) push(`khach_hang_id.eq.${ma}`);
+
+  return parts.length ? parts.join(',') : null;
+}
+
+/** Lịch sử đơn theo SĐT (+ mã KH trên phiếu). Không truyền SĐT hợp lệ → trả về []. */
 export const getCustomerServiceHistory = async (
-  customerId: string,
+  soDienThoai: string | null | undefined,
   startDate?: string,
   endDate?: string,
-  maKhachHang?: string
+  maKhachHang?: string | null
 ): Promise<SalesCard[]> => {
-  let query = supabase
-    .from('the_ban_hang')
-    .select('*');
-
-  if (maKhachHang) {
-    query = query.or(`khach_hang_id.eq.${customerId},khach_hang_id.eq.${maKhachHang}`);
-  } else {
-    query = query.eq('khach_hang_id', customerId);
+  const orFilter = buildTheBanHangPhoneOrMaFilter(soDienThoai, maKhachHang);
+  if (!orFilter) {
+    return [];
   }
+
+  let query = supabase.from('the_ban_hang').select('*').or(orFilter);
 
   if (startDate) {
     query = query.gte('ngay', startDate);
@@ -314,7 +334,7 @@ export const getCustomerServiceHistory = async (
     console.error('Error fetching customer service history:', error);
     throw error;
   }
-  
+
   const cards = (data as SalesCard[]) || [];
   await enrichSalesCards(cards);
   return cards;

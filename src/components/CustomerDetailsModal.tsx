@@ -4,6 +4,24 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { getCustomerServiceHistory, type KhachHang } from '../data/customerData';
+import { formatLocalDateYYYYMMDD } from '../lib/utils';
+
+function sumCardAmountVnd(card: {
+  the_ban_hang_ct?: { gia_ban?: unknown; so_luong?: unknown }[];
+  tong_tien?: unknown;
+  dich_vu?: { gia_ban?: unknown };
+}): number {
+  const line = (card.the_ban_hang_ct || []).reduce((s, ct) => {
+    const price = Number(ct.gia_ban ?? 0);
+    const qty = Number(ct.so_luong ?? 1);
+    return s + (Number.isFinite(price) ? price : 0) * (Number.isFinite(qty) ? qty : 1);
+  }, 0);
+  if (line > 0) return line;
+  const t = Number(card.tong_tien);
+  if (Number.isFinite(t) && t > 0) return t;
+  const dv = Number(card.dich_vu?.gia_ban ?? 0);
+  return Number.isFinite(dv) ? dv : 0;
+}
 
 interface CustomerDetailsModalProps {
    isOpen: boolean;
@@ -16,10 +34,13 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
    onClose,
    customer
 }) => {
-   const todayDate = new Date();
-   const firstDay = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1);
-   const [startDateStr, setStartDateStr] = useState<string>(firstDay.toISOString().split('T')[0]);
-   const [endDateStr, setEndDateStr] = useState<string>(todayDate.toISOString().split('T')[0]);
+   const [startDateStr, setStartDateStr] = useState(() => {
+      const end = new Date();
+      const start = new Date(end);
+      start.setMonth(start.getMonth() - 12);
+      return formatLocalDateYYYYMMDD(start);
+   });
+   const [endDateStr, setEndDateStr] = useState(() => formatLocalDateYYYYMMDD(new Date()));
    const [loading, setLoading] = useState(true);
    const [history, setHistory] = useState<any[]>([]);
    const [activeTab, setActiveTab] = useState<'history' | 'info'>('history');
@@ -34,9 +55,9 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
          try {
             setLoading(true);
             const data = await getCustomerServiceHistory(
-               customer.id, 
-               startDateStr, 
-               endDateStr, 
+               customer.so_dien_thoai,
+               startDateStr,
+               endDateStr,
                customer.ma_khach_hang || undefined
             );
             if (isMounted) setHistory(data);
@@ -57,11 +78,7 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
       return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amt);
    };
 
-   const totalSpent = history.reduce((sum, card) => {
-      const cardTotal = (card.the_ban_hang_ct || []).reduce((s: number, ct: any) => s + (ct.gia_ban * (ct.so_luong || 1)), 0)
-         || (card.dich_vu?.gia_ban || 0);
-      return sum + cardTotal;
-   }, 0);
+   const totalSpent = history.reduce((sum, card) => sum + sumCardAmountVnd(card), 0);
 
    const handleShareZalo = () => {
       const formatDate = (date: string) => new Date(date).toLocaleDateString('vi-VN');
@@ -85,7 +102,7 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
          history.slice(0, 5).forEach((record) => {
             const date = formatDate(record.ngay);
             const items = record.the_ban_hang_ct?.map((ct: any) => ct.san_pham).join(', ') || record.dich_vu?.ten_dich_vu || 'Dịch vụ';
-            const price = (record.the_ban_hang_ct || []).reduce((s: number, ct: any) => s + (ct.gia_ban * (ct.so_luong || 1)), 0) || (record.dich_vu?.gia_ban || 0);
+            const price = sumCardAmountVnd(record);
             msg += `• ${date}: ${items} — ${formatCurrency(price)}\n`;
          });
          if (history.length > 5) msg += `... và ${history.length - 5} đơn khác.\n`;
@@ -203,8 +220,7 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
                      ) : (
                         <div className="grid gap-4">
                            {history.map((card, idx) => {
-                              const cardTotal = (card.the_ban_hang_ct || []).reduce((s: number, ct: any) => s + (ct.gia_ban * (ct.so_luong || 1)), 0)
-                                 || (card.dich_vu?.gia_ban || 0);
+                              const cardTotal = sumCardAmountVnd(card);
                               return (
                                  <div key={card.id || idx} className="bg-card rounded-xl sm:rounded-2xl border border-border overflow-hidden hover:shadow-md transition-shadow group">
                                     <div className="p-3 sm:p-5 flex flex-col sm:flex-row gap-3 sm:gap-5 justify-between">

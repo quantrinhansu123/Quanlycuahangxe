@@ -1,8 +1,9 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { Camera, Save, X, Building2, Calendar, Loader2 } from 'lucide-react';
+import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
+import { AlertTriangle, Camera, Save, X, Building2, Calendar, Loader2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import type { DichVu } from '../data/serviceData';
-import { uploadServiceImage } from '../data/serviceData';
+import { getServices, uploadServiceImage } from '../data/serviceData';
+import { removeVietnameseTones } from '../lib/utils';
 
 interface ServiceFormModalProps {
   isOpen: boolean;
@@ -25,18 +26,72 @@ const ServiceFormModal: React.FC<ServiceFormModalProps> = React.memo(({
 }) => {
   const [formData, setFormData] = useState<Partial<DichVu>>(initialData);
   const [uploading, setUploading] = useState(false);
+  const [allServices, setAllServices] = useState<DichVu[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [activeSuggestion, setActiveSuggestion] = useState(-1);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const nameFieldRef = useRef<HTMLDivElement>(null);
 
   // Sync formData when initialData changes or modal opens
   useEffect(() => {
     if (isOpen) {
       setFormData(initialData);
+      setShowSuggestions(false);
+      setActiveSuggestion(-1);
       setTimeout(() => {
         nameInputRef.current?.focus();
       }, 100);
     }
   }, [isOpen, initialData]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    getServices()
+      .then(setAllServices)
+      .catch((err) => console.error('Không tải được danh sách dịch vụ gợi ý:', err));
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!showSuggestions) return;
+    const close = (e: MouseEvent) => {
+      if (nameFieldRef.current && !nameFieldRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+        setActiveSuggestion(-1);
+      }
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [showSuggestions]);
+
+  const nameQuery = (formData.ten_dich_vu || '').trim();
+  const normalizedName = removeVietnameseTones(nameQuery);
+
+  const nameSuggestions = useMemo(() => {
+    if (!normalizedName || isReadOnly) return [];
+    return allServices
+      .filter((s) => {
+        if (editingService && s.id === editingService.id) return false;
+        return removeVietnameseTones(s.ten_dich_vu).includes(normalizedName);
+      })
+      .slice(0, 8);
+  }, [allServices, normalizedName, editingService, isReadOnly]);
+
+  const exactDuplicate = useMemo(() => {
+    if (!normalizedName || isReadOnly) return null;
+    return (
+      allServices.find((s) => {
+        if (editingService && s.id === editingService.id) return false;
+        return removeVietnameseTones(s.ten_dich_vu) === normalizedName;
+      }) ?? null
+    );
+  }, [allServices, normalizedName, editingService, isReadOnly]);
+
+  const pickSuggestion = useCallback((service: DichVu) => {
+    setFormData((prev) => ({ ...prev, ten_dich_vu: service.ten_dich_vu }));
+    setShowSuggestions(false);
+    setActiveSuggestion(-1);
+  }, []);
 
   if (!isOpen) return null;
 
@@ -47,6 +102,27 @@ const ServiceFormModal: React.FC<ServiceFormModalProps> = React.memo(({
       setFormData(prev => ({ ...prev, [name]: Number(numericValue) }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
+      if (name === 'ten_dich_vu') {
+        setShowSuggestions(true);
+        setActiveSuggestion(-1);
+      }
+    }
+  };
+
+  const handleNameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showSuggestions || nameSuggestions.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveSuggestion((i) => (i + 1) % nameSuggestions.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveSuggestion((i) => (i <= 0 ? nameSuggestions.length - 1 : i - 1));
+    } else if (e.key === 'Enter' && activeSuggestion >= 0) {
+      e.preventDefault();
+      pickSuggestion(nameSuggestions[activeSuggestion]);
+    } else if (e.key === 'Escape') {
+      setShowSuggestions(false);
+      setActiveSuggestion(-1);
     }
   };
 
@@ -76,6 +152,10 @@ const ServiceFormModal: React.FC<ServiceFormModalProps> = React.memo(({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!editingService && exactDuplicate) {
+      alert(`Dịch vụ "${exactDuplicate.ten_dich_vu}" đã tồn tại (${exactDuplicate.co_so}). Vui lòng chọn tên khác hoặc sửa bản ghi cũ.`);
+      return;
+    }
     await onSubmit(formData);
   };
 
@@ -106,20 +186,71 @@ const ServiceFormModal: React.FC<ServiceFormModalProps> = React.memo(({
                 />
               </div>
 
-              <div className="space-y-1.5 focus-within:ring-2 focus-within:ring-primary/20 rounded-xl transition-all">
+              <div ref={nameFieldRef} className="relative space-y-1.5 focus-within:ring-2 focus-within:ring-primary/20 rounded-xl transition-all">
                 <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider">Tên dịch vụ <span className="text-red-500">*</span></label>
                 <input 
                   ref={nameInputRef}
                   type="text" 
                   name="ten_dich_vu" 
                   value={formData.ten_dich_vu || ''} 
-                  onChange={handleInputChange} 
+                  onChange={handleInputChange}
+                  onFocus={() => !isReadOnly && nameQuery && setShowSuggestions(true)}
+                  onKeyDown={handleNameKeyDown}
                   required 
                   disabled={isReadOnly}
                   placeholder="Vd: Bảo dưỡng toàn bộ, Thay lốp..."
                   tabIndex={2}
-                  className={clsx("w-full px-4 py-2 bg-background border border-border rounded-xl outline-none focus:border-primary text-[14px] font-bold", isReadOnly && "bg-muted cursor-not-allowed")} 
+                  autoComplete="off"
+                  aria-autocomplete="list"
+                  aria-expanded={showSuggestions && nameSuggestions.length > 0}
+                  className={clsx(
+                    "w-full px-4 py-2 bg-background border rounded-xl outline-none focus:border-primary text-[14px] font-bold",
+                    exactDuplicate && !isReadOnly ? "border-amber-500 focus:border-amber-500" : "border-border",
+                    isReadOnly && "bg-muted cursor-not-allowed"
+                  )} 
                 />
+                {exactDuplicate && !isReadOnly && (
+                  <p className="flex items-start gap-1.5 text-[11px] font-semibold text-amber-700 bg-amber-500/10 border border-amber-500/25 rounded-lg px-2.5 py-1.5">
+                    <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                    <span>
+                      Đã có dịch vụ <strong className="font-black">{exactDuplicate.ten_dich_vu}</strong>
+                      {exactDuplicate.co_so ? ` tại ${exactDuplicate.co_so}` : ''}. Tránh trùng tên.
+                    </span>
+                  </p>
+                )}
+                {showSuggestions && !isReadOnly && nameSuggestions.length > 0 && (
+                  <ul
+                    className="absolute left-0 right-0 top-full z-50 mt-1 max-h-52 overflow-y-auto rounded-xl border border-border bg-card shadow-xl py-1 animate-in fade-in zoom-in-95 duration-150"
+                    role="listbox"
+                  >
+                    <li className="px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-muted-foreground border-b border-border/60">
+                      Gợi ý — tránh trùng tên
+                    </li>
+                    {nameSuggestions.map((service, idx) => {
+                      const isExact =
+                        removeVietnameseTones(service.ten_dich_vu) === normalizedName;
+                      return (
+                        <li key={service.id} role="option" aria-selected={activeSuggestion === idx}>
+                          <button
+                            type="button"
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => pickSuggestion(service)}
+                            className={clsx(
+                              "w-full px-3 py-2 text-left flex items-center justify-between gap-2 transition-colors",
+                              activeSuggestion === idx ? "bg-primary/10" : "hover:bg-muted/80",
+                              isExact && "bg-amber-500/5"
+                            )}
+                          >
+                            <span className="text-[13px] font-bold text-foreground truncate">{service.ten_dich_vu}</span>
+                            <span className="text-[11px] text-muted-foreground shrink-0 tabular-nums">
+                              {service.gia_ban?.toLocaleString('vi-VN')}đ
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
               </div>
 
               <InputField label="Cơ sở" name="co_so" type="select" options={branchOptions} value={formData.co_so || ''} onChange={handleInputChange} icon={Building2} tabIndex={3} disabled={isReadOnly} />
