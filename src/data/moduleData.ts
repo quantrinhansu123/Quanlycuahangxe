@@ -1,5 +1,6 @@
-import {
+﻿import {
   ArrowLeftRight,
+  Boxes,
   ClipboardList,
   ShoppingCart,
   Users,
@@ -13,7 +14,6 @@ import {
 } from 'lucide-react';
 import type { ModuleCardProps } from '../components/ui/ModuleCard';
 
-// Comprehensive mock data for module pages to match the Quản lý chuỗi cửa hàng sửa xe precisely
 export const moduleData: Record<string, { section: string; items: ModuleCardProps[] }[]> = {
   '/ban-hang': [
     {
@@ -66,7 +66,8 @@ export const moduleData: Record<string, { section: string; items: ModuleCardProp
     {
       section: 'Quản lý kho',
       items: [
-        { icon: ArrowLeftRight, title: 'Xuất nhập kho', description: 'Quản lý các hoạt động nhập hàng vào kho và xuất hàng ra khỏi kho.', colorScheme: 'teal', path: '/kho-van/xuat-nhap-kho' }
+        { icon: ArrowLeftRight, title: 'Xuất nhập kho', description: 'Quản lý các hoạt động nhập hàng vào kho và xuất hàng ra khỏi kho.', colorScheme: 'teal', path: '/kho-van/xuat-nhap-kho' },
+        { icon: Boxes, title: 'Danh sách kho', description: 'Xem danh sách tồn kho và DS sản phẩm trong kho.', colorScheme: 'blue', path: '/kho-van/danh-sach-kho' }
       ]
     }
   ],

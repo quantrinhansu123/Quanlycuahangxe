@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { X, Save, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { addInventoryRecord } from '../../../data/inventoryData';
@@ -16,10 +16,11 @@ const AddInventoryDialog: React.FC<AddInventoryDialogProps> = ({ isOpen, onClose
 
   const [formData, setFormData] = useState({
     id_xuat_nhap_kho: '',
-    loai_phieu: 'Nhập kho',
+    loai_phieu: 'Nháº­p kho',
     id_don_hang: '',
-    co_so: 'Cơ sở Bắc Giang',
+    co_so: 'CÆ¡ sá»Ÿ Báº¯c Giang',
     ten_mat_hang: '',
+    ton_dau_ky: 0,
     so_luong: 0,
     gia: 0,
     ngay: new Date().toISOString().split('T')[0],
@@ -36,7 +37,7 @@ const AddInventoryDialog: React.FC<AddInventoryDialogProps> = ({ isOpen, onClose
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.ten_mat_hang) {
-      setError('Vui lòng nhập tên mặt hàng');
+      setError('Vui lÃ²ng nháº­p tÃªn máº·t hÃ ng');
       return;
     }
 
@@ -49,7 +50,7 @@ const AddInventoryDialog: React.FC<AddInventoryDialogProps> = ({ isOpen, onClose
       });
       onSuccess();
     } catch (err) {
-      setError('Đã xảy ra lỗi khi lưu dữ liệu. Vui lòng thử lại.');
+      setError('ÄÃ£ xáº£y ra lá»—i khi lÆ°u dá»¯ liá»‡u. Vui lÃ²ng thá»­ láº¡i.');
       console.error(err);
     } finally {
       setLoading(false);
@@ -67,7 +68,7 @@ const AddInventoryDialog: React.FC<AddInventoryDialogProps> = ({ isOpen, onClose
         className="bg-card border border-border rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden"
       >
         <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-muted/30">
-          <h2 className="text-xl font-bold text-foreground">Thêm Phiếu Mới</h2>
+          <h2 className="text-xl font-bold text-foreground">ThÃªm Phiáº¿u Má»›i</h2>
           <button onClick={onClose} className="p-2 hover:bg-muted rounded-full transition-colors">
             <X size={20} />
           </button>
@@ -82,22 +83,22 @@ const AddInventoryDialog: React.FC<AddInventoryDialogProps> = ({ isOpen, onClose
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Loại phiếu */}
+            {/* Loáº¡i phiáº¿u */}
             <div className="space-y-2">
-              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">Loại phiếu</label>
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">Loáº¡i phiáº¿u</label>
               <select
                 className="w-full bg-background border border-border rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-sm"
                 value={formData.loai_phieu}
                 onChange={(e) => setFormData(prev => ({ ...prev, loai_phieu: e.target.value }))}
               >
-                <option value="Nhập kho">Nhập kho</option>
-                <option value="Phiếu nhập">Phiếu nhập</option>
+                <option value="Nháº­p kho">Nháº­p kho</option>
+                <option value="Phiáº¿u nháº­p">Phiáº¿u nháº­p</option>
               </select>
             </div>
 
-            {/* Mã Phiếu */}
+            {/* MÃ£ Phiáº¿u */}
             <div className="space-y-2">
-              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">Mã Phiếu Xuất/Nhập</label>
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">MÃ£ Phiáº¿u Xuáº¥t/Nháº­p</label>
               <input
                 type="text"
                 placeholder="VD: NK-001"
@@ -107,37 +108,37 @@ const AddInventoryDialog: React.FC<AddInventoryDialogProps> = ({ isOpen, onClose
               />
             </div>
 
-            {/* Cơ sở */}
+            {/* CÆ¡ sá»Ÿ */}
             <div className="space-y-2">
-              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">Cơ sở</label>
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">CÆ¡ sá»Ÿ</label>
               <select
                 className="w-full bg-background border border-border rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-sm"
                 value={formData.co_so}
                 onChange={(e) => setFormData(prev => ({ ...prev, co_so: e.target.value }))}
               >
-                <option value="Cơ sở Bắc Giang">Cơ sở Bắc Giang</option>
-                <option value="Cơ sở Bắc Ninh">Cơ sở Bắc Ninh</option>
+                <option value="CÆ¡ sá»Ÿ Báº¯c Giang">CÆ¡ sá»Ÿ Báº¯c Giang</option>
+                <option value="CÆ¡ sá»Ÿ Báº¯c Ninh">CÆ¡ sá»Ÿ Báº¯c Ninh</option>
               </select>
             </div>
 
-            {/* ID đơn hàng */}
+            {/* ID Ä‘Æ¡n hÃ ng */}
             <div className="space-y-2">
-              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">ID Đơn hàng</label>
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">ID ÄÆ¡n hÃ ng</label>
               <input
                 type="text"
-                placeholder="Ví dụ: ĐH-001"
+                placeholder="VÃ­ dá»¥: ÄH-001"
                 className="w-full bg-background border border-border rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-sm"
                 value={formData.id_don_hang}
                 onChange={(e) => setFormData(prev => ({ ...prev, id_don_hang: e.target.value }))}
               />
             </div>
 
-            {/* Tên mặt hàng */}
+            {/* TÃªn máº·t hÃ ng */}
             <div className="space-y-2">
-              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">Tên mặt hàng</label>
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">TÃªn máº·t hÃ ng</label>
               <input
                 type="text"
-                placeholder="Nhập tên sản phẩm..."
+                placeholder="Nháº­p tÃªn sáº£n pháº©m..."
                 className="w-full bg-background border border-border rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-sm"
                 value={formData.ten_mat_hang}
                 onChange={(e) => setFormData(prev => ({ ...prev, ten_mat_hang: e.target.value }))}
@@ -145,9 +146,9 @@ const AddInventoryDialog: React.FC<AddInventoryDialogProps> = ({ isOpen, onClose
               />
             </div>
 
-            {/* Số lượng */}
+            {/* Sá»‘ lÆ°á»£ng */}
             <div className="space-y-2">
-              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">Số lượng</label>
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">Sá»‘ lÆ°á»£ng</label>
               <input
                 type="number"
                 min="0"
@@ -157,9 +158,9 @@ const AddInventoryDialog: React.FC<AddInventoryDialogProps> = ({ isOpen, onClose
               />
             </div>
 
-            {/* Giá */}
+            {/* GiÃ¡ */}
             <div className="space-y-2">
-              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">Giá (VNĐ)</label>
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">GiÃ¡ (VNÄ)</label>
               <input
                 type="number"
                 min="0"
@@ -169,9 +170,9 @@ const AddInventoryDialog: React.FC<AddInventoryDialogProps> = ({ isOpen, onClose
               />
             </div>
 
-            {/* Ngày */}
+            {/* NgÃ y */}
             <div className="space-y-2">
-              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">Ngày</label>
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">NgÃ y</label>
               <input
                 type="date"
                 className="w-full bg-background border border-border rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-sm"
@@ -180,9 +181,9 @@ const AddInventoryDialog: React.FC<AddInventoryDialogProps> = ({ isOpen, onClose
               />
             </div>
 
-            {/* Giờ */}
+            {/* Giá» */}
             <div className="space-y-2">
-              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">Giờ</label>
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">Giá»</label>
               <input
                 type="time"
                 className="w-full bg-background border border-border rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-sm"
@@ -191,21 +192,21 @@ const AddInventoryDialog: React.FC<AddInventoryDialogProps> = ({ isOpen, onClose
               />
             </div>
 
-            {/* Người thực hiện */}
+            {/* NgÆ°á»i thá»±c hiá»‡n */}
             <div className="space-y-2">
-              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">Người thực hiện</label>
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">NgÆ°á»i thá»±c hiá»‡n</label>
               <input
                 type="text"
-                placeholder="Tên nhân viên..."
+                placeholder="TÃªn nhÃ¢n viÃªn..."
                 className="w-full bg-background border border-border rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-sm"
                 value={formData.nguoi_thuc_hien}
                 onChange={(e) => setFormData(prev => ({ ...prev, nguoi_thuc_hien: e.target.value }))}
               />
             </div>
 
-            {/* Tổng tiền (Computed) */}
+            {/* Tá»•ng tiá»n (Computed) */}
             <div className="space-y-2">
-              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">Tổng tiền</label>
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">Tá»•ng tiá»n</label>
               <div className="w-full bg-muted/50 border border-border rounded-xl px-4 py-2.5 text-sm font-bold text-primary">
                 {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(tongTien)}
               </div>
@@ -218,7 +219,7 @@ const AddInventoryDialog: React.FC<AddInventoryDialogProps> = ({ isOpen, onClose
               onClick={onClose}
               className="px-6 py-2.5 rounded-xl border border-border hover:bg-muted transition-all text-sm font-medium"
             >
-              Hủy
+              Há»§y
             </button>
             <button
               type="submit"
@@ -230,7 +231,7 @@ const AddInventoryDialog: React.FC<AddInventoryDialogProps> = ({ isOpen, onClose
               ) : (
                 <Save size={18} />
               )}
-              Lưu phiếu
+              LÆ°u phiáº¿u
             </button>
           </div>
         </form>
@@ -240,3 +241,4 @@ const AddInventoryDialog: React.FC<AddInventoryDialogProps> = ({ isOpen, onClose
 };
 
 export default AddInventoryDialog;
+

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Save, Building2, Hash, DollarSign, Package, Clock, User, List, Settings } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -14,7 +14,7 @@ interface InventoryFormModalProps {
   record: InventoryRecord | null;
   onSuccess: () => void;
   services: DichVu[];
-  serviceOptions: { value: string; label: string; }[];
+  serviceOptions: { value: string; label: string }[];
 }
 
 const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
@@ -23,57 +23,62 @@ const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
   record,
   onSuccess,
   services,
-  serviceOptions
+  serviceOptions,
 }) => {
   const [formData, setFormData] = useState<Partial<InventoryRecord>>({});
 
-
   useEffect(() => {
-    if (isOpen) {
-      if (record) {
-        setFormData({ ...record });
-      } else {
-        const fetchAutoId = async () => {
-          const autoId = await getNextInventoryId();
-          setFormData({
-            id_xuat_nhap_kho: autoId,
-            loai_phieu: 'Nhập kho',
-            id_don_hang: '',
-            co_so: 'Cơ sở Bắc Giang',
-            ten_mat_hang: '',
-            so_luong: 0,
-            gia: 0,
-            tong_tien: 0,
-            ngay: new Date().toISOString().split('T')[0],
-            gio: formatTime24h(new Date(), false),
-            nguoi_thuc_hien: ''
-          });
-        };
-        fetchAutoId();
-      }
+    if (!isOpen) return;
+
+    if (record) {
+      setFormData({ ...record });
+      return;
     }
+
+    const fetchAutoId = async () => {
+      const autoId = await getNextInventoryId();
+      setFormData({
+        id_xuat_nhap_kho: autoId,
+        loai_phieu: 'Nhập kho',
+        id_don_hang: '',
+        co_so: 'Cơ sở Bắc Giang',
+        ten_mat_hang: '',
+        ton_dau_ky: 0,
+        so_luong: 0,
+        gia: 0,
+        tong_tien: 0,
+        ngay: new Date().toISOString().split('T')[0],
+        gio: formatTime24h(new Date(), false),
+        nguoi_thuc_hien: '',
+      });
+    };
+
+    fetchAutoId();
   }, [isOpen, record]);
 
   if (!isOpen) return null;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    
-    if (name === 'so_luong' || name === 'gia') {
+
+    if (name === 'so_luong' || name === 'gia' || name === 'ton_dau_ky') {
       const numericValue = value.replace(/[^0-9]/g, '').replace(/^0+(?!$)/, '') || '0';
       const num = parseInt(numericValue, 10) || 0;
-      
-      setFormData(prev => {
-        const newData = { ...prev, [name]: num };
+
+      setFormData((prev) => {
+        const next = { ...prev, [name]: num };
         const soLuong = name === 'so_luong' ? num : (prev.so_luong || 0);
         const gia = name === 'gia' ? num : (prev.gia || 0);
-        newData.tong_tien = soLuong * gia;
-        return newData;
+        next.tong_tien = soLuong * gia;
+        return next;
       });
-    } else if (name === 'loai_phieu') {
+      return;
+    }
+
+    if (name === 'loai_phieu') {
       const isNhap = value === 'Nhập kho' || value === 'Phiếu nhập';
-      setFormData(prev => {
-        const selectedService = services.find(s => s.ten_dich_vu === prev.ten_mat_hang);
+      setFormData((prev) => {
+        const selectedService = services.find((s) => s.ten_dich_vu === prev.ten_mat_hang);
         const next = { ...prev, [name]: value };
         if (selectedService) {
           const gia = isNhap ? selectedService.gia_nhap : selectedService.gia_ban;
@@ -82,9 +87,10 @@ const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
         }
         return next;
       });
-    } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
+      return;
     }
+
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -101,6 +107,7 @@ const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
         id_don_hang: formData.id_don_hang || '',
         co_so: formData.co_so || 'Cơ sở Bắc Giang',
         ten_mat_hang: formData.ten_mat_hang,
+        ton_dau_ky: formData.ton_dau_ky || 0,
         so_luong: formData.so_luong || 0,
         gia: formData.gia || 0,
         tong_tien: formData.tong_tien || 0,
@@ -109,7 +116,7 @@ const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
         nguoi_thuc_hien: formData.nguoi_thuc_hien || '',
       });
       onSuccess();
-    } catch (error) {
+    } catch {
       alert('Lỗi: Không thể lưu thông tin xuất nhập kho.');
     }
   };
@@ -124,7 +131,7 @@ const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
       <div className="bg-card w-full max-w-2xl rounded-3xl border border-border shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in duration-300" style={{ zIndex: 10000000 }}>
         <div className="px-8 py-5 border-b border-border flex items-center justify-between bg-muted/30 shrink-0">
           <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
-            {record ? <Settings size={20} className="text-primary" /> : <Settings size={20} className="text-primary" />}
+            <Settings size={20} className="text-primary" />
             {record ? 'Chỉnh sửa phiếu' : 'Thêm Phiếu Mới'}
           </h3>
           <button onClick={onClose} className="p-2 rounded-full hover:bg-muted transition-colors text-muted-foreground"><X size={20} /></button>
@@ -132,18 +139,12 @@ const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
 
         <form onSubmit={handleSubmit} className="overflow-y-auto p-8 flex-1 custom-scrollbar">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-            
             <div className="space-y-1.5">
               <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                 <List size={14} className="text-primary/70" />
                 Loại phiếu <span className="text-red-500">*</span>
               </label>
-              <select
-                name="loai_phieu"
-                value={formData.loai_phieu || ''}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2.5 bg-background border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-[14px]"
-              >
+              <select name="loai_phieu" value={formData.loai_phieu || ''} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-background border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-[14px]">
                 <option value="Nhập kho">Nhập kho</option>
                 <option value="Phiếu nhập">Phiếu nhập</option>
               </select>
@@ -154,32 +155,26 @@ const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
                 <Building2 size={14} className="text-primary/70" />
                 Cơ sở <span className="text-red-500">*</span>
               </label>
-              <select
-                name="co_so"
-                value={formData.co_so || ''}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2.5 bg-background border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-[14px]"
-              >
+              <select name="co_so" value={formData.co_so || ''} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-background border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-[14px]">
                 <option value="Cơ sở Bắc Giang">Cơ sở Bắc Giang</option>
                 <option value="Cơ sở Bắc Ninh">Cơ sở Bắc Ninh</option>
               </select>
             </div>
 
             <InputField label="Mã Đơn hàng" name="id_don_hang" value={formData.id_don_hang} onChange={handleInputChange} icon={Hash} placeholder="ĐH-0001..." />
-
             <InputField label="Mã Phiếu" name="id_xuat_nhap_kho" value={formData.id_xuat_nhap_kho || ''} onChange={handleInputChange} icon={List} disabled />
-            
+
             <div className="space-y-1.5">
               <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                 <Package size={14} className="text-primary/70" />
                 Tên mặt hàng <span className="text-red-500">*</span>
               </label>
-              <SearchableSelect 
+              <SearchableSelect
                 options={serviceOptions}
                 value={formData.ten_mat_hang || ''}
                 onValueChange={(val) => {
-                  const selectedService = services.find(s => s.ten_dich_vu === val);
-                  setFormData(prev => {
+                  const selectedService = services.find((s) => s.ten_dich_vu === val);
+                  setFormData((prev) => {
                     const next = { ...prev, ten_mat_hang: val };
                     if (selectedService) {
                       const isNhap = prev.loai_phieu === 'Nhập kho' || prev.loai_phieu === 'Phiếu nhập';
@@ -193,17 +188,14 @@ const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
                 placeholder="Tìm theo tên hoặc mã DV..."
               />
             </div>
-            
+
             <InputField label="Số lượng" name="so_luong" type="text" value={formatNumber(formData.so_luong)} onChange={handleInputChange} icon={Hash} />
-            
+            <InputField label="Tồn đầu kỳ" name="ton_dau_ky" type="text" value={formatNumber(formData.ton_dau_ky)} onChange={handleInputChange} icon={Package} />
             <InputField label="Giá" name="gia" type="text" value={formatNumber(formData.gia)} onChange={handleInputChange} icon={DollarSign} />
-            
             <InputField label="Ngày" name="ngay" type="date" value={formData.ngay} onChange={handleInputChange} icon={Clock} />
-            
             <InputField label="Giờ" name="gio" type="time" value={formData.gio} onChange={handleInputChange} icon={Clock} />
-            
             <InputField label="Người thực hiện" name="nguoi_thuc_hien" value={formData.nguoi_thuc_hien} onChange={handleInputChange} icon={User} placeholder="Tên nhân viên..." />
-            
+
             <div className="space-y-1.5 md:col-span-2">
               <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                 <DollarSign size={14} className="text-primary/70" />
@@ -213,7 +205,6 @@ const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
                 {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(formData.tong_tien || 0)}
               </div>
             </div>
-
           </div>
 
           <div className="mt-10 flex items-center justify-end gap-3 pt-6 border-t border-border">
@@ -229,28 +220,33 @@ const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
   );
 };
 
-const InputField: React.FC<{ 
-  label: string, 
-  name: string, 
-  value?: string | number, 
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void, 
-  icon: React.ElementType,
-  type?: string,
-  placeholder?: string,
-  disabled?: boolean,
-  required?: boolean,
-  className?: string
+const InputField: React.FC<{
+  label: string;
+  name: string;
+  value?: string | number;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  icon: React.ElementType;
+  type?: string;
+  placeholder?: string;
+  disabled?: boolean;
+  required?: boolean;
+  className?: string;
 }> = ({ label, name, value, onChange, icon: Icon, type = 'text', placeholder, disabled, required, className }) => (
-  <div className={clsx("space-y-1.5", className)}>
+  <div className={clsx('space-y-1.5', className)}>
     <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
       <Icon size={14} className="text-primary/70" />
       {label} {required && <span className="text-red-500">*</span>}
     </label>
-    <input 
-      type={type} name={name} value={value || ''} onChange={onChange} 
-      onFocus={(e) => e.target.select()} 
-      placeholder={placeholder} disabled={disabled} required={required}
-      className={clsx("w-full px-4 py-2.5 bg-background border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-[14px]", disabled && "opacity-60 cursor-not-allowed bg-muted/20")}
+    <input
+      type={type}
+      name={name}
+      value={value || ''}
+      onChange={onChange}
+      onFocus={(e) => e.target.select()}
+      placeholder={placeholder}
+      disabled={disabled}
+      required={required}
+      className={clsx('w-full px-4 py-2.5 bg-background border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-[14px]', disabled && 'opacity-60 cursor-not-allowed bg-muted/20')}
     />
   </div>
 );

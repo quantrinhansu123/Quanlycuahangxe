@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+﻿import { lazy, Suspense } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import MainLayout from './components/layout/MainLayout';
 import TopProgressBar from './components/ui/TopProgressBar';
@@ -26,6 +26,7 @@ const PayrollAttendanceSalaryPage = lazy(() => import('./pages/PayrollAttendance
 const RevenueReportPage = lazy(() => import('./pages/RevenueReportPage'));
 const PermissionSettingsPage = lazy(() => import('./pages/PermissionSettingsPage'));
 const PersonnelManagementPage = lazy(() => import('./pages/PersonnelManagementPage'));
+const WarehouseStockListPage = lazy(() => import('./pages/WarehouseStockListPage'));
 
 
 function App() {
@@ -33,10 +34,10 @@ function App() {
     <BrowserRouter>
       <Suspense fallback={<TopProgressBar />}>
         <Routes>
-          {/* Public route — không cần login */}
+          {/* Public route â€” khÃ´ng cáº§n login */}
           <Route path="/login" element={<LoginPage />} />
 
-          {/* Protected routes — phải đăng nhập */}
+          {/* Protected routes â€” pháº£i Ä‘Äƒng nháº­p */}
           <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
             <Route path="/" element={<ProtectedRoute viewKey="dashboard"><Dashboard /></ProtectedRoute>} />
 
@@ -53,7 +54,7 @@ function App() {
               <Route path="phieu-ban-hang-ct" element={<ProtectedRoute viewKey="don-hang"><SalesCardCTManagementPage /></ProtectedRoute>} />
             </Route>
 
-            {/* Thu chi — chỉ admin */}
+            {/* Thu chi â€” chá»‰ admin */}
             <Route path="/thu-chi" element={<ProtectedRoute viewKey="thu-chi"><FinancialManagementPage /></ProtectedRoute>} />
 
             <Route path="/dich-vu" element={<ProtectedRoute viewKey="dich-vu"><ServiceManagementPage /></ProtectedRoute>} />
@@ -69,32 +70,33 @@ function App() {
               <Route path="them-cham-cong" element={<ProtectedRoute viewKey="nhan-su"><AddAttendancePage /></ProtectedRoute>} />
               <Route path="bang-cham-cong" element={<ProtectedRoute viewKey="cham-cong"><AttendanceManagementPage /></ProtectedRoute>} />
               <Route path="danh-sach" element={<ProtectedRoute viewKey="nhan-su"><PersonnelManagementPage /></ProtectedRoute>} />
-              {/* Quản lý nhân viên — chỉ admin */}
+              {/* Quáº£n lÃ½ nhÃ¢n viÃªn â€” chá»‰ admin */}
               <Route path="ung-vien" element={<ProtectedRoute viewKey="nhan-su-ung-vien"><CandidatesPage /></ProtectedRoute>} />
             </Route>
 
             <Route path="/cham-cong" element={<ProtectedRoute viewKey="cham-cong"><CheckInPage /></ProtectedRoute>} />
 
-            {/* Kho vận — chỉ admin */}
+            {/* Kho váº­n â€” chá»‰ admin */}
             <Route path="/kho-van" element={<ProtectedRoute viewKey="kho-van"><ModulePage /></ProtectedRoute>}>
               <Route path="xuat-nhap-kho" element={<ProtectedRoute viewKey="kho-van"><InventoryManagementPage /></ProtectedRoute>} />
+              <Route path="danh-sach-kho" element={<ProtectedRoute viewKey="kho-van"><WarehouseStockListPage /></ProtectedRoute>} />
             </Route>
 
-            {/* Tiền lương */}
+            {/* Tiá»n lÆ°Æ¡ng */}
             <Route path="/tien-luong" element={<ProtectedRoute viewKey="tien-luong"><ModulePage /></ProtectedRoute>}>
-              {/* bang-luong: admin xem tất cả, nhân viên xem của mình (RLS lọc data) */}
+              {/* bang-luong: admin xem táº¥t cáº£, nhÃ¢n viÃªn xem cá»§a mÃ¬nh (RLS lá»c data) */}
               <Route path="bang-luong" element={<ProtectedRoute viewKey="tien-luong"><PayrollPage /></ProtectedRoute>} />
               <Route
                 path="bang-luong-cham-cong"
                 element={<ProtectedRoute viewKey="tien-luong"><PayrollAttendanceSalaryPage /></ProtectedRoute>}
               />
-              {/* Các trang cấu hình — chỉ admin */}
+              {/* CÃ¡c trang cáº¥u hÃ¬nh â€” chá»‰ admin */}
               <Route path="thong-so" element={<ProtectedRoute viewKey="tien-luong-cau-hinh"><PayrollSettingsPage /></ProtectedRoute>} />
               <Route path="thanh-phan" element={<ProtectedRoute viewKey="tien-luong-cau-hinh"><SalaryComponentPage /></ProtectedRoute>} />
               <Route path="chinh-sach" element={<ProtectedRoute viewKey="tien-luong-cau-hinh"><AllowancePolicyPage /></ProtectedRoute>} />
             </Route>
 
-            {/* Báo cáo doanh thu — chỉ admin */}
+            {/* BÃ¡o cÃ¡o doanh thu â€” chá»‰ admin */}
             <Route path="/bao-cao" element={<ProtectedRoute viewKey="bao-cao"><RevenueReportPage /></ProtectedRoute>}>
               <Route index element={<Navigate to="san-pham" replace />} />
               <Route path=":tab" element={null} />
@@ -119,3 +121,4 @@ function App() {
 }
 
 export default App;
+
