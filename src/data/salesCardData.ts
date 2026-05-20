@@ -1165,6 +1165,11 @@ export async function getCustomerOrderAggregatesByPhone(customers: CustomerPhone
   lastOrderDates: Record<string, string>;
   stats: Record<string, { totalRevenue: number; visitCount: number }>;
 }> {
+  type AggregationSalesCard = Pick<
+    SalesCard,
+    'id' | 'id_bh' | 'khach_hang_id' | 'dich_vu_id' | 'so_dien_thoai' | 'ngay'
+  >;
+
   const lastOrderDates: Record<string, string> = {};
   const stats: Record<string, { totalRevenue: number; visitCount: number }> = {};
 
@@ -1185,7 +1190,7 @@ export async function getCustomerOrderAggregatesByPhone(customers: CustomerPhone
     return { lastOrderDates, stats };
   }
 
-  const salesCardMap = new Map<string, SalesCard>();
+  const salesCardMap = new Map<string, AggregationSalesCard>();
   for (const chunk of chunkArray(tokens, 40)) {
     const quoted = chunk.map((t) => `"${String(t).replace(/"/g, '')}"`).join(',');
     const { data, error } = await supabase
@@ -1197,7 +1202,7 @@ export async function getCustomerOrderAggregatesByPhone(customers: CustomerPhone
       console.error('getCustomerOrderAggregatesByPhone:', error);
       continue;
     }
-    (data || []).forEach((row: SalesCard) => {
+    (data || []).forEach((row) => {
       if (row?.id) salesCardMap.set(row.id, row);
     });
   }
