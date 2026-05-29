@@ -37,7 +37,8 @@ const ModulePage: React.FC = () => {
   // Smart Redirection for Mobile: nhảy thẳng trang con cho các module (gọn hơn), trừ Bán hàng — cần
   // giữ màn hình 2 thẻ (phiếu / khách) thay vì ép vào phiếu bán hàng.
   useEffect(() => {
-    if (baseModulePath === '/ban-hang') return;
+    // Giữ màn menu module (các thẻ con), không nhảy thẳng trang chi tiết.
+    if (baseModulePath === '/ban-hang' || baseModulePath === '/nhan-su') return;
     const isMobile = window.innerWidth < 1024;
     const isRootModulePath = location.pathname === baseModulePath;
 

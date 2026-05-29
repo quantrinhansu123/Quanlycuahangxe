@@ -24,7 +24,6 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { moduleData } from '../../data/moduleData';
 import { extraMenuItems, sidebarMenu } from '../../data/sidebarMenu';
-import { getDefaultHomePath } from '../../data/viewPermissions';
 import { formatTime24h } from '../../utils/datetimeFormat';
 import { SubModuleSwitcher } from '../ui/SubModuleSwitcher';
 import type { ModuleCardProps } from '../ui/ModuleCard';
@@ -130,12 +129,8 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
   const location = useLocation();
   const navigate = useNavigate();
   const { avatar } = useTheme();
-  const { nhanVien, signOut, hasViewAccess, isAdmin } = useAuth();
+  const { nhanVien, signOut, hasViewAccess } = useAuth();
   const canOpenPermissionSettings = hasViewAccess('cai-dat-phan-quyen');
-  const homePath = React.useMemo(
-    () => getDefaultHomePath(nhanVien?.vi_tri, isAdmin),
-    [nhanVien?.vi_tri, isAdmin]
-  );
 
   const defaultAvatar = "https://ui-avatars.com/api/?name=User&background=random&color=random";
   const userAvatar = avatar || defaultAvatar;
@@ -275,7 +270,7 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
             subModules.length > 1 ? "hidden lg:flex" : "flex"
           )}>
             <div className="flex items-center gap-1.5">
-              <span className="flex items-center gap-1 hover:text-primary transition-colors cursor-pointer" onClick={() => navigate(homePath)}>
+              <span className="flex items-center gap-1 hover:text-primary transition-colors cursor-pointer" onClick={() => navigate('/')}>
                 <Home size={13} />
                 <span className="hidden sm:inline">Trang chủ</span>
               </span>

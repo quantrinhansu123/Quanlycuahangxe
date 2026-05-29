@@ -36,7 +36,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   // Trang admin mà không phải admin → về trang chủ
   if (adminOnly && !isAdmin) {
-    const fallback = getDefaultHomePath(nhanVien?.vi_tri, isAdmin);
+    const fallback = getDefaultHomePath(nhanVien?.vi_tri, isAdmin, nhanVien?.co_so);
     return <Navigate to={fallback} replace />;
   }
 
@@ -47,7 +47,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     !anyViewKey.some((key) => hasViewAccess(key));
 
   if (deniedByViewKey || deniedByAnyViewKey) {
-    const fallback = getDefaultHomePath(nhanVien?.vi_tri, isAdmin);
+    const fallback = getDefaultHomePath(nhanVien?.vi_tri, isAdmin, nhanVien?.co_so);
     return <Navigate to={fallback} replace />;
   }
 

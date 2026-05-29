@@ -7,9 +7,8 @@ import { ActionCard } from '../components/ui/ActionCard';
 import { ModuleCard } from '../components/ui/ModuleCard';
 import { useAuth } from '../context/AuthContext';
 import { moduleData } from '../data/moduleData';
-import type { ViewPermissionKey } from '../data/viewPermissions';
-import { removeVietnameseTones } from '../lib/utils';
 import { resolveViewKeyByPath } from '../data/viewPermissions';
+import { removeVietnameseTones } from '../lib/utils';
 
 const dashboardModules: ActionCardProps[] = [
   {
@@ -158,6 +157,14 @@ const Dashboard: React.FC = () => {
               );
             })}
           </div>
+        </div>
+      ) : visibleDashboardModules.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-border bg-muted/30 p-8 text-center max-w-lg">
+          <p className="text-[15px] font-semibold text-foreground">Chưa có module hiển thị</p>
+          <p className="text-muted-foreground text-sm mt-2">
+            Tài khoản chưa được gán quyền xem module. Liên hệ quản trị viên tại{' '}
+            <span className="font-medium text-primary">Cài đặt phân quyền</span>.
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-8 gap-5">

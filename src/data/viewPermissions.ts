@@ -38,15 +38,50 @@ export const VIEW_PERMISSION_OPTIONS: ViewPermissionOption[] = [
 
 export const VIEW_PERMISSION_STORAGE_KEY = 'view_permissions_by_position';
 
-/** Quyền mặc định khi chưa cấu hình trong Cài đặt phân quyền */
+/** Ghép phòng ban + vị trí: `cơ sở bắc giang::kỹ thuật viên` */
+export const PERMISSION_KEY_SEP = '::';
+
+export const DEPARTMENT_OPTIONS = ['Cơ sở Bắc Giang', 'Cơ sở Bắc Ninh'] as const;
+
+export const POSITION_OPTIONS = ['Kỹ thuật viên', 'Quản lý', 'Admin', 'Kế toán', 'Bán hàng'] as const;
+
+/** Quyền mặc định theo vị trí (áp dụng mọi phòng ban nếu chưa cấu hình riêng) */
 export const DEFAULT_VIEW_PERMISSIONS_BY_POSITION: Record<string, ViewPermissionKey[]> = {
   'kỹ thuật viên': ['khach-hang', 'don-hang', 'cham-cong'],
 };
+
+export function normalizeDepartmentKey(phongBan: string): string {
+  const v = phongBan.trim().toLowerCase();
+  if (!v || v === 'tất cả' || v === 'tat ca' || v === '*') return '*';
+  return v;
+}
 
 export function normalizePositionKey(viTri: string): string {
   const v = viTri.trim().toLowerCase();
   if (v.includes('kỹ thuật') || v.includes('ky thuat')) return 'kỹ thuật viên';
   return v;
+}
+
+export function buildPermissionKey(phongBan: string, viTri: string): string {
+  return `${normalizeDepartmentKey(phongBan)}${PERMISSION_KEY_SEP}${normalizePositionKey(viTri)}`;
+}
+
+export function isCompositePermissionKey(key: string): boolean {
+  return key.includes(PERMISSION_KEY_SEP);
+}
+
+export function parsePermissionKey(key: string): { phongBan: string; viTri: string } {
+  if (!isCompositePermissionKey(key)) {
+    return { phongBan: '*', viTri: normalizePositionKey(key) };
+  }
+  const [phongBan, viTri] = key.split(PERMISSION_KEY_SEP);
+  return { phongBan: phongBan ?? '*', viTri: normalizePositionKey(viTri ?? '') };
+}
+
+export function formatPermissionKeyLabel(key: string): string {
+  const { phongBan, viTri } = parsePermissionKey(key);
+  const deptLabel = phongBan === '*' ? 'Tất cả phòng ban' : phongBan;
+  return `${deptLabel} · ${viTri}`;
 }
 
 export function isTechnicianViTri(viTri: string | null | undefined): boolean {
@@ -63,17 +98,65 @@ export function getStoredPermissionMap(): Record<string, ViewPermissionKey[]> {
   }
 }
 
-/** null = không giới hạn (vị trí chưa cấu hình) */
-export function getAllowedViewsForPosition(viTri: string | null | undefined): ViewPermissionKey[] | null {
+function resolveStoredViews(
+  views: ViewPermissionKey[],
+  positionKey: string
+): ViewPermissionKey[] {
+  if (views.length === 0 && positionKey in DEFAULT_VIEW_PERMISSIONS_BY_POSITION) {
+    return DEFAULT_VIEW_PERMISSIONS_BY_POSITION[positionKey];
+  }
+  return views;
+}
+
+function lookupStoredViews(
+  stored: Record<string, ViewPermissionKey[]>,
+  key: string,
+  positionKey: string
+): ViewPermissionKey[] | undefined {
+  if (!Object.prototype.hasOwnProperty.call(stored, key)) return undefined;
+  return resolveStoredViews(stored[key], positionKey);
+}
+
+/** null = không giới hạn (chưa cấu hình trong Cài đặt phân quyền) */
+export function getAllowedViewsForUser(
+  viTri: string | null | undefined,
+  coSo: string | null | undefined
+): ViewPermissionKey[] | null {
   const positionKey = normalizePositionKey(viTri ?? '');
   if (!positionKey) return null;
 
+  const deptKey = normalizeDepartmentKey(coSo ?? '');
   const stored = getStoredPermissionMap();
-  if (Object.prototype.hasOwnProperty.call(stored, positionKey)) {
-    return stored[positionKey];
+
+  if (deptKey && deptKey !== '*') {
+    const exact = lookupStoredViews(
+      stored,
+      buildPermissionKey(coSo!, viTri!),
+      positionKey
+    );
+    if (exact !== undefined) return exact;
   }
+
+  const wildcard = lookupStoredViews(
+    stored,
+    buildPermissionKey('*', viTri!),
+    positionKey
+  );
+  if (wildcard !== undefined) return wildcard;
+
+  const legacy = lookupStoredViews(stored, positionKey, positionKey);
+  if (legacy !== undefined) return legacy;
+
   for (const [storedKey, views] of Object.entries(stored)) {
-    if (normalizePositionKey(storedKey) === positionKey) return views;
+    if (isCompositePermissionKey(storedKey)) {
+      const { phongBan, viTri: storedPos } = parsePermissionKey(storedKey);
+      if (normalizePositionKey(storedPos) !== positionKey) continue;
+      if (phongBan !== '*' && deptKey && phongBan !== deptKey) continue;
+      return resolveStoredViews(views, positionKey);
+    }
+    if (normalizePositionKey(storedKey) === positionKey) {
+      return resolveStoredViews(views, positionKey);
+    }
   }
 
   if (positionKey in DEFAULT_VIEW_PERMISSIONS_BY_POSITION) {
@@ -81,6 +164,11 @@ export function getAllowedViewsForPosition(viTri: string | null | undefined): Vi
   }
 
   return null;
+}
+
+/** @deprecated Dùng getAllowedViewsForUser(viTri, coSo) */
+export function getAllowedViewsForPosition(viTri: string | null | undefined): ViewPermissionKey[] | null {
+  return getAllowedViewsForUser(viTri, null);
 }
 
 export function expandsViewAccess(
@@ -100,12 +188,12 @@ export function expandsViewAccess(
 export function canAccessView(
   viTri: string | null | undefined,
   viewKey: ViewPermissionKey,
-  isAdmin: boolean
+  isAdmin: boolean,
+  coSo?: string | null
 ): boolean {
-  // Trang chủ luôn cho phép với user đã đăng nhập.
   if (viewKey === 'dashboard') return true;
   if (isAdmin) return true;
-  const allowed = getAllowedViewsForPosition(viTri);
+  const allowed = getAllowedViewsForUser(viTri, coSo ?? null);
   if (allowed === null) return true;
   return expandsViewAccess(allowed, viewKey);
 }
@@ -113,32 +201,68 @@ export function canAccessView(
 export function canAccessAnyView(
   viTri: string | null | undefined,
   viewKeys: ViewPermissionKey[],
-  isAdmin: boolean
+  isAdmin: boolean,
+  coSo?: string | null
 ): boolean {
   if (isAdmin) return true;
-  return viewKeys.some((key) => canAccessView(viTri, key, false));
+  return viewKeys.some((key) => canAccessView(viTri, key, false, coSo));
 }
+
+const NHAN_SU_VIEW_KEYS: ViewPermissionKey[] = ['nhan-su', 'cham-cong', 'nhan-su-ung-vien'];
 
 const HOME_PATH_PRIORITY: { key: ViewPermissionKey; path: string }[] = [
   { key: 'dashboard', path: '/' },
   { key: 'khach-hang', path: '/ban-hang/khach-hang' },
   { key: 'don-hang', path: '/ban-hang/phieu-ban-hang' },
-  { key: 'cham-cong', path: '/nhan-su/bang-cham-cong' },
+  { key: 'cham-cong', path: '/nhan-su' },
   { key: 'ban-hang', path: '/ban-hang/khach-hang' },
   { key: 'thu-chi', path: '/thu-chi' },
   { key: 'dich-vu', path: '/dich-vu' },
   { key: 'bao-cao', path: '/bao-cao/san-pham' },
-  { key: 'nhan-su', path: '/nhan-su/danh-sach' },
+  { key: 'nhan-su', path: '/nhan-su' },
+  { key: 'nhan-su-ung-vien', path: '/nhan-su' },
   { key: 'tien-luong', path: '/tien-luong/bang-luong' },
   { key: 'kho-van', path: '/kho-van/xuat-nhap-kho' },
 ];
 
-export function getDefaultHomePath(viTri: string | null | undefined, isAdmin: boolean): string {
-  if (isAdmin) return '/';
-  for (const { key, path } of HOME_PATH_PRIORITY) {
-    if (canAccessView(viTri, key, false)) return path;
+function isNhanSuOnlyUser(
+  viTri: string | null | undefined,
+  coSo?: string | null
+): boolean {
+  const allowed = getAllowedViewsForUser(viTri, coSo ?? null);
+  if (allowed === null || allowed.length === 0) return false;
+  return allowed.every((k) => k === 'dashboard' || NHAN_SU_VIEW_KEYS.includes(k));
+}
+
+export const DASHBOARD_PATH = '/';
+
+/** Sau đăng nhập: nhân sự thuần → menu Nhân sự; còn lại → trang chủ. */
+export function getLoginRedirectPath(
+  viTri: string | null | undefined,
+  isAdmin: boolean,
+  coSo?: string | null
+): string {
+  if (isAdmin) return DASHBOARD_PATH;
+  if (isNhanSuOnlyUser(viTri, coSo) && canAccessAnyView(viTri, NHAN_SU_VIEW_KEYS, false, coSo)) {
+    return '/nhan-su';
   }
-  return '/';
+  return DASHBOARD_PATH;
+}
+
+/** Khi không có quyền trang hiện tại — về module đầu tiên được phép hoặc trang chủ. */
+export function getDefaultHomePath(
+  viTri: string | null | undefined,
+  isAdmin: boolean,
+  coSo?: string | null
+): string {
+  if (isAdmin) return DASHBOARD_PATH;
+
+  for (const { key, path } of HOME_PATH_PRIORITY) {
+    if (key === 'dashboard') continue;
+    if (canAccessView(viTri, key, false, coSo)) return path;
+  }
+
+  return DASHBOARD_PATH;
 }
 
 /** Map route path → permission key (dùng chung menu/module/topbar). */

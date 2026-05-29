@@ -174,8 +174,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const canModifyData = !isTechnician;
 
   const hasViewAccess = useCallback(
-    (viewKey: ViewPermissionKey): boolean => canAccessView(nhanVien?.vi_tri, viewKey, isAdmin),
-    [nhanVien?.vi_tri, isAdmin, permVersion]
+    (viewKey: ViewPermissionKey): boolean =>
+      canAccessView(nhanVien?.vi_tri, viewKey, isAdmin, nhanVien?.co_so),
+    [nhanVien?.vi_tri, nhanVien?.co_so, isAdmin, permVersion]
   );
 
   return (

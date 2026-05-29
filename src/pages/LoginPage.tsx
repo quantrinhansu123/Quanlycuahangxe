@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth, type NhanVien } from '../context/AuthContext';
-import { getDefaultHomePath } from '../data/viewPermissions';
+import { getLoginRedirectPath } from '../data/viewPermissions';
 import { supabase } from '../lib/supabase';
 
 interface PhoneLoginResult {
@@ -91,7 +91,8 @@ const LoginPage: React.FC = () => {
 
   if (!isLoading && session) {
     const fromPath = (routeLocation.state as { from?: { pathname?: string } } | null)?.from?.pathname;
-    const redirectTo = fromPath ?? getDefaultHomePath(nhanVien?.vi_tri, isAdmin);
+    const redirectTo =
+      fromPath ?? getLoginRedirectPath(nhanVien?.vi_tri, isAdmin, nhanVien?.co_so);
     return <Navigate to={redirectTo} replace />;
   }
 
@@ -126,9 +127,10 @@ const LoginPage: React.FC = () => {
       }
 
       persistLogin(matchedUser as NhanVien);
-      const homePath = getDefaultHomePath(
+      const homePath = getLoginRedirectPath(
         matchedUser.vi_tri,
-        /quản trị|admin|chủ cửa|quản lý/i.test(matchedUser.vi_tri)
+        /quản trị|admin|chủ cửa|quản lý/i.test(matchedUser.vi_tri),
+        matchedUser.co_so
       );
       navigate(homePath, { replace: true });
     } catch (err) {
