@@ -31,6 +31,7 @@ import {
   formatAttendanceSaveError,
   getAttendancePaginated,
   getAttendanceRecords,
+  resolveStaffNameForUser,
   upsertAttendanceRecord
 } from '../data/attendanceData';
 import { getPersonnel, type NhanSu } from '../data/personnelData';
@@ -43,7 +44,12 @@ import {
 } from '../utils/timekeeping';
 
 const AttendanceManagementPage: React.FC = () => {
-  const { nhanVien, isAdmin, canModifyData } = useAuth();
+  const { nhanVien, isAdmin, canModifyData, isTechnician, hasViewAccess } = useAuth();
+
+  /** Kỹ thuật viên / chỉ có quyền chấm công: không xem bảng của người khác */
+  const restrictToSelf =
+    isTechnician ||
+    (!isAdmin && hasViewAccess('cham-cong') && !hasViewAccess('nhan-su'));
   const navigate = useNavigate();
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [personnel, setPersonnel] = useState<NhanSu[]>([]);
@@ -114,14 +120,29 @@ const AttendanceManagementPage: React.FC = () => {
   const loadRecords = React.useCallback(async (showLoading = true) => {
     try {
       if (showLoading) setLoading(true);
-      const [attendanceResult, personnelData] = await Promise.all([
-        getAttendancePaginated(currentPage, pageSize, isAdmin ? undefined : nhanVien?.ho_ten, debouncedSearch, {
-          nhan_su: selectedStaff,
+      const personnelData = await getPersonnel();
+      const selfStaffName = resolveStaffNameForUser(nhanVien, personnelData);
+      const staffScope = restrictToSelf ? selfStaffName : isAdmin ? undefined : selfStaffName;
+      const staffFilter = restrictToSelf ? selfStaffName : selectedStaff || undefined;
+
+      if (restrictToSelf && !selfStaffName) {
+        setRecords([]);
+        setTotalCount(0);
+        setPersonnel(personnelData);
+        return;
+      }
+
+      const attendanceResult = await getAttendancePaginated(
+        currentPage,
+        pageSize,
+        staffScope,
+        debouncedSearch,
+        {
+          nhan_su: staffFilter,
           startDate,
-          endDate
-        }),
-        getPersonnel()
-      ]);
+          endDate,
+        }
+      );
 
       let finalRecords = [...attendanceResult.data];
       let totalCount = attendanceResult.totalCount;
@@ -142,11 +163,15 @@ const AttendanceManagementPage: React.FC = () => {
          }
       }
 
-      const relevantPersonnel = personnelData.filter(p => {
-        // Apply staff filter if selected: Match by full name
+      const relevantPersonnel = personnelData.filter((p) => {
+        if (restrictToSelf) {
+          if (!selfStaffName) return false;
+          return p.ho_ten.trim().toLowerCase() === selfStaffName.trim().toLowerCase();
+        }
         if (selectedStaff && selectedStaff !== p.ho_ten) return false;
-        // Apply search filter if selected
-        if (debouncedSearch && !p.ho_ten.toLowerCase().includes(debouncedSearch.toLowerCase())) return false;
+        if (debouncedSearch && !p.ho_ten.toLowerCase().includes(debouncedSearch.toLowerCase())) {
+          return false;
+        }
         return true;
       });
 
@@ -180,7 +205,17 @@ const AttendanceManagementPage: React.FC = () => {
     } finally {
       if (showLoading) setLoading(false);
     }
-  }, [currentPage, pageSize, debouncedSearch, selectedStaff, startDate, endDate, isAdmin, nhanVien?.ho_ten]);
+  }, [
+    currentPage,
+    pageSize,
+    debouncedSearch,
+    selectedStaff,
+    startDate,
+    endDate,
+    isAdmin,
+    restrictToSelf,
+    nhanVien,
+  ]);
 
   useEffect(() => {
     loadRecords(true);
@@ -290,13 +325,9 @@ const AttendanceManagementPage: React.FC = () => {
           return;
         }
         let nhan_su = updatedData.nhan_su;
-        if (!isAdmin && nhanVien) {
-          const me = personnel.find(
-            p =>
-              (nhanVien.id_nhan_su && p.id_nhan_su === nhanVien.id_nhan_su) ||
-              p.ho_ten.trim() === nhanVien.ho_ten.trim()
-          );
-          if (me) nhan_su = me.ho_ten;
+        if (restrictToSelf && nhanVien) {
+          const me = resolveStaffNameForUser(nhanVien, personnel);
+          if (me) nhan_su = me;
         }
         await createAttendanceRecord({
           nhan_su,
@@ -592,9 +623,22 @@ const AttendanceManagementPage: React.FC = () => {
 
   const tableColSpan = 1 + visibleColumns.length;
 
+  const selfDisplayName = resolveStaffNameForUser(nhanVien, personnel);
+
   return (
     <div className="w-full flex-1 animate-in fade-in slide-in-from-bottom-4 duration-500 text-muted-foreground font-sans">
       <div className="space-y-4">
+        {restrictToSelf && (
+          <div className="rounded-xl border border-primary/30 bg-primary/5 px-4 py-2.5 text-sm text-foreground">
+            Bạn đang xem <span className="font-semibold">chấm công của mình</span>
+            {selfDisplayName ? (
+              <>
+                : <span className="font-semibold text-primary">{selfDisplayName}</span>
+              </>
+            ) : null}
+          </div>
+        )}
+
         {/* Toolbar */}
         <div className="bg-card p-3 rounded-lg border border-border shadow-sm flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3 flex-1 flex-wrap">
@@ -612,7 +656,7 @@ const AttendanceManagementPage: React.FC = () => {
                   setCurrentPage(1);
                 }}
                 className="w-full pl-9 pr-4 py-1.5 border border-border rounded text-[13px] focus:ring-1 focus:ring-primary focus:border-primary placeholder-slate-400 outline-none"
-                placeholder="Tìm nhân sự, vị trí..."
+                placeholder={restrictToSelf ? 'Tìm theo vị trí...' : 'Tìm nhân sự, vị trí...'}
                 type="text"
               />
             </div>

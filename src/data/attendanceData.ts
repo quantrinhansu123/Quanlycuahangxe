@@ -1,5 +1,20 @@
 import type { PostgrestError } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import type { NhanSu } from './personnelData';
+
+/** Tên `nhan_su` trên bảng chấm công khớp nhân viên đăng nhập. */
+export function resolveStaffNameForUser(
+  nhanVien: { ho_ten: string; id_nhan_su?: string | null } | null | undefined,
+  personnel: NhanSu[]
+): string | undefined {
+  if (!nhanVien) return undefined;
+  const me = personnel.find(
+    (p) =>
+      (nhanVien.id_nhan_su && p.id_nhan_su === nhanVien.id_nhan_su) ||
+      p.ho_ten.trim().toLowerCase() === nhanVien.ho_ten.trim().toLowerCase()
+  );
+  return me?.ho_ten ?? nhanVien.ho_ten;
+}
 
 function isPostgrestError(e: unknown): e is PostgrestError {
   return typeof e === 'object' && e !== null && 'code' in e && 'message' in e;
@@ -135,7 +150,7 @@ export const getAttendanceRecords = async (staffName?: string): Promise<Attendan
     .order('created_at', { ascending: false });
 
   if (staffName) {
-    query = query.eq('nhan_su', staffName);
+    query = query.ilike('nhan_su', staffName);
   }
 
   const { data, error } = await query;
@@ -240,18 +255,19 @@ export const getAttendancePaginated = async (
     .from('cham_cong')
     .select('*', { count: 'exact' });
 
-  // RBAC: If staffName is provided, restrict to their records
+  // RBAC: chỉ bản ghi của một nhân sự (so khớp không phân biệt hoa thường)
   if (staffName) {
-    query = query.eq('nhan_su', staffName);
+    query = query.ilike('nhan_su', staffName);
   }
 
-  if (searchQuery) {
-    // Search in personnel name or location
+  if (searchQuery && !staffName) {
     query = query.or(`nhan_su.ilike.%${searchQuery}%,vi_tri.ilike.%${searchQuery}%`);
+  } else if (searchQuery && staffName) {
+    query = query.ilike('vi_tri', `%${searchQuery}%`);
   }
 
   if (filters?.nhan_su) {
-    query = query.eq('nhan_su', filters.nhan_su);
+    query = query.ilike('nhan_su', filters.nhan_su);
   }
 
   if (filters?.ngay) {
