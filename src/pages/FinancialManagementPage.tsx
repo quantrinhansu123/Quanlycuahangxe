@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Search, Plus, Edit2, Trash2, Camera, Loader2, ChevronDown, 
-  Building2, Wallet, BadgeDollarSign, Download, Upload, Calendar
+  Building2, Wallet, BadgeDollarSign, Download, Upload, Calendar, RefreshCw
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useLocation } from 'react-router-dom';
@@ -12,7 +12,8 @@ import {
   deleteTransaction, 
   bulkUpsertTransactions, 
   deleteAllTransactions,
-  upsertTransaction
+  upsertTransaction,
+  syncTransactionsFromSalesOrders
 } from '../data/financialData';
 import Pagination from '../components/Pagination';
 import FinancialFormModal from '../components/FinancialFormModal';
@@ -35,6 +36,7 @@ const FinancialManagementPage: React.FC = () => {
   const [stats, setStats] = useState({ income: 0, expense: 0, balance: 0 });
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'list' | 'charts'>('list');
+  const [listViewMode, setListViewMode] = useState<'standard' | 'cashbook'>('standard');
   const [allTransactions, setAllTransactions] = useState<ThuChi[]>([]);
   const [filterDateFrom, setFilterDateFrom] = useState(() => {
     const t = new Date();
@@ -137,6 +139,12 @@ const FinancialManagementPage: React.FC = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (selectedTypes.length === 1 && selectedTypes[0] === 'phiếu thu') {
+      setListViewMode('standard');
+    }
+  }, [selectedTypes]);
 
   const toggleDropdown = (id: string) => {
     setOpenDropdown(prev => prev === id ? null : id);
@@ -258,6 +266,25 @@ const FinancialManagementPage: React.FC = () => {
       } finally {
         setLoading(false);
       }
+    }
+  };
+
+  const handleSyncFromSalesOrders = async () => {
+    try {
+      setLoading(true);
+      const result = await syncTransactionsFromSalesOrders();
+      await loadData();
+      alert(
+        `Đồng bộ thành công từ đơn hàng:\n` +
+        `- Tạo mới: ${result.created}\n` +
+        `- Cập nhật: ${result.updated}\n` +
+        `- Bỏ qua (không có tiền): ${result.skipped}`
+      );
+    } catch (error) {
+      console.error(error);
+      alert('Lỗi: Không thể đồng bộ dữ liệu từ đơn hàng.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -386,6 +413,28 @@ const FinancialManagementPage: React.FC = () => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
   };
 
+  const cashbookRows = useMemo(() => {
+    const ordered = [...transactions].sort((a, b) => {
+      const da = `${a.ngay} ${a.gio || '00:00'}`;
+      const db = `${b.ngay} ${b.gio || '00:00'}`;
+      return da.localeCompare(db);
+    });
+
+    let runningBalance = 0;
+    return ordered.map((transaction) => {
+      const isIncome = transaction.loai_phieu === 'phiếu thu';
+      const debit = isIncome ? transaction.so_tien : 0;
+      const credit = isIncome ? 0 : transaction.so_tien;
+      runningBalance += debit - credit;
+      return {
+        ...transaction,
+        debit,
+        credit,
+        runningBalance,
+      };
+    });
+  }, [transactions]);
+
   return (
     <div className="w-full h-full flex flex-col p-4 lg:p-6 animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-y-auto pt-8">
       <div className="w-full space-y-6">
@@ -463,11 +512,58 @@ const FinancialManagementPage: React.FC = () => {
 
         {/* Stats Cards - Only on List Tab */}
         {activeTab === 'list' && (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            <StatCard title="Tổng Thu" amount={stats.income} color="text-emerald-600" bgColor="bg-emerald-50/50" icon={BadgeDollarSign} />
-            <StatCard title="Tổng Chi" amount={stats.expense} color="text-rose-600" bgColor="bg-rose-50/50" icon={Wallet} />
-            <div className="col-span-2 md:col-span-1">
-              <StatCard title="Số dư hiện tại" amount={stats.balance} color="text-amber-600" bgColor="bg-amber-50/50" icon={Wallet} />
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <StatCard title="Tổng Thu" amount={stats.income} color="text-emerald-600" bgColor="bg-emerald-50/50" icon={BadgeDollarSign} />
+              <StatCard title="Tổng Chi" amount={stats.expense} color="text-rose-600" bgColor="bg-rose-50/50" icon={Wallet} />
+              <div className="col-span-2 md:col-span-1">
+                <StatCard title="Số dư hiện tại" amount={stats.balance} color="text-amber-600" bgColor="bg-amber-50/50" icon={Wallet} />
+              </div>
+            </div>
+
+            {/* Sub menu: Tất cả / Phiếu thu / Phiếu chi */}
+            <div className="bg-card border border-border rounded-xl px-2 py-1.5 flex items-center justify-between gap-2">
+              <span className="text-[12px] text-muted-foreground font-semibold">
+                Loại chứng từ:
+              </span>
+              <div className="inline-flex rounded-lg bg-muted/50 p-0.5">
+                <button
+                  type="button"
+                  onClick={() => { setSelectedTypes([]); setCurrentPage(1); }}
+                  className={clsx(
+                    'px-3 py-1.5 rounded-md text-[12px] font-bold transition-all',
+                    selectedTypes.length === 0
+                      ? 'bg-white text-primary shadow-sm ring-1 ring-black/5'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  Tất cả
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setSelectedTypes(['phiếu thu']); setCurrentPage(1); }}
+                  className={clsx(
+                    'px-3 py-1.5 rounded-md text-[12px] font-bold transition-all',
+                    selectedTypes.length === 1 && selectedTypes[0] === 'phiếu thu'
+                      ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-500/60'
+                      : 'text-emerald-700 hover:text-emerald-800'
+                  )}
+                >
+                  Phiếu thu
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setSelectedTypes(['phiếu chi']); setCurrentPage(1); }}
+                  className={clsx(
+                    'px-3 py-1.5 rounded-md text-[12px] font-bold transition-all',
+                    selectedTypes.length === 1 && selectedTypes[0] === 'phiếu chi'
+                      ? 'bg-rose-600 text-white shadow-sm ring-1 ring-rose-500/60'
+                      : 'text-rose-700 hover:text-rose-800'
+                  )}
+                >
+                  Phiếu chi
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -573,6 +669,15 @@ const FinancialManagementPage: React.FC = () => {
                       </div>
 
                       <button
+                        onClick={handleSyncFromSalesOrders}
+                        className="px-2 py-1 sm:px-3 sm:py-2 bg-blue-500/5 hover:bg-blue-500/10 text-blue-600 border border-blue-500/20 rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold transition-all shrink-0"
+                        title="Lấy dữ liệu phiếu thu từ đơn hàng"
+                      >
+                        <RefreshCw className="size-4 sm:size-5" />
+                        <span>Lấy từ đơn hàng</span>
+                      </button>
+
+                      <button
                         onClick={handleDeleteAll}
                         className="px-2 py-1 sm:px-4 sm:py-2 bg-destructive/5 hover:bg-destructive/10 text-destructive border border-destructive/20 rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[14px] font-bold transition-all shadow-sm shrink-0"
                         title="Xóa hết"
@@ -639,121 +744,204 @@ const FinancialManagementPage: React.FC = () => {
               ))}
             </div>
 
+            <div className="hidden md:flex items-center justify-between gap-3 px-1">
+              <div className="text-[12px] text-muted-foreground">
+                Chế độ hiển thị:
+              </div>
+              <div className="flex items-center bg-muted/50 rounded-lg p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setListViewMode('cashbook')}
+                  className={clsx(
+                    'px-3 py-1.5 rounded-md text-[12px] font-bold transition-all',
+                    listViewMode === 'cashbook'
+                      ? 'bg-white text-primary shadow-sm ring-1 ring-black/5'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  Sổ quỹ
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setListViewMode('standard')}
+                  className={clsx(
+                    'px-3 py-1.5 rounded-md text-[12px] font-bold transition-all',
+                    listViewMode === 'standard'
+                      ? 'bg-white text-primary shadow-sm ring-1 ring-black/5'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  Danh sách thường
+                </button>
+              </div>
+            </div>
+
             {/* Desktop Table View */}
             <div className="hidden md:block bg-card rounded-lg border border-border shadow-sm overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-muted border-b border-border text-muted-foreground text-[13px] font-bold uppercase tracking-tight">
-                      <th className="px-4 py-3 font-semibold">Đơn hàng</th>
-                      <th className="px-4 py-3 font-semibold">Hình ảnh</th>
-                      <th className="px-4 py-3 font-semibold text-center">Ngày</th>
-                      <th className="px-4 py-3 font-semibold">Mã phiếu</th>
-                      <th className="px-4 py-3 font-semibold text-center">Giờ</th>
-                      <th className="px-4 py-3 font-semibold">Loại</th>
-                      <th className="px-4 py-3 font-semibold">Nghiệp vụ</th>
-                      <th className="px-4 py-3 font-semibold">Khách hàng</th>
-                      <th className="px-4 py-3 font-semibold">Hình thức</th>
-                      <th className="px-4 py-3 font-semibold">Cơ sở</th>
-                      <th className="px-4 py-3 font-semibold text-right">Số tiền</th>
-                      <th className="px-4 py-3 font-semibold">Trạng thái</th>
-                      <th className="px-4 py-3 text-center font-semibold">Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-[14px]">
-                    {loading ? (
+                {listViewMode === 'cashbook' ? (
+                  <div className="min-w-[1300px]">
+                    <div className="px-4 py-4 border-b border-border bg-muted/20">
+                      <h2 className="text-[20px] font-black text-center tracking-wide">SỔ KẾ TOÁN CHI TIẾT QUỸ TIỀN MẶT</h2>
+                      <p className="text-[12px] text-center text-muted-foreground mt-1">
+                        Tài khoản: 1111; Từ ngày: {new Date(filterDateFrom).toLocaleDateString('vi-VN')} đến ngày: {new Date(filterDateTo).toLocaleDateString('vi-VN')}
+                      </p>
+                    </div>
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-muted border-b border-border text-muted-foreground text-[12px] font-bold">
+                          <th className="px-3 py-2 font-semibold text-center">Ngày hạch toán</th>
+                          <th className="px-3 py-2 font-semibold text-center">Ngày chứng từ</th>
+                          <th className="px-3 py-2 font-semibold">Số phiếu</th>
+                          <th className="px-3 py-2 font-semibold">Diễn giải</th>
+                          <th className="px-3 py-2 font-semibold text-center">Tài khoản</th>
+                          <th className="px-3 py-2 font-semibold text-center">TK đối ứng</th>
+                          <th className="px-3 py-2 font-semibold text-right">Nợ</th>
+                          <th className="px-3 py-2 font-semibold text-right">Có</th>
+                          <th className="px-3 py-2 font-semibold text-right">Số tồn</th>
+                          <th className="px-3 py-2 font-semibold">Người nhận/Người nộp</th>
+                          <th className="px-3 py-2 font-semibold">Mã đối tượng</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-[13px]">
+                        {loading ? (
+                          <tr>
+                            <td colSpan={11} className="px-4 py-12 text-center text-muted-foreground">
+                              <Loader2 className="animate-spin inline-block mr-2" size={20} />
+                              Đang tải dữ liệu...
+                            </td>
+                          </tr>
+                        ) : cashbookRows.map((transaction) => (
+                          <tr key={transaction.id} className="hover:bg-muted/50 transition-colors">
+                            <td className="px-3 py-2 text-center whitespace-nowrap">{new Date(transaction.ngay).toLocaleDateString('vi-VN')}</td>
+                            <td className="px-3 py-2 text-center whitespace-nowrap">{new Date(transaction.ngay).toLocaleDateString('vi-VN')}</td>
+                            <td className="px-3 py-2 font-mono text-[11px]">{`PT${transaction.id.slice(0, 6).toUpperCase()}`}</td>
+                            <td className="px-3 py-2 max-w-[280px] truncate" title={transaction.danh_muc || transaction.ghi_chu || ''}>
+                              {transaction.danh_muc || transaction.ghi_chu || 'Không có diễn giải'}
+                            </td>
+                            <td className="px-3 py-2 text-center font-semibold">1111</td>
+                            <td className="px-3 py-2 text-center text-muted-foreground">{transaction.loai_phieu === 'phiếu thu' ? '131' : '6422'}</td>
+                            <td className="px-3 py-2 text-right font-bold text-emerald-700">{transaction.debit > 0 ? formatCurrency(transaction.debit) : ''}</td>
+                            <td className="px-3 py-2 text-right font-bold text-rose-700">{transaction.credit > 0 ? formatCurrency(transaction.credit) : ''}</td>
+                            <td className="px-3 py-2 text-right font-black text-sky-700">{formatCurrency(transaction.runningBalance)}</td>
+                            <td className="px-3 py-2">{transaction.nguoi_nhan || transaction.nguoi_chi || '—'}</td>
+                            <td className="px-3 py-2 font-mono text-[11px]">{transaction.id_khach_hang || transaction.id_don || '—'}</td>
+                          </tr>
+                        ))}
+                        {!loading && cashbookRows.length === 0 && (
+                          <tr>
+                            <td colSpan={11} className="px-2 py-8 text-center text-muted-foreground">Không có dữ liệu giao dịch.</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-muted border-b border-border text-muted-foreground text-[13px] font-bold uppercase tracking-tight">
+                        <th className="px-4 py-3 font-semibold">Đơn hàng</th>
+                        <th className="px-4 py-3 font-semibold">Hình ảnh</th>
+                        <th className="px-4 py-3 font-semibold text-center">Ngày</th>
+                        <th className="px-4 py-3 font-semibold">Mã phiếu</th>
+                        <th className="px-4 py-3 font-semibold text-center">Giờ</th>
+                        <th className="px-4 py-3 font-semibold">Loại</th>
+                        <th className="px-4 py-3 font-semibold">Nghiệp vụ</th>
+                        <th className="px-4 py-3 font-semibold">Khách hàng</th>
+                        <th className="px-4 py-3 font-semibold">Hình thức</th>
+                        <th className="px-4 py-3 font-semibold">Cơ sở</th>
+                        <th className="px-4 py-3 font-semibold text-right">Số tiền</th>
+                        <th className="px-4 py-3 font-semibold">Trạng thái</th>
+                        <th className="px-4 py-3 text-center font-semibold">Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-[14px]">
+                      {loading ? (
+                        <tr>
+                          <td colSpan={12} className="px-4 py-12 text-center text-muted-foreground">
+                            <Loader2 className="animate-spin inline-block mr-2" size={20} />
+                            Đang tải dữ liệu...
+                          </td>
+                        </tr>
+                      ) : transactions.map(transaction => (
+                        <tr key={transaction.id} className="hover:bg-muted/80 transition-colors border-b border-border/50">
+                          <td className="px-4 py-3 font-mono text-[13px] font-medium text-emerald-900 truncate max-w-[100px]">
+                            {transaction.id_don ? (transaction.id_don.length === 36 ? `HD-${transaction.id_don.slice(0, 6).toUpperCase()}` : transaction.id_don) : '—'}
+                          </td>
+                          <td className="px-4 py-3">
+                            {transaction.anh ? (
+                              <div className="w-8 h-8 rounded-lg border border-border overflow-hidden">
+                                <img src={transaction.anh} alt="" className="w-full h-full object-cover" />
+                              </div>
+                            ) : (
+                              <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center text-muted-foreground/30"><Camera size={16} /></div>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-center font-medium text-foreground">
+                            {new Date(transaction.ngay).toLocaleDateString('vi-VN')}
+                          </td>
+                          <td className="px-4 py-3 font-mono text-[12px] text-muted-foreground truncate" title={transaction.id}>
+                            {transaction.id.length === 36 ? `TC-${transaction.id.slice(0, 8).toUpperCase()}` : transaction.id.slice(0, 12)}
+                          </td>
+                          <td className="px-4 py-3 text-center text-muted-foreground/60">{transaction.gio}</td>
+                          <td className="px-4 py-3">
+                            <span className={clsx(
+                              "px-2 py-0.5 rounded text-[11px] font-bold uppercase",
+                              transaction.loai_phieu === 'phiếu thu' ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
+                            )}>
+                              {transaction.loai_phieu === 'phiếu thu' ? 'THU' : 'CHI'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-foreground font-bold truncate max-w-[150px]">{transaction.danh_muc || '—'}</td>
+                          <td className="px-4 py-3 truncate max-w-[140px]">
+                            {(() => {
+                              const explicitName = transaction.nguoi_chi || transaction.nguoi_nhan;
+                              const order = salesCards.find(o => o.id === transaction.id_don);
+                              const customerIdToFind = transaction.id_khach_hang || order?.khach_hang_id;
+                              const foundCustomer = customers.find(c => c.id === customerIdToFind || c.ma_khach_hang === customerIdToFind);
+                              const displayName = explicitName || transaction.khach_hang?.ho_va_ten || foundCustomer?.ho_va_ten || order?.khach_hang?.ho_va_ten || order?.ten_khach_hang;
+                              if (displayName) return displayName;
+                              if (customerIdToFind && customerIdToFind.length > 20) return `KH-${customerIdToFind.slice(0, 6).toUpperCase()}`;
+                              return customerIdToFind || 'Khách lẻ';
+                            })()}
+                          </td>
+                          <td className="px-4 py-3 text-[12px] font-medium text-foreground">{transaction.phuong_thuc || (transaction.loai_phieu === 'phiếu thu' ? 'Tiền mặt' : '—')}</td>
+                          <td className="px-4 py-3 text-[12px] text-muted-foreground">{transaction.co_so}</td>
+                          <td className={clsx(
+                            "px-4 py-3 text-right font-black",
+                            transaction.loai_phieu === 'phiếu thu' ? "text-emerald-600" : "text-rose-600"
+                          )}>
+                            {formatCurrency(transaction.so_tien)}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={clsx(
+                              "px-2 py-0.5 rounded text-[11px] font-bold",
+                              transaction.trang_thai === 'Hoàn thành' ? "bg-emerald-50 text-emerald-600" :
+                              transaction.trang_thai === 'Đang chờ' ? "bg-amber-50 text-amber-600" : "bg-red-50 text-red-600"
+                            )}>
+                              {transaction.trang_thai}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            {isAdmin ? (
+                              <div className="flex items-center justify-center gap-2">
+                                <button onClick={() => handleOpenModal(transaction)} className="text-primary hover:bg-primary/5 rounded p-1.5"><Edit2 size={18} /></button>
+                                <button onClick={() => handleDelete(transaction.id)} className="text-destructive hover:bg-destructive/5 rounded p-1.5"><Trash2 size={18} /></button>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground/30">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    {!loading && transactions.length === 0 && (
                       <tr>
-                        <td colSpan={12} className="px-4 py-12 text-center text-muted-foreground">
-                          <Loader2 className="animate-spin inline-block mr-2" size={20} />
-                          Đang tải dữ liệu...
-                        </td>
+                        <td colSpan={13} className="px-2 py-8 text-center text-muted-foreground">Không có dữ liệu giao dịch.</td>
                       </tr>
-                    ) : transactions.map(transaction => (
-                      <tr key={transaction.id} className="hover:bg-muted/80 transition-colors border-b border-border/50">
-                        <td className="px-4 py-3 font-mono text-[13px] font-medium text-emerald-900 truncate max-w-[100px]">
-                          {transaction.id_don ? (transaction.id_don.length === 36 ? `HD-${transaction.id_don.slice(0, 6).toUpperCase()}` : transaction.id_don) : '—'}
-                        </td>
-                        <td className="px-4 py-3">
-                          {transaction.anh ? (
-                            <div className="w-8 h-8 rounded-lg border border-border overflow-hidden">
-                              <img src={transaction.anh} alt="" className="w-full h-full object-cover" />
-                            </div>
-                          ) : (
-                            <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center text-muted-foreground/30"><Camera size={16} /></div>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-center font-medium text-foreground">
-                          {new Date(transaction.ngay).toLocaleDateString('vi-VN')}
-                        </td>
-                        <td className="px-4 py-3 font-mono text-[12px] text-muted-foreground truncate" title={transaction.id}>
-                          {transaction.id.length === 36 ? `TC-${transaction.id.slice(0, 8).toUpperCase()}` : transaction.id.slice(0, 12)}
-                        </td>
-                        <td className="px-4 py-3 text-center text-muted-foreground/60">{transaction.gio}</td>
-                        <td className="px-4 py-3">
-                          <span className={clsx(
-                            "px-2 py-0.5 rounded text-[11px] font-bold uppercase",
-                            transaction.loai_phieu === 'phiếu thu' ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
-                          )}>
-                            {transaction.loai_phieu === 'phiếu thu' ? 'THU' : 'CHI'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-foreground font-bold truncate max-w-[150px]">{transaction.danh_muc || '—'}</td>
-                        <td className="px-4 py-3 truncate max-w-[140px]">
-                          {(() => {
-                            // 1. Prioritize person who paid (nguoi_chi) or received (nguoi_nhan) stored directly in transaction
-                            const explicitName = transaction.nguoi_chi || transaction.nguoi_nhan;
-                            
-                            // 2. Try looking up in the loaded salesCards
-                            const order = salesCards.find(o => o.id === transaction.id_don);
-                            
-                            // 3. Try finding in global customers list
-                            const customerIdToFind = transaction.id_khach_hang || order?.khach_hang_id;
-                            const foundCustomer = customers.find(c => c.id === customerIdToFind || c.ma_khach_hang === customerIdToFind);
-                            
-                            // Return the best available name
-                            const displayName = explicitName || transaction.khach_hang?.ho_va_ten || foundCustomer?.ho_va_ten || order?.khach_hang?.ho_va_ten || order?.ten_khach_hang;
-                            
-                            if (displayName) return displayName;
-                            if (customerIdToFind && customerIdToFind.length > 20) return `KH-${customerIdToFind.slice(0, 6).toUpperCase()}`;
-                            return customerIdToFind || 'Khách lẻ';
-                          })()}
-                        </td>
-                        <td className="px-4 py-3 text-[12px] font-medium text-foreground">{transaction.phuong_thuc || (transaction.loai_phieu === 'phiếu thu' ? 'Tiền mặt' : '—')}</td>
-                        <td className="px-4 py-3 text-[12px] text-muted-foreground">{transaction.co_so}</td>
-                        <td className={clsx(
-                          "px-4 py-3 text-right font-black",
-                          transaction.loai_phieu === 'phiếu thu' ? "text-emerald-600" : "text-rose-600"
-                        )}>
-                          {formatCurrency(transaction.so_tien)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={clsx(
-                            "px-2 py-0.5 rounded text-[11px] font-bold",
-                            transaction.trang_thai === 'Hoàn thành' ? "bg-emerald-50 text-emerald-600" : 
-                            transaction.trang_thai === 'Đang chờ' ? "bg-amber-50 text-amber-600" : "bg-red-50 text-red-600"
-                          )}>
-                            {transaction.trang_thai}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          {isAdmin ? (
-                            <div className="flex items-center justify-center gap-2">
-                              <button onClick={() => handleOpenModal(transaction)} className="text-primary hover:bg-primary/5 rounded p-1.5"><Edit2 size={18} /></button>
-                              <button onClick={() => handleDelete(transaction.id)} className="text-destructive hover:bg-destructive/5 rounded p-1.5"><Trash2 size={18} /></button>
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground/30">—</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  {!loading && transactions.length === 0 && (
-                    <tr>
-                      <td colSpan={13} className="px-2 py-8 text-center text-muted-foreground">Không có dữ liệu giao dịch.</td>
-                    </tr>
-                  )}
-                </tbody>
-                </table>
+                    )}
+                  </tbody>
+                  </table>
+                )}
               </div>
               <Pagination 
                 currentPage={currentPage}

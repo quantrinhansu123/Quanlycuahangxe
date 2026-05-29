@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { moduleData } from '../data/moduleData';
 import type { ViewPermissionKey } from '../data/viewPermissions';
 import { removeVietnameseTones } from '../lib/utils';
+import { resolveViewKeyByPath } from '../data/viewPermissions';
 
 const dashboardModules: ActionCardProps[] = [
   {
@@ -73,23 +74,10 @@ const Dashboard: React.FC = () => {
   const { globalSearch } = useOutletContext<{ globalSearch: string }>() || { globalSearch: '' };
   const { hasViewAccess, isAdmin } = useAuth();
 
-  const resolveViewKey = React.useCallback((path?: string): ViewPermissionKey | undefined => {
-    if (!path) return undefined;
-    if (path.includes('/ban-hang/khach-hang')) return 'khach-hang';
-    if (path.includes('/ban-hang/phieu-ban-hang')) return 'don-hang';
-    if (path.startsWith('/ban-hang')) return 'ban-hang';
-    if (path.includes('/nhan-su/bang-cham-cong') || path.startsWith('/cham-cong')) return 'cham-cong';
-    if (path.includes('/nhan-su/ung-vien')) return 'nhan-su-ung-vien';
-    if (path.startsWith('/nhan-su')) return 'nhan-su';
-    if (path.startsWith('/thu-chi')) return 'thu-chi';
-    if (path.startsWith('/dich-vu')) return 'dich-vu';
-    if (path.startsWith('/bao-cao')) return 'bao-cao';
-    if (path.startsWith('/kho-van')) return 'kho-van';
-    if (path.startsWith('/tien-luong')) return 'tien-luong';
-    if (path.startsWith('/cai-dat')) return 'cai-dat-phan-quyen';
-    if (path === '/') return 'dashboard';
-    return undefined;
-  }, []);
+  const resolveViewKey = React.useCallback(
+    (path?: string) => resolveViewKeyByPath(path),
+    []
+  );
 
   const allSections = React.useMemo(() =>
     Object.values(moduleData).flat().map((section) => ({
@@ -101,13 +89,34 @@ const Dashboard: React.FC = () => {
     })).filter((section) => section.items.length > 0),
   [hasViewAccess, resolveViewKey]);
 
-  const visibleDashboardModules = React.useMemo(() =>
-    dashboardModules.filter((module) => {
-      if (module.href.startsWith('/cai-dat') && !isAdmin) return false;
-      const viewKey = resolveViewKey(module.href);
-      return !viewKey || hasViewAccess(viewKey);
-    }),
-  [hasViewAccess, resolveViewKey, isAdmin]);
+  const visibleDashboardModules = React.useMemo(
+    () =>
+      dashboardModules.filter((module) => {
+        if (module.href.startsWith('/cai-dat') && !isAdmin) return false;
+
+        // "Bán hàng" parent card is visible if user has parent or any child permission.
+        if (module.href === '/ban-hang') {
+          return (
+            hasViewAccess('ban-hang') ||
+            hasViewAccess('khach-hang') ||
+            hasViewAccess('don-hang')
+          );
+        }
+
+        // "Nhân sự" parent card is visible if user has parent or any child permission.
+        if (module.href === '/nhan-su') {
+          return (
+            hasViewAccess('nhan-su') ||
+            hasViewAccess('cham-cong') ||
+            hasViewAccess('nhan-su-ung-vien')
+          );
+        }
+
+        const viewKey = resolveViewKey(module.href);
+        return !viewKey || hasViewAccess(viewKey);
+      }),
+    [hasViewAccess, resolveViewKey, isAdmin]
+  );
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">

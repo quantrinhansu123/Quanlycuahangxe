@@ -779,13 +779,15 @@ const SalesCardManagementPage: React.FC = () => {
         detailRecords.length > 0 ? bulkUpsertSalesCardCTs(detailRecords) : Promise.resolve(),
         (async () => {
           const existingTx = await getTransactionByOrderId(savedCard.id);
-
-          if (!existingTx) return;
-
+          const paymentMethod =
+            existingTx?.phuong_thuc ||
+            savedCard.phuong_thuc_thanh_toan ||
+            cleanData.phuong_thuc_thanh_toan ||
+            'Tiền mặt';
           const financialRecord: Partial<ThuChi> = {
-            id: existingTx.id,
+            id: existingTx?.id,
             loai_phieu: 'phiếu thu',
-            phuong_thuc: existingTx.phuong_thuc || 'Tiền mặt',
+            phuong_thuc: paymentMethod,
             id_don: savedCard.id,
             so_tien: totalAmount,
             ngay: savedCard.ngay,
@@ -796,7 +798,7 @@ const SalesCardManagementPage: React.FC = () => {
             id_khach_hang: savedCard.khach_hang_id,
             danh_muc: 'Doanh thu dịch vụ',
             trang_thai: 'Hoàn thành',
-            ghi_chu: existingTx.ghi_chu || `Hệ thống tự động: Cập nhật tiền đơn hàng ${savedCard.id.slice(0, 8)}`
+            ghi_chu: existingTx?.ghi_chu || `Hệ thống tự động: Đồng bộ tiền đơn hàng ${savedCard.id.slice(0, 8)}`
           };
           await upsertTransaction(financialRecord);
         })(),

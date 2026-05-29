@@ -7,11 +7,14 @@ import { clsx } from 'clsx';
 import { AnimatePresence, motion } from 'framer-motion';
 import { moduleData } from '../../data/moduleData';
 import { ToastContainer } from '../ui/Toast';
+import { useAuth } from '../../context/AuthContext';
+import { resolveViewKeyByPath } from '../../data/viewPermissions';
 
 const MainLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [globalSearch, setGlobalSearch] = useState('');
   const location = useLocation();
+  const { hasViewAccess } = useAuth();
 
   // Pages that focus on heavy data (management tables)
   // Hide sidebar/bottom nav to give maximum space
@@ -23,8 +26,12 @@ const MainLayout: React.FC = () => {
   // Extract submodules with memoization to prevent Topbar re-renders
   const subModules = React.useMemo(() => {
     const items = moduleData[`/${location.pathname.split('/')[1]}`]?.flatMap(s => s.items) || [];
-    return items.filter((i) => i.showInTopbar !== false);
-  }, [location.pathname]);
+    return items.filter((i) => {
+      if (i.showInTopbar === false) return false;
+      const viewKey = resolveViewKeyByPath(i.path);
+      return !viewKey || hasViewAccess(viewKey);
+    });
+  }, [location.pathname, hasViewAccess]);
 
   // Auto-close sidebar on mobile when navigating
   React.useEffect(() => {

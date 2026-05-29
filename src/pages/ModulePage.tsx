@@ -5,16 +5,34 @@ import { moduleData } from '../data/moduleData';
 import { sidebarMenu } from '../data/sidebarMenu';
 import { motion } from 'framer-motion';
 import { useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { resolveViewKeyByPath } from '../data/viewPermissions';
 
 const ModulePage: React.FC = () => {
   const { globalSearch, setGlobalSearch } = useOutletContext<{ globalSearch: string; setGlobalSearch: (val: string) => void }>() || { globalSearch: '', setGlobalSearch: () => {} };
+  const { hasViewAccess } = useAuth();
   const location = useLocation();
   // Extract the base module path (e.g., "/ban-hang") correctly even for sub-routes
   const baseModulePath = `/${location.pathname.split('/')[1]}`;
   const currentItem = sidebarMenu.find(item => item.path === baseModulePath);
   const data = moduleData[baseModulePath] || [];
-  const subModules = data.length > 0 ? data[0].items : [];
   const navigate = useNavigate();
+
+  const visibleData = React.useMemo(
+    () =>
+      data
+        .map((section) => ({
+          ...section,
+          items: section.items.filter((item) => {
+            const viewKey = resolveViewKeyByPath(item.path);
+            return !viewKey || hasViewAccess(viewKey);
+          }),
+        }))
+        .filter((section) => section.items.length > 0),
+    [data, hasViewAccess, resolveViewKeyByPath]
+  );
+
+  const subModules = visibleData.length > 0 ? visibleData[0].items : [];
 
   // Smart Redirection for Mobile: nhảy thẳng trang con cho các module (gọn hơn), trừ Bán hàng — cần
   // giữ màn hình 2 thẻ (phiếu / khách) thay vì ép vào phiếu bán hàng.
@@ -40,7 +58,7 @@ const ModulePage: React.FC = () => {
         
         {!isSubRoute && (
           <div className="space-y-8 pb-8 animate-in fade-in duration-500">
-            {data.map((section, idx) => {
+            {visibleData.map((section, idx) => {
               // Filter items by search query
               const filteredItems = section.items.filter(item => 
                 item.title.toLowerCase().includes(globalSearch.toLowerCase()) || 
@@ -68,13 +86,13 @@ const ModulePage: React.FC = () => {
               );
             })}
             
-            {globalSearch && !data.some(s => s.items.some(i => i.title.toLowerCase().includes(globalSearch.toLowerCase()) || i.description.toLowerCase().includes(globalSearch.toLowerCase()))) && (
+            {globalSearch && !visibleData.some(s => s.items.some(i => i.title.toLowerCase().includes(globalSearch.toLowerCase()) || i.description.toLowerCase().includes(globalSearch.toLowerCase()))) && (
               <div className="text-center py-16 text-muted-foreground bg-card/50 rounded-2xl border border-border">
                 Không tìm thấy kết quả phù hợp cho "{globalSearch}"
               </div>
             )}
             
-            {data.length === 0 && (
+            {visibleData.length === 0 && (
               <div className="text-center py-16 text-muted-foreground bg-card/50 rounded-2xl border border-border border-dashed mt-4">
                 Module này đang được phát triển...
               </div>

@@ -20,7 +20,7 @@ export const moduleData: Record<string, { section: string; items: ModuleCardProp
       section: 'Quản lý bán hàng',
       items: [
         { icon: ShoppingCart, title: 'Bán hàng', description: 'Lập hóa đơn và quản lý giao dịch bán hàng.', colorScheme: 'green', path: '/ban-hang/phieu-ban-hang' },
-        { icon: Users, title: 'Khách hàng', description: 'Quản lý danh sách và thông tin khách hàng.', colorScheme: 'blue', path: '/ban-hang/khach-hang', showInTopbar: false }
+        { icon: Users, title: 'Khách hàng', description: 'Quản lý danh sách và thông tin khách hàng.', colorScheme: 'blue', path: '/ban-hang/khach-hang' }
       ]
     }
   ],

@@ -4,6 +4,8 @@ import {
   DEFAULT_VIEW_PERMISSIONS_BY_POSITION,
   VIEW_PERMISSION_OPTIONS,
   VIEW_PERMISSION_STORAGE_KEY,
+  VIEW_PERMISSIONS_UPDATED_EVENT,
+  normalizePositionKey,
   type ViewPermissionKey,
 } from '../data/viewPermissions';
 
@@ -11,16 +13,17 @@ type PermissionMap = Record<string, ViewPermissionKey[]>;
 
 const POSITION_OPTIONS = ['Kỹ thuật viên', 'Quản lý', 'Admin', 'Kế toán', 'Bán hàng'];
 
-const normalizePosition = (value: string) => value.trim().toLowerCase();
-
 const PermissionSettingsPage: React.FC = () => {
   const [permissions, setPermissions] = useState<PermissionMap>(() => {
     try {
       const raw = localStorage.getItem(VIEW_PERMISSION_STORAGE_KEY);
       const stored = raw ? (JSON.parse(raw) as PermissionMap) : {};
-      const merged = { ...stored };
+      const merged: PermissionMap = {};
+      for (const [position, views] of Object.entries(stored)) {
+        merged[normalizePositionKey(position)] = views;
+      }
       for (const [position, views] of Object.entries(DEFAULT_VIEW_PERMISSIONS_BY_POSITION)) {
-        const key = normalizePosition(position);
+        const key = normalizePositionKey(position);
         if (!Object.prototype.hasOwnProperty.call(merged, key)) {
           merged[key] = views;
         }
@@ -34,13 +37,13 @@ const PermissionSettingsPage: React.FC = () => {
   const positions = useMemo(() => POSITION_OPTIONS, []);
 
   const getAllowedViews = (position: string): ViewPermissionKey[] => {
-    const key = normalizePosition(position);
+    const key = normalizePositionKey(position);
     if (permissions[key]) return permissions[key];
     return DEFAULT_VIEW_PERMISSIONS_BY_POSITION[key] || [];
   };
 
   const toggleView = (position: string, viewKey: ViewPermissionKey) => {
-    const key = normalizePosition(position);
+    const key = normalizePositionKey(position);
     setPermissions((prev) => {
       const current = prev[key] || [];
       const next = current.includes(viewKey)
@@ -51,7 +54,7 @@ const PermissionSettingsPage: React.FC = () => {
   };
 
   const selectAllViews = (position: string) => {
-    const key = normalizePosition(position);
+    const key = normalizePositionKey(position);
     setPermissions((prev) => ({
       ...prev,
       [key]: VIEW_PERMISSION_OPTIONS.map((view) => view.key),
@@ -59,7 +62,7 @@ const PermissionSettingsPage: React.FC = () => {
   };
 
   const clearAllViews = (position: string) => {
-    const key = normalizePosition(position);
+    const key = normalizePositionKey(position);
     setPermissions((prev) => ({
       ...prev,
       [key]: [],
@@ -67,8 +70,14 @@ const PermissionSettingsPage: React.FC = () => {
   };
 
   const savePermissions = () => {
-    localStorage.setItem(VIEW_PERMISSION_STORAGE_KEY, JSON.stringify(permissions));
-    window.alert('Đã lưu cài đặt phân quyền. Tải lại trang để áp dụng đầy đủ menu/route.');
+    const normalized: PermissionMap = {};
+    for (const [position, views] of Object.entries(permissions)) {
+      normalized[normalizePositionKey(position)] = views;
+    }
+    localStorage.setItem(VIEW_PERMISSION_STORAGE_KEY, JSON.stringify(normalized));
+    setPermissions(normalized);
+    window.dispatchEvent(new Event(VIEW_PERMISSIONS_UPDATED_EVENT));
+    window.alert('Đã lưu phân quyền. Menu sẽ cập nhật ngay, không cần đăng xuất.');
   };
 
   return (

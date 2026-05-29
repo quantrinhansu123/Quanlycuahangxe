@@ -36,7 +36,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   // Trang admin mà không phải admin → về trang chủ
   if (adminOnly && !isAdmin) {
-    return <Navigate to="/" replace />;
+    const fallback = getDefaultHomePath(nhanVien?.vi_tri, isAdmin);
+    return <Navigate to={fallback} replace />;
   }
 
   const deniedByViewKey = viewKey && !hasViewAccess(viewKey);

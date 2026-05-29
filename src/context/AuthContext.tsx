@@ -2,6 +2,8 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 import {
   canAccessView,
   isTechnicianViTri,
+  VIEW_PERMISSIONS_UPDATED_EVENT,
+  VIEW_PERMISSION_STORAGE_KEY,
   type ViewPermissionKey,
 } from '../data/viewPermissions';
 import {
@@ -116,6 +118,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [supabaseUser, setSupabaseUser] = useState<AppUser | null>(null);
   const [nhanVien, setNhanVien] = useState<NhanVien | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [permVersion, setPermVersion] = useState(0);
 
   const applyNhanVien = useCallback((nv: NhanVien) => {
     const { session: nextSession, supabaseUser: nextUser } = sessionFromNhanVien(nv);
@@ -145,6 +148,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(false);
   }, [applyNhanVien]);
 
+  useEffect(() => {
+    const refresh = () => setPermVersion((v) => v + 1);
+    window.addEventListener(VIEW_PERMISSIONS_UPDATED_EVENT, refresh);
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === VIEW_PERMISSION_STORAGE_KEY) refresh();
+    };
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener(VIEW_PERMISSIONS_UPDATED_EVENT, refresh);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, []);
+
   const signOut = async () => {
     clearStoredAuth();
     setSession(null);
@@ -157,8 +173,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isTechnician = nhanVien ? isTechnicianViTri(nhanVien.vi_tri) : false;
   const canModifyData = !isTechnician;
 
-  const hasViewAccess = (viewKey: ViewPermissionKey): boolean =>
-    canAccessView(nhanVien?.vi_tri, viewKey, isAdmin);
+  const hasViewAccess = useCallback(
+    (viewKey: ViewPermissionKey): boolean => canAccessView(nhanVien?.vi_tri, viewKey, isAdmin),
+    [nhanVien?.vi_tri, isAdmin, permVersion]
+  );
 
   return (
     <AuthContext.Provider

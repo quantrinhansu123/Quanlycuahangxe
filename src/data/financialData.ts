@@ -271,6 +271,111 @@ export const getTransactionsPaginated = async (
   };
 };
 
+function chunkArray<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    out.push(items.slice(i, i + size));
+  }
+  return out;
+}
+
+/**
+ * Đồng bộ phiếu thu từ đơn hàng:
+ * - Duyệt toàn bộ đơn trong `the_ban_hang`
+ * - Tính tổng tiền từ `the_ban_hang_ct`
+ * - Upsert sang `thu_chi` theo khóa `id_don`
+ */
+export const syncTransactionsFromSalesOrders = async (): Promise<{ created: number; updated: number; skipped: number }> => {
+  const { data: orders, error: orderError } = await supabase
+    .from('the_ban_hang')
+    .select('id, id_bh, ngay, gio, khach_hang_id, ten_khach_hang, phuong_thuc_thanh_toan')
+    .order('ngay', { ascending: false });
+
+  if (orderError) {
+    console.error('Error fetching sales orders for sync:', orderError);
+    throw orderError;
+  }
+
+  const { data: details, error: detailError } = await supabase
+    .from('the_ban_hang_ct')
+    .select('id_don_hang, thanh_tien, gia_ban, so_luong, co_so');
+
+  if (detailError) {
+    console.error('Error fetching order details for sync:', detailError);
+    throw detailError;
+  }
+
+  const detailTotals = new Map<string, { total: number; coSo: string }>();
+  (details || []).forEach((row: any) => {
+    const ref = String(row.id_don_hang || '').trim().toLowerCase();
+    if (!ref) return;
+    const amount = Number(row.thanh_tien ?? (Number(row.gia_ban || 0) * Number(row.so_luong || 1)));
+    const prev = detailTotals.get(ref) || { total: 0, coSo: row.co_so || 'Cơ sở chính' };
+    prev.total += Number.isFinite(amount) ? amount : 0;
+    if (!prev.coSo && row.co_so) prev.coSo = row.co_so;
+    detailTotals.set(ref, prev);
+  });
+
+  const orderIds = (orders || []).map((o: any) => o.id).filter(Boolean);
+  const existingByOrder = new Map<string, ThuChi>();
+  for (const chunk of chunkArray(orderIds, 200)) {
+    const { data: existing, error: txErr } = await supabase
+      .from('thu_chi')
+      .select('*')
+      .in('id_don', chunk);
+    if (txErr) throw txErr;
+    (existing || []).forEach((tx: any) => {
+      if (tx.id_don) existingByOrder.set(String(tx.id_don), tx as ThuChi);
+    });
+  }
+
+  let created = 0;
+  let updated = 0;
+  let skipped = 0;
+  const payload: Partial<ThuChi>[] = [];
+
+  (orders || []).forEach((order: any) => {
+    const byId = detailTotals.get(String(order.id || '').toLowerCase())?.total || 0;
+    const byBh = detailTotals.get(String(order.id_bh || '').toLowerCase())?.total || 0;
+    const total = Math.max(byId, byBh);
+    if (!Number.isFinite(total) || total <= 0) {
+      skipped++;
+      return;
+    }
+
+    const detailById = detailTotals.get(String(order.id || '').toLowerCase());
+    const detailByBh = detailTotals.get(String(order.id_bh || '').toLowerCase());
+    const coSo = detailById?.coSo || detailByBh?.coSo || 'Cơ sở chính';
+    const existing = existingByOrder.get(String(order.id));
+
+    payload.push({
+      id: existing?.id,
+      loai_phieu: 'phiếu thu',
+      id_don: order.id,
+      co_so: coSo,
+      id_khach_hang: order.khach_hang_id || null,
+      danh_muc: 'Doanh thu dịch vụ',
+      ghi_chu: existing?.ghi_chu || `Đồng bộ từ đơn hàng ${String(order.id).slice(0, 8)}`,
+      so_tien: total,
+      nguoi_chi: order.ten_khach_hang || existing?.nguoi_chi || 'Khách vãng lai',
+      nguoi_nhan: existing?.nguoi_nhan || '',
+      trang_thai: 'Hoàn thành',
+      ngay: order.ngay,
+      gio: order.gio || '00:00',
+      phuong_thuc: existing?.phuong_thuc || order.phuong_thuc_thanh_toan || 'Tiền mặt'
+    });
+
+    if (existing) updated++;
+    else created++;
+  });
+
+  if (payload.length > 0) {
+    await bulkUpsertTransactions(payload);
+  }
+
+  return { created, updated, skipped };
+};
+
 export const getTransactionStats = async (): Promise<{ income: number; expense: number; balance: number }> => {
   let income = 0;
   let expense = 0;

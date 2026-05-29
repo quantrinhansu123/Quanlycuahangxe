@@ -67,7 +67,7 @@ function App() {
                 </ProtectedRoute>
               }
             >
-              <Route path="them-cham-cong" element={<ProtectedRoute viewKey="nhan-su"><AddAttendancePage /></ProtectedRoute>} />
+              <Route path="them-cham-cong" element={<ProtectedRoute viewKey="cham-cong"><AddAttendancePage /></ProtectedRoute>} />
               <Route path="bang-cham-cong" element={<ProtectedRoute viewKey="cham-cong"><AttendanceManagementPage /></ProtectedRoute>} />
               <Route path="danh-sach" element={<ProtectedRoute viewKey="nhan-su"><PersonnelManagementPage /></ProtectedRoute>} />
               {/* Quáº£n lÃ½ nhÃ¢n viÃªn â€” chá»‰ admin */}

@@ -72,6 +72,9 @@ export function getAllowedViewsForPosition(viTri: string | null | undefined): Vi
   if (Object.prototype.hasOwnProperty.call(stored, positionKey)) {
     return stored[positionKey];
   }
+  for (const [storedKey, views] of Object.entries(stored)) {
+    if (normalizePositionKey(storedKey) === positionKey) return views;
+  }
 
   if (positionKey in DEFAULT_VIEW_PERMISSIONS_BY_POSITION) {
     return DEFAULT_VIEW_PERMISSIONS_BY_POSITION[positionKey];
@@ -99,6 +102,8 @@ export function canAccessView(
   viewKey: ViewPermissionKey,
   isAdmin: boolean
 ): boolean {
+  // Trang chủ luôn cho phép với user đã đăng nhập.
+  if (viewKey === 'dashboard') return true;
   if (isAdmin) return true;
   const allowed = getAllowedViewsForPosition(viTri);
   if (allowed === null) return true;
@@ -135,3 +140,26 @@ export function getDefaultHomePath(viTri: string | null | undefined, isAdmin: bo
   }
   return '/';
 }
+
+/** Map route path → permission key (dùng chung menu/module/topbar). */
+export function resolveViewKeyByPath(path?: string): ViewPermissionKey | undefined {
+  if (!path) return undefined;
+  if (path.includes('/ban-hang/khach-hang')) return 'khach-hang';
+  if (path.includes('/ban-hang/phieu-ban-hang')) return 'don-hang';
+  if (path.includes('/nhan-su/bang-cham-cong') || path.startsWith('/cham-cong')) return 'cham-cong';
+  // Nhập chấm công thủ công cùng nhóm quyền "Chấm công", không phải "Nhân sự (toàn module)".
+  if (path.includes('/nhan-su/them-cham-cong')) return 'cham-cong';
+  if (path.includes('/nhan-su/danh-sach')) return 'nhan-su';
+  if (path.includes('/nhan-su/ung-vien')) return 'nhan-su-ung-vien';
+  if (path.startsWith('/thu-chi')) return 'thu-chi';
+  if (path.startsWith('/dich-vu')) return 'dich-vu';
+  if (path.startsWith('/bao-cao')) return 'bao-cao';
+  if (path.startsWith('/kho-van')) return 'kho-van';
+  if (path.startsWith('/tien-luong/thong-so') || path.startsWith('/tien-luong/thanh-phan') || path.startsWith('/tien-luong/chinh-sach')) {
+    return 'tien-luong-cau-hinh';
+  }
+  if (path.startsWith('/tien-luong')) return 'tien-luong';
+  return undefined;
+}
+
+export const VIEW_PERMISSIONS_UPDATED_EVENT = 'view-permissions-updated';
