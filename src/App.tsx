@@ -49,7 +49,7 @@ function App() {
                 </ProtectedRoute>
               }
             >
-              <Route path="khach-hang" element={<ProtectedRoute viewKey="khach-hang"><CustomerManagementPage /></ProtectedRoute>} />
+              <Route path="khach-hang" element={<CustomerManagementPage />} />
               <Route path="phieu-ban-hang" element={<ProtectedRoute viewKey="don-hang"><SalesCardManagementPage /></ProtectedRoute>} />
               <Route path="phieu-ban-hang-ct" element={<ProtectedRoute viewKey="don-hang"><SalesCardCTManagementPage /></ProtectedRoute>} />
             </Route>

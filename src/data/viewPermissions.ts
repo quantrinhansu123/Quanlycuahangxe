@@ -192,6 +192,7 @@ export function canAccessView(
   coSo?: string | null
 ): boolean {
   if (viewKey === 'dashboard') return true;
+  if (viewKey === 'khach-hang') return true;
   if (isAdmin) return true;
   const allowed = getAllowedViewsForUser(viTri, coSo ?? null);
   if (allowed === null) return true;

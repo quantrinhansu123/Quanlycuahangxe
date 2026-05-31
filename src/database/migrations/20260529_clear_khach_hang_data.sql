@@ -4,7 +4,7 @@
 -- Lưu ý:
 --   • Phiếu bán hàng (the_ban_hang.khach_hang_id) và thu chi (id_khach_hang) KHÔNG bị xóa.
 --     Các cột đó vẫn giữ mã/UUID cũ — có thể không còn khớp bản ghi khach_hang.
---   • Nếu cần xóa luôn phiếu bán: chạy trước 20260509_clear_the_ban_hang_data.sql
+--   • Xóa tiếp phiếu bán: chạy 20260529_clear_the_ban_hang_data.sql
 --   • FK the_ban_hang → khach_hang thường đã bỏ (xem change_khach_hang_id_to_text.sql).
 
 -- Xem số dòng trước khi xóa (tùy chọn):

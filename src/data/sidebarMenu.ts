@@ -38,7 +38,7 @@ export const sidebarMenu: SidebarItem[] = [
     viewKey: 'ban-hang',
     children: [
       { label: 'Phiếu bán hàng', path: '/ban-hang/phieu-ban-hang', viewKey: 'don-hang' },
-      { label: 'Khách hàng', path: '/ban-hang/khach-hang', viewKey: 'khach-hang' },
+      { label: 'Khách hàng', path: '/ban-hang/khach-hang' },
     ],
   },
   { icon: Wallet, label: 'Thu chi', path: '/thu-chi', viewKey: 'thu-chi' },
