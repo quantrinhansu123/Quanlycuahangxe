@@ -78,16 +78,9 @@ const SalesCardManagementPage: React.FC = () => {
   const [editingCard, setEditingCard] = useState<SalesCard | null>(null);
   const [formData, setFormData] = useState<Partial<SalesCard & { dich_vu_ids?: string[], service_items?: any[] }>>({});
 
-  // Date filtering states - mặc định lọc theo hôm nay (giờ địa phương VN)
-  const todayStr = useMemo(() => {
-    const d = new Date();
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
-  }, []);
-  const [startDate, setStartDate] = useState(todayStr);
-  const [endDate, setEndDate] = useState(todayStr);
+  // Date filtering states — mặc định không lọc ngày (hiển thị tất cả)
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [selectedMonth, setSelectedMonth] = useState('');
   const [selectedStaff, setSelectedStaff] = useState('');
   const [selectedBranch, setSelectedBranch] = useState('');
@@ -129,8 +122,8 @@ const SalesCardManagementPage: React.FC = () => {
         debouncedSearch,
         startDate || undefined,
         endDate || undefined,
-        isAdmin ? (selectedStaff || undefined) : (nhanVien?.ho_ten || undefined),
-        isAdmin ? (selectedBranch || undefined) : undefined
+        isAdmin && selectedStaff ? selectedStaff : undefined,
+        isAdmin && selectedBranch ? selectedBranch : undefined
       );
 
       setSalesCards(cardsResult.data);
@@ -155,10 +148,11 @@ const SalesCardManagementPage: React.FC = () => {
       }
     } catch (error) {
       console.error('Error loading sales cards:', error);
+      showToast('Không tải được danh sách phiếu bán hàng. Kiểm tra kết nối hoặc thử xóa bộ lọc.', 'error');
     } finally {
       setLoading(false);
     }
-  }, [currentPage, pageSize, debouncedSearch, startDate, endDate, selectedStaff, selectedBranch, isAdmin, nhanVien]);
+  }, [currentPage, pageSize, debouncedSearch, startDate, endDate, selectedStaff, selectedBranch, isAdmin, showToast]);
 
   const loadData = useCallback(async () => {
     loadReferenceData(); // Non-blocking background load for dropdowns

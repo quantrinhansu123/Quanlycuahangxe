@@ -126,14 +126,22 @@ async function attachCustomer(cards: SalesCard[]) {
     const allCustomers: any[] = [];
 
     await Promise.all(chunks.map(async (chunk) => {
-      // Filter the chunk into ma_khach_hang candidates and UUID candidates
       const maIds = chunk;
       const uuidIds = chunk.filter(id => id.length === 36);
+
+      const orParts: string[] = [];
+      if (maIds.length > 0) {
+        orParts.push(`ma_khach_hang.in.(${maIds.map(id => `"${id}"`).join(',')})`);
+      }
+      if (uuidIds.length > 0) {
+        orParts.push(`id.in.(${uuidIds.map(id => `"${id}"`).join(',')})`);
+      }
+      if (orParts.length === 0) return;
 
       const { data: customers } = await supabase
         .from('khach_hang')
         .select('id, ma_khach_hang, ho_va_ten, so_dien_thoai, dia_chi_hien_tai')
-        .or(`ma_khach_hang.in.(${maIds.map(id => `"${id}"`).join(',')}),id.in.(${uuidIds.map(id => `"${id}"`).join(',')})`);
+        .or(orParts.join(','));
 
       if (customers) allCustomers.push(...customers);
     }));
@@ -274,10 +282,7 @@ export const getSalesCardsPaginated = async (
   // 1. Build the base filter query for the main table (without range yet)
   let baseQuery = supabase
     .from('the_ban_hang')
-    .select(
-      `id, id_bh, dich_vu_id, ngay, gio, khach_hang_id, nhan_vien_id, ten_khach_hang, so_dien_thoai, tong_tien`,
-      { count: 'exact' }
-    );
+    .select('*', { count: 'exact' });
 
   if (searchQuery && searchQuery.trim()) {
     const term = searchQuery.trim();

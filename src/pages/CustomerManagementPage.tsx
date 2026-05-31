@@ -34,7 +34,7 @@ import { getCustomerOrderAggregatesByPhone } from '../data/salesCardData';
 const CustomerManagementPage: React.FC = () => {
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const { isAdmin, hasViewAccess } = useAuth();
+  const { isAdmin, nhanVien, hasViewAccess } = useAuth();
   const canCreateOrder = isAdmin || hasViewAccess('don-hang') || hasViewAccess('ban-hang');
   const [customers, setCustomers] = useState<KhachHang[]>([]);
   const [loading, setLoading] = useState(true);

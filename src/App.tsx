@@ -50,7 +50,7 @@ function App() {
               }
             >
               <Route path="khach-hang" element={<CustomerManagementPage />} />
-              <Route path="phieu-ban-hang" element={<ProtectedRoute viewKey="don-hang"><SalesCardManagementPage /></ProtectedRoute>} />
+              <Route path="phieu-ban-hang" element={<SalesCardManagementPage />} />
               <Route path="phieu-ban-hang-ct" element={<ProtectedRoute viewKey="don-hang"><SalesCardCTManagementPage /></ProtectedRoute>} />
             </Route>
 
