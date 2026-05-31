@@ -111,13 +111,14 @@ const mapDbToCandidate = (db: Record<string, unknown>): Candidate => {
         ? `code:${String(db.id_nhan_su)}`
         : `row:${Math.random().toString(36).slice(2)}`;
   const ngayVaoLam = db.ngay_vao_lam != null ? String(db.ngay_vao_lam).slice(0, 10) : '';
+  const ngaySinh = db.ngay_sinh != null ? String(db.ngay_sinh).slice(0, 10) : '';
   return {
     id,
     id_ung_vien: (db.id_nhan_su as string | null | undefined) ?? null,
     name: (db.ho_ten as string) ?? '',
     email: (db.email as string) ?? '',
     phone: (db.sdt as string) ?? '',
-    birthYear: '',
+    birthYear: ngaySinh,
     position: (db.vi_tri as string) ?? '',
     positionId: (db.vi_tri as string) ?? '',
     status: 'hired',
@@ -158,6 +159,11 @@ function candidateToNhanSuPayload(candidate: Partial<Candidate>): Partial<NhanSu
   if (candidate.latestInterview !== undefined) {
     const t = String(candidate.latestInterview).trim();
     payload.ngay_vao_lam = t === '' ? null : t;
+  }
+
+  if (candidate.birthYear !== undefined) {
+    const t = String(candidate.birthYear).trim();
+    payload.ngay_sinh = t === '' ? null : t.slice(0, 10);
   }
 
   return payload;

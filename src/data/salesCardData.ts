@@ -9,6 +9,105 @@ import { digitsOnly, phoneLookupVariants, samePhoneCore } from '../lib/phoneUtil
 
 export { phoneLookupVariants } from '../lib/phoneUtils';
 
+type ServiceLookupRow = {
+  id: string;
+  id_dich_vu?: string | null;
+  ten_dich_vu: string;
+  gia_ban?: number | null;
+  gia_nhap?: number | null;
+  co_so?: string | null;
+};
+
+/** Map mã san_pham / dich_vu_id → tên hiển thị (id_dich_vu, UUID, prefix UUID, tên DV). */
+export function buildServiceNameLookup(services: ServiceLookupRow[]): Map<string, string> {
+  const byKey = new Map<string, string>();
+  const register = (key: string | null | undefined, name: string) => {
+    if (!key || !name) return;
+    const k = key.trim().toLowerCase();
+    if (k && !byKey.has(k)) byKey.set(k, name);
+  };
+
+  for (const s of services) {
+    const name = s.ten_dich_vu;
+    register(s.id_dich_vu, name);
+    register(s.ten_dich_vu, name);
+    register(s.id, name);
+    if (s.id) {
+      const id = s.id.toLowerCase();
+      register(id.replace(/-/g, ''), name);
+      register(id.split('-')[0], name);
+      register(id.replace(/-/g, '').slice(0, 8), name);
+    }
+  }
+  return byKey;
+}
+
+export function resolveServiceDisplayName(
+  raw: string | null | undefined,
+  lookup: Map<string, string>
+): string {
+  const code = (raw || '').trim();
+  if (!code) return 'Dịch vụ';
+  const lower = code.toLowerCase();
+  return (
+    lookup.get(lower) ||
+    lookup.get(lower.replace(/-/g, '')) ||
+    lookup.get(lower.split('-')[0]) ||
+    lookup.get(lower.replace(/-/g, '').slice(0, 8)) ||
+    code
+  );
+}
+
+/** Mã dạng UUID / hex (dữ liệu cũ lưu id thay vì tên). */
+function looksLikeOpaqueServiceCode(code: string): boolean {
+  const c = code.trim();
+  if (c.length < 6) return false;
+  if (/[À-ỹà-ỹ\s,./()+]/u.test(c)) return false;
+  return /^[0-9a-f-]{6,36}$/i.test(c);
+}
+
+/** Tra tên DV: mã → lookup; nếu vẫn là mã lạ thì khớp theo giá bán (+ cơ sở nếu có). */
+export function resolveServiceNameForDetail(
+  raw: string | null | undefined,
+  giaBan: number | null | undefined,
+  coSo: string | null | undefined,
+  lookup: Map<string, string>,
+  services: ServiceLookupRow[]
+): string {
+  const code = (raw || '').trim();
+  if (!code) return 'Dịch vụ';
+
+  const fromCode = resolveServiceDisplayName(code, lookup);
+  if (fromCode !== code || !looksLikeOpaqueServiceCode(code)) {
+    return fromCode;
+  }
+
+  const price = Number(giaBan ?? 0);
+  if (price > 0 && services.length > 0) {
+    let cands = services.filter(s => Math.abs(Number(s.gia_ban || 0) - price) < 1);
+    const coSoTrim = (coSo || '').trim();
+    if (coSoTrim) {
+      const byCoSo = cands.filter(s => (s.co_so || '').trim() === coSoTrim);
+      if (byCoSo.length === 1) return byCoSo[0].ten_dich_vu;
+      if (byCoSo.length > 0) cands = byCoSo;
+    }
+    if (cands.length === 1) return cands[0].ten_dich_vu;
+  }
+
+  return code;
+}
+
+async function fetchAllServicesForLookup(): Promise<ServiceLookupRow[]> {
+  const { data, error } = await supabase
+    .from('dich_vu')
+    .select('id, id_dich_vu, ten_dich_vu, gia_ban, gia_nhap, co_so');
+  if (error) {
+    console.error('Error loading dich_vu for name lookup:', error);
+    return [];
+  }
+  return (data || []) as ServiceLookupRow[];
+}
+
 // Helper to split array into chunks to avoid "URL too long" (400 Bad Request)
 export function chunkArray<T>(array: T[], size: number): T[][] {
   const chunks: T[][] = [];
@@ -76,31 +175,17 @@ async function attachDetails(cards: SalesCard[]) {
     }));
 
     if (allDetails.length > 0) {
-      // Đối chiếu san_pham với dich_vu.id_dich_vu để hiển thị ten_dich_vu
-      const sanPhamCodes = [...new Set(
-        allDetails.map(d => (d.san_pham || '').trim()).filter(Boolean)
-      )];
-      const codeToName = new Map<string, string>();
-      if (sanPhamCodes.length > 0) {
-        const codeChunks = chunkArray(sanPhamCodes, 100);
-        await Promise.all(codeChunks.map(async (chunk) => {
-          const { data: services } = await supabase
-            .from('dich_vu')
-            .select('id_dich_vu, ten_dich_vu')
-            .in('id_dich_vu', chunk);
-          (services || []).forEach((s: { id_dich_vu: string | null; ten_dich_vu: string | null }) => {
-            if (s.id_dich_vu && s.ten_dich_vu) {
-              codeToName.set(s.id_dich_vu.trim().toLowerCase(), s.ten_dich_vu);
-            }
-          });
-        }));
-      }
+      const allServices = await fetchAllServicesForLookup();
+      const codeToName = buildServiceNameLookup(allServices);
 
       const detailMap = new Map<string, SalesCardCT[]>();
       allDetails.forEach((d: SalesCardCT) => {
-        const code = (d.san_pham || '').trim().toLowerCase();
-        const resolved = code ? codeToName.get(code) : undefined;
-        (d as SalesCardCT & { ten_dich_vu?: string }).ten_dich_vu = resolved || d.san_pham;
+        const code = (d.san_pham || '').trim();
+        const resolved = resolveServiceNameForDetail(code, d.gia_ban, d.co_so, codeToName, allServices);
+        if (resolved && resolved !== code) {
+          d.san_pham = resolved;
+        }
+        (d as SalesCardCT & { ten_dich_vu?: string }).ten_dich_vu = resolved;
 
         if (d.id_don_hang) {
           const lowerId = d.id_don_hang.toLowerCase();
@@ -201,25 +286,38 @@ async function attachPersonnel(cards: SalesCard[]) {
 async function attachService(cards: SalesCard[]) {
   const serviceIds = [...new Set(cards.map(c => c.dich_vu_id).filter(Boolean))] as string[];
   if (serviceIds.length > 0) {
-    const chunks = chunkArray(serviceIds, 50);
-    const allServices: any[] = [];
-
-    await Promise.all(chunks.map(async (chunk) => {
-      const { data: services } = await supabase
-        .from('dich_vu')
-        .select('ten_dich_vu, id_dich_vu, gia_ban, gia_nhap, co_so')
-        .or(`ten_dich_vu.in.(${chunk.map(id => `"${id}"`).join(',')}),id_dich_vu.in.(${chunk.map(id => `"${id}"`).join(',')})`);
-      if (services) allServices.push(...services);
-    }));
-
-    const serviceNameMap = new Map(allServices.map(s => [s.ten_dich_vu.toLowerCase(), s]));
-    const serviceIdMap = new Map(allServices.filter(s => !!s.id_dich_vu).map(s => [s.id_dich_vu!.toLowerCase(), s]));
+    const allServices = await fetchAllServicesForLookup();
+    const lookup = buildServiceNameLookup(allServices);
+    const serviceById = new Map(allServices.map(s => [s.id.toLowerCase(), s]));
+    const serviceByIdDichVu = new Map(
+      allServices.filter(s => s.id_dich_vu).map(s => [s.id_dich_vu!.toLowerCase(), s])
+    );
+    const serviceByTen = new Map(allServices.map(s => [s.ten_dich_vu.toLowerCase(), s]));
 
     cards.forEach(card => {
-      if (card.dich_vu_id) {
-        const key = card.dich_vu_id.toLowerCase();
-        const s = serviceIdMap.get(key) || serviceNameMap.get(key);
-        if (s) card.dich_vu = { ten_dich_vu: s.ten_dich_vu, gia_ban: s.gia_ban, gia_nhap: s.gia_nhap, co_so: s.co_so };
+      if (!card.dich_vu_id) return;
+      const key = card.dich_vu_id.toLowerCase();
+      const s =
+        serviceById.get(key) ||
+        serviceByIdDichVu.get(key) ||
+        serviceByTen.get(key) ||
+        allServices.find(
+          (row) =>
+            row.id.toLowerCase().startsWith(key) ||
+            row.id.toLowerCase().split('-')[0] === key
+        );
+      if (s) {
+        card.dich_vu = {
+          ten_dich_vu: s.ten_dich_vu,
+          gia_ban: s.gia_ban ?? undefined,
+          gia_nhap: s.gia_nhap ?? undefined,
+          co_so: s.co_so ?? undefined,
+        };
+      } else {
+        const name = resolveServiceDisplayName(card.dich_vu_id, lookup);
+        if (name !== card.dich_vu_id) {
+          card.dich_vu = { ten_dich_vu: name };
+        }
       }
     });
   }

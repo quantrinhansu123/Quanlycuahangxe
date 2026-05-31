@@ -101,7 +101,7 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
       } else {
          history.slice(0, 5).forEach((record) => {
             const date = formatDate(record.ngay);
-            const items = record.the_ban_hang_ct?.map((ct: any) => ct.san_pham).join(', ') || record.dich_vu?.ten_dich_vu || 'Dịch vụ';
+            const items = record.the_ban_hang_ct?.map((ct: any) => ct.ten_dich_vu || ct.san_pham).join(', ') || record.dich_vu?.ten_dich_vu || 'Dịch vụ';
             const price = sumCardAmountVnd(record);
             msg += `• ${date}: ${items} — ${formatCurrency(price)}\n`;
          });
@@ -238,7 +238,7 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
                                              {card.the_ban_hang_ct && card.the_ban_hang_ct.length > 0 ? (
                                                 card.the_ban_hang_ct.map((ct: any, i: number) => (
                                                    <div key={i} className="flex items-center justify-between text-[11px] sm:text-[13px]">
-                                                      <span className="font-bold text-foreground">📦 {ct.san_pham}</span>
+                                                      <span className="font-bold text-foreground">📦 {ct.ten_dich_vu || ct.san_pham}</span>
                                                       <span className="text-muted-foreground font-medium">SL: {ct.so_luong || 1} — {formatCurrency(ct.gia_ban)}</span>
                                                    </div>
                                                 ))

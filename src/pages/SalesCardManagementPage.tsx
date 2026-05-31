@@ -32,12 +32,15 @@ import { getPersonnel } from '../data/personnelData';
 import { bulkUpsertSalesCardCTs, deleteSalesCardCTsByOrderId } from '../data/salesCardCTData';
 import type { SalesCard } from '../data/salesCardData';
 import { 
-  bulkUpsertSalesCards, 
+  bulkUpsertSalesCards,
+  buildServiceNameLookup,
   deleteAllSalesCards, 
   deleteSalesCard, 
   getNextSalesCardCode, 
   getSalesCardsPaginated, 
-  normalizeSalesCards, 
+  normalizeSalesCards,
+  resolveServiceDisplayName,
+  resolveServiceNameForDetail,
   upsertSalesCard,
   getCustomerFirstSaleDates 
 } from '../data/salesCardData';
@@ -170,6 +173,7 @@ const SalesCardManagementPage: React.FC = () => {
 
   // Server-side filtering, so we use salesCards directly
   const displayItems = useMemo(() => salesCards, [salesCards]);
+  const serviceLookup = useMemo(() => buildServiceNameLookup(services), [services]);
 
   const groupedSales = useMemo(() => {
     const groups: Record<string, {
@@ -272,42 +276,22 @@ const SalesCardManagementPage: React.FC = () => {
     try {
       setIsSyncingServiceNames(true);
 
-      const ctRows = await fetchAllRows<{ id: string; san_pham: string | null }>('the_ban_hang_ct', 'id, san_pham');
+      const ctRows = await fetchAllRows<{
+        id: string;
+        san_pham: string | null;
+        gia_ban: number | null;
+        co_so: string | null;
+      }>('the_ban_hang_ct', 'id, san_pham, gia_ban, co_so');
       const headerRows = await fetchAllRows<{ id: string; dich_vu_id: string | null }>('the_ban_hang', 'id, dich_vu_id');
 
-      // Gom tất cả mã cần tra rồi query một lần (hoặc theo chunk) bảng dich_vu
-      const codes = new Set<string>();
-      for (const r of ctRows) {
-        const v = (r.san_pham || '').trim();
-        if (v) codes.add(v);
-      }
-      for (const r of headerRows) {
-        const v = (r.dich_vu_id || '').trim();
-        if (v) codes.add(v);
-      }
-
-      const codeToName = new Map<string, string>();
-      const codeArr = [...codes];
-      const chunkSize = 200;
-      for (let i = 0; i < codeArr.length; i += chunkSize) {
-        const chunk = codeArr.slice(i, i + chunkSize);
-        const { data: dv, error } = await supabase
-          .from('dich_vu')
-          .select('id_dich_vu, ten_dich_vu')
-          .in('id_dich_vu', chunk);
-        if (error) throw error;
-        (dv || []).forEach((s: { id_dich_vu: string | null; ten_dich_vu: string | null }) => {
-          if (s.id_dich_vu && s.ten_dich_vu) {
-            codeToName.set(s.id_dich_vu.trim().toLowerCase(), s.ten_dich_vu);
-          }
-        });
-      }
+      const allServices = await getServices();
+      const codeToName = buildServiceNameLookup(allServices);
 
       const rowsToUpdateCt: { id: string; san_pham: string }[] = [];
       for (const row of ctRows) {
         const sp = row.san_pham;
         if (!sp) continue;
-        const newName = codeToName.get(sp.trim().toLowerCase());
+        const newName = resolveServiceNameForDetail(sp, row.gia_ban, row.co_so, codeToName, allServices);
         if (newName && newName !== sp) rowsToUpdateCt.push({ id: row.id, san_pham: newName });
       }
 
@@ -315,7 +299,7 @@ const SalesCardManagementPage: React.FC = () => {
       for (const row of headerRows) {
         const dv = row.dich_vu_id;
         if (!dv) continue;
-        const newName = codeToName.get(dv.trim().toLowerCase());
+        const newName = resolveServiceDisplayName(dv, codeToName);
         if (newName && newName !== dv) rowsToUpdateHeader.push({ id: row.id, dich_vu_id: newName });
       }
 
@@ -572,15 +556,22 @@ const SalesCardManagementPage: React.FC = () => {
       }
 
       const mappedServiceItems = ((card as any).the_ban_hang_ct || []).map((ct: any) => {
-        // Try to find the master service by name to get a valid UUID if ct.dich_vu_id is missing or random
+        const displayName = resolveServiceNameForDetail(
+          ct.ten_dich_vu || ct.san_pham,
+          ct.gia_ban,
+          ct.co_so,
+          serviceLookup,
+          services
+        );
         const masterService = services.find(s =>
           (ct.dich_vu_id && s.id === ct.dich_vu_id) ||
-          (s.ten_dich_vu && ct.san_pham && s.ten_dich_vu.toLowerCase() === ct.san_pham.toLowerCase())
+          (displayName && s.ten_dich_vu.toLowerCase() === displayName.toLowerCase()) ||
+          (ct.gia_ban != null && Math.abs(Number(s.gia_ban) - Number(ct.gia_ban)) < 1)
         );
 
         return {
           id: masterService?.id || ct.dich_vu_id || ct.san_pham_vat_tu_id || Math.random().toString(),
-          ten_dich_vu: ct.san_pham || 'Dịch vụ',
+          ten_dich_vu: displayName,
           gia_ban: ct.gia_ban || 0,
           so_luong: ct.so_luong || 1
         };
@@ -634,12 +625,21 @@ const SalesCardManagementPage: React.FC = () => {
       if (c) mappedKhId = c.ma_khach_hang || c.id;
     }
 
-    const mappedServiceItems = ((card as any).the_ban_hang_ct || []).map((ct: any) => ({
-      id: ct.dich_vu_id || ct.san_pham_vat_tu_id || Math.random().toString(),
-      ten_dich_vu: ct.san_pham || 'Dịch vụ',
-      gia_ban: ct.gia_ban || 0,
-      so_luong: ct.so_luong || 1
-    }));
+    const mappedServiceItems = ((card as any).the_ban_hang_ct || []).map((ct: any) => {
+      const displayName = resolveServiceNameForDetail(
+        ct.ten_dich_vu || ct.san_pham,
+        ct.gia_ban,
+        ct.co_so,
+        serviceLookup,
+        services
+      );
+      return {
+        id: ct.dich_vu_id || ct.san_pham_vat_tu_id || Math.random().toString(),
+        ten_dich_vu: displayName,
+        gia_ban: ct.gia_ban || 0,
+        so_luong: ct.so_luong || 1
+      };
+    });
     const mappedIds = mappedServiceItems.map((item: any) => item.id).filter((id: any) => !id.startsWith('0.'));
 
     setFormData({

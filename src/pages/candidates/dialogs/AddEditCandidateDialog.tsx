@@ -17,6 +17,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 
 import type { CandidateDocument, CandidateFormState, FilterOption } from '../types';
+import DatePickerVi from '../../../components/ui/DatePickerVi';
 
 interface Props {
   isOpen: boolean;
@@ -188,78 +189,63 @@ const AddEditCandidateDialog: React.FC<Props> = ({
                 <label className="text-[13px] font-bold text-foreground">Ngày sinh</label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/40" size={16} />
-                  <input
-                    type="date"
+                  <DatePickerVi
                     value={formBirthDate}
-                    onChange={e => setFormField('formBirthDate', e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 bg-muted/10 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all"
+                    onChange={(iso) => setFormField('formBirthDate', iso)}
+                    className="w-full pl-10 pr-4 py-2 bg-muted/10 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all scheme-light dark:scheme-dark cursor-pointer"
                   />
                 </div>
               </div>
             </div>
           </div>
 
-          {/* VỊ TRÍ ỨNG TUYỂN */}
+          {/* Vị trí, ngày vào làm, ghi chú — chung một khung */}
           <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
             <div className="px-5 py-3 border-b border-border bg-muted/5 flex items-center gap-2">
               <Briefcase size={16} className="text-primary" />
-              <span className="text-[12px] font-bold text-primary uppercase tracking-wider">{'V\u1ecb tr\u00ed'}</span>
-            </div>
-            <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-[13px] font-bold text-foreground">{'V\u1ecb tr\u00ed'}</label>
-                <select
-                  value={formPosition}
-                  onChange={e => setFormField('formPosition', e.target.value)}
-                  className="w-full px-4 py-2 bg-muted/10 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all"
-                >
-                  <option value="">Chọn Quản lý hoặc Kỹ thuật viên</option>
-                  {positionOptions.map(p => (
-                    <option key={p.id} value={p.id}>
-                      {p.label}
-                    </option>
-                  ))}
-                  {formPosition && !positionOptions.some(p => p.id === formPosition) ? (
-                    <option value={formPosition}>{formPosition}</option>
-                  ) : null}
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Ngày vào làm (cột nhan_su.ngay_vao_lam) */}
-          <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
-            <div className="px-5 py-3 border-b border-border bg-muted/5 flex items-center gap-2">
-              <Calendar size={16} className="text-primary" />
-              <span className="text-[12px] font-bold text-primary uppercase tracking-wider">Ngày vào làm</span>
+              <span className="text-[12px] font-bold text-primary uppercase tracking-wider">
+                Vị trí &amp; ghi chú
+              </span>
             </div>
             <div className="p-5 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-bold text-foreground">Vị trí</label>
+                  <select
+                    value={formPosition}
+                    onChange={e => setFormField('formPosition', e.target.value)}
+                    className="w-full px-4 py-2 bg-muted/10 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all"
+                  >
+                    <option value="">Chọn Quản lý hoặc Kỹ thuật viên</option>
+                    {positionOptions.map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.label}
+                      </option>
+                    ))}
+                    {formPosition && !positionOptions.some(p => p.id === formPosition) ? (
+                      <option value={formPosition}>{formPosition}</option>
+                    ) : null}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[13px] font-bold text-foreground">Ngày vào làm</label>
+                  <DatePickerVi
+                    value={formLatestInterview.length >= 10 ? formLatestInterview.slice(0, 10) : formLatestInterview}
+                    onChange={(iso) => setFormField('formLatestInterview', iso)}
+                    className="w-full px-4 py-2 bg-muted/10 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all scheme-light dark:scheme-dark cursor-pointer"
+                  />
+                </div>
+              </div>
               <div className="space-y-1.5">
-                <label className="text-[13px] font-bold text-foreground">Ngày vào làm</label>
-                <input
-                  type="date"
-                  value={formLatestInterview.length >= 10 ? formLatestInterview.slice(0, 10) : formLatestInterview}
-                  onChange={e => setFormField('formLatestInterview', e.target.value)}
-                  className="w-full px-4 py-2 bg-muted/10 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all"
+                <label className="text-[13px] font-bold text-foreground">Ghi chú nội bộ</label>
+                <textarea
+                  placeholder="Ghi chú cho HR (tùy chọn)"
+                  rows={3}
+                  value={formInternalNotes}
+                  onChange={e => setFormField('formInternalNotes', e.target.value)}
+                  className="w-full px-4 py-3 bg-muted/10 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all resize-none"
                 />
               </div>
-            </div>
-          </div>
-
-          {/* GHI CHÚ NỘI BỘ */}
-          <div className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden">
-            <div className="px-5 py-3 border-b border-border bg-muted/5 flex items-center gap-2">
-              <FileText size={16} className="text-primary" />
-              <span className="text-[12px] font-bold text-primary uppercase tracking-wider">Ghi chú nội bộ</span>
-            </div>
-            <div className="p-5">
-              <textarea
-                placeholder="Ghi chú cho HR (tùy chọn)"
-                rows={3}
-                value={formInternalNotes}
-                onChange={e => setFormField('formInternalNotes', e.target.value)}
-                className="w-full px-4 py-3 bg-muted/10 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all resize-none"
-              />
             </div>
           </div>
 

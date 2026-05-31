@@ -10,7 +10,7 @@ import type { NhanSu } from '../data/personnelData';
 import { upsertAttendanceRecord, getAttendanceRecords } from '../data/attendanceData';
 import type { AttendanceRecord } from '../data/attendanceData';
 import { clsx } from 'clsx';
-import { formatTime24h } from '../utils/datetimeFormat';
+import { formatTime24h, formatDateVi } from '../utils/datetimeFormat';
 
 const CheckInPage: React.FC = () => {
   const navigate = useNavigate();
@@ -118,7 +118,7 @@ const CheckInPage: React.FC = () => {
           <div className="text-right">
             <h1 className="text-2xl font-bold text-foreground">Trạm Chấm Công</h1>
             <p className="text-muted-foreground text-sm flex items-center justify-end gap-1.5">
-              <Calendar size={14} /> {new Date().toLocaleDateString('vi-VN')}
+              <Calendar size={14} /> {formatDateVi(new Date().toISOString().slice(0, 10))}
             </p>
           </div>
         </div>

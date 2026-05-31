@@ -23,19 +23,13 @@ import PersonnelDailyStatsModal from '../components/PersonnelDailyStatsModal';
 import PersonnelFormModal from '../components/PersonnelFormModal';
 import type { NhanSu } from '../data/personnelData';
 import { bulkUpsertPersonnel, deletePersonnel, getNextPersonnelCode, getPersonnel, getPersonnelPaginated, upsertPersonnel } from '../data/personnelData';
+import { formatDateVi } from '../utils/datetimeFormat';
 
 function formatVnd(n: number | null | undefined): string {
   if (n == null || Number.isNaN(n as number)) return '—';
   return new Intl.NumberFormat('vi-VN').format(n);
 }
 
-function formatNgay(iso: string | null | undefined): string {
-  if (!iso) return '—';
-  const s = String(iso).slice(0, 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-  const [y, m, d] = s.split('-');
-  return `${d}/${m}/${y}`;
-}
 
 /** Excel / CSV: số seri, chuỗi ISO, d/m/yyyy, hoặc đối tượng Date. */
 function parseImportNgayVaoLam(v: unknown): string | null {
@@ -522,7 +516,7 @@ const PersonnelManagementPage: React.FC = () => {
                                 </div>
                               </td>
                               <td className="px-4 py-4 font-semibold text-foreground">{person.ho_ten}</td>
-                              <td className="px-4 py-4 tabular-nums text-[12px]">{formatNgay(person.ngay_vao_lam)}</td>
+                              <td className="px-4 py-4 tabular-nums text-[12px]">{formatDateVi(person.ngay_vao_lam)}</td>
                               <td className="px-4 py-4 tabular-nums text-[12px] text-right font-medium text-foreground">
                                 {formatVnd(person.luong_co_ban)}
                               </td>
@@ -639,7 +633,7 @@ const PersonnelManagementPage: React.FC = () => {
                                   <span className="font-bold text-foreground truncate">{person.vi_tri}</span>
                                 </div>
                                 <span className="text-border">•</span>
-                                <span className="tabular-nums">Vào: {formatNgay(person.ngay_vao_lam)}</span>
+                                <span className="tabular-nums">Vào: {formatDateVi(person.ngay_vao_lam)}</span>
                                 <span className="text-border">•</span>
                                 <span className="tabular-nums text-foreground font-semibold">
                                   {person.luong_co_ban != null && !Number.isNaN(person.luong_co_ban)

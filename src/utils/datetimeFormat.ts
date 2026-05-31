@@ -2,6 +2,46 @@
 
 const LOCALE = 'vi-VN';
 
+/** Hiển thị ngày dạng dd/mm/yyyy (ISO, Date, hoặc chuỗi dd/mm/yyyy). */
+export function formatDateVi(dateStr: string | null | undefined): string {
+  if (dateStr == null || dateStr === '') return '—';
+  const s = String(dateStr).trim();
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
+  const iso = s.slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+    const [y, m, d] = iso.split('-');
+    return `${d}/${m}/${y}`;
+  }
+  const d = new Date(s);
+  if (!Number.isNaN(d.getTime())) {
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  }
+  return s;
+}
+
+/** Chuyển dd/mm/yyyy hoặc yyyy-mm-dd → yyyy-mm-dd (lưu DB). */
+export function parseDateViToIso(input: string): string | null {
+  const t = input.trim();
+  if (!t) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
+  const m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!m) return null;
+  const day = m[1].padStart(2, '0');
+  const month = m[2].padStart(2, '0');
+  const year = m[3];
+  return `${year}-${month}-${day}`;
+}
+
+/** ISO → chuỗi dd/mm/yyyy cho ô nhập (rỗng nếu không hợp lệ). */
+export function isoToDateViInput(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const formatted = formatDateVi(iso);
+  return formatted === '—' ? '' : formatted;
+}
+
 /** Giờ hiển thị: HH:mm hoặc HH:mm:ss. */
 export function formatTime24h(date: Date, withSeconds = false): string {
   return date.toLocaleTimeString(LOCALE, {

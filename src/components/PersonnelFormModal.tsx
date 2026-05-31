@@ -3,6 +3,7 @@ import { Camera, Save, X, Building2, User, Phone, Briefcase, Loader2, KeyRound, 
 import type { NhanSu } from '../data/personnelData';
 import { uploadPersonnelImage } from '../data/personnelData';
 import { formatTienNhap, parseTienNhap } from '../data/payrollAttendanceSalary';
+import DateInputVi from './ui/DateInputVi';
 
 interface PersonnelFormModalProps {
   isOpen: boolean;
@@ -160,15 +161,16 @@ const PersonnelFormModal: React.FC<PersonnelFormModalProps> = React.memo(({
                   <Calendar size={14} className="text-primary/70" />
                   Ngày vào làm
                 </label>
-                <input
-                  type="date"
+                <DateInputVi
                   name="ngay_vao_lam"
                   value={
                     formData.ngay_vao_lam
                       ? String(formData.ngay_vao_lam).slice(0, 10)
                       : ''
                   }
-                  onChange={handleInputChange}
+                  onChange={(iso) =>
+                    setFormData((prev) => ({ ...prev, ngay_vao_lam: iso || null }))
+                  }
                   tabIndex={4}
                   className="w-full px-4 py-2 bg-background border border-border rounded-xl outline-none focus:border-primary text-[14px]"
                 />

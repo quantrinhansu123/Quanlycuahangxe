@@ -11,7 +11,8 @@ import {
   upsertAttendanceRecord,
   type AttendanceRecord
 } from '../data/attendanceData';
-import { formatTime24h } from '../utils/datetimeFormat';
+import { formatTime24h, formatDateVi } from '../utils/datetimeFormat';
+import DateInputVi from '../components/ui/DateInputVi';
 import {
   getPersonnel,
   type NhanSu
@@ -377,7 +378,7 @@ const AddAttendancePage: React.FC = () => {
               </div>
               <div className="space-y-1.5 max-h-[150px] overflow-y-auto custom-scrollbar">
                 {monthlyStats.missingRecords.map((item, idx) => {
-                  const dateFormatted = new Date(item.ngay).toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit' });
+                  const dateFormatted = formatDateVi(item.ngay);
                   return (
                     <div key={idx} className="flex items-center gap-2 px-3 py-1.5 bg-white/70 rounded-lg border border-amber-100 text-[12px]">
                       <Calendar size={14} className="text-amber-500 shrink-0" />
@@ -508,15 +509,14 @@ const AddAttendancePage: React.FC = () => {
                     Ngày <span className="text-red-500">*</span>
                   </label>
                   {isAdmin ? (
-                    <input
-                      type="date"
+                    <DateInputVi
                       value={formData.ngay || ''}
-                      onChange={(e) => setFormData(prev => ({ ...prev, ngay: e.target.value }))}
+                      onChange={(iso) => setFormData((prev) => ({ ...prev, ngay: iso }))}
                       className="w-full px-4 py-3 bg-card border border-border rounded-xl font-bold text-[14px] text-foreground focus:ring-2 focus:ring-primary/20 outline-none transition-all"
                     />
                   ) : (
                     <div className="w-full px-4 py-3 bg-muted/30 border border-border rounded-xl font-bold text-[14px] text-foreground cursor-not-allowed opacity-80 flex items-center">
-                      {formData.ngay ? new Date(formData.ngay).toLocaleDateString('vi-VN') : '—'}
+                      {formatDateVi(formData.ngay)}
                     </div>
                   )}
                 </div>
@@ -700,14 +700,11 @@ const AddAttendancePage: React.FC = () => {
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-2">
                             <span className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-bold text-[13px]">
-                              {new Date(item.date).getDate()}
+                              {item.date?.slice(8, 10) || '—'}
                             </span>
                             <div>
                               <p className="text-sm font-black text-foreground">
-                                {new Date(item.date).toLocaleDateString('vi-VN', { weekday: 'long' })}
-                              </p>
-                              <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">
-                                {new Date(item.date).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
+                                {formatDateVi(item.date)}
                               </p>
                             </div>
                           </div>

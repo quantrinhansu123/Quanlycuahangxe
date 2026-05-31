@@ -14,7 +14,14 @@ import CandidateDetailDialog from './candidates/dialogs/CandidateDetailDialog';
 import { motion } from 'framer-motion';
 import { useEffect } from 'react';
 import { getCandidatesPaginated, getNextCandidateCode, upsertCandidate, deleteCandidate } from '../data/candidateData';
+import { formatDateVi } from '../utils/datetimeFormat';
 import type { Candidate, CandidateFormState } from './candidates/types';
+
+function birthDateToForm(iso: string | undefined): string {
+  if (!iso) return '';
+  const s = iso.trim().slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : '';
+}
 
 const CandidatesPage: React.FC = () => {
   const { isAdmin } = useAuth();
@@ -138,7 +145,7 @@ const CandidatesPage: React.FC = () => {
         </td>
         <td className="px-4 py-3 sm:px-6 sm:py-4">
           <div className="flex flex-col">
-            <span className="text-[13px] text-foreground">{candidate.latestInterview || '—'}</span>
+            <span className="text-[13px] text-foreground">{formatDateVi(candidate.latestInterview)}</span>
             <span className="text-[11px] text-muted-foreground mt-0.5 truncate max-w-[150px] italic">
               {candidate.latestResult}
             </span>
@@ -170,7 +177,7 @@ const CandidatesPage: React.FC = () => {
                     formPassword: '',
                     formAddress: candidate.co_so ?? '',
                     formBirthYear: candidate.birthYear,
-                    formBirthDate: '',
+                    formBirthDate: birthDateToForm(candidate.birthYear),
                     formSource: candidate.source,
                     formPosition: candidate.positionId,
                     formCandidateCode: candidate.id_ung_vien || '',
@@ -452,7 +459,7 @@ const CandidatesPage: React.FC = () => {
                 email: formState.formEmail,
                 phone: formState.formPhone,
                 password: formState.formPassword.trim() || undefined,
-                birthYear: formState.formBirthYear,
+                birthYear: formState.formBirthDate || formState.formBirthYear,
                 position: viTri,
                 positionId: viTri,
                 id_ung_vien: formState.formCandidateCode.trim() || undefined,
@@ -494,7 +501,7 @@ const CandidatesPage: React.FC = () => {
                 formPassword: '',
                 formAddress: selectedCandidate.co_so ?? '',
                 formBirthYear: selectedCandidate.birthYear,
-                formBirthDate: '',
+                formBirthDate: birthDateToForm(selectedCandidate.birthYear),
                 formSource: selectedCandidate.source,
                 formPosition: selectedCandidate.positionId,
                 formCandidateCode: selectedCandidate.id_ung_vien || '',

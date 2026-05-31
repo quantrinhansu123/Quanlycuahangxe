@@ -8,6 +8,7 @@ export interface NhanSu {
   /** Giữ trên bảng cho tài khoản/legacy; không hiển thị trên form quản lý nhân sự. */
   email?: string | null;
   ngay_vao_lam?: string | null;
+  ngay_sinh?: string | null;
   luong_co_ban?: number | null;
   sdt: string | null;
   password?: string | null;

@@ -2,6 +2,8 @@ import { ArrowRight, CheckCircle2, Clock, DollarSign, Loader2, ShoppingCart, X, 
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { getPersonnelDailyStats } from '../data/personnelStatsData';
+import { formatDateVi } from '../utils/datetimeFormat';
+import DateInputVi from './ui/DateInputVi';
 
 interface PersonnelDailyStatsModalProps {
   isOpen: boolean;
@@ -106,21 +108,19 @@ const PersonnelDailyStatsModal: React.FC<PersonnelDailyStatsModalProps> = ({
         <div className="p-4 border-b border-border bg-card flex flex-wrap items-center justify-center gap-4 sm:gap-6 w-full">
           <div className="flex items-center gap-2 bg-muted/30 px-3 py-1.5 rounded-lg border border-border">
             <span className="text-[12px] font-bold text-muted-foreground tracking-wide uppercase">Từ ngày</span>
-            <input
-              type="date"
+            <DateInputVi
               value={startDateStr}
-              onChange={(e) => setStartDateStr(e.target.value)}
-              className="font-bold text-foreground text-[13px] bg-transparent border-none outline-none p-0 cursor-pointer scheme-light dark:scheme-dark"
+              onChange={setStartDateStr}
+              className="font-bold text-foreground text-[13px] bg-transparent border-none outline-none p-0 w-[92px]"
             />
           </div>
           <div className="flex items-center justify-center text-muted-foreground"><ArrowRight size={14} /></div>
           <div className="flex items-center gap-2 bg-muted/30 px-3 py-1.5 rounded-lg border border-border">
             <span className="text-[12px] font-bold text-muted-foreground tracking-wide uppercase">Đến ngày</span>
-            <input
-              type="date"
+            <DateInputVi
               value={endDateStr}
-              onChange={(e) => setEndDateStr(e.target.value)}
-              className="font-bold text-foreground text-[13px] bg-transparent border-none outline-none p-0 cursor-pointer scheme-light dark:scheme-dark"
+              onChange={setEndDateStr}
+              className="font-bold text-foreground text-[13px] bg-transparent border-none outline-none p-0 w-[92px]"
             />
           </div>
         </div>
@@ -253,7 +253,7 @@ const PersonnelDailyStatsModal: React.FC<PersonnelDailyStatsModalProps> = ({
                               )}
                             </div>
                             <div>
-                              <p className="font-bold text-sm text-foreground mb-1">{new Date(att.ngay).toLocaleDateString('vi-VN')}</p>
+                              <p className="font-bold text-sm text-foreground mb-1">{formatDateVi(att.ngay)}</p>
                               <div className="flex flex-wrap gap-2 text-[11px]">
                                 <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                                   IN: {att.checkin || '—'}

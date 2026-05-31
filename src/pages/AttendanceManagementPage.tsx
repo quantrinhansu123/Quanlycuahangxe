@@ -35,7 +35,8 @@ import {
   upsertAttendanceRecord
 } from '../data/attendanceData';
 import { getPersonnel, type NhanSu } from '../data/personnelData';
-import { formatDateTime24h } from '../utils/datetimeFormat';
+import { formatDateTime24h, formatDateVi } from '../utils/datetimeFormat';
+import DateInputVi from '../components/ui/DateInputVi';
 import {
   calculateAttendanceStatus,
   formatMinutesToHours,
@@ -235,16 +236,7 @@ const AttendanceManagementPage: React.FC = () => {
     setOpenDropdown(prev => prev === id ? null : id);
   };
 
-  const formatDateForDisplay = (dateStr: string | undefined) => {
-    if (!dateStr) return '—';
-    try {
-      const d = new Date(dateStr);
-      if (isNaN(d.getTime())) return dateStr;
-      return d.toLocaleDateString('vi-VN');
-    } catch {
-      return dateStr;
-    }
-  };
+  const formatDateForDisplay = (dateStr: string | undefined) => formatDateVi(dateStr);
 
   const handleOpenModal = (record: AttendanceRecord) => {
     if (!canModifyData) {
@@ -677,26 +669,24 @@ const AttendanceManagementPage: React.FC = () => {
               </select>
             )}
 
-            <input
-              type="date"
+            <DateInputVi
               title="Từ ngày"
               value={startDate}
-              onChange={(e) => {
-                setStartDate(e.target.value);
+              onChange={(iso) => {
+                setStartDate(iso);
                 setCurrentPage(1);
               }}
-              className="px-3 py-1.5 border border-border rounded text-[13px] bg-card outline-none focus:ring-1 focus:ring-primary"
+              className="px-3 py-1.5 border border-border rounded text-[13px] bg-card outline-none focus:ring-1 focus:ring-primary w-[110px]"
             />
             <span className="text-muted-foreground text-[12px]">-</span>
-            <input
-              type="date"
+            <DateInputVi
               title="Đến ngày"
               value={endDate}
-              onChange={(e) => {
-                setEndDate(e.target.value);
+              onChange={(iso) => {
+                setEndDate(iso);
                 setCurrentPage(1);
               }}
-              className="px-3 py-1.5 border border-border rounded text-[13px] bg-card outline-none focus:ring-1 focus:ring-primary"
+              className="px-3 py-1.5 border border-border rounded text-[13px] bg-card outline-none focus:ring-1 focus:ring-primary w-[110px]"
             />
 
             {(searchQuery !== '' || selectedStaff !== '' || startDate !== '' || endDate !== '') && (
@@ -1190,10 +1180,9 @@ const AttendanceManagementPage: React.FC = () => {
                     <Calendar size={14} className="text-primary/70" />
                     Ngày <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="date"
+                  <DateInputVi
                     value={formData.ngay || ''}
-                    onChange={(e) => setFormData(prev => ({ ...prev, ngay: e.target.value }))}
+                    onChange={(iso) => setFormData((prev) => ({ ...prev, ngay: iso }))}
                     className="w-full px-4 py-2.5 bg-card border border-border rounded-xl font-bold text-[14px] text-foreground focus:ring-2 focus:ring-primary/20 outline-none transition-all"
                   />
                 </div>

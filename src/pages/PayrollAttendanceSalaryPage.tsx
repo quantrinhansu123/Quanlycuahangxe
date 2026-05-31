@@ -4,6 +4,7 @@ import { clsx } from 'clsx';
 import { getChamCongTrongKhoang } from '../data/attendanceData';
 import { getRevenueByPersonnelFromTongTien } from '../data/reportData';
 import { removeVietnameseTones } from '../lib/utils';
+import { formatDateVi } from '../utils/datetimeFormat';
 import {
   demGioTangCaTheoDongCham,
   demSoBuaAnTheoDongCham,
@@ -622,7 +623,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                       className="px-2.5 py-2.5 text-center tabular-nums text-muted-foreground whitespace-nowrap w-12 text-sm"
                       title={
                         input.ngayBatDauLam
-                          ? `Số tháng làm việc đến hết ${String(thang).padStart(2, '0')}/${nam}. Mốc: ${input.ngayBatDauLam}`
+                          ? `Số tháng làm việc đến hết ${String(thang).padStart(2, '0')}/${nam}. Mốc: ${formatDateVi(input.ngayBatDauLam)}`
                           : 'Chưa có ngày bắt đầu làm — khớp Nhân sự (Ngày vào làm) hoặc bổ sung trong dữ liệu'
                       }
                     >

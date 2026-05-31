@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import type { Candidate, InterviewSession } from '../types';
+import { formatDateVi } from '../../../utils/datetimeFormat';
 import { statusConfig } from '../data';
 
 interface Props {
@@ -143,7 +144,7 @@ const CandidateDetailDialog: React.FC<Props> = ({
               </div>
               <div className="space-y-1">
                 <p className="text-muted-foreground font-medium">Năm sinh</p>
-                <p className="font-bold text-foreground">{candidate?.birthYear}</p>
+                <p className="font-bold text-foreground">{formatDateVi(candidate?.birthYear)}</p>
               </div>
             </div>
           </div>
@@ -196,7 +197,7 @@ const CandidateDetailDialog: React.FC<Props> = ({
             <div className="p-5 space-y-4">
               <div className="space-y-1">
                 <p className="text-muted-foreground font-medium text-[12px]">Ngày PV</p>
-                <p className="font-medium text-foreground">{candidate?.latestInterview || '—'}</p>
+                <p className="font-medium text-foreground">{formatDateVi(candidate?.latestInterview)}</p>
               </div>
               <div className="space-y-1">
                 <p className="text-muted-foreground font-medium text-[12px]">Kết quả</p>
@@ -301,7 +302,7 @@ const CandidateDetailDialog: React.FC<Props> = ({
                       <td className="px-4 py-3 border-r border-border/40 text-muted-foreground text-center">{idx + 1}</td>
                       <td className="px-4 py-3 border-r border-border/40 text-foreground font-bold text-center">{session.round}</td>
                       <td className="px-4 py-3 border-r border-border/40 text-foreground whitespace-pre-line">
-                        {session.date}{'\n'}– {session.time}
+                        {formatDateVi(session.date)}{'\n'}– {session.time}
                       </td>
                       <td className="px-4 py-3 border-r border-border/40">
                         <span
