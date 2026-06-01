@@ -53,7 +53,7 @@ import { formatTime24h } from '../utils/datetimeFormat';
 const SalesCardFormModal = React.lazy(() => import('../components/SalesCardFormModal'));
 
 const SalesCardManagementPage: React.FC = () => {
-  const { nhanVien, isAdmin, canModifyData } = useAuth();
+  const { nhanVien, isAdmin, canManageOrders } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [salesCards, setSalesCards] = useState<SalesCard[]>([]);
@@ -518,16 +518,12 @@ const SalesCardManagementPage: React.FC = () => {
   }, [loading, customers.length]); // Runs when loading finishes and customers are ready
 
   const handleOpenModal = async (card?: SalesCard) => {
-    if (!canModifyData) {
+    if (!canManageOrders) {
       if (card) {
         handleViewCard(card);
       } else {
-        showToast('Kỹ thuật viên chỉ được xem đơn hàng.', 'error');
+        showToast('Bạn không có quyền lập đơn hàng.', 'error');
       }
-      return;
-    }
-    if (card && !isAdmin) {
-      showToast('Bạn không có quyền chỉnh sửa phiếu này.', 'error');
       return;
     }
 
@@ -661,12 +657,8 @@ const SalesCardManagementPage: React.FC = () => {
 
   const handleSubmit = async (formDataHeader: Partial<SalesCard & { dich_vu_ids?: string[], service_items?: { id: string, ten_dich_vu: string, gia_ban: number, so_luong?: number }[] }>) => {
     try {
-      if (!canModifyData) {
-        showToast('Kỹ thuật viên chỉ được xem đơn hàng.', 'error');
-        return;
-      }
-      if (editingCard && !isAdmin) {
-        showToast('Bạn không có quyền cập nhật dữ liệu.', 'error');
+      if (!canManageOrders) {
+        showToast('Bạn không có quyền lập hoặc sửa đơn hàng.', 'error');
         return;
       }
       // Exclude all virtual/joined fields that don't exist in the database
@@ -1117,8 +1109,8 @@ const SalesCardManagementPage: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!canModifyData || !isAdmin) {
-      showToast('Bạn không có quyền xóa dữ liệu.', 'error');
+    if (!isAdmin) {
+      showToast('Chỉ quản trị viên được xóa phiếu bán hàng.', 'error');
       return;
     }
     if (window.confirm('Bạn có chắc chắn muốn xóa phiếu này?')) {
@@ -1279,7 +1271,7 @@ const SalesCardManagementPage: React.FC = () => {
               </div>
             )}
 
-            {canModifyData && (
+            {canManageOrders && (
             <button
               onClick={() => handleOpenModal()}
               className="px-2.5 py-1 sm:px-4 sm:py-2 bg-primary hover:bg-primary/90 text-white rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[14px] font-bold transition-all shrink-0 shadow-lg shadow-primary/20"
@@ -1509,17 +1501,15 @@ const SalesCardManagementPage: React.FC = () => {
                           <button onClick={() => handleViewCard(card)} className="flex items-center gap-1 px-3 py-1.5 text-blue-600 hover:bg-blue-50 rounded-lg text-[12px] font-bold border border-blue-100 transition-colors">
                             <Eye size={14} /> Xem
                           </button>
-                          {canModifyData && isAdmin && (
-                            <>
-                              {!card.thu_chi && (
-                                <button onClick={() => handleOpenModal(card)} className="flex items-center gap-1 px-3 py-1.5 text-primary hover:bg-primary/10 rounded-lg text-[12px] font-bold border border-primary/20 transition-colors">
-                                  <Edit2 size={14} /> Sửa
-                                </button>
-                              )}
-                              <button onClick={() => handleDelete(card.id)} className="flex items-center gap-1 px-3 py-1.5 text-destructive hover:bg-destructive/10 rounded-lg text-[12px] font-bold border border-destructive/20 transition-colors">
-                                <Trash2 size={14} /> Xóa
-                              </button>
-                            </>
+                          {canManageOrders && !card.thu_chi && (
+                            <button onClick={() => handleOpenModal(card)} className="flex items-center gap-1 px-3 py-1.5 text-primary hover:bg-primary/10 rounded-lg text-[12px] font-bold border border-primary/20 transition-colors">
+                              <Edit2 size={14} /> Sửa
+                            </button>
+                          )}
+                          {isAdmin && (
+                            <button onClick={() => handleDelete(card.id)} className="flex items-center gap-1 px-3 py-1.5 text-destructive hover:bg-destructive/10 rounded-lg text-[12px] font-bold border border-destructive/20 transition-colors">
+                              <Trash2 size={14} /> Xóa
+                            </button>
                           )}
                         </div>
                       </div>
@@ -1701,13 +1691,11 @@ const SalesCardManagementPage: React.FC = () => {
                     <td className="px-4 py-4 text-center">
                       <div className="flex items-center justify-center gap-2">
                         <button onClick={() => handleViewCard(card)} className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Xem chi tiết"><Eye size={18} /></button>
-                        {canModifyData && isAdmin && (
-                          <>
-                            {!card.thu_chi && (
-                              <button onClick={() => handleOpenModal(card)} className="p-2 text-primary hover:bg-primary/10 rounded transition-colors" title="Chỉnh sửa"><Edit2 size={18} /></button>
-                            )}
-                            <button onClick={() => handleDelete(card.id)} className="p-2 text-destructive hover:bg-destructive/10 rounded transition-colors" title="Xóa"><Trash2 size={18} /></button>
-                          </>
+                        {canManageOrders && !card.thu_chi && (
+                          <button onClick={() => handleOpenModal(card)} className="p-2 text-primary hover:bg-primary/10 rounded transition-colors" title="Chỉnh sửa"><Edit2 size={18} /></button>
+                        )}
+                        {isAdmin && (
+                          <button onClick={() => handleDelete(card.id)} className="p-2 text-destructive hover:bg-destructive/10 rounded transition-colors" title="Xóa"><Trash2 size={18} /></button>
                         )}
                       </div>
                     </td>

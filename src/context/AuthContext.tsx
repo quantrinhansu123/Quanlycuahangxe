@@ -49,8 +49,12 @@ interface AuthContextType {
   nhanVien: NhanVien | null;
   isAdmin: boolean;
   isTechnician: boolean;
-  /** false = kỹ thuật viên (chỉ xem, không sửa/xóa) */
+  /** false = kỹ thuật viên: không sửa chấm công / module khác (khách hàng & đơn hàng dùng canManage*) */
   canModifyData: boolean;
+  /** Thêm / sửa khách hàng (admin + kỹ thuật viên) */
+  canManageCustomers: boolean;
+  /** Thêm / sửa phiếu bán hàng (admin + kỹ thuật viên) */
+  canManageOrders: boolean;
   isLoading: boolean;
   hasViewAccess: (viewKey: ViewPermissionKey) => boolean;
   persistLogin: (nhanVien: NhanVien) => void;
@@ -64,6 +68,8 @@ const AuthContext = createContext<AuthContextType>({
   isAdmin: false,
   isTechnician: false,
   canModifyData: true,
+  canManageCustomers: false,
+  canManageOrders: false,
   isLoading: true,
   hasViewAccess: () => true,
   persistLogin: () => {},
@@ -172,6 +178,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isAdmin = nhanVien ? isAdminViTri(nhanVien.vi_tri) : false;
   const isTechnician = nhanVien ? isTechnicianViTri(nhanVien.vi_tri) : false;
   const canModifyData = !isTechnician;
+  const canManageCustomers = isAdmin || isTechnician;
+  const canManageOrders = isAdmin || isTechnician;
 
   const hasViewAccess = useCallback(
     (viewKey: ViewPermissionKey): boolean =>
@@ -188,6 +196,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAdmin,
         isTechnician,
         canModifyData,
+        canManageCustomers,
+        canManageOrders,
         isLoading,
         hasViewAccess,
         persistLogin,

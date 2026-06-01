@@ -34,7 +34,7 @@ import { getCustomerOrderAggregatesByPhone } from '../data/salesCardData';
 const CustomerManagementPage: React.FC = () => {
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const { isAdmin, nhanVien, hasViewAccess } = useAuth();
+  const { isAdmin, nhanVien, canManageCustomers, hasViewAccess } = useAuth();
   const canCreateOrder = isAdmin || hasViewAccess('don-hang') || hasViewAccess('ban-hang');
   const [customers, setCustomers] = useState<KhachHang[]>([]);
   const [loading, setLoading] = useState(true);
@@ -198,13 +198,13 @@ const CustomerManagementPage: React.FC = () => {
 
 
   const handleOpenModal = useCallback((customer?: KhachHang) => {
-    if (!isAdmin) {
-      showToast('Chỉ quản trị viên được thêm hoặc sửa khách hàng.', 'error');
+    if (!canManageCustomers) {
+      showToast('Bạn không có quyền thêm hoặc sửa khách hàng.', 'error');
       return;
     }
     setEditingCustomer(customer || null);
     setIsModalOpen(true);
-  }, [isAdmin, showToast]);
+  }, [canManageCustomers, showToast]);
 
   const handleCloseModal = useCallback(() => {
     setIsModalOpen(false);
@@ -433,7 +433,7 @@ const CustomerManagementPage: React.FC = () => {
             </div>
             </div>
 
-            {isAdmin && (
+            {canManageCustomers && (
               <button
                 type="button"
                 onClick={() => handleOpenModal()}
@@ -729,7 +729,7 @@ const CustomerManagementPage: React.FC = () => {
                                 <span className="text-[10px] font-bold">Lên đơn</span>
                               </button>
                               )}
-                              {isAdmin && (
+                              {canManageCustomers && (
                               <button
                                 type="button"
                                 onClick={() => handleOpenModal(customer)}
@@ -819,6 +819,7 @@ const CustomerManagementPage: React.FC = () => {
                         onOpenDetails={handleOpenDetails}
                         today={today}
                         stats={customerStats[customer.id] || (customer.ma_khach_hang && customerStats[customer.ma_khach_hang]) || { totalRevenue: 0, visitCount: 0 }}
+                        canManageCustomers={canManageCustomers}
                         isAdmin={isAdmin}
                       />
 
@@ -876,8 +877,9 @@ const CustomerTableRow: React.FC<{
   onOpenDetails: (customer: KhachHang) => void;
   today: Date;
   stats: { totalRevenue: number; visitCount: number };
+  canManageCustomers: boolean;
   isAdmin: boolean;
-}> = React.memo(({ customer, visibleColumns, onEdit, onDelete, onOpenDetails, today, stats, isAdmin }) => {
+}> = React.memo(({ customer, visibleColumns, onEdit, onDelete, onOpenDetails, today, stats, canManageCustomers, isAdmin }) => {
 
 
   const isCầnThayDầu = customer.ngay_thay_dau ? new Date(customer.ngay_thay_dau) <= today : false;
@@ -970,7 +972,7 @@ const CustomerTableRow: React.FC<{
             <button type="button" onClick={() => onOpenDetails(customer)} className="p-2 text-blue-500 hover:bg-blue-50 rounded transition-colors" title="Chi tiết / lịch sử">
               <History size={18} />
             </button>
-            {isAdmin && (
+            {canManageCustomers && (
               <button type="button" onClick={() => onEdit(customer)} className="p-2 text-primary hover:bg-primary/5 rounded transition-colors" title="Sửa">
                 <Edit2 size={18} />
               </button>
