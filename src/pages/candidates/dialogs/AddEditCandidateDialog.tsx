@@ -81,7 +81,7 @@ const AddEditCandidateDialog: React.FC<Props> = ({
               <UserPlus size={20} />
             </div>
             <h2 className="text-lg font-bold text-foreground">
-              {isEditMode ? 'Chỉnh sửa ứng viên' : 'Thêm ứng viên'}
+              {isEditMode ? 'Chỉnh sửa nhân sự' : 'Thêm nhân sự'}
             </h2>
           </div>
           <button
@@ -103,7 +103,7 @@ const AddEditCandidateDialog: React.FC<Props> = ({
             </div>
             <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-[13px] font-bold text-foreground lowercase">Mã ứng viên</label>
+                <label className="text-[13px] font-bold text-foreground lowercase">Mã nhân sự</label>
                 <div className="relative">
                   <FileText className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/40" size={16} />
                   <input

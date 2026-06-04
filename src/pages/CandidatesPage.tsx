@@ -14,7 +14,7 @@ import CandidateDetailDialog from './candidates/dialogs/CandidateDetailDialog';
 import { motion } from 'framer-motion';
 import { useEffect } from 'react';
 import { getCandidatesPaginated, getNextCandidateCode, upsertCandidate, deleteCandidate } from '../data/candidateData';
-import { formatDateVi } from '../utils/datetimeFormat';
+import { formatDateVi, monthsFromStartDateToNow } from '../utils/datetimeFormat';
 import type { Candidate, CandidateFormState } from './candidates/types';
 
 function birthDateToForm(iso: string | undefined): string {
@@ -132,6 +132,22 @@ const CandidatesPage: React.FC = () => {
             </span>
           </div>
         </td>
+        <td className="px-4 py-3 sm:px-6 sm:py-4 whitespace-nowrap">
+          <span className="text-[13px] text-foreground">{formatDateVi(candidate.birthYear)}</span>
+        </td>
+        <td className="px-4 py-3 sm:px-6 sm:py-4 whitespace-nowrap">
+          <span className="text-[13px] text-foreground">{formatDateVi(candidate.latestInterview)}</span>
+        </td>
+        <td className="px-4 py-3 sm:px-6 sm:py-4 whitespace-nowrap">
+          {(() => {
+            const months = monthsFromStartDateToNow(candidate.latestInterview);
+            return months != null ? (
+              <span className="text-[13px] font-bold text-primary">{months} tháng</span>
+            ) : (
+              <span className="text-[13px] text-muted-foreground">—</span>
+            );
+          })()}
+        </td>
         <td className="px-4 py-3 sm:px-6 sm:py-4">
           <span
             className={clsx(
@@ -142,14 +158,6 @@ const CandidatesPage: React.FC = () => {
           >
             {statusConfig[candidate.status as keyof typeof statusConfig]?.label || 'Không xác định'}
           </span>
-        </td>
-        <td className="px-4 py-3 sm:px-6 sm:py-4">
-          <div className="flex flex-col">
-            <span className="text-[13px] text-foreground">{formatDateVi(candidate.latestInterview)}</span>
-            <span className="text-[11px] text-muted-foreground mt-0.5 truncate max-w-[150px] italic">
-              {candidate.latestResult}
-            </span>
-          </div>
         </td>
         <td className="px-4 py-3 sm:px-6 sm:py-4 text-right">
           <div className="flex items-center justify-end gap-0.5 sm:gap-1" onClick={(e) => e.stopPropagation()}>
@@ -201,7 +209,7 @@ const CandidatesPage: React.FC = () => {
                 type="button"
                 onClick={async (e) => {
                   e.stopPropagation();
-                  if (window.confirm('Bạn có chắc muốn xóa ứng viên này?')) {
+                  if (window.confirm('Bạn có chắc muốn xóa nhân sự này?')) {
                     try {
                       await deleteCandidate(candidate.id, candidate.id_ung_vien);
                       loadData();
@@ -226,7 +234,7 @@ const CandidatesPage: React.FC = () => {
 
   return (
     <motion.div 
-      layoutId="func-Ứng viên"
+      layoutId="func-Nhân sự"
       className="flex flex-col h-full animate-in fade-in duration-500 p-4 lg:p-6"
     >
       {/* Back Button for Full Screen Mode */}
@@ -247,10 +255,10 @@ const CandidatesPage: React.FC = () => {
             <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600">
               <Users size={24} />
             </div>
-            Quản lý ứng viên
+            Quản lý Nhân sự
           </h1>
           <p className="text-muted-foreground text-[13px] mt-1 italic ml-13">
-            Hồ sơ nhân sự nhóm theo cơ sở — trên màn hình lớn hiển thị hai bảng cạnh nhau
+            Danh sách nhân sự theo cơ sở — hiển thị ngày sinh và thâm niên (tháng)
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -287,7 +295,7 @@ const CandidatesPage: React.FC = () => {
               className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-[13px] font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
             >
               <Plus size={18} />
-              Thêm ứng viên
+              Thêm nhân sự
             </button>
           )}
         </div>
@@ -368,10 +376,16 @@ const CandidatesPage: React.FC = () => {
                         Vị trí
                       </th>
                       <th className="px-4 py-3 sm:px-6 sm:py-3.5 text-[11px] sm:text-[12px] font-bold text-muted-foreground uppercase tracking-wider">
-                        Trạng thái
+                        Ngày sinh
                       </th>
                       <th className="px-4 py-3 sm:px-6 sm:py-3.5 text-[11px] sm:text-[12px] font-bold text-muted-foreground uppercase tracking-wider">
                         Ngày vào làm
+                      </th>
+                      <th className="px-4 py-3 sm:px-6 sm:py-3.5 text-[11px] sm:text-[12px] font-bold text-muted-foreground uppercase tracking-wider">
+                        Thâm niên
+                      </th>
+                      <th className="px-4 py-3 sm:px-6 sm:py-3.5 text-[11px] sm:text-[12px] font-bold text-muted-foreground uppercase tracking-wider">
+                        Trạng thái
                       </th>
                       <th className="px-4 py-3 sm:px-6 sm:py-3.5 text-[11px] sm:text-[12px] font-bold text-muted-foreground uppercase tracking-wider text-right">
                         Thao tác
@@ -391,7 +405,7 @@ const CandidatesPage: React.FC = () => {
                 <div className="w-16 h-16 rounded-full bg-muted/20 flex items-center justify-center mb-4">
                   <Users size={32} className="opacity-20" />
                 </div>
-                <p className="text-[14px] font-medium italic">Chưa có ứng viên hoặc không khớp tìm kiếm</p>
+                <p className="text-[14px] font-medium italic">Chưa có nhân sự hoặc không khớp tìm kiếm</p>
                 <p className="text-[12px] mt-2 max-w-md">
                   Nếu đã có dữ liệu trên Supabase mà vẫn trống, kiểm tra chính sách RLS cho bảng{' '}
                   <code className="text-xs">nhan_su</code> (role <code className="text-xs">authenticated</code> cần SELECT).
@@ -412,7 +426,7 @@ const CandidatesPage: React.FC = () => {
       {/* Simplified Pagination */}
       <div className="flex items-center justify-between mt-6 px-2">
         <p className="text-[13px] text-muted-foreground">
-          Hiển thị <span className="font-bold text-foreground">{filteredCandidates.length}</span> trên <span className="font-bold text-foreground">{totalCount}</span> ứng viên
+          Hiển thị <span className="font-bold text-foreground">{filteredCandidates.length}</span> trên <span className="font-bold text-foreground">{totalCount}</span> nhân sự
         </p>
         <div className="flex items-center gap-2">
           <button disabled className="p-2 rounded-lg border border-border bg-card text-muted-foreground opacity-50 cursor-not-allowed">
@@ -447,7 +461,7 @@ const CandidatesPage: React.FC = () => {
               return;
             }
             if (!formState.formPosition.trim()) {
-              window.alert('Vui lòng chọn vị trí ứng tuyển (Quản lý hoặc Kỹ thuật viên).');
+              window.alert('Vui lòng chọn vị trí (Quản lý hoặc Kỹ thuật viên).');
               return;
             }
             try {

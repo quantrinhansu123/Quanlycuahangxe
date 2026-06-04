@@ -28,7 +28,7 @@ export const VIEW_PERMISSION_OPTIONS: ViewPermissionOption[] = [
   { key: 'dich-vu', label: 'Dịch vụ' },
   { key: 'bao-cao', label: 'Báo cáo' },
   { key: 'nhan-su', label: 'Nhân sự (toàn module)' },
-  { key: 'nhan-su-ung-vien', label: 'Nhân sự - Ứng viên' },
+  { key: 'nhan-su-ung-vien', label: 'Nhân sự' },
   { key: 'cham-cong', label: 'Chấm công' },
   { key: 'kho-van', label: 'Kho vận' },
   { key: 'tien-luong', label: 'Tiền lương' },

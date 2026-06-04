@@ -42,6 +42,23 @@ export function isoToDateViInput(iso: string | null | undefined): string {
   return formatted === '—' ? '' : formatted;
 }
 
+/** Số tháng từ ngày bắt đầu (ISO) đến hôm nay (làm tròn xuống nếu chưa đủ ngày). */
+export function monthsFromStartDateToNow(startDateStr: string | null | undefined): number | null {
+  if (!startDateStr?.trim()) return null;
+  const iso = startDateStr.trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null;
+  const [y, m, d] = iso.split('-').map(Number);
+  const start = new Date(y, m - 1, d);
+  if (Number.isNaN(start.getTime())) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  start.setHours(0, 0, 0, 0);
+  if (start > today) return 0;
+  let months = (today.getFullYear() - start.getFullYear()) * 12 + (today.getMonth() - start.getMonth());
+  if (today.getDate() < start.getDate()) months--;
+  return Math.max(0, months);
+}
+
 /** Giờ hiển thị: HH:mm hoặc HH:mm:ss. */
 export function formatTime24h(date: Date, withSeconds = false): string {
   return date.toLocaleTimeString(LOCALE, {

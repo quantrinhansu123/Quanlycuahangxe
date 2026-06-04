@@ -173,7 +173,7 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
       'kho-van': 'Kho vận',
       'dieu-hanh': 'Điều hành',
       'he-thong': 'Hệ thống',
-      'ung-vien': 'Ứng viên',
+      'ung-vien': 'Nhân sự',
       'cai-dat': 'Cài đặt',
       'phan-quyen': 'Phân quyền'
     };
