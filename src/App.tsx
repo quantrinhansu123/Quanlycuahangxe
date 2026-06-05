@@ -54,8 +54,9 @@ function App() {
               <Route path="phieu-ban-hang-ct" element={<ProtectedRoute viewKey="don-hang"><SalesCardCTManagementPage /></ProtectedRoute>} />
             </Route>
 
-            {/* Thu chi â€” chá»‰ admin */}
+            {/* Thu chi / Sổ quỹ */}
             <Route path="/thu-chi" element={<ProtectedRoute viewKey="thu-chi"><FinancialManagementPage /></ProtectedRoute>} />
+            <Route path="/so-quy" element={<ProtectedRoute viewKey="so-quy"><FinancialManagementPage /></ProtectedRoute>} />
 
             <Route path="/dich-vu" element={<ProtectedRoute viewKey="dich-vu"><ServiceManagementPage /></ProtectedRoute>} />
 

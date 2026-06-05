@@ -26,7 +26,7 @@ import { useToast } from '../context/ToastContext';
 import type { KhachHang } from '../data/customerData';
 import { getCustomersForSelect, upsertCustomer } from '../data/customerData';
 import type { ThuChi } from '../data/financialData';
-import { deleteSalesTransactions, deleteTransactionByOrderId, getTransactionByOrderId, upsertTransaction } from '../data/financialData';
+import { deleteTransactionByOrderId, getTransactionByOrderId, upsertTransaction } from '../data/financialData';
 import type { NhanSu } from '../data/personnelData';
 import { getPersonnel } from '../data/personnelData';
 import { bulkUpsertSalesCardCTs, deleteSalesCardCTsByOrderId } from '../data/salesCardCTData';
@@ -34,7 +34,6 @@ import type { SalesCard } from '../data/salesCardData';
 import { 
   bulkUpsertSalesCards,
   buildServiceNameLookup,
-  deleteAllSalesCards, 
   deleteSalesCard, 
   getNextSalesCardCode, 
   getSalesCardsPaginated, 
@@ -1157,30 +1156,6 @@ const SalesCardManagementPage: React.FC = () => {
     setCurrentPage(1);
   };
 
-  const handleDeleteAll = async () => {
-    const confirm1 = window.confirm('⚠️ CẢNH BÁO: Bạn có chắc chắn muốn xóa TOÀN BỘ dữ liệu phiếu bán hàng không?\n(Dữ liệu chi tiết và phiếu thu tiền liên quan cũng sẽ bị xóa sạch)');
-    if (!confirm1) return;
-
-    const confirm2 = window.confirm('⚠️ XÁC NHẬN CUỐI CÙNG: Hành động này không thể hoàn tác. Bạn vẫn muốn tiếp tục xóa SẠCH tất cả phiếu bán hàng?');
-    if (!confirm2) return;
-
-    try {
-      setLoading(true);
-      await deleteAllSalesCards();
-      // Only delete transactions related to sales (safer than deleting ALL)
-      if (window.confirm('Bạn có muốn xóa luôn các Phiếu Thu liên quan trong mục Tài chính không?')) {
-        await deleteSalesTransactions();
-      }
-      await loadSalesCards();
-      alert('🚀 Đã xóa sạch toàn bộ dữ liệu bán hàng.');
-    } catch (error) {
-      console.error(error);
-      alert('Lỗi: Không thể xóa toàn bộ dữ liệu.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="w-full h-full flex flex-col p-4 lg:p-6 animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-y-auto pt-8">
       <div className="w-full space-y-6">
@@ -1260,14 +1235,6 @@ const SalesCardManagementPage: React.FC = () => {
                   <span>{isSyncingServiceNames ? 'Đang đồng bộ...' : 'Đồng bộ tên DV (toàn DB)'}</span>
                 </button>
 
-                <button
-                  onClick={handleDeleteAll}
-                  className="px-2 py-1 sm:px-2.5 sm:py-2 bg-rose-500/5 hover:bg-rose-500/10 text-rose-600 border border-rose-500/20 rounded-lg flex items-center gap-1.5 transition-all shrink-0"
-                  title="Xóa tất cả phiếu bán hàng"
-                >
-                  <Trash2 className="size-4 sm:size-5" />
-                  <span className="sm:hidden text-[11px] font-bold">Xóa</span>
-                </button>
               </div>
             )}
 

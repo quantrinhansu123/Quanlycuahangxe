@@ -1,4 +1,4 @@
-import { BarChart2, Box, FileText, ShieldCheck, Users, Wallet, Wrench, BadgeDollarSign } from 'lucide-react';
+import { BarChart2, BookOpen, Box, FileText, ShieldCheck, Users, Wallet, Wrench, BadgeDollarSign } from 'lucide-react';
 import React from 'react';
 import { useOutletContext } from 'react-router-dom';
 
@@ -24,6 +24,13 @@ const dashboardModules: ActionCardProps[] = [
     description: 'Quản lý dòng tiền và các chứng từ tài chính.',
     href: '/thu-chi',
     colorScheme: 'blue'
+  },
+  {
+    icon: BookOpen,
+    title: 'Sổ quỹ',
+    description: 'Sổ kế toán chi tiết quỹ tiền mặt — thu, chi, số tồn.',
+    href: '/so-quy',
+    colorScheme: 'purple'
   },
   {
     icon: Wrench,

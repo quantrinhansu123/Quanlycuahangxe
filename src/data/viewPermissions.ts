@@ -4,6 +4,7 @@ export type ViewPermissionKey =
   | 'khach-hang'
   | 'don-hang'
   | 'thu-chi'
+  | 'so-quy'
   | 'dich-vu'
   | 'bao-cao'
   | 'nhan-su'
@@ -25,6 +26,7 @@ export const VIEW_PERMISSION_OPTIONS: ViewPermissionOption[] = [
   { key: 'khach-hang', label: 'Khách hàng' },
   { key: 'don-hang', label: 'Đơn hàng / Phiếu bán hàng' },
   { key: 'thu-chi', label: 'Thu chi' },
+  { key: 'so-quy', label: 'Sổ quỹ' },
   { key: 'dich-vu', label: 'Dịch vụ' },
   { key: 'bao-cao', label: 'Báo cáo' },
   { key: 'nhan-su', label: 'Nhân sự (toàn module)' },
@@ -179,6 +181,8 @@ export function expandsViewAccess(
   if ((viewKey === 'khach-hang' || viewKey === 'don-hang') && allowed.includes('ban-hang')) {
     return true;
   }
+  if (viewKey === 'so-quy' && allowed.includes('thu-chi')) return true;
+  if (viewKey === 'thu-chi' && allowed.includes('so-quy')) return true;
   if (viewKey === 'cham-cong' && allowed.includes('nhan-su')) return true;
   if (viewKey === 'nhan-su-ung-vien' && allowed.includes('nhan-su')) return true;
   if (viewKey === 'nhan-su' && allowed.includes('nhan-su')) return true;
@@ -218,6 +222,7 @@ const HOME_PATH_PRIORITY: { key: ViewPermissionKey; path: string }[] = [
   { key: 'cham-cong', path: '/nhan-su' },
   { key: 'ban-hang', path: '/ban-hang/khach-hang' },
   { key: 'thu-chi', path: '/thu-chi' },
+  { key: 'so-quy', path: '/so-quy' },
   { key: 'dich-vu', path: '/dich-vu' },
   { key: 'bao-cao', path: '/bao-cao/san-pham' },
   { key: 'nhan-su', path: '/nhan-su' },
@@ -276,6 +281,7 @@ export function resolveViewKeyByPath(path?: string): ViewPermissionKey | undefin
   if (path.includes('/nhan-su/them-cham-cong')) return 'cham-cong';
   if (path.includes('/nhan-su/danh-sach')) return 'nhan-su';
   if (path.includes('/nhan-su/ung-vien')) return 'nhan-su-ung-vien';
+  if (path.startsWith('/so-quy')) return 'so-quy';
   if (path.startsWith('/thu-chi')) return 'thu-chi';
   if (path.startsWith('/dich-vu')) return 'dich-vu';
   if (path.startsWith('/bao-cao')) return 'bao-cao';

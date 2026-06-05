@@ -1,6 +1,7 @@
 import {
   Home,
   FileText,
+  BookOpen,
   Users,
   Box,
   Wallet,
@@ -42,6 +43,7 @@ export const sidebarMenu: SidebarItem[] = [
     ],
   },
   { icon: Wallet, label: 'Thu chi', path: '/thu-chi', viewKey: 'thu-chi' },
+  { icon: BookOpen, label: 'Sổ quỹ', path: '/so-quy', viewKey: 'so-quy' },
   { icon: Wrench, label: 'Dịch vụ', path: '/dich-vu', viewKey: 'dich-vu' },
   {
     icon: BarChart2,

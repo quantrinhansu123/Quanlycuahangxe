@@ -174,6 +174,8 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
       'dieu-hanh': 'Điều hành',
       'he-thong': 'Hệ thống',
       'ung-vien': 'Nhân sự',
+      'so-quy': 'Sổ quỹ',
+      'thu-chi': 'Thu chi',
       'cai-dat': 'Cài đặt',
       'phan-quyen': 'Phân quyền'
     };

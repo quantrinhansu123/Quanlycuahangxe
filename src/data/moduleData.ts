@@ -1,5 +1,6 @@
 ﻿import {
   ArrowLeftRight,
+  BookOpen,
   Boxes,
   ClipboardList,
   ShoppingCart,
@@ -37,6 +38,14 @@ export const moduleData: Record<string, { section: string; items: ModuleCardProp
       section: 'Tài chính',
       items: [
         { icon: Wallet, title: 'Thu chi', description: 'Quản lý dòng tiền và các chứng từ tài chính.', colorScheme: 'blue', path: '/thu-chi' }
+      ]
+    }
+  ],
+  '/so-quy': [
+    {
+      section: 'Tài chính',
+      items: [
+        { icon: BookOpen, title: 'Sổ quỹ', description: 'Sổ kế toán chi tiết quỹ tiền mặt — Nợ, Có, số tồn.', colorScheme: 'purple', path: '/so-quy' }
       ]
     }
   ],

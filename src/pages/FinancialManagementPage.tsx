@@ -23,6 +23,7 @@ import type { KhachHang } from '../data/customerData';
 import { getCustomers } from '../data/customerData';
 import type { SalesCard } from '../data/salesCardData';
 import { getSalesCards } from '../data/salesCardData';
+import { getOpeningBalance, setOpeningBalance as saveOpeningBalance } from '../data/cashBookData';
 import { formatTime24h } from '../utils/datetimeFormat';
 
 const FinancialCharts = React.lazy(() => import('../components/FinancialCharts'));
@@ -30,19 +31,22 @@ const FinancialCharts = React.lazy(() => import('../components/FinancialCharts')
 const FinancialManagementPage: React.FC = () => {
   const { isAdmin } = useAuth();
   const location = useLocation();
+  const isSoQuyPage = location.pathname.startsWith('/so-quy');
   const [transactions, setTransactions] = useState<ThuChi[]>([]);
   const [customers, setCustomers] = useState<KhachHang[]>([]);
   const [salesCards, setSalesCards] = useState<SalesCard[]>([]);
   const [stats, setStats] = useState({ income: 0, expense: 0, balance: 0 });
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'list' | 'charts'>('list');
-  const [listViewMode, setListViewMode] = useState<'standard' | 'cashbook'>('standard');
+  const [activeTab, setActiveTab] = useState<'list' | 'charts'>(isSoQuyPage ? 'list' : 'list');
+  const [listViewMode, setListViewMode] = useState<'standard' | 'cashbook'>(isSoQuyPage ? 'cashbook' : 'standard');
   const [allTransactions, setAllTransactions] = useState<ThuChi[]>([]);
   const [filterDateFrom, setFilterDateFrom] = useState(() => {
     const t = new Date();
     return new Date(t.getFullYear(), t.getMonth(), 1).toISOString().slice(0, 10);
   });
   const [filterDateTo, setFilterDateTo] = useState(() => new Date().toISOString().slice(0, 10));
+  const [openingBalance, setOpeningBalance] = useState(0);
+  const [openingBalanceInput, setOpeningBalanceInput] = useState('0');
   
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState('');
@@ -107,6 +111,26 @@ const FinancialManagementPage: React.FC = () => {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    if (isSoQuyPage) {
+      setListViewMode('cashbook');
+      setActiveTab('list');
+    }
+  }, [isSoQuyPage]);
+
+  useEffect(() => {
+    const stored = getOpeningBalance(selectedBranches, filterDateFrom);
+    setOpeningBalance(stored);
+    setOpeningBalanceInput(String(stored || ''));
+  }, [selectedBranches, filterDateFrom]);
+
+  const persistOpeningBalance = (raw: string) => {
+    const amount = Math.max(0, Math.round(Number(raw.replace(/\D/g, '')) || 0));
+    setOpeningBalance(amount);
+    setOpeningBalanceInput(amount === 0 ? '' : String(amount));
+    saveOpeningBalance(selectedBranches, filterDateFrom, amount);
+  };
 
   const [chartsDataLoading, setChartsDataLoading] = useState(false);
 
@@ -420,7 +444,7 @@ const FinancialManagementPage: React.FC = () => {
       return da.localeCompare(db);
     });
 
-    let runningBalance = 0;
+    let runningBalance = openingBalance;
     return ordered.map((transaction) => {
       const isIncome = transaction.loai_phieu === 'phiếu thu';
       const debit = isIncome ? transaction.so_tien : 0;
@@ -433,21 +457,27 @@ const FinancialManagementPage: React.FC = () => {
         runningBalance,
       };
     });
-  }, [transactions]);
+  }, [transactions, openingBalance]);
+
+  const closingBalance = openingBalance + stats.income - stats.expense;
 
   return (
     <div className="w-full h-full flex flex-col p-4 lg:p-6 animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-y-auto pt-8">
       <div className="w-full space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-black text-foreground tracking-tight flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center text-orange-600">
+            <div className={clsx(
+              'w-8 h-8 rounded-lg flex items-center justify-center',
+              isSoQuyPage ? 'bg-indigo-500/10 text-indigo-600' : 'bg-orange-500/10 text-orange-600'
+            )}>
               <Wallet size={18} />
             </div>
-            Quản lý Thu chi
+            {isSoQuyPage ? 'Quản lý Sổ quỹ' : 'Quản lý Thu chi'}
           </h1>
         </div>
 
-        {/* Tab Switcher */}
+        {/* Tab Switcher — ẩn biểu đồ trên trang Sổ quỹ */}
+        {!isSoQuyPage && (
         <div className="bg-card rounded-xl shadow-sm border border-border p-1.5 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 transition-all duration-300 max-w-fit">
           <div className="flex bg-muted/50 rounded-lg p-0.5 shrink-0">
             <button
@@ -474,6 +504,7 @@ const FinancialManagementPage: React.FC = () => {
             </button>
           </div>
         </div>
+        )}
 
         <div className="bg-card border border-border rounded-xl p-3 sm:p-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:flex-wrap">
           <div className="flex items-center gap-2 text-foreground min-w-0">
@@ -508,16 +539,60 @@ const FinancialManagementPage: React.FC = () => {
               title="Đến ngày"
             />
           </div>
+          {isSoQuyPage && (
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 w-full sm:w-auto border-t sm:border-t-0 sm:border-l border-border pt-3 sm:pt-0 sm:pl-4">
+              <label className="text-[13px] font-bold text-foreground shrink-0" htmlFor="opening-balance">
+                Tồn đầu kỳ
+              </label>
+              <div className="relative flex-1 sm:flex-initial min-w-[160px]">
+                <input
+                  id="opening-balance"
+                  type="text"
+                  inputMode="numeric"
+                  value={openingBalanceInput === '' ? '' : Number(openingBalanceInput).toLocaleString('vi-VN')}
+                  onChange={(e) => {
+                    const digits = e.target.value.replace(/\D/g, '');
+                    setOpeningBalanceInput(digits);
+                  }}
+                  onBlur={() => persistOpeningBalance(openingBalanceInput)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      persistOpeningBalance(openingBalanceInput);
+                      (e.target as HTMLInputElement).blur();
+                    }
+                  }}
+                  className="w-full sm:w-[200px] pl-3 pr-10 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50/30 text-[13px] font-bold text-indigo-900 min-h-9 focus:ring-2 focus:ring-indigo-500/20 outline-none"
+                  placeholder="0"
+                  title="Số dư quỹ đầu kỳ (theo kỳ và cơ sở đang lọc)"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-muted-foreground">
+                  đ
+                </span>
+              </div>
+              <span className="text-[11px] text-muted-foreground hidden lg:inline">
+                Lưu theo kỳ & cơ sở đang chọn
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Stats Cards - Only on List Tab */}
         {activeTab === 'list' && (
           <div className="space-y-3">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {isSoQuyPage && (
+                <StatCard title="Tồn đầu kỳ" amount={openingBalance} color="text-indigo-600" bgColor="bg-indigo-50/50" icon={Wallet} />
+              )}
               <StatCard title="Tổng Thu" amount={stats.income} color="text-emerald-600" bgColor="bg-emerald-50/50" icon={BadgeDollarSign} />
               <StatCard title="Tổng Chi" amount={stats.expense} color="text-rose-600" bgColor="bg-rose-50/50" icon={Wallet} />
-              <div className="col-span-2 md:col-span-1">
-                <StatCard title="Số dư hiện tại" amount={stats.balance} color="text-amber-600" bgColor="bg-amber-50/50" icon={Wallet} />
+              <div className={clsx(isSoQuyPage ? 'col-span-2 md:col-span-1' : 'col-span-2 md:col-span-1')}>
+                <StatCard
+                  title={isSoQuyPage ? 'Tồn cuối kỳ' : 'Số dư hiện tại'}
+                  amount={isSoQuyPage ? closingBalance : stats.balance}
+                  color="text-amber-600"
+                  bgColor="bg-amber-50/50"
+                  icon={Wallet}
+                />
               </div>
             </div>
 
@@ -785,6 +860,9 @@ const FinancialManagementPage: React.FC = () => {
                       <h2 className="text-[20px] font-black text-center tracking-wide">SỔ KẾ TOÁN CHI TIẾT QUỸ TIỀN MẶT</h2>
                       <p className="text-[12px] text-center text-muted-foreground mt-1">
                         Tài khoản: 1111; Từ ngày: {new Date(filterDateFrom).toLocaleDateString('vi-VN')} đến ngày: {new Date(filterDateTo).toLocaleDateString('vi-VN')}
+                        {openingBalance > 0 && (
+                          <> · Tồn đầu kỳ: {formatCurrency(openingBalance)}</>
+                        )}
                       </p>
                     </div>
                     <table className="w-full text-left border-collapse">
@@ -811,7 +889,28 @@ const FinancialManagementPage: React.FC = () => {
                               Đang tải dữ liệu...
                             </td>
                           </tr>
-                        ) : cashbookRows.map((transaction) => (
+                        ) : (
+                          <>
+                            {(isSoQuyPage || openingBalance > 0) && (
+                              <tr className="bg-indigo-50/40 border-b border-indigo-100 font-bold">
+                                <td className="px-3 py-2 text-center whitespace-nowrap">
+                                  {new Date(filterDateFrom).toLocaleDateString('vi-VN')}
+                                </td>
+                                <td className="px-3 py-2 text-center whitespace-nowrap">—</td>
+                                <td className="px-3 py-2 font-mono text-[11px] text-indigo-700">TĐK</td>
+                                <td className="px-3 py-2 text-indigo-900">Tồn đầu kỳ</td>
+                                <td className="px-3 py-2 text-center font-semibold">1111</td>
+                                <td className="px-3 py-2 text-center text-muted-foreground">—</td>
+                                <td className="px-3 py-2 text-right" />
+                                <td className="px-3 py-2 text-right" />
+                                <td className="px-3 py-2 text-right font-black text-indigo-700">
+                                  {formatCurrency(openingBalance)}
+                                </td>
+                                <td className="px-3 py-2">—</td>
+                                <td className="px-3 py-2">—</td>
+                              </tr>
+                            )}
+                            {cashbookRows.map((transaction) => (
                           <tr key={transaction.id} className="hover:bg-muted/50 transition-colors">
                             <td className="px-3 py-2 text-center whitespace-nowrap">{new Date(transaction.ngay).toLocaleDateString('vi-VN')}</td>
                             <td className="px-3 py-2 text-center whitespace-nowrap">{new Date(transaction.ngay).toLocaleDateString('vi-VN')}</td>
@@ -827,8 +926,10 @@ const FinancialManagementPage: React.FC = () => {
                             <td className="px-3 py-2">{transaction.nguoi_nhan || transaction.nguoi_chi || '—'}</td>
                             <td className="px-3 py-2 font-mono text-[11px]">{transaction.id_khach_hang || transaction.id_don || '—'}</td>
                           </tr>
-                        ))}
-                        {!loading && cashbookRows.length === 0 && (
+                            ))}
+                          </>
+                        )}
+                        {!loading && cashbookRows.length === 0 && openingBalance === 0 && !isSoQuyPage && (
                           <tr>
                             <td colSpan={11} className="px-2 py-8 text-center text-muted-foreground">Không có dữ liệu giao dịch.</td>
                           </tr>
