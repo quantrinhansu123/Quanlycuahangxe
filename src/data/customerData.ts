@@ -54,6 +54,18 @@ const sanitizeCustomerPayload = (customer: Partial<KhachHang>) => {
   return payload;
 };
 
+function escapeIlike(s: string): string {
+  return s.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
+}
+
+function isMissingCreatedAtColumn(error: { message?: string; code?: string } | null): boolean {
+  if (!error) return false;
+  return (
+    error.code === '42703' ||
+    /created_at|column.*does not exist|schema cache/i.test(error.message || '')
+  );
+}
+
 const buildBranchVariants = (branchScope?: string): string[] => {
   const base = (branchScope || '').trim();
   if (!base) return [];
@@ -71,49 +83,68 @@ const buildBranchVariants = (branchScope?: string): string[] => {
 };
 
 export const getCustomers = async (branchScope?: string): Promise<KhachHang[]> => {
-  let query = supabase
-    .from('khach_hang')
-    .select('*');
+  const buildBase = () => {
+    let query = supabase.from('khach_hang').select('*');
+    const branchVariants = buildBranchVariants(branchScope);
+    if (branchVariants.length > 0) {
+      query = query.in('dia_chi_hien_tai', branchVariants);
+    }
+    return query;
+  };
 
-  const branchVariants = buildBranchVariants(branchScope);
-  if (branchVariants.length > 0) {
-    query = query.in('dia_chi_hien_tai', branchVariants);
-  }
-
-  const { data, error } = await query
+  let res = await buildBase()
     .order('created_at', { ascending: false })
     .order('ngay_dang_ky', { ascending: false });
 
-  if (error) {
-    console.error('Error fetching customers:', error);
-    throw error;
+  if (isMissingCreatedAtColumn(res.error)) {
+    res = await buildBase().order('ngay_dang_ky', { ascending: false }).order('id', { ascending: false });
   }
-  return data as KhachHang[];
+
+  if (res.error) {
+    console.error('Error fetching customers:', res.error);
+    throw res.error;
+  }
+  return (res.data as KhachHang[]) || [];
 };
+
+/** Phát hiện khách hàng bị chặn bởi RLS (bảng có dữ liệu nhưng anon không đọc được). */
+export async function diagnoseKhachHangAccess(): Promise<'ok' | 'empty' | 'rls_blocked'> {
+  const [{ count: khCount, error: khErr }, { count: orderCount }] = await Promise.all([
+    supabase.from('khach_hang').select('id', { count: 'exact', head: true }),
+    supabase.from('the_ban_hang').select('id', { count: 'exact', head: true }),
+  ]);
+
+  if (khErr) return 'empty';
+  if ((khCount ?? 0) > 0) return 'ok';
+  if ((orderCount ?? 0) > 0) return 'rls_blocked';
+  return 'empty';
+}
 
 // Lightweight version for dropdown selects - excludes heavy columns like 'anh' (Base64), 'so_km'
 export const getCustomersForSelect = async (
   branchScope?: string
 ): Promise<Pick<KhachHang, 'id' | 'ho_va_ten' | 'so_dien_thoai' | 'bien_so_xe' | 'ma_khach_hang' | 'dia_chi_hien_tai'>[]> => {
-  let query = supabase
-    .from('khach_hang')
-    .select('id, ho_va_ten, so_dien_thoai, bien_so_xe, ma_khach_hang, dia_chi_hien_tai')
-    .order('created_at', { ascending: false })
-    .limit(10000);
+  const buildBase = () => {
+    let query = supabase
+      .from('khach_hang')
+      .select('id, ho_va_ten, so_dien_thoai, bien_so_xe, ma_khach_hang, dia_chi_hien_tai');
+    const branchVariants = buildBranchVariants(branchScope);
+    if (branchVariants.length > 0) {
+      query = query.in('dia_chi_hien_tai', branchVariants);
+    }
+    return query;
+  };
 
-  const branchVariants = buildBranchVariants(branchScope);
-  if (branchVariants.length > 0) {
-    query = query.in('dia_chi_hien_tai', branchVariants);
+  let res = await buildBase().order('created_at', { ascending: false }).limit(10000);
+  if (isMissingCreatedAtColumn(res.error)) {
+    res = await buildBase().order('ngay_dang_ky', { ascending: false }).limit(10000);
   }
 
-  const { data, error } = await query;
-
-
-  if (error) {
-    console.error('Error fetching customers for select:', error);
-    throw error;
+  if (res.error) {
+    console.error('Error fetching customers for select:', res.error);
+    throw res.error;
   }
-  return data || [];
+  return res.data || [];
 };
 
 export const getCustomersPaginated = async (
@@ -127,43 +158,55 @@ export const getCustomersPaginated = async (
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
-  // We fetch a prioritized list of columns to keep the response lean
-  let query = supabase
-    .from('khach_hang')
-    .select('id, ho_va_ten, so_dien_thoai, anh, dia_chi_hien_tai, bien_so_xe, ngay_dang_ky, so_km, so_ngay_thay_dau, ngay_thay_dau, ma_khach_hang', { count: 'exact' });
+  const buildBase = () => {
+    let query = supabase
+      .from('khach_hang')
+      .select('id, ho_va_ten, so_dien_thoai, anh, dia_chi_hien_tai, bien_so_xe, ngay_dang_ky, so_km, so_ngay_thay_dau, ngay_thay_dau, ma_khach_hang', { count: 'exact' });
 
-  if (searchQuery) {
-    // accent-insensitive search handled via .or() and .ilike() in Supabase
-    query = query.or(`ho_va_ten.ilike.%${searchQuery}%,so_dien_thoai.ilike.%${searchQuery}%,bien_so_xe.ilike.%${searchQuery}%,ma_khach_hang.ilike.%${searchQuery}%`);
-  }
+    const rawSearch = searchQuery?.trim();
+    if (rawSearch) {
+      const esc = escapeIlike(rawSearch);
+      query = query.or(
+        `ho_va_ten.ilike.%${esc}%,so_dien_thoai.ilike.%${esc}%,bien_so_xe.ilike.%${esc}%,ma_khach_hang.ilike.%${esc}%`
+      );
+    }
 
-  if (depts && depts.length > 0) {
-    query = query.in('dia_chi_hien_tai', depts);
-  }
+    if (depts && depts.length > 0) {
+      query = query.in('dia_chi_hien_tai', depts);
+    }
 
-  if (cycles && cycles.length > 0) {
-    query = query.in('so_ngay_thay_dau', cycles);
-  }
+    if (cycles && cycles.length > 0) {
+      query = query.in('so_ngay_thay_dau', cycles);
+    }
 
-  const branchVariants = buildBranchVariants(branchScope);
-  if (branchVariants.length > 0) {
-    query = query.in('dia_chi_hien_tai', branchVariants);
-  }
+    const branchVariants = buildBranchVariants(branchScope);
+    if (branchVariants.length > 0) {
+      query = query.in('dia_chi_hien_tai', branchVariants);
+    }
 
+    return query;
+  };
 
-  const { data, count, error } = await query
+  let res = await buildBase()
     .order('created_at', { ascending: false })
     .order('ngay_dang_ky', { ascending: false })
     .range(from, to);
 
-  if (error) {
-    console.error('Error fetching paginated customers:', error);
-    throw error;
+  if (isMissingCreatedAtColumn(res.error)) {
+    res = await buildBase()
+      .order('ngay_dang_ky', { ascending: false })
+      .order('id', { ascending: false })
+      .range(from, to);
+  }
+
+  if (res.error) {
+    console.error('Error fetching paginated customers:', res.error);
+    throw res.error;
   }
 
   return {
-    data: (data as KhachHang[]) || [],
-    totalCount: count || 0
+    data: (res.data as KhachHang[]) || [],
+    totalCount: res.count || 0
   };
 };
 

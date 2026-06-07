@@ -27,7 +27,7 @@ import Pagination from '../components/Pagination';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import type { KhachHang } from '../data/customerData';
-import { bulkDeleteCustomers, bulkUpsertCustomers, deleteCustomer, getCustomersForSelect, getCustomersPaginated } from '../data/customerData';
+import { bulkUpsertCustomers, deleteCustomer, diagnoseKhachHangAccess, getCustomersForSelect, getCustomersPaginated } from '../data/customerData';
 import { getCustomerOrderAggregatesByPhone } from '../data/salesCardData';
 
 
@@ -38,6 +38,8 @@ const CustomerManagementPage: React.FC = () => {
   const canCreateOrder = isAdmin || hasViewAccess('don-hang') || hasViewAccess('ban-hang');
   const [customers, setCustomers] = useState<KhachHang[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [rlsBlocked, setRlsBlocked] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [lastOrderDates, setLastOrderDates] = useState<Record<string, string>>({});
   const [customerStats, setCustomerStats] = useState<Record<string, { totalRevenue: number, visitCount: number }>>({});
@@ -101,6 +103,7 @@ const CustomerManagementPage: React.FC = () => {
   const loadCustomers = async () => {
     try {
       setLoading(true);
+      setFetchError(null);
 
       const { data, totalCount } = await getCustomersPaginated(
         currentPage,
@@ -113,6 +116,13 @@ const CustomerManagementPage: React.FC = () => {
       setCustomers(data);
       setTotalCount(totalCount);
 
+      if (totalCount === 0) {
+        const access = await diagnoseKhachHangAccess();
+        setRlsBlocked(access === 'rls_blocked');
+      } else {
+        setRlsBlocked(false);
+      }
+
       // Fetch last order dates & revenues for the current list
       if (data.length > 0) {
         const phoneRows = data.map((c) => ({
@@ -123,11 +133,18 @@ const CustomerManagementPage: React.FC = () => {
         const { lastOrderDates: datesMap, stats: statsMap } = await getCustomerOrderAggregatesByPhone(phoneRows);
         setLastOrderDates(datesMap);
         setCustomerStats(statsMap);
+      } else {
+        setLastOrderDates({});
+        setCustomerStats({});
       }
-
-
     } catch (error) {
       console.error(error);
+      const message = error instanceof Error ? error.message : 'Không tải được danh sách khách hàng.';
+      setFetchError(message);
+      setCustomers([]);
+      setTotalCount(0);
+      setRlsBlocked(false);
+      showToast(message, 'error');
     } finally {
       setLoading(false);
     }
@@ -374,23 +391,6 @@ const CustomerManagementPage: React.FC = () => {
     }
   }, [loadCustomers, isAdmin, showToast]);
 
-  const handleDeleteAll = async () => {
-    if (window.confirm('CẢNH BÁO: Bạn có chắc chắn muốn XÓA TẤT CẢ khách hàng?')) {
-      if (window.confirm('HÀNH ĐỘNG NÀY KHÔNG THỂ HOÀN TÁC! Bạn vẫn muốn tiếp tục?')) {
-        try {
-          setLoading(true);
-          await bulkDeleteCustomers();
-          await loadCustomers();
-          showToast('Đã xóa sạch toàn bộ danh sách khách hàng.', 'info');
-        } catch (error) {
-          showToast('Lỗi khi xóa dữ liệu.', 'error');
-        } finally {
-          setLoading(false);
-        }
-      }
-    }
-  };
-
   // We'll use a larger pool of customers to populate the branch filter list
   const [allDepts, setAllDepts] = useState<string[]>([]);
   useEffect(() => {
@@ -405,6 +405,22 @@ const CustomerManagementPage: React.FC = () => {
   return (
     <div className="w-full flex-1 animate-in fade-in slide-in-from-bottom-4 duration-500 text-muted-foreground font-sans">
       <div className="space-y-4">
+        {fetchError && (
+          <div className="rounded-2xl px-4 py-3 text-sm bg-destructive/10 text-destructive border border-destructive/20">
+            <strong>Không tải được dữ liệu.</strong> {fetchError}
+          </div>
+        )}
+
+        {rlsBlocked && !fetchError && (
+          <div className="rounded-2xl px-4 py-3 text-sm bg-amber-500/10 text-amber-900 dark:text-amber-200 border border-amber-500/25">
+            <strong>Quyền đọc bảng khách hàng bị chặn (RLS).</strong>{' '}
+            Supabase SQL Editor vẫn thấy dữ liệu nhưng ứng dụng không đọc được qua anon key.
+            Vào <strong>Supabase → SQL Editor</strong>, chạy file{' '}
+            <code className="text-xs">src/database/migrations/20260530_fix_khach_hang_rls_read.sql</code>{' '}
+            rồi tải lại trang.
+          </div>
+        )}
+
         {/* Toolbar: scroll ngang chỉ trên (back + tìm) — Chi nhánh nằm ngoài overflow để dropdown không bị cắt */}
         <div
           className="bg-card rounded-2xl border border-border shadow-md overflow-visible"
@@ -480,39 +496,27 @@ const CustomerManagementPage: React.FC = () => {
                 </div>
               )}
 
+            <button
+              type="button"
+              onClick={handleDownloadTemplate}
+              className="px-3 py-2 bg-muted/30 hover:bg-muted border border-border rounded-xl flex items-center gap-1.5 text-[12px] sm:text-[13px] font-bold text-muted-foreground transition-all shadow-sm"
+              title="Tải mẫu Excel"
+            >
+              <Download className="size-4" />
+              <span className="hidden xs:inline">Tải mẫu</span>
+            </button>
+
             {isAdmin && (
               <button
                 type="button"
-                onClick={handleDeleteAll}
-                className="px-3 py-2 bg-destructive/5 hover:bg-destructive/10 text-destructive border border-destructive/20 rounded-xl flex items-center gap-1.5 text-[12px] sm:text-[13px] font-bold transition-all shadow-sm"
-                title="Xóa tất cả"
+                onClick={() => document.getElementById('excel-import')?.click()}
+                className="px-3 py-2 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 rounded-xl flex items-center gap-1.5 text-[12px] sm:text-[13px] font-bold transition-all shadow-sm"
+                title="Nhập Excel"
               >
-                <Trash2 className="size-4" />
-                <span className="hidden xs:inline">Xóa tất cả</span>
+                <Upload className="size-4" />
+                <span className="hidden xs:inline">Nhập Excel</span>
               </button>
             )}
-
-              <button
-                type="button"
-                onClick={handleDownloadTemplate}
-                className="px-3 py-2 bg-muted/30 hover:bg-muted border border-border rounded-xl flex items-center gap-1.5 text-[12px] sm:text-[13px] font-bold text-muted-foreground transition-all shadow-sm"
-                title="Tải mẫu Excel"
-              >
-                <Download className="size-4" />
-                <span className="hidden xs:inline">Tải mẫu</span>
-              </button>
-
-              {isAdmin && (
-                <button
-                  type="button"
-                  onClick={() => document.getElementById('excel-import')?.click()}
-                  className="px-3 py-2 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 rounded-xl flex items-center gap-1.5 text-[12px] sm:text-[13px] font-bold transition-all shadow-sm"
-                  title="Nhập Excel"
-                >
-                  <Upload className="size-4" />
-                  <span className="hidden xs:inline">Nhập Excel</span>
-                </button>
-              )}
             </div>
           </div>
           <div className="flex items-center justify-between gap-2 flex-wrap px-2 sm:px-3 py-1.5 sm:py-2 border-t border-border/40 bg-muted/20 min-w-0">
@@ -828,10 +832,14 @@ const CustomerManagementPage: React.FC = () => {
                     ))}
                   </React.Fragment>
                 ))}
-                {!loading && customers.length === 0 && (
+                {!loading && !fetchError && customers.length === 0 && (
                   <tr>
                     <td colSpan={12} className="px-4 py-8 text-center text-muted-foreground">
-                      Không tìm thấy khách hàng nào khớp với điều kiện tìm kiếm.
+                      {rlsBlocked
+                        ? 'Không đọc được khách hàng — xem hướng dẫn sửa RLS phía trên.'
+                        : searchQuery || selectedDepts.length > 0
+                          ? 'Không tìm thấy khách hàng nào khớp với điều kiện tìm kiếm.'
+                          : 'Chưa có khách hàng nào trong hệ thống.'}
                     </td>
                   </tr>
                 )}
