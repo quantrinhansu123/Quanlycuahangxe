@@ -29,6 +29,7 @@ import { useAuth } from '../context/AuthContext';
 import type { KhachHang } from '../data/customerData';
 import { bulkUpsertCustomers, deleteCustomer, diagnoseKhachHangAccess, getCustomersForSelect, getCustomersPaginated } from '../data/customerData';
 import { getCustomerOrderAggregatesByPhone } from '../data/salesCardData';
+import { formatDateVi } from '../utils/datetimeFormat';
 
 
 const CustomerManagementPage: React.FC = () => {
@@ -49,7 +50,7 @@ const CustomerManagementPage: React.FC = () => {
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(50);
   const [totalCount, setTotalCount] = useState(0);
 
   const [selectedDepts, setSelectedDepts] = useState<string[]>([]);
@@ -181,33 +182,23 @@ const CustomerManagementPage: React.FC = () => {
     setter(prev => prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val]);
   }, []);
 
-  // Since we use Server-side pagination, 'customers' IS already the filtered list for the current page
+  // Nhóm theo ngày đăng ký — giữ đúng thứ tự server (ngay_dang_ky ↓), không sort lại các nhóm.
   const groupedCustomers = useMemo(() => {
-    const groups: { date: string; count: number; items: KhachHang[] }[] = [];
-    customers.forEach(customer => {
-      const dateStr = customer.ngay_dang_ky ? new Date(customer.ngay_dang_ky).toLocaleDateString('vi-VN') : 'Không xác định';
-      let group = groups.find(g => g.date === dateStr);
-      if (!group) {
-        group = { date: dateStr, count: 0, items: [] };
-        groups.push(group);
-      }
-      group.items.push(customer);
-      group.count++;
-    });
+    const groups: { date: string; items: KhachHang[] }[] = [];
 
-    // Sort groups descending by date (Newest first)
-    return groups.sort((a, b) => {
-      if (a.date === 'Không xác định') return 1;
-      if (b.date === 'Không xác định') return -1;
-      
-      const [dayA, monthA, yearA] = a.date.split('/').map(Number);
-      const [dayB, monthB, yearB] = b.date.split('/').map(Number);
-      
-      const valA = (yearA * 10000) + (monthA * 100) + dayA;
-      const valB = (yearB * 10000) + (monthB * 100) + dayB;
-      
-      return valB - valA;
-    });
+    for (const customer of customers) {
+      const dateStr = customer.ngay_dang_ky
+        ? formatDateVi(customer.ngay_dang_ky)
+        : 'Không xác định';
+      const last = groups[groups.length - 1];
+      if (last && last.date === dateStr) {
+        last.items.push(customer);
+      } else {
+        groups.push({ date: dateStr, items: [customer] });
+      }
+    }
+
+    return groups;
   }, [customers]);
 
 
@@ -589,7 +580,7 @@ const CustomerManagementPage: React.FC = () => {
                   <div className="flex items-center gap-2 px-1">
                     <div className="h-px bg-border flex-1" />
                     <span className="text-[11px] font-black text-muted-foreground/60 uppercase tracking-widest whitespace-nowrap bg-muted/50 px-3 py-1 rounded-full border border-border shadow-sm italic">
-                      {group.date} : <span className="text-primary">{group.count}</span> khách hàng
+                      {group.date} : <span className="text-primary">{group.items.length}</span> khách hàng
                     </span>
                     <div className="h-px bg-border flex-1" />
                   </div>
@@ -597,11 +588,7 @@ const CustomerManagementPage: React.FC = () => {
                   <div className="space-y-3">
                     {group.items.map(customer => {
                       const isDue = customer.ngay_thay_dau ? new Date(customer.ngay_thay_dau) <= today : false;
-                      const formatDateMobile = (dateStr?: string) => {
-                        if (!dateStr) return '—';
-                        const d = new Date(dateStr);
-                        return isNaN(d.getTime()) ? dateStr : d.toLocaleDateString('vi-VN');
-                      };
+                      const formatDateMobile = (dateStr?: string) => formatDateVi(dateStr);
 
                       return (
                         <div
@@ -808,7 +795,7 @@ const CustomerManagementPage: React.FC = () => {
                             </span>
                             <div className="h-px bg-border flex-1 opacity-50" />
                             <span className="text-[11px] font-bold text-primary px-2 py-0.5 bg-primary/5 rounded border border-primary/10">
-                              {group.count} khách hàng
+                              {group.items.length} khách hàng
                             </span>
                         </div>
                       </td>
@@ -892,13 +879,7 @@ const CustomerTableRow: React.FC<{
 
   const isCầnThayDầu = customer.ngay_thay_dau ? new Date(customer.ngay_thay_dau) <= today : false;
 
-  const formatDate = (dateStr: string | undefined) => {
-    if (!dateStr) return '—';
-    try {
-      const d = new Date(dateStr);
-      return isNaN(d.getTime()) ? dateStr : d.toLocaleDateString('vi-VN');
-    } catch { return dateStr; }
-  };
+  const formatDate = (dateStr: string | undefined) => formatDateVi(dateStr);
 
   return (
     <tr

@@ -92,12 +92,13 @@ export const getCustomers = async (branchScope?: string): Promise<KhachHang[]> =
     return query;
   };
 
+  // Sắp theo ngày đăng ký (không dùng created_at — import hàng loạt làm lộn thứ tự trang).
   let res = await buildBase()
-    .order('created_at', { ascending: false })
-    .order('ngay_dang_ky', { ascending: false });
+    .order('ngay_dang_ky', { ascending: false, nullsFirst: false })
+    .order('id', { ascending: false });
 
   if (isMissingCreatedAtColumn(res.error)) {
-    res = await buildBase().order('ngay_dang_ky', { ascending: false }).order('id', { ascending: false });
+    res = await buildBase().order('id', { ascending: false });
   }
 
   if (res.error) {
@@ -135,9 +136,12 @@ export const getCustomersForSelect = async (
     return query;
   };
 
-  let res = await buildBase().order('created_at', { ascending: false }).limit(10000);
+  let res = await buildBase()
+    .order('ngay_dang_ky', { ascending: false, nullsFirst: false })
+    .order('id', { ascending: false })
+    .limit(10000);
   if (isMissingCreatedAtColumn(res.error)) {
-    res = await buildBase().order('ngay_dang_ky', { ascending: false }).limit(10000);
+    res = await buildBase().order('id', { ascending: false }).limit(10000);
   }
 
   if (res.error) {
@@ -188,13 +192,12 @@ export const getCustomersPaginated = async (
   };
 
   let res = await buildBase()
-    .order('created_at', { ascending: false })
-    .order('ngay_dang_ky', { ascending: false })
+    .order('ngay_dang_ky', { ascending: false, nullsFirst: false })
+    .order('id', { ascending: false })
     .range(from, to);
 
   if (isMissingCreatedAtColumn(res.error)) {
     res = await buildBase()
-      .order('ngay_dang_ky', { ascending: false })
       .order('id', { ascending: false })
       .range(from, to);
   }

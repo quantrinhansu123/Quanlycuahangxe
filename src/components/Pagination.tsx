@@ -62,7 +62,7 @@ const Pagination: React.FC<PaginationProps> = ({
             className="px-2 py-1.5 bg-background border border-border rounded-lg text-[12px] sm:text-[13px] outline-none focus:ring-1 focus:ring-primary cursor-pointer"
             disabled={loading}
           >
-            {[10, 20, 50, 100].map(size => (
+            {[20, 50, 100, 200].map(size => (
               <option key={size} value={size}>
                 {size} / trang
               </option>
