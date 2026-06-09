@@ -1,8 +1,9 @@
 ﻿import { lazy, Suspense } from 'react';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import MainLayout from './components/layout/MainLayout';
 import TopProgressBar from './components/ui/TopProgressBar';
 import ProtectedRoute from './components/layout/ProtectedRoute';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Lazy load all pages for optimal performance
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -29,9 +30,11 @@ const PersonnelManagementPage = lazy(() => import('./pages/PersonnelManagementPa
 const WarehouseStockListPage = lazy(() => import('./pages/WarehouseStockListPage'));
 
 
-function App() {
+function AppRoutes() {
+  const location = useLocation();
+
   return (
-    <BrowserRouter>
+    <ErrorBoundary key={location.pathname}>
       <Suspense fallback={<TopProgressBar />}>
         <Routes>
           {/* Public route â€” khÃ´ng cáº§n login */}
@@ -117,6 +120,14 @@ function App() {
           </Route>
         </Routes>
       </Suspense>
+    </ErrorBoundary>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AppRoutes />
     </BrowserRouter>
   );
 }

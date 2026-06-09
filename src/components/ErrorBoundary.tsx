@@ -23,12 +23,9 @@ export class ErrorBoundary extends React.Component<Props, State> {
           <button
             type="button"
             className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white"
-            onClick={() => {
-              this.setState({ hasError: false, message: '' });
-              window.location.href = '/';
-            }}
+            onClick={() => window.location.reload()}
           >
-            Tải lại trang chủ
+            Tải lại trang
           </button>
         </div>
       );
