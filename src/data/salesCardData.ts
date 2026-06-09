@@ -6,8 +6,121 @@ import type { DichVu } from './serviceData';
 import type { ThuChi } from './financialData';
 import { getTransactionsByOrderIds } from './financialData';
 import { digitsOnly, phoneLookupVariants, samePhoneCore } from '../lib/phoneUtils';
+import {
+  getCustomerLinkKeys,
+  orderMatchesCustomerLink,
+} from '../lib/customerOrderLink';
+import {
+  expandVnTokenVariants,
+  extractVnSearchTokens,
+  foldVietnamese,
+  looseVnIlikePatterns,
+  matchesVnSearch,
+} from '../utils/vnSearchUtils';
 
 export { phoneLookupVariants } from '../lib/phoneUtils';
+
+function escapeIlike(s: string): string {
+  return s.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
+}
+
+function addVnNameIlikeConditions(orConditions: string[], field: string, term: string) {
+  const seen = new Set<string>();
+  const push = (pattern: string) => {
+    const key = `${field}:${pattern}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    orConditions.push(`${field}.ilike.${pattern}`);
+  };
+
+  push(`%${escapeIlike(term)}%`);
+  for (const token of extractVnSearchTokens(term)) {
+    for (const variant of expandVnTokenVariants(token)) {
+      push(`%${escapeIlike(variant)}%`);
+    }
+    for (const loose of looseVnIlikePatterns(token)) {
+      push(loose);
+    }
+  }
+}
+
+function customerRowMatchesSearch(
+  row: { ho_va_ten?: string | null; so_dien_thoai?: string | null; bien_so_xe?: string | null; ma_khach_hang?: string | null },
+  term: string
+): boolean {
+  const t = term.trim();
+  if (!t) return true;
+  if (matchesVnSearch(row.ho_va_ten || '', t)) return true;
+  if (row.ma_khach_hang && foldVietnamese(row.ma_khach_hang).includes(foldVietnamese(t))) return true;
+  if (row.bien_so_xe && foldVietnamese(row.bien_so_xe).includes(foldVietnamese(t.replace(/[\s.\-]/g, '')))) return true;
+  const phones = phoneLookupVariants(t);
+  if (phones.some((p) => samePhoneCore(row.so_dien_thoai, p))) return true;
+  const digits = digitsOnly(t);
+  if (digits.length >= 8 && digitsOnly(row.so_dien_thoai).includes(digits)) return true;
+  return false;
+}
+
+function salesCardMatchesSearch(
+  card: SalesCard,
+  term: string,
+  customerIdSet: Set<string>,
+  serviceIdSet: Set<string>
+): boolean {
+  const t = term.trim();
+  if (!t) return true;
+
+  if (card.id_bh && foldVietnamese(card.id_bh).includes(foldVietnamese(t))) return true;
+  if (card.khach_hang_id && customerIdSet.has(card.khach_hang_id)) return true;
+  if (card.dich_vu_id && serviceIdSet.has(card.dich_vu_id)) return true;
+
+  const phones = phoneLookupVariants(t);
+  if (phones.some((p) => samePhoneCore(card.so_dien_thoai, p))) return true;
+  const digits = digitsOnly(t);
+  if (digits.length >= 8 && digitsOnly(card.so_dien_thoai).includes(digits)) return true;
+
+  if (matchesVnSearch(card.ten_khach_hang || '', t)) return true;
+  if (card.khach_hang_id && foldVietnamese(card.khach_hang_id).includes(foldVietnamese(t))) return true;
+
+  return false;
+}
+
+/** Tìm id / mã khách hàng theo tên, SĐT, BSX (dùng cho tìm phiếu bán hàng). */
+async function findCustomerIdsForSalesSearch(term: string): Promise<string[]> {
+  const raw = term.trim();
+  if (!raw) return [];
+
+  const orConditions: string[] = [];
+  addVnNameIlikeConditions(orConditions, 'ho_va_ten', raw);
+  orConditions.push(`so_dien_thoai.ilike.%${escapeIlike(raw)}%`);
+  orConditions.push(`ma_khach_hang.ilike.%${escapeIlike(raw)}%`);
+  orConditions.push(`bien_so_xe.ilike.%${escapeIlike(raw)}%`);
+
+  for (const phone of phoneLookupVariants(raw)) {
+    orConditions.push(`so_dien_thoai.ilike.%${escapeIlike(phone)}%`);
+  }
+
+  const bsxNorm = raw.replace(/[\s.\-]/g, '');
+  if (bsxNorm.length >= 3 && bsxNorm.toLowerCase() !== raw.toLowerCase()) {
+    orConditions.push(`bien_so_xe.ilike.%${escapeIlike(bsxNorm)}%`);
+  }
+
+  const ids = new Set<string>();
+  if (orConditions.length > 0) {
+    const { data: matched } = await supabase
+      .from('khach_hang')
+      .select('id, ma_khach_hang, ho_va_ten, so_dien_thoai, bien_so_xe')
+      .or(orConditions.join(','))
+      .limit(500);
+
+    for (const c of matched || []) {
+      if (!customerRowMatchesSearch(c, raw)) continue;
+      if (c.id) ids.add(String(c.id));
+      if (c.ma_khach_hang) ids.add(String(c.ma_khach_hang));
+    }
+  }
+
+  return [...ids].slice(0, 100);
+}
 
 type ServiceLookupRow = {
   id: string;
@@ -382,27 +495,37 @@ export const getSalesCardsPaginated = async (
     .from('the_ban_hang')
     .select('*', { count: 'exact' });
 
-  if (searchQuery && searchQuery.trim()) {
-    const term = searchQuery.trim();
+  let searchCustomerIdSet = new Set<string>();
+  let searchServiceIdSet = new Set<string>();
+  const trimmedSearch = searchQuery?.trim() || '';
 
-    const { data: matchedCustomers } = await supabase
-      .from('khach_hang')
-      .select('ma_khach_hang')
-      .or(`ho_va_ten.ilike."%${term}%",so_dien_thoai.ilike."%${term}%",ma_khach_hang.ilike."%${term}%"`);
+  if (trimmedSearch) {
+    const customerIds = await findCustomerIdsForSalesSearch(trimmedSearch);
+    searchCustomerIdSet = new Set(customerIds);
 
-    const customerCodes = (matchedCustomers || []).slice(0, 50).map(c => c.ma_khach_hang).filter(Boolean);
-
-    const { data: matchedServices } = await supabase
-      .from('dich_vu')
-      .select('id')
-      .ilike('ten_dich_vu', `%${term}%`);
-    const serviceIds = (matchedServices || []).slice(0, 50).map(s => s.id);
+    const serviceOr: string[] = [];
+    addVnNameIlikeConditions(serviceOr, 'ten_dich_vu', trimmedSearch);
+    const { data: matchedServices } = serviceOr.length > 0
+      ? await supabase.from('dich_vu').select('id').or(serviceOr.join(',')).limit(50)
+      : { data: [] as { id: string }[] };
+    const serviceIds = (matchedServices || []).map((s) => s.id);
+    searchServiceIdSet = new Set(serviceIds);
 
     const orConditions: string[] = [];
-    if (customerCodes.length > 0) orConditions.push(`khach_hang_id.in.(${customerCodes.map(c => `"${c}"`).join(',')})`);
-    if (serviceIds.length > 0) orConditions.push(`dich_vu_id.in.(${serviceIds.map(s => `"${s}"`).join(',')})`);
-    orConditions.push(`id_bh.ilike."%${term}%"`);
-    orConditions.push(`khach_hang_id.ilike."%${term}%"`);
+    if (customerIds.length > 0) {
+      orConditions.push(`khach_hang_id.in.(${customerIds.map((c) => `"${c}"`).join(',')})`);
+    }
+    if (serviceIds.length > 0) {
+      orConditions.push(`dich_vu_id.in.(${serviceIds.map((s) => `"${s}"`).join(',')})`);
+    }
+    orConditions.push(`id_bh.ilike.%${escapeIlike(trimmedSearch)}%`);
+    orConditions.push(`khach_hang_id.ilike.%${escapeIlike(trimmedSearch)}%`);
+    orConditions.push(`so_dien_thoai.ilike.%${escapeIlike(trimmedSearch)}%`);
+    addVnNameIlikeConditions(orConditions, 'ten_khach_hang', trimmedSearch);
+
+    for (const phone of phoneLookupVariants(trimmedSearch)) {
+      orConditions.push(`so_dien_thoai.ilike.%${escapeIlike(phone)}%`);
+    }
 
     if (orConditions.length > 0) {
       baseQuery = baseQuery.or(orConditions.join(','));
@@ -442,8 +565,13 @@ export const getSalesCardsPaginated = async (
     throw error;
   }
 
-  // Apply branch filter client-side to guarantee accuracy (avoids URL length limits)
+  // Apply branch + accent-insensitive search client-side
   let allCards = (allMatchingCards as SalesCard[]) || [];
+  if (trimmedSearch) {
+    allCards = allCards.filter((c) =>
+      salesCardMatchesSearch(c, trimmedSearch, searchCustomerIdSet, searchServiceIdSet)
+    );
+  }
   if (branchCustomerSet) {
     allCards = allCards.filter(c => c.khach_hang_id && branchCustomerSet!.has(c.khach_hang_id.toLowerCase()));
   }
@@ -543,14 +671,17 @@ export const getSalesCardsPaginated = async (
 };
 
 export const getSalesCardsByCustomer = async (
-  customerId: string,
+  customer: { id: string; ma_khach_hang?: string | null; so_dien_thoai?: string | null },
   startDate?: string,
   endDate?: string
 ): Promise<SalesCard[]> => {
+  const keys = getCustomerLinkKeys(customer);
+  if (keys.length === 0) return [];
+
   let query = supabase
     .from('the_ban_hang')
     .select(`*`)
-    .eq('khach_hang_id', customerId);
+    .or(keys.map((k) => `khach_hang_id.eq.${k}`).join(','));
 
   if (startDate) {
     query = query.gte('ngay', startDate);
@@ -847,6 +978,22 @@ export const updateSalesCard = async (id: string, card: Partial<SalesCard>): Pro
 
 export const upsertSalesCard = async (card: Partial<SalesCard>, isNew: boolean = false): Promise<SalesCard> => {
   const normalizedCard: Partial<SalesCard> = { ...card };
+
+  if (normalizedCard.khach_hang_id?.trim()) {
+    const raw = normalizedCard.khach_hang_id.trim();
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(raw);
+    if (isUuid) {
+      const { data: khRow } = await supabase
+        .from('khach_hang')
+        .select('ma_khach_hang')
+        .eq('id', raw)
+        .maybeSingle();
+      if (khRow?.ma_khach_hang) {
+        normalizedCard.khach_hang_id = khRow.ma_khach_hang;
+      }
+    }
+  }
+
   try {
     const [{ data: hoTenData }, { data: nhanSuIdData }] = await Promise.all([
       supabase.rpc('get_my_ho_ten'),
@@ -1225,7 +1372,7 @@ export async function getCustomerStats(identifiers: string[]): Promise<Record<st
   return stats;
 }
 
-// --- Thống kê / ngày mua theo SĐT (không dùng UUID khách) ---
+// --- Thống kê / ngày mua theo SĐT + mã KH + UUID ---
 
 export type CustomerPhoneRow = {
   id: string;
@@ -1233,59 +1380,40 @@ export type CustomerPhoneRow = {
   so_dien_thoai?: string | null;
 };
 
-function orderMatchesCustomerByPhone(
-  card: { so_dien_thoai?: string | null; khach_hang_id?: string | null },
-  c: CustomerPhoneRow
-): boolean {
-  const khRaw = (card.khach_hang_id ?? '').toString().trim();
-  const ma = (c.ma_khach_hang ?? '').trim();
-  if (ma && khRaw === ma) return true;
-
-  if (samePhoneCore(card.so_dien_thoai, c.so_dien_thoai)) return true;
-
-  const khDigits = digitsOnly(khRaw);
-  if (khDigits.length >= 8 && samePhoneCore(khDigits, c.so_dien_thoai)) return true;
-
-  const custVars = new Set(phoneLookupVariants(c.so_dien_thoai));
-  if (custVars.size === 0) return false;
-
-  for (const v of phoneLookupVariants(card.so_dien_thoai)) {
-    if (custVars.has(v)) return true;
-  }
-  if (khDigits.length >= 8) {
-    for (const v of phoneLookupVariants(khDigits)) {
-      if (custVars.has(v)) return true;
-    }
-  }
-  return false;
-}
-
 /**
- * Lấy ngày mua gần nhất + tổng doanh số / số lần ghé theo SĐT (và mã KH trên phiếu).
+ * Lấy ngày mua gần nhất + tổng doanh số / số lần ghé theo mã KH, UUID, SĐT.
  * Kết quả map theo `customer.id` và `ma_khach_hang` (cùng object stats) để UI giữ nguyên lookup.
  */
 export async function getCustomerOrderAggregatesByPhone(customers: CustomerPhoneRow[]): Promise<{
   lastOrderDates: Record<string, string>;
-  stats: Record<string, { totalRevenue: number; visitCount: number }>;
+  stats: Record<string, { totalRevenue: number; visitCount: number; latestSoKm?: number }>;
 }> {
   type AggregationSalesCard = Pick<
     SalesCard,
-    'id' | 'id_bh' | 'khach_hang_id' | 'dich_vu_id' | 'so_dien_thoai' | 'ngay'
+    'id' | 'id_bh' | 'khach_hang_id' | 'dich_vu_id' | 'so_dien_thoai' | 'ngay' | 'gio' | 'so_km'
   >;
 
-  const lastOrderDates: Record<string, string> = {};
-  const stats: Record<string, { totalRevenue: number; visitCount: number }> = {};
+  type KmSnapshot = { ngay: string; gio: string; so_km: number };
 
-  const mk = (): { totalRevenue: number; visitCount: number } => ({
+  const isNewerOrder = (ngay: string, gio: string | undefined, prev?: KmSnapshot): boolean => {
+    if (!prev) return true;
+    if (ngay > prev.ngay) return true;
+    if (ngay < prev.ngay) return false;
+    return (gio || '') > (prev.gio || '');
+  };
+
+  const lastOrderDates: Record<string, string> = {};
+  const stats: Record<string, { totalRevenue: number; visitCount: number; latestSoKm?: number }> = {};
+  const latestKmByCustomerId = new Map<string, KmSnapshot>();
+
+  const mk = (): { totalRevenue: number; visitCount: number; latestSoKm?: number } => ({
     totalRevenue: 0,
     visitCount: 0,
   });
 
   const lookupTokens = new Set<string>();
   customers.forEach((c) => {
-    phoneLookupVariants(c.so_dien_thoai).forEach((v) => lookupTokens.add(v));
-    const ma = (c.ma_khach_hang ?? '').trim();
-    if (ma) lookupTokens.add(ma);
+    getCustomerLinkKeys(c).forEach((v) => lookupTokens.add(v));
   });
 
   const tokens = [...lookupTokens];
@@ -1298,7 +1426,7 @@ export async function getCustomerOrderAggregatesByPhone(customers: CustomerPhone
     const quoted = chunk.map((t) => `"${String(t).replace(/"/g, '')}"`).join(',');
     const { data, error } = await supabase
       .from('the_ban_hang')
-      .select('id, id_bh, khach_hang_id, dich_vu_id, so_dien_thoai, ngay')
+      .select('id, id_bh, khach_hang_id, dich_vu_id, so_dien_thoai, ngay, gio, so_km')
       .or(`so_dien_thoai.in.(${quoted}),khach_hang_id.in.(${quoted})`);
 
     if (error) {
@@ -1315,7 +1443,7 @@ export async function getCustomerOrderAggregatesByPhone(customers: CustomerPhone
     return { lastOrderDates, stats };
   }
 
-  const rowStatsByCustomerId = new Map<string, { totalRevenue: number; visitCount: number }>();
+  const rowStatsByCustomerId = new Map<string, { totalRevenue: number; visitCount: number; latestSoKm?: number }>();
   customers.forEach((c) => {
     const st = mk();
     rowStatsByCustomerId.set(c.id, st);
@@ -1357,7 +1485,7 @@ export async function getCustomerOrderAggregatesByPhone(customers: CustomerPhone
   }
 
   for (const card of salesCards) {
-    const matched = customers.filter((c) => orderMatchesCustomerByPhone(card, c));
+    const matched = customers.filter((c) => orderMatchesCustomerLink(card, c));
     if (matched.length === 0) continue;
 
     const idBh = card.id_bh ? String(card.id_bh).toLowerCase() : '';
@@ -1371,6 +1499,7 @@ export async function getCustomerOrderAggregatesByPhone(customers: CustomerPhone
     }
 
     const ngay = String(card.ngay || '');
+    const km = Number(card.so_km);
     for (const c of matched) {
       const st = rowStatsByCustomerId.get(c.id);
       if (!st) continue;
@@ -1384,8 +1513,23 @@ export async function getCustomerOrderAggregatesByPhone(customers: CustomerPhone
         const prevMa = lastOrderDates[ma];
         if (!prevMa || ngay > prevMa) lastOrderDates[ma] = ngay;
       }
+
+      if (Number.isFinite(km) && km > 0) {
+        const prevKm = latestKmByCustomerId.get(c.id);
+        if (isNewerOrder(ngay, card.gio, prevKm)) {
+          latestKmByCustomerId.set(c.id, { ngay, gio: card.gio || '', so_km: km });
+        }
+      }
     }
   }
+
+  latestKmByCustomerId.forEach((snap, custId) => {
+    const st = stats[custId];
+    if (st) st.latestSoKm = snap.so_km;
+    const customer = customers.find((c) => c.id === custId);
+    const ma = (customer?.ma_khach_hang ?? '').trim();
+    if (ma && stats[ma]) stats[ma].latestSoKm = snap.so_km;
+  });
 
   return { lastOrderDates, stats };
 }

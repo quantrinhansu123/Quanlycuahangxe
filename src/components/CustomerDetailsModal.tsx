@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { getCustomerServiceHistory, type KhachHang } from '../data/customerData';
 import { formatLocalDateYYYYMMDD } from '../lib/utils';
+import CustomerKmPromptModal from './CustomerKmPromptModal';
 
 function sumCardAmountVnd(card: {
   the_ban_hang_ct?: { gia_ban?: unknown; so_luong?: unknown }[];
@@ -43,9 +44,21 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
    const [endDateStr, setEndDateStr] = useState(() => formatLocalDateYYYYMMDD(new Date()));
    const [loading, setLoading] = useState(true);
    const [history, setHistory] = useState<any[]>([]);
-   const [activeTab, setActiveTab] = useState<'history' | 'info'>('history');
+   const [activeTab, setActiveTab] = useState<'history' | 'km_history' | 'info'>('history');
    const navigate = useNavigate();
    const [copySuccess, setCopySuccess] = useState(false);
+   const [kmPromptOpen, setKmPromptOpen] = useState(false);
+
+   const goToCreateOrder = (soKm: number) => {
+      onClose();
+      navigate('/ban-hang/phieu-ban-hang', {
+         state: {
+            pendingCustomerId: customer!.id,
+            pendingMaKhachHang: customer!.ma_khach_hang,
+            pendingSoKm: soKm,
+         },
+      });
+   };
 
    useEffect(() => {
       if (!isOpen || !customer) return;
@@ -55,10 +68,13 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
          try {
             setLoading(true);
             const data = await getCustomerServiceHistory(
-               customer.so_dien_thoai,
+               {
+                  id: customer.id,
+                  ma_khach_hang: customer.ma_khach_hang,
+                  so_dien_thoai: customer.so_dien_thoai,
+               },
                startDateStr,
-               endDateStr,
-               customer.ma_khach_hang || undefined
+               endDateStr
             );
             if (isMounted) setHistory(data);
          } catch (error) {
@@ -80,6 +96,17 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
 
    const totalSpent = history.reduce((sum, card) => sum + sumCardAmountVnd(card), 0);
 
+   const kmHistory = history
+      .map((card) => ({
+         id: card.id,
+         ngay: card.ngay,
+         gio: card.gio,
+         so_km: Number(card.so_km),
+      }))
+      .filter((row) => Number.isFinite(row.so_km) && row.so_km > 0);
+
+   const latestOrderKm = kmHistory[0]?.so_km;
+
    const handleShareZalo = () => {
       const formatDate = (date: string) => new Date(date).toLocaleDateString('vi-VN');
       const start = formatDate(startDateStr);
@@ -87,7 +114,7 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
 
       let msg = `Chào ${customer.ho_va_ten}, Gara gửi tóm tắt dịch vụ của bạn:\n`;
       msg += `-------------------------\n`;
-      msg += `🚗 Xe: ${customer.bien_so_xe} — KM: ${customer.so_km?.toLocaleString() || '0'} Km\n`;
+      msg += `🚗 Xe: ${customer.bien_so_xe} — KM: ${(latestOrderKm ?? customer.so_km ?? 0).toLocaleString()} Km\n`;
       msg += `📅 Chu kỳ thay dầu: ${customer.so_ngay_thay_dau || '—'} ngày\n`;
       msg += `-------------------------\n`;
       msg += `📊 Thống kê (${start} - ${end}):\n`;
@@ -119,6 +146,7 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
    };
 
    return createPortal(
+      <>
       <div className="fixed inset-0 z-9999 flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
          <div className="bg-card w-full max-w-3xl rounded-3xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden border border-border animate-in zoom-in-95 duration-300">
 
@@ -180,11 +208,11 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
             </div>
 
             {/* Tabs */}
-            <div className="flex border-b border-border bg-muted/10 shrink-0">
+            <div className="flex border-b border-border bg-muted/10 shrink-0 overflow-x-auto">
                <button
                   onClick={() => setActiveTab('history')}
                   className={clsx(
-                     "px-4 py-2.5 sm:px-8 sm:py-4 font-black text-[11px] sm:text-[13px] transition-all flex items-center gap-1.5 sm:gap-2 uppercase tracking-wider relative",
+                     "px-3 py-2.5 sm:px-6 sm:py-4 font-black text-[10px] sm:text-[13px] transition-all flex items-center gap-1.5 sm:gap-2 uppercase tracking-wider relative shrink-0",
                      activeTab === 'history' ? "text-primary bg-background" : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
                   )}
                >
@@ -192,9 +220,19 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
                   {activeTab === 'history' && <div className="absolute bottom-0 left-0 right-0 h-0.5 sm:h-1 bg-primary rounded-t-full" />}
                </button>
                <button
+                  onClick={() => setActiveTab('km_history')}
+                  className={clsx(
+                     "px-3 py-2.5 sm:px-6 sm:py-4 font-black text-[10px] sm:text-[13px] transition-all flex items-center gap-1.5 sm:gap-2 uppercase tracking-wider relative shrink-0",
+                     activeTab === 'km_history' ? "text-primary bg-background" : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
+                  )}
+               >
+                  <Gauge size={14} className="sm:hidden" /><Gauge size={18} className="hidden sm:block" /> Lịch sử số km
+                  {activeTab === 'km_history' && <div className="absolute bottom-0 left-0 right-0 h-0.5 sm:h-1 bg-primary rounded-t-full" />}
+               </button>
+               <button
                   onClick={() => setActiveTab('info')}
                   className={clsx(
-                     "px-4 py-2.5 sm:px-8 sm:py-4 font-black text-[11px] sm:text-[13px] transition-all flex items-center gap-1.5 sm:gap-2 uppercase tracking-wider relative",
+                     "px-3 py-2.5 sm:px-6 sm:py-4 font-black text-[10px] sm:text-[13px] transition-all flex items-center gap-1.5 sm:gap-2 uppercase tracking-wider relative shrink-0",
                      activeTab === 'info' ? "text-primary bg-background" : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
                   )}
                >
@@ -209,6 +247,50 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
                   <div className="flex flex-col items-center justify-center py-24 text-muted-foreground">
                      <Loader2 className="animate-spin mb-4 text-primary" size={40} />
                      <p className="text-sm font-bold uppercase tracking-widest text-primary/60">Đang truy xuất dữ liệu...</p>
+                  </div>
+               ) : activeTab === 'km_history' ? (
+                  <div className="animate-in fade-in zoom-in-95 duration-300">
+                     {kmHistory.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-16 px-10 text-center border-2 border-dashed border-border rounded-3xl bg-muted/10">
+                           <Gauge size={48} className="text-muted-foreground/30 mb-4" />
+                           <p className="text-muted-foreground font-bold italic">Chưa có số km nào được ghi trên đơn hàng trong khoảng thời gian này.</p>
+                        </div>
+                     ) : (
+                        <div className="rounded-2xl border border-border overflow-hidden">
+                           <table className="w-full text-left">
+                              <thead>
+                                 <tr className="bg-muted/40 border-b border-border">
+                                    <th className="px-4 py-3 sm:px-6 sm:py-4 text-[10px] sm:text-[11px] font-black text-muted-foreground uppercase tracking-widest">Ngày</th>
+                                    <th className="px-4 py-3 sm:px-6 sm:py-4 text-[10px] sm:text-[11px] font-black text-muted-foreground uppercase tracking-widest text-right">Số km</th>
+                                 </tr>
+                              </thead>
+                              <tbody>
+                                 {kmHistory.map((row, idx) => (
+                                    <tr key={row.id || idx} className="border-b border-border/60 last:border-0 hover:bg-muted/20 transition-colors">
+                                       <td className="px-4 py-3 sm:px-6 sm:py-4">
+                                          <div className="flex items-center gap-2">
+                                             <Calendar size={14} className="text-primary shrink-0" />
+                                             <span className="text-[13px] sm:text-[14px] font-bold text-foreground">
+                                                {new Date(row.ngay).toLocaleDateString('vi-VN')}
+                                             </span>
+                                             {row.gio && (
+                                                <span className="text-[11px] sm:text-[12px] font-semibold text-muted-foreground">
+                                                   {row.gio.substring(0, 5)}
+                                                </span>
+                                             )}
+                                          </div>
+                                       </td>
+                                       <td className="px-4 py-3 sm:px-6 sm:py-4 text-right">
+                                          <span className="text-[13px] sm:text-[15px] font-black text-primary tabular-nums">
+                                             {row.so_km.toLocaleString('vi-VN')} km
+                                          </span>
+                                       </td>
+                                    </tr>
+                                 ))}
+                              </tbody>
+                           </table>
+                        </div>
+                     )}
                   </div>
                ) : activeTab === 'history' ? (
                   <div className="animate-in fade-in zoom-in-95 duration-300">
@@ -287,7 +369,7 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
                               <InfoRow
                                  icon={Gauge}
                                  label="Số KM Hiện tại"
-                                 value={`${customer.so_km?.toLocaleString() || '0'} Km`}
+                                 value={`${(latestOrderKm ?? customer.so_km ?? 0).toLocaleString()} Km`}
                               />
                               <InfoRow
                                  icon={Clock}
@@ -342,17 +424,30 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
                   </div>
                <button 
                   type="button"
-                  onClick={() => {
-                     onClose();
-                     navigate('/ban-hang/phieu-ban-hang', { state: { pendingCustomerId: customer.id, pendingMaKhachHang: customer.ma_khach_hang } });
-                  }} 
+                  onClick={() => setKmPromptOpen(true)}
                   className="flex-1 min-w-0 px-2 py-2.5 sm:px-6 sm:py-3 bg-primary hover:bg-primary/90 text-white text-[9px] sm:text-sm font-black rounded-xl sm:rounded-2xl border border-primary/20 transition-all active:scale-95 shadow-lg shadow-primary/20 uppercase tracking-tight sm:tracking-widest flex items-center justify-center"
                >
                   <span className="truncate text-center leading-tight">LÊN ĐƠN HÀNG</span>
                </button>
             </div>
          </div>
-      </div>,
+      </div>
+
+      <CustomerKmPromptModal
+         isOpen={kmPromptOpen}
+         customerName={customer.ho_va_ten}
+         customerLink={{
+            id: customer.id,
+            ma_khach_hang: customer.ma_khach_hang,
+            so_dien_thoai: customer.so_dien_thoai,
+         }}
+         onCancel={() => setKmPromptOpen(false)}
+         onConfirm={(km) => {
+            setKmPromptOpen(false);
+            goToCreateOrder(km);
+         }}
+      />
+      </>,
       document.body
    );
 };

@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase';
-import { enrichSalesCards, type SalesCard } from './salesCardData';
-import { phoneLookupVariants } from '../lib/phoneUtils';
+import { buildCustomerOrderLinkFilter, orderMatchesCustomerLink, type CustomerLinkInput } from '../lib/customerOrderLink';
+import { chunkArray, enrichSalesCards, type SalesCard } from './salesCardData';
 
 export interface OilChangeEntry {
   ngay: string;
@@ -330,35 +330,24 @@ export const uploadCustomerImage = async (file: File): Promise<string> => {
   return data.publicUrl;
 };
 
-/** Lọc phiếu bán theo SĐT (cột so_dien_thoai / khach_hang_id) và mã KH — không dùng UUID id. */
-function buildTheBanHangPhoneOrMaFilter(soDienThoai: string | null | undefined, maKhachHang?: string | null): string | null {
-  const parts: string[] = [];
-  const seen = new Set<string>();
-  const push = (fragment: string) => {
-    if (!fragment || seen.has(fragment)) return;
-    seen.add(fragment);
-    parts.push(fragment);
-  };
-
-  for (const v of phoneLookupVariants(soDienThoai)) {
-    push(`so_dien_thoai.eq.${v}`);
-    push(`khach_hang_id.eq.${v}`);
-  }
-
-  const ma = (maKhachHang || '').trim();
-  if (ma) push(`khach_hang_id.eq.${ma}`);
-
-  return parts.length ? parts.join(',') : null;
-}
-
-/** Lịch sử đơn theo SĐT (+ mã KH trên phiếu). Không truyền SĐT hợp lệ → trả về []. */
+/** Lịch sử đơn theo khách (mã KH / UUID / SĐT). */
 export const getCustomerServiceHistory = async (
-  soDienThoai: string | null | undefined,
+  customerOrPhone: CustomerLinkInput | string | null | undefined,
   startDate?: string,
   endDate?: string,
-  maKhachHang?: string | null
+  maKhachHangLegacy?: string | null,
+  customerIdLegacy?: string | null
 ): Promise<SalesCard[]> => {
-  const orFilter = buildTheBanHangPhoneOrMaFilter(soDienThoai, maKhachHang);
+  const input: CustomerLinkInput =
+    typeof customerOrPhone === 'object' && customerOrPhone !== null
+      ? customerOrPhone
+      : {
+          so_dien_thoai: customerOrPhone,
+          ma_khach_hang: maKhachHangLegacy,
+          id: customerIdLegacy,
+        };
+
+  const orFilter = buildCustomerOrderLinkFilter(input);
   if (!orFilter) {
     return [];
   }
@@ -384,6 +373,106 @@ export const getCustomerServiceHistory = async (
   const cards = (data as SalesCard[]) || [];
   await enrichSalesCards(cards);
   return cards;
+};
+
+/** Số km trên phiếu bán gần nhất của khách (mã KH / UUID / SĐT). */
+export const getLatestOrderKmForCustomer = async (
+  input: CustomerLinkInput
+): Promise<number | null> => {
+  const orFilter = buildCustomerOrderLinkFilter(input);
+  if (!orFilter) return null;
+
+  const { data, error } = await supabase
+    .from('the_ban_hang')
+    .select('so_km, ngay, gio')
+    .or(orFilter)
+    .gt('so_km', 0)
+    .order('ngay', { ascending: false })
+    .order('gio', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error fetching latest order km:', error);
+    return null;
+  }
+
+  const km = Number(data?.so_km);
+  return Number.isFinite(km) && km > 0 ? km : null;
+};
+
+/** Số km gần nhất theo đơn cho danh sách khách (map theo id + mã KH). */
+export async function getLatestOrderKmMapForCustomers(
+  customers: CustomerLinkInput[]
+): Promise<Record<string, number>> {
+  const result: Record<string, number> = {};
+  if (customers.length === 0) return result;
+
+  const filterParts = new Set<string>();
+  for (const c of customers) {
+    const f = buildCustomerOrderLinkFilter(c);
+    if (!f) continue;
+    for (const part of f.split(',')) filterParts.add(part);
+  }
+  if (filterParts.size === 0) return result;
+
+  type OrderKmRow = {
+    id: string;
+    khach_hang_id?: string | null;
+    so_dien_thoai?: string | null;
+    so_km?: number | null;
+    ngay?: string | null;
+    gio?: string | null;
+  };
+
+  const orderMap = new Map<string, OrderKmRow>();
+  for (const chunk of chunkArray([...filterParts], 60)) {
+    const { data, error } = await supabase
+      .from('the_ban_hang')
+      .select('id, khach_hang_id, so_dien_thoai, so_km, ngay, gio')
+      .or(chunk.join(','));
+
+    if (error) {
+      console.error('getLatestOrderKmMapForCustomers:', error);
+      continue;
+    }
+    for (const row of data || []) {
+      if (row?.id) orderMap.set(row.id, row as OrderKmRow);
+    }
+  }
+
+  const orders = [...orderMap.values()];
+
+  for (const customer of customers) {
+    const custId = (customer.id || '').trim();
+    if (!custId) continue;
+
+    type Snap = { ngay: string; gio: string; so_km: number };
+    let best: Snap | undefined;
+
+    for (const order of orders) {
+      if (!orderMatchesCustomerLink(order, {
+        id: custId,
+        ma_khach_hang: customer.ma_khach_hang,
+        so_dien_thoai: customer.so_dien_thoai,
+      })) continue;
+      const ngay = String(order.ngay || '');
+      const gio = String(order.gio || '');
+      const km = Number(order.so_km);
+      if (!Number.isFinite(km) || km <= 0) continue;
+      if (!best || ngay > best.ngay || (ngay === best.ngay && gio > best.gio)) {
+        best = { ngay, gio, so_km: km };
+      }
+    }
+
+    if (best) {
+      result[custId] = best.so_km;
+      const ma = (customer.ma_khach_hang || '').trim();
+      if (ma) result[ma] = best.so_km;
+    }
+  }
+
+  return result;
 };
 
 export const getCustomerByPlate = async (plate: string): Promise<KhachHang | null> => {

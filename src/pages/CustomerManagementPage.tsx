@@ -23,13 +23,40 @@ import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import CustomerDetailsModal from '../components/CustomerDetailsModal';
 import CustomerFormModal from '../components/CustomerFormModal';
+import CustomerKmPromptModal from '../components/CustomerKmPromptModal';
 import Pagination from '../components/Pagination';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import type { KhachHang } from '../data/customerData';
-import { bulkUpsertCustomers, deleteCustomer, diagnoseKhachHangAccess, getCustomersForSelect, getCustomersPaginated } from '../data/customerData';
+import {
+  bulkUpsertCustomers,
+  deleteCustomer,
+  diagnoseKhachHangAccess,
+  getCustomersForSelect,
+  getCustomersPaginated,
+  getLatestOrderKmForCustomer,
+  getLatestOrderKmMapForCustomers,
+} from '../data/customerData';
 import { getCustomerOrderAggregatesByPhone } from '../data/salesCardData';
 import { formatDateVi } from '../utils/datetimeFormat';
+
+function resolveCustomerStats(
+  customer: KhachHang,
+  statsMap: Record<string, { totalRevenue: number; visitCount: number; latestSoKm?: number }>
+) {
+  return statsMap[customer.id] || (customer.ma_khach_hang ? statsMap[customer.ma_khach_hang] : undefined);
+}
+
+function displayCustomerKm(
+  customer: KhachHang,
+  kmMap: Record<string, number>,
+  statsMap: Record<string, { totalRevenue: number; visitCount: number; latestSoKm?: number }>
+): number {
+  const fromMap = kmMap[customer.id] ?? (customer.ma_khach_hang ? kmMap[customer.ma_khach_hang] : undefined);
+  if (fromMap != null) return fromMap;
+  const st = resolveCustomerStats(customer, statsMap);
+  return st?.latestSoKm ?? customer.so_km ?? 0;
+}
 
 
 const CustomerManagementPage: React.FC = () => {
@@ -43,7 +70,8 @@ const CustomerManagementPage: React.FC = () => {
   const [rlsBlocked, setRlsBlocked] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [lastOrderDates, setLastOrderDates] = useState<Record<string, string>>({});
-  const [customerStats, setCustomerStats] = useState<Record<string, { totalRevenue: number, visitCount: number }>>({});
+  const [customerStats, setCustomerStats] = useState<Record<string, { totalRevenue: number; visitCount: number; latestSoKm?: number }>>({});
+  const [latestKmMap, setLatestKmMap] = useState<Record<string, number>>({});
 
 
 
@@ -63,6 +91,26 @@ const CustomerManagementPage: React.FC = () => {
 
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<KhachHang | null>(null);
+  const [orderKmCustomer, setOrderKmCustomer] = useState<{ customer: KhachHang; isTemp?: boolean } | null>(null);
+
+  const goToCreateOrder = useCallback((customer: KhachHang, soKm: number, isTemp?: boolean) => {
+    if (isTemp) {
+      navigate('/ban-hang/phieu-ban-hang', {
+        state: {
+          pendingCustomerData: customer,
+          pendingSoKm: soKm,
+        },
+      });
+      return;
+    }
+    navigate('/ban-hang/phieu-ban-hang', {
+      state: {
+        pendingCustomerId: customer.id,
+        pendingMaKhachHang: customer.ma_khach_hang,
+        pendingSoKm: soKm,
+      },
+    });
+  }, [navigate]);
 
   const [visibleColumns, setVisibleColumns] = useState<string[]>([
     'anh', 'ho_va_ten', 'so_dien_thoai', 'dia_chi_hien_tai', 'bien_so_xe',
@@ -132,10 +180,35 @@ const CustomerManagementPage: React.FC = () => {
           so_dien_thoai: c.so_dien_thoai,
         }));
         const { lastOrderDates: datesMap, stats: statsMap } = await getCustomerOrderAggregatesByPhone(phoneRows);
+        const kmMap = await getLatestOrderKmMapForCustomers(phoneRows);
+
+        const missingKm = phoneRows.filter((c) => {
+          const hasKm =
+            kmMap[c.id] != null ||
+            (c.ma_khach_hang ? kmMap[c.ma_khach_hang] != null : false);
+          if (hasKm) return false;
+          const st = statsMap[c.id] || (c.ma_khach_hang ? statsMap[c.ma_khach_hang] : undefined);
+          return (st?.visitCount ?? 0) > 0;
+        });
+
+        if (missingKm.length > 0) {
+          await Promise.all(
+            missingKm.map(async (c) => {
+              const km = await getLatestOrderKmForCustomer(c);
+              if (km == null) return;
+              kmMap[c.id] = km;
+              const ma = (c.ma_khach_hang || '').trim();
+              if (ma) kmMap[ma] = km;
+            })
+          );
+        }
+
         setLastOrderDates(datesMap);
+        setLatestKmMap(kmMap);
         setCustomerStats(statsMap);
       } else {
         setLastOrderDates({});
+        setLatestKmMap({});
         setCustomerStats({});
       }
     } catch (error) {
@@ -228,13 +301,9 @@ const CustomerManagementPage: React.FC = () => {
     showToast(`Đã lưu thông tin khách hàng ${customer.ho_va_ten} thành công!`, 'success');
 
     if (shouldCreateOrder) {
-      if (isTemp) {
-        navigate('/ban-hang/phieu-ban-hang', { state: { pendingCustomerData: customer } });
-      } else {
-        navigate('/ban-hang/phieu-ban-hang', { state: { pendingCustomerId: customer.id, pendingMaKhachHang: customer.ma_khach_hang } });
-      }
+      setOrderKmCustomer({ customer, isTemp });
     }
-  }, [loadCustomers, navigate]);
+  }, [loadCustomers, showToast]);
 
   const handleOpenDetails = useCallback((customer: KhachHang) => {
     setSelectedCustomer(customer);
@@ -648,7 +717,7 @@ const CustomerManagementPage: React.FC = () => {
                               <span className="text-border">•</span>
                               <div className="flex items-center gap-0.5 shrink-0 text-primary font-bold">
                                 <Gauge size={14} />
-                                <span>{customer.so_km?.toLocaleString()} km</span>
+                                <span>{displayCustomerKm(customer, latestKmMap, customerStats).toLocaleString()} km</span>
                               </div>
                               {customer.dia_chi_hien_tai && (
                                 <>
@@ -705,14 +774,7 @@ const CustomerManagementPage: React.FC = () => {
                               {canCreateOrder && (
                               <button
                                 type="button"
-                                onClick={() =>
-                                  navigate('/ban-hang/phieu-ban-hang', {
-                                    state: {
-                                      pendingCustomerId: customer.id,
-                                      pendingMaKhachHang: customer.ma_khach_hang
-                                    }
-                                  })
-                                }
+                                onClick={() => setOrderKmCustomer({ customer })}
                                 className="flex items-center gap-1 px-2 py-1 bg-emerald-500/10 text-emerald-700 border border-emerald-500/25 rounded-lg active:scale-95 transition-transform font-sans"
                                 title="Lập phiếu bán hàng cho khách này"
                               >
@@ -809,7 +871,8 @@ const CustomerManagementPage: React.FC = () => {
                         onDelete={handleDelete}
                         onOpenDetails={handleOpenDetails}
                         today={today}
-                        stats={customerStats[customer.id] || (customer.ma_khach_hang && customerStats[customer.ma_khach_hang]) || { totalRevenue: 0, visitCount: 0 }}
+                        stats={resolveCustomerStats(customer, customerStats) || { totalRevenue: 0, visitCount: 0 }}
+                        displayKm={displayCustomerKm(customer, latestKmMap, customerStats)}
                         canManageCustomers={canManageCustomers}
                         isAdmin={isAdmin}
                       />
@@ -859,6 +922,21 @@ const CustomerManagementPage: React.FC = () => {
         onClose={handleCloseDetails}
         customer={selectedCustomer}
       />
+
+      <CustomerKmPromptModal
+        isOpen={!!orderKmCustomer}
+        customerName={orderKmCustomer?.customer.ho_va_ten || ''}
+        customerLink={orderKmCustomer ? {
+          id: orderKmCustomer.customer.id,
+          ma_khach_hang: orderKmCustomer.customer.ma_khach_hang,
+          so_dien_thoai: orderKmCustomer.customer.so_dien_thoai,
+        } : undefined}
+        onCancel={() => setOrderKmCustomer(null)}
+        onConfirm={(km) => {
+          if (orderKmCustomer) goToCreateOrder(orderKmCustomer.customer, km, orderKmCustomer.isTemp);
+          setOrderKmCustomer(null);
+        }}
+      />
     </div>
   );
 };
@@ -871,10 +949,11 @@ const CustomerTableRow: React.FC<{
   onDelete: (id: string) => void;
   onOpenDetails: (customer: KhachHang) => void;
   today: Date;
-  stats: { totalRevenue: number; visitCount: number };
+  stats: { totalRevenue: number; visitCount: number; latestSoKm?: number };
+  displayKm: number;
   canManageCustomers: boolean;
   isAdmin: boolean;
-}> = React.memo(({ customer, visibleColumns, onEdit, onDelete, onOpenDetails, today, stats, canManageCustomers, isAdmin }) => {
+}> = React.memo(({ customer, visibleColumns, onEdit, onDelete, onOpenDetails, today, stats, displayKm, canManageCustomers, isAdmin }) => {
 
 
   const isCầnThayDầu = customer.ngay_thay_dau ? new Date(customer.ngay_thay_dau) <= today : false;
@@ -942,7 +1021,7 @@ const CustomerTableRow: React.FC<{
 
       {visibleColumns.includes('so_km') && (
         <td className="px-4 py-3 font-bold text-foreground text-[14px] tabular-nums text-right">
-          {customer.so_km?.toLocaleString()} <span className="font-normal text-muted-foreground text-[10px]">Km</span>
+          {displayKm.toLocaleString()} <span className="font-normal text-muted-foreground text-[10px]">Km</span>
         </td>
       )}
       {visibleColumns.includes('so_ngay_thay_dau') && <td className="px-4 py-3 text-center text-muted-foreground text-[13px]">{customer.so_ngay_thay_dau} ngày</td>}

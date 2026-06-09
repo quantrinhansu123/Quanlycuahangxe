@@ -28,6 +28,7 @@ import { getCustomerByPhone, getCustomerByPlate, uploadCustomerImage, upsertCust
 import { computeCustomerChanges, getCustomerEditHistory, saveCustomerEditHistory, type CustomerEditHistory } from '../data/customerHistoryData';
 import { formatDateTime24h } from '../utils/datetimeFormat';
 import { useToast } from '../context/ToastContext';
+import CustomerKmPromptModal from './CustomerKmPromptModal';
 
 interface CustomerFormModalProps {
   isOpen: boolean;
@@ -51,6 +52,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
   const { showToast } = useToast();
 
   const [duplicateWarning, setDuplicateWarning] = useState<KhachHang | null>(null);
+  const [duplicateOrderKmOpen, setDuplicateOrderKmOpen] = useState(false);
 
   const formatDateForInput = (dateStr: string | undefined) => {
     if (!dateStr) return '';
@@ -546,11 +548,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
             <div className="mt-6 flex gap-3">
               <button
                 type="button"
-                onClick={() => {
-                  navigate('/ban-hang/phieu-ban-hang', { state: { pendingCustomerId: duplicateWarning.id } });
-                  setDuplicateWarning(null);
-                  onClose();
-                }}
+                onClick={() => setDuplicateOrderKmOpen(true)}
                 className="flex-1 px-4 py-2.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary/90 transition-all flex items-center justify-center gap-2"
               >
                 <ShoppingCart size={16} />
@@ -567,6 +565,30 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
           </div>
         </div>
       )}
+
+      <CustomerKmPromptModal
+        isOpen={duplicateOrderKmOpen && !!duplicateWarning}
+        customerName={duplicateWarning?.ho_va_ten || ''}
+        customerLink={duplicateWarning ? {
+          id: duplicateWarning.id,
+          ma_khach_hang: duplicateWarning.ma_khach_hang,
+          so_dien_thoai: duplicateWarning.so_dien_thoai,
+        } : undefined}
+        onCancel={() => setDuplicateOrderKmOpen(false)}
+        onConfirm={(km) => {
+          if (!duplicateWarning) return;
+          navigate('/ban-hang/phieu-ban-hang', {
+            state: {
+              pendingCustomerId: duplicateWarning.id,
+              pendingMaKhachHang: duplicateWarning.ma_khach_hang,
+              pendingSoKm: km,
+            },
+          });
+          setDuplicateOrderKmOpen(false);
+          setDuplicateWarning(null);
+          onClose();
+        }}
+      />
     </div>,
     document.body
   );

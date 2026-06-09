@@ -3,18 +3,21 @@ import {
   Building,
   Calendar,
   ChevronDown,
+  Clock,
   Download,
   Edit2,
   Eye,
   FileText,
   Loader2,
   Plus,
+  ReceiptText,
   RefreshCw,
   Search,
   ShoppingCart,
   Trash2,
   Upload,
   User,
+  Users,
   X
 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -24,7 +27,7 @@ import Pagination from '../components/Pagination';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import type { KhachHang } from '../data/customerData';
-import { getCustomersForSelect, upsertCustomer } from '../data/customerData';
+import { getCustomersForSelect, getLatestOrderKmForCustomer, upsertCustomer } from '../data/customerData';
 import type { ThuChi } from '../data/financialData';
 import { deleteTransactionByOrderId, getTransactionByOrderId, upsertTransaction } from '../data/financialData';
 import type { NhanSu } from '../data/personnelData';
@@ -47,6 +50,7 @@ import { computeChanges, saveEditHistory } from '../data/salesCardHistoryData';
 import type { DichVu } from '../data/serviceData';
 import { getServices } from '../data/serviceData';
 import { supabase } from '../lib/supabase';
+import { preferCustomerLinkKey } from '../lib/customerOrderLink';
 import { formatTime24h } from '../utils/datetimeFormat';
 
 const SalesCardFormModal = React.lazy(() => import('../components/SalesCardFormModal'));
@@ -364,6 +368,7 @@ const SalesCardManagementPage: React.FC = () => {
   const pendingCustomerRef = React.useRef<string | null>(null);
   const pendingMaRef = React.useRef<string | null>(null);
   const pendingCustomerDataRef = React.useRef<KhachHang | null>(null);
+  const pendingSoKmRef = React.useRef<number | null>(null);
   const [pendingNewCustomer, setPendingNewCustomer] = useState<KhachHang | null>(null);
 
   // Giải tỏa Mobile UI: Tính toán 10.000 customer string ở Parent 1 lần rồi share cho Modal
@@ -402,12 +407,18 @@ const SalesCardManagementPage: React.FC = () => {
   if (pendingCustomerRef.current === null) {
     const state = location.state as any;
     const pendingData = state?.pendingCustomerData;
-    const id = pendingData ? pendingData.ma_khach_hang : (state?.pendingCustomerId || sessionStorage.getItem('pendingCustomerId'));
+    const id = pendingData
+      ? (pendingData.ma_khach_hang || pendingData.id)
+      : (state?.pendingMaKhachHang || state?.pendingCustomerId || sessionStorage.getItem('pendingCustomerId'));
     const ma = state?.pendingMaKhachHang || '';
 
     pendingCustomerRef.current = id || '';
     pendingMaRef.current = ma || '';
     pendingCustomerDataRef.current = pendingData || null;
+    pendingSoKmRef.current =
+      state?.pendingSoKm != null && !Number.isNaN(Number(state.pendingSoKm))
+        ? Number(state.pendingSoKm)
+        : null;
 
     // Clear storage immediately (without re-triggering location change)
     if (id || pendingData) {
@@ -422,6 +433,7 @@ const SalesCardManagementPage: React.FC = () => {
     const pendingId = pendingCustomerRef.current;
     const pendingMa = pendingMaRef.current;
     const pendingData = pendingCustomerDataRef.current;
+    const pendingSoKm = pendingSoKmRef.current;
     if ((!pendingId && !pendingData) || loading) return; // Wait until loading is done
     if (customers.length === 0 && !pendingData) return; // Wait until customers list is loaded
 
@@ -429,6 +441,7 @@ const SalesCardManagementPage: React.FC = () => {
     pendingCustomerRef.current = '';
     pendingMaRef.current = '';
     pendingCustomerDataRef.current = null;
+    pendingSoKmRef.current = null;
 
     const openFormForCustomer = async () => {
       try {
@@ -491,6 +504,16 @@ const SalesCardManagementPage: React.FC = () => {
           targetNhanVien = matchedUser ? matchedUser.ho_ten : '';
         }
 
+        let defaultKm = pendingSoKm != null && pendingSoKm > 0 ? pendingSoKm : 0;
+        if (defaultKm <= 0) {
+          const latestKm = await getLatestOrderKmForCustomer({
+            id: customer.id,
+            ma_khach_hang: customer.ma_khach_hang,
+            so_dien_thoai: customer.so_dien_thoai,
+          });
+          if (latestKm != null) defaultKm = latestKm;
+        }
+
         // 3. Set form data and open modal
         const nextCode = await getNextSalesCardCode();
         setEditingCard(null);
@@ -499,11 +522,11 @@ const SalesCardManagementPage: React.FC = () => {
           ngay: new Date().toISOString().split('T')[0],
           gio: formatTime24h(new Date(), false),
           id_bh: nextCode,
-          khach_hang_id: customer.ma_khach_hang || customer.id,
+          khach_hang_id: preferCustomerLinkKey(customer),
           nhan_vien_id: targetNhanVien,
           dich_vu_id: '',
           dich_vu_ids: [],
-          so_km: customer.so_km || 0,
+          so_km: defaultKm,
           ngay_nhac_thay_dau: ''
         });
         // Delay modal open to ensure customers list state is flushed before dropdown renders
@@ -681,6 +704,18 @@ const SalesCardManagementPage: React.FC = () => {
         }
       }
 
+      // Luôn lưu mã KH (legacy) thay vì UUID để khớp phiếu cũ + trang Khách hàng
+      if (cleanData.khach_hang_id) {
+        const found = customers.find(
+          (c) => c.id === cleanData.khach_hang_id || c.ma_khach_hang === cleanData.khach_hang_id
+        );
+        if (found) {
+          cleanData.khach_hang_id = preferCustomerLinkKey(found);
+          if (!cleanData.ten_khach_hang) cleanData.ten_khach_hang = found.ho_va_ten;
+          if (!cleanData.so_dien_thoai) cleanData.so_dien_thoai = found.so_dien_thoai;
+        }
+      }
+
       // Sanitize date fields to avoid "invalid input syntax for type date" error in Supabase
       if (cleanData.ngay_nhac_thay_dau === '') cleanData.ngay_nhac_thay_dau = null;
 
@@ -696,7 +731,7 @@ const SalesCardManagementPage: React.FC = () => {
         }
         try {
           const savedCustomer = await upsertCustomer(dataToSave);
-          cleanData.khach_hang_id = savedCustomer.id;
+          cleanData.khach_hang_id = preferCustomerLinkKey(savedCustomer);
 
           // Remove from pending so subsequent saves (if editing without closing) use the new real ID
           setPendingNewCustomer(null);
@@ -1184,7 +1219,7 @@ const SalesCardManagementPage: React.FC = () => {
                   setCurrentPage(1);
                 }}
                 className="pl-7 sm:pl-9 pr-3 sm:pr-4 py-1 sm:py-2 bg-muted/50 border-border rounded-lg text-[11px] sm:text-[13px] focus:ring-1 focus:ring-primary focus:border-primary transition-all w-[120px] sm:w-[220px] lg:w-[300px] outline-none"
-                placeholder="Tìm mã phiếu, khách hàng..."
+                placeholder="Tìm mã phiếu, tên KH, BSX, SĐT..."
                 type="text"
               />
             </div>
@@ -1514,27 +1549,27 @@ const SalesCardManagementPage: React.FC = () => {
         </div>
 
         {/* Data Table (Desktop View) */}
-        <div className="hidden md:block bg-card rounded-lg border border-border shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-muted border-b border-border text-muted-foreground text-[13px] font-bold tracking-tight">
-                  <th className="px-4 py-3 font-semibold text-center">Thời gian</th>
-                  <th className="px-4 py-3 font-semibold">Tên khách hàng</th>
-                  <th className="px-4 py-3 font-semibold">SĐT</th>
-                  <th className="px-4 py-3 font-semibold">Địa chỉ lưu trú hiện tại</th>
-                  <th className="px-4 py-3 font-semibold">Người phụ trách</th>
-                  <th className="px-4 py-3 font-semibold text-center">ĐÁNH GIÁ DỊCH VỤ</th>
-                  <th className="px-4 py-3 font-semibold">Dịch vụ sử dụng</th>
-                  <th className="px-4 py-3 font-semibold text-right">Tổng tiền</th>
-                  <th className="px-4 py-3 font-semibold text-center">Thanh toán</th>
-                  <th className="px-4 py-3 font-semibold text-right">Số Km</th>
-                  <th className="px-4 py-3 font-semibold text-center">Ngày nhắc thay dầu</th>
-                  <th className="px-4 py-3 font-semibold">Ghi chú</th>
-                  <th className="px-4 py-3 text-center font-semibold">Thao tác</th>
+        <div className="hidden md:block bg-card rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto custom-scrollbar">
+            <table className="w-full min-w-[1560px] text-left border-separate border-spacing-0">
+              <thead className="sticky top-0 z-10">
+                <tr className="bg-slate-100 text-slate-600 text-[12px] font-bold uppercase tracking-wide shadow-[inset_0_-1px_0_#cbd5e1]">
+                  <th className="px-4 py-4 font-bold text-center w-[112px]">Thời gian</th>
+                  <th className="px-4 py-4 font-bold w-[150px]">Khách hàng</th>
+                  <th className="px-4 py-4 font-bold w-[130px]">SĐT</th>
+                  <th className="px-4 py-4 font-bold w-[190px]">Địa chỉ</th>
+                  <th className="px-4 py-4 font-bold w-[180px]">Phụ trách</th>
+                  <th className="px-4 py-4 font-bold text-center w-[120px]">Đánh giá</th>
+                  <th className="px-4 py-4 font-bold w-[300px]">Dịch vụ sử dụng</th>
+                  <th className="px-4 py-4 font-bold text-right w-[130px]">Tổng tiền</th>
+                  <th className="px-4 py-4 font-bold text-center w-[130px]">Thanh toán</th>
+                  <th className="px-4 py-4 font-bold text-right w-[110px]">Số Km</th>
+                  <th className="px-4 py-4 font-bold text-center w-[150px]">Nhắc thay dầu</th>
+                  <th className="px-4 py-4 font-bold w-[180px]">Ghi chú</th>
+                  <th className="px-4 py-4 text-center font-bold w-[120px]">Thao tác</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-[14px]">
+              <tbody className="text-[14px]">
                 {loading ? (
                   <tr>
                     <td colSpan={13} className="px-4 py-12 text-center text-muted-foreground">
@@ -1546,25 +1581,30 @@ const SalesCardManagementPage: React.FC = () => {
                   groupedSales.map(group => (
                     <React.Fragment key={group.date}>
                       {/* Group Header Row */}
-                      <tr className="bg-muted/40 border-y border-border/60 backdrop-blur-sm">
-                        <td colSpan={13} className="px-4 py-3">
-                          <div className="flex items-center gap-4">
-                            <span className="text-[12px] font-black text-primary uppercase tracking-widest bg-primary/10 px-3 py-1 rounded-full border border-primary/20">
-                              📅 {new Date(group.date).toLocaleDateString('vi-VN')}
+                      <tr className="bg-slate-50">
+                        <td colSpan={13} className="px-4 py-3 border-y border-slate-200">
+                          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                            <span className="inline-flex items-center gap-2 text-[13px] font-black text-primary bg-blue-50 px-3 py-1.5 rounded-full border border-blue-200">
+                              <Calendar size={14} />
+                              {new Date(group.date).toLocaleDateString('vi-VN')}
                             </span>
-                            <div className="flex items-center gap-4 text-[11px] font-bold text-muted-foreground">
-                              <span className="flex items-center gap-1.5 underline decoration-primary/30 decoration-2 underline-offset-4">🕒 Mới nhất: {group.latestTime}</span>
-                              <span className="opacity-30">|</span>
-                              <span className="flex items-center gap-1.5">
-                                👥 {group.uniqueCustomers.size} khách
-                                <span className="ml-1 text-[10px] opacity-70 font-medium whitespace-nowrap">
-                                  (🆕{group.newCustomers.size} mới | 🔄{group.returningCustomers.size} cũ)
+                            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[12px] font-bold text-slate-600">
+                              <span className="inline-flex items-center gap-1.5">
+                                <Clock size={14} className="text-slate-400" />
+                                Mới nhất: <strong className="text-slate-800">{group.latestTime}</strong>
+                              </span>
+                              <span className="inline-flex items-center gap-1.5">
+                                <Users size={14} className="text-slate-400" />
+                                <strong className="text-slate-800">{group.uniqueCustomers.size}</strong> khách
+                                <span className="text-[11px] font-semibold text-slate-500 whitespace-nowrap">
+                                  ({group.newCustomers.size} mới | {group.returningCustomers.size} cũ)
                                 </span>
                               </span>
-                              <span className="opacity-30">|</span>
-                              <span className="flex items-center gap-1.5">📄 {group.items.length} đơn</span>
-                              <span className="opacity-30">|</span>
-                              <span className="text-emerald-600 font-extrabold text-[14px]">
+                              <span className="inline-flex items-center gap-1.5">
+                                <ReceiptText size={14} className="text-slate-400" />
+                                <strong className="text-slate-800">{group.items.length}</strong> đơn
+                              </span>
+                              <span className="text-emerald-600 font-black text-[14px]">
                                 {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(group.totalAmount)}
                               </span>
                             </div>
@@ -1572,17 +1612,17 @@ const SalesCardManagementPage: React.FC = () => {
                         </td>
                       </tr>
                       {group.items.map(card => (
-                  <tr key={card.id} className="hover:bg-muted/80 transition-colors">
-                    <td className="px-4 py-4 text-center">
-                      <div className="font-bold text-foreground whitespace-nowrap">{new Date(card.ngay).toLocaleDateString('vi-VN')}</div>
-                      <div className="text-[11px] text-muted-foreground font-mono">{card.gio}</div>
+                  <tr key={card.id} className="bg-white hover:bg-blue-50/40 transition-colors">
+                    <td className="px-4 py-4 text-center border-b border-slate-100 align-top">
+                      <div className="font-black text-slate-900 whitespace-nowrap">{new Date(card.ngay).toLocaleDateString('vi-VN')}</div>
+                      <div className="text-[11px] text-slate-500 font-mono mt-1">{card.gio}</div>
                     </td>
-                    <td className="px-4 py-4">
-                      <div className="font-bold text-primary">{card.khach_hang?.ho_va_ten || card.ten_khach_hang || 'N/A'}</div>
+                    <td className="px-4 py-4 border-b border-slate-100 align-top">
+                      <div className="font-black text-primary leading-snug">{card.khach_hang?.ho_va_ten || card.ten_khach_hang || 'N/A'}</div>
                     </td>
-                    <td className="px-4 py-4 text-muted-foreground">{card.khach_hang?.so_dien_thoai || card.so_dien_thoai || 'N/A'}</td>
-                    <td className="px-4 py-4 text-muted-foreground text-[13px]">{card.khach_hang?.dia_chi_hien_tai || '—'}</td>
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-4 text-slate-600 font-medium border-b border-slate-100 align-top">{card.khach_hang?.so_dien_thoai || card.so_dien_thoai || 'N/A'}</td>
+                    <td className="px-4 py-4 text-slate-500 text-[13px] leading-relaxed border-b border-slate-100 align-top">{card.khach_hang?.dia_chi_hien_tai || '—'}</td>
+                    <td className="px-4 py-4 border-b border-slate-100 align-top">
                       <div className="flex flex-col gap-1">
                         {card.nhan_su_list && card.nhan_su_list.length > 0 ? (
                           card.nhan_su_list.map((p, idx) => (
@@ -1594,58 +1634,58 @@ const SalesCardManagementPage: React.FC = () => {
                             </div>
                           ))
                         ) : (
-                          <span className="text-muted-foreground italic font-medium">{card.nhan_vien_id || 'N/A'}</span>
+                          <span className="text-slate-500 italic font-medium">{card.nhan_vien_id || 'N/A'}</span>
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-4 text-center text-muted-foreground">—</td>
-                    <td className="px-4 py-4">
-                      <div className="flex flex-wrap gap-1">
+                    <td className="px-4 py-4 text-center text-slate-400 border-b border-slate-100 align-top">—</td>
+                    <td className="px-4 py-4 border-b border-slate-100 align-top">
+                      <div className="flex flex-wrap gap-1.5">
                         {(card as any).the_ban_hang_ct && (card as any).the_ban_hang_ct.length > 0 ? (
                           (card as any).the_ban_hang_ct.map((ct: any, idx: number) => (
-                            <span key={idx} className="px-2 py-1 rounded bg-purple-50 text-purple-700 font-medium text-[11px] flex items-center gap-1.5 w-fit">
+                            <span key={idx} className="px-2.5 py-1 rounded-md bg-violet-50 text-violet-700 font-bold text-[11px] flex items-center gap-1.5 w-fit border border-violet-100">
                               {ct.ten_dich_vu || ct.san_pham}{(ct.so_luong || 1) > 1 && <span className="opacity-60 font-bold">×{ct.so_luong}</span>}
                             </span>
                           ))
                         ) : (
-                          <span className="px-2 py-1 rounded bg-purple-50 text-purple-700 font-medium text-[11px] flex items-center gap-1.5 w-fit">
+                          <span className="px-2.5 py-1 rounded-md bg-violet-50 text-violet-700 font-bold text-[11px] flex items-center gap-1.5 w-fit border border-violet-100">
                             {card.dich_vu?.ten_dich_vu || card.dich_vu_id || 'N/A'}
                           </span>
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-4 text-right font-black text-primary">
+                    <td className="px-4 py-4 text-right font-black text-primary border-b border-slate-100 align-top whitespace-nowrap">
                       {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
                         ((card as any).the_ban_hang_ct || []).reduce((sum: number, ct: any) => sum + (ct.thanh_tien || (ct.gia_ban * (ct.so_luong || 1))), 0)
                       )}
                     </td>
-                    <td className="px-4 py-4 text-center">
+                    <td className="px-4 py-4 text-center border-b border-slate-100 align-top">
                       {card.thu_chi ? (
-                        <span className="px-2 py-1 rounded bg-emerald-100 text-emerald-700 font-bold text-[11px] whitespace-nowrap shadow-sm border border-emerald-200" title="Đã thu tiền">
+                        <span className="inline-flex min-w-[86px] justify-center px-2.5 py-1.5 rounded-md bg-emerald-50 text-emerald-700 font-black text-[11px] whitespace-nowrap border border-emerald-200" title="Đã thu tiền">
                           {card.thu_chi.phuong_thuc || 'Tiền mặt'}
                         </span>
                       ) : (
                         card.phuong_thuc_thanh_toan ? (
-                          <span className="px-2 py-1 rounded bg-amber-50 text-amber-600 font-bold text-[11px] whitespace-nowrap shadow-sm border border-amber-200" title="Chưa thu tiền (Dự kiến)">
+                          <span className="inline-flex min-w-[86px] justify-center px-2.5 py-1.5 rounded-md bg-amber-50 text-amber-700 font-black text-[11px] whitespace-nowrap border border-amber-200" title="Chưa thu tiền (Dự kiến)">
                             {card.phuong_thuc_thanh_toan}
                           </span>
                         ) : (
-                          <span className="px-2 py-1 rounded bg-muted text-muted-foreground font-bold text-[11px] whitespace-nowrap shadow-sm border border-border" title="Chưa có thông tin">
+                          <span className="inline-flex min-w-[86px] justify-center px-2.5 py-1.5 rounded-md bg-slate-100 text-slate-600 font-black text-[11px] whitespace-nowrap border border-slate-200" title="Chưa có thông tin">
                             Chưa chọn
                           </span>
                         )
                       )}
                     </td>
-                    <td className="px-4 py-4 text-right font-mono font-bold text-foreground">{card.so_km?.toLocaleString()} km</td>
-                    <td className="px-4 py-4 text-center">
+                    <td className="px-4 py-4 text-right font-mono font-bold text-slate-900 border-b border-slate-100 align-top whitespace-nowrap">{card.so_km?.toLocaleString()} km</td>
+                    <td className="px-4 py-4 text-center border-b border-slate-100 align-top">
                       {card.ngay_nhac_thay_dau ? (
-                        <div className="flex items-center justify-center gap-1.5 text-rose-600 font-bold">
-                          <Calendar size={18} />
+                        <div className="inline-flex items-center justify-center gap-1.5 text-rose-700 bg-rose-50 border border-rose-100 rounded-md px-2.5 py-1.5 font-bold whitespace-nowrap">
+                          <Calendar size={15} />
                           {new Date(card.ngay_nhac_thay_dau).toLocaleDateString('vi-VN')}
                         </div>
                       ) : '—'}
                     </td>
-                    <td className="px-4 py-4 max-w-[200px]">
+                    <td className="px-4 py-4 max-w-[200px] border-b border-slate-100 align-top">
                       {card.ghi_chu ? (
                         <div className="flex items-start gap-1.5 text-amber-600/70 italic text-[12px] leading-relaxed line-clamp-2" title={card.ghi_chu}>
                           <FileText size={14} className="shrink-0 mt-0.5" />
@@ -1655,14 +1695,14 @@ const SalesCardManagementPage: React.FC = () => {
                         <span className="text-muted-foreground/30">—</span>
                       )}
                     </td>
-                    <td className="px-4 py-4 text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <button onClick={() => handleViewCard(card)} className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Xem chi tiết"><Eye size={18} /></button>
+                    <td className="px-4 py-4 text-center border-b border-slate-100 align-top">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button onClick={() => handleViewCard(card)} className="h-9 w-9 inline-flex items-center justify-center text-blue-600 hover:bg-blue-50 rounded-md transition-colors border border-transparent hover:border-blue-100" title="Xem chi tiết"><Eye size={18} /></button>
                         {canManageOrders && !card.thu_chi && (
-                          <button onClick={() => handleOpenModal(card)} className="p-2 text-primary hover:bg-primary/10 rounded transition-colors" title="Chỉnh sửa"><Edit2 size={18} /></button>
+                          <button onClick={() => handleOpenModal(card)} className="h-9 w-9 inline-flex items-center justify-center text-primary hover:bg-primary/10 rounded-md transition-colors border border-transparent hover:border-blue-100" title="Chỉnh sửa"><Edit2 size={18} /></button>
                         )}
                         {isAdmin && (
-                          <button onClick={() => handleDelete(card.id)} className="p-2 text-destructive hover:bg-destructive/10 rounded transition-colors" title="Xóa"><Trash2 size={18} /></button>
+                          <button onClick={() => handleDelete(card.id)} className="h-9 w-9 inline-flex items-center justify-center text-destructive hover:bg-destructive/10 rounded-md transition-colors border border-transparent hover:border-red-100" title="Xóa"><Trash2 size={18} /></button>
                         )}
                       </div>
                     </td>
