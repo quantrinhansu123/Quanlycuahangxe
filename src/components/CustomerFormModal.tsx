@@ -569,14 +569,17 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
       <CustomerKmPromptModal
         isOpen={duplicateOrderKmOpen && !!duplicateWarning}
         customerName={duplicateWarning?.ho_va_ten || ''}
-        customerLink={duplicateWarning ? {
-          id: duplicateWarning.id,
-          ma_khach_hang: duplicateWarning.ma_khach_hang,
-          so_dien_thoai: duplicateWarning.so_dien_thoai,
-        } : undefined}
+        currentBranch={duplicateWarning?.dia_chi_hien_tai}
         onCancel={() => setDuplicateOrderKmOpen(false)}
-        onConfirm={(km) => {
+        onConfirm={async (km, coSo) => {
           if (!duplicateWarning) return;
+          if (coSo) {
+            try {
+              await upsertCustomer({ id: duplicateWarning.id, dia_chi_hien_tai: coSo });
+            } catch (error) {
+              console.error('Lỗi khi lưu cơ sở khách hàng:', error);
+            }
+          }
           navigate('/ban-hang/phieu-ban-hang', {
             state: {
               pendingCustomerId: duplicateWarning.id,

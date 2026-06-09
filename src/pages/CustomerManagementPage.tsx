@@ -11,6 +11,7 @@ import {
   Gauge,
   History,
   List,
+  Loader2,
   Plus,
   Search,
   ShoppingCart,
@@ -32,10 +33,12 @@ import {
   bulkUpsertCustomers,
   deleteCustomer,
   diagnoseKhachHangAccess,
+  getCustomersForExport,
   getCustomersForSelect,
   getCustomersPaginated,
   getLatestOrderKmForCustomer,
   getLatestOrderKmMapForCustomers,
+  upsertCustomer,
 } from '../data/customerData';
 import { getCustomerOrderAggregatesByPhone } from '../data/salesCardData';
 import { formatDateVi } from '../utils/datetimeFormat';
@@ -72,6 +75,7 @@ const CustomerManagementPage: React.FC = () => {
   const [lastOrderDates, setLastOrderDates] = useState<Record<string, string>>({});
   const [customerStats, setCustomerStats] = useState<Record<string, { totalRevenue: number; visitCount: number; latestSoKm?: number }>>({});
   const [latestKmMap, setLatestKmMap] = useState<Record<string, number>>({});
+  const [exportingExcel, setExportingExcel] = useState(false);
 
 
 
@@ -93,11 +97,24 @@ const CustomerManagementPage: React.FC = () => {
   const [selectedCustomer, setSelectedCustomer] = useState<KhachHang | null>(null);
   const [orderKmCustomer, setOrderKmCustomer] = useState<{ customer: KhachHang; isTemp?: boolean } | null>(null);
 
-  const goToCreateOrder = useCallback((customer: KhachHang, soKm: number, isTemp?: boolean) => {
+  const goToCreateOrder = useCallback(async (customer: KhachHang, soKm: number, isTemp?: boolean, coSo?: string) => {
+    let target = customer;
+    if (coSo) {
+      if (isTemp) {
+        target = { ...customer, dia_chi_hien_tai: coSo };
+      } else {
+        try {
+          target = await upsertCustomer({ id: customer.id, dia_chi_hien_tai: coSo });
+        } catch (error) {
+          console.error('Lỗi khi lưu cơ sở khách hàng:', error);
+          target = { ...customer, dia_chi_hien_tai: coSo };
+        }
+      }
+    }
     if (isTemp) {
       navigate('/ban-hang/phieu-ban-hang', {
         state: {
-          pendingCustomerData: customer,
+          pendingCustomerData: target,
           pendingSoKm: soKm,
         },
       });
@@ -105,8 +122,8 @@ const CustomerManagementPage: React.FC = () => {
     }
     navigate('/ban-hang/phieu-ban-hang', {
       state: {
-        pendingCustomerId: customer.id,
-        pendingMaKhachHang: customer.ma_khach_hang,
+        pendingCustomerId: target.id,
+        pendingMaKhachHang: target.ma_khach_hang,
         pendingSoKm: soKm,
       },
     });
@@ -314,6 +331,56 @@ const CustomerManagementPage: React.FC = () => {
     setIsDetailsOpen(false);
     setSelectedCustomer(null);
   }, []);
+
+  const handleExportFilteredExcel = async () => {
+    try {
+      setExportingExcel(true);
+      const rows = await getCustomersForExport(searchQuery, selectedDepts, [], undefined);
+
+      if (rows.length === 0) {
+        showToast('Không có khách hàng nào khớp bộ lọc để xuất.', 'error');
+        return;
+      }
+
+      const phoneRows = rows.map((c) => ({
+        id: c.id,
+        ma_khach_hang: c.ma_khach_hang,
+        so_dien_thoai: c.so_dien_thoai,
+      }));
+      const { stats: statsMap } = await getCustomerOrderAggregatesByPhone(phoneRows);
+      const kmMap = await getLatestOrderKmMapForCustomers(phoneRows);
+
+      const excelRows = rows.map((c) => {
+        const st = statsMap[c.id] || (c.ma_khach_hang ? statsMap[c.ma_khach_hang] : undefined);
+        const km = kmMap[c.id] ?? (c.ma_khach_hang ? kmMap[c.ma_khach_hang] : undefined);
+        return {
+          'Mã khách hàng': c.ma_khach_hang || c.id.slice(0, 8),
+          'Họ và tên': c.ho_va_ten,
+          'SĐT': c.so_dien_thoai,
+          'Biển số xe': c.bien_so_xe,
+          'Địa chỉ': c.dia_chi_hien_tai,
+          'Ngày đăng ký': c.ngay_dang_ky ? formatDateVi(c.ngay_dang_ky) : '',
+          'Số km (đơn gần nhất)': km ?? c.so_km ?? '',
+          'Chu kỳ thay dầu (ngày)': c.so_ngay_thay_dau ?? '',
+          'Ngày thay dầu': c.ngay_thay_dau ? formatDateVi(c.ngay_thay_dau) : '',
+          'Tổng doanh số': st?.totalRevenue ?? 0,
+          'Số lần ghé': st?.visitCount ?? 0,
+        };
+      });
+
+      const worksheet = XLSX.utils.json_to_sheet(excelRows);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'KhachHang');
+      const stamp = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(workbook, `khach_hang_${stamp}.xlsx`);
+      showToast(`Đã xuất ${excelRows.length} khách hàng.`, 'success');
+    } catch (error) {
+      console.error(error);
+      showToast('Không thể xuất Excel. Vui lòng thử lại.', 'error');
+    } finally {
+      setExportingExcel(false);
+    }
+  };
 
   const handleDownloadTemplate = () => {
     const templateData = [
@@ -555,6 +622,17 @@ const CustomerManagementPage: React.FC = () => {
                   </div>
                 </div>
               )}
+
+            <button
+              type="button"
+              onClick={handleExportFilteredExcel}
+              disabled={exportingExcel || loading}
+              className="px-3 py-2 bg-blue-500/10 hover:bg-blue-500/15 text-blue-700 border border-blue-500/25 rounded-xl flex items-center gap-1.5 text-[12px] sm:text-[13px] font-bold transition-all shadow-sm disabled:opacity-60"
+              title="Tải Excel theo bộ lọc hiện tại"
+            >
+              {exportingExcel ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+              <span className="hidden sm:inline">{exportingExcel ? 'Đang xuất...' : 'Xuất Excel'}</span>
+            </button>
 
             <button
               type="button"
@@ -926,14 +1004,10 @@ const CustomerManagementPage: React.FC = () => {
       <CustomerKmPromptModal
         isOpen={!!orderKmCustomer}
         customerName={orderKmCustomer?.customer.ho_va_ten || ''}
-        customerLink={orderKmCustomer ? {
-          id: orderKmCustomer.customer.id,
-          ma_khach_hang: orderKmCustomer.customer.ma_khach_hang,
-          so_dien_thoai: orderKmCustomer.customer.so_dien_thoai,
-        } : undefined}
+        currentBranch={orderKmCustomer?.customer.dia_chi_hien_tai}
         onCancel={() => setOrderKmCustomer(null)}
-        onConfirm={(km) => {
-          if (orderKmCustomer) goToCreateOrder(orderKmCustomer.customer, km, orderKmCustomer.isTemp);
+        onConfirm={(km, coSo) => {
+          if (orderKmCustomer) goToCreateOrder(orderKmCustomer.customer, km, orderKmCustomer.isTemp, coSo);
           setOrderKmCustomer(null);
         }}
       />

@@ -1,4 +1,4 @@
-import { Banknote, Calendar, ChevronDown, ChevronUp, Clock, FileText, History, Loader2, Save, ShoppingCart, User, Wrench, X } from 'lucide-react';
+import { Banknote, Calendar, Car, ChevronDown, ChevronUp, Clock, FileText, History, Loader2, Save, ShoppingCart, User, Wrench, X } from 'lucide-react';
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { NhanSu } from '../data/personnelData';
@@ -26,7 +26,7 @@ const InputField: React.FC<{
   disabled?: boolean
 }> = ({ label, name, value, onChange, icon: Icon, type = 'text', options, required, placeholder, disabled }) => (
   <div className="space-y-1.5">
-    <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+    <label className="text-[11px] sm:text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
       <Icon size={14} className="text-primary/70" />
       {label} {required && <span className="text-red-500">*</span>}
     </label>
@@ -180,6 +180,16 @@ const SalesCardFormModal: React.FC<{
     return options;
   }, [customerOptions, formData.khach_hang_id, initialData]);
 
+  const selectedBsx = React.useMemo(() => {
+    const fromCard =
+      initialData?.khach_hang?.bien_so_xe ||
+      (formData as SalesCard).khach_hang?.bien_so_xe;
+    if (fromCard) return fromCard;
+
+    const opt = extendedCustomerOptions.find((o) => o.value === formData.khach_hang_id);
+    return (opt as { bien_so_xe?: string })?.bien_so_xe || '';
+  }, [extendedCustomerOptions, formData.khach_hang_id, formData, initialData]);
+
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -211,21 +221,31 @@ const SalesCardFormModal: React.FC<{
   if (!isOpen) return null;
 
   return createPortal(
-    <div className="fixed inset-0 flex items-center justify-center p-4 bg-black/60" style={{ zIndex: 1000 }}>
-      <div className="bg-white dark:bg-slate-900 w-full max-w-3xl rounded-3xl border border-border shadow-2xl flex flex-col max-h-[90vh] relative overflow-hidden" style={{ zIndex: 1001 }}>
-        <div className="px-8 py-5 border-b border-border flex items-center justify-between bg-muted/40 shrink-0">
-          <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
-            <ShoppingCart className="text-primary" size={20} />
-            {isReadOnly ? 'Chi tiết Phiếu Bán hàng' : editingCard ? 'Cập nhật Phiếu Bán hàng' : 'Lập Phiếu Bán hàng Mới'}
+    <div className="fixed inset-0 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60" style={{ zIndex: 1000 }}>
+      <div className="bg-white dark:bg-slate-900 w-full max-w-3xl rounded-t-3xl sm:rounded-3xl border border-border shadow-2xl flex flex-col max-h-[100dvh] sm:max-h-[90vh] relative overflow-hidden" style={{ zIndex: 1001 }}>
+        <div className="px-4 py-3 sm:px-8 sm:py-5 border-b border-border flex items-center justify-between bg-muted/40 shrink-0 gap-2">
+          <h3 className="text-sm sm:text-lg font-bold text-foreground flex items-center gap-2 min-w-0">
+            <ShoppingCart className="text-primary shrink-0" size={20} />
+            <span className="truncate">
+              {isReadOnly ? (
+                <><span className="sm:hidden">Chi tiết phiếu</span><span className="hidden sm:inline">Chi tiết Phiếu Bán hàng</span></>
+              ) : editingCard ? (
+                <><span className="sm:hidden">Sửa phiếu</span><span className="hidden sm:inline">Cập nhật Phiếu Bán hàng</span></>
+              ) : (
+                <><span className="sm:hidden">Lập phiếu mới</span><span className="hidden sm:inline">Lập Phiếu Bán hàng Mới</span></>
+              )}
+            </span>
           </h3>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-muted text-muted-foreground transition-colors"><X size={20} /></button>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-muted text-muted-foreground transition-colors shrink-0"><X size={20} /></button>
         </div>
 
-        <form onSubmit={handleFormSubmit} className="overflow-y-auto p-8 flex-1 custom-scrollbar">
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <InputField label="Ngày lập" name="ngay" type="date" value={formData.ngay || ''} onChange={handleInputChange} icon={Calendar} required disabled={isReadOnly} />
-              <InputField label="Giờ lập" name="gio" type="time" value={formData.gio || ''} onChange={handleInputChange} icon={Clock} required disabled={isReadOnly} />
+        <form onSubmit={handleFormSubmit} className="overflow-y-auto p-4 sm:p-8 flex-1 custom-scrollbar overscroll-contain">
+          <div className="space-y-4 sm:space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
+              <div className="grid grid-cols-2 gap-3 sm:contents">
+                <InputField label="Ngày lập" name="ngay" type="date" value={formData.ngay || ''} onChange={handleInputChange} icon={Calendar} required disabled={isReadOnly} />
+                <InputField label="Giờ lập" name="gio" type="time" value={formData.gio || ''} onChange={handleInputChange} icon={Clock} required disabled={isReadOnly} />
+              </div>
               {editingCard && (
                 <>
                   <InputField label="Mã phiếu" name="id_bh" value={formData.id_bh || ''} onChange={handleInputChange} icon={ShoppingCart} required placeholder="BH-XXXXXX" disabled={isReadOnly} />
@@ -250,6 +270,16 @@ const SalesCardFormModal: React.FC<{
                 />
               </div>
 
+              <InputField
+                label="Biển số xe"
+                name="bien_so_xe_display"
+                value={selectedBsx || '—'}
+                onChange={() => {}}
+                icon={Car}
+                disabled
+                placeholder="—"
+              />
+
               <div className="space-y-1.5">
                 <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                   <User size={14} className="text-primary/70" />
@@ -265,22 +295,22 @@ const SalesCardFormModal: React.FC<{
                 />
               </div>
 
-              <div className="space-y-1.5 md:col-span-2">
-                <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+              <div className="space-y-1.5 sm:col-span-2">
+                <label className="text-[11px] sm:text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                   <Wrench size={14} className="text-primary/70" />
                   Dịch vụ sử dụng <span className="text-red-500">*</span>
                 </label>
                 {isReadOnly ? (
                   <div className="space-y-2 p-3 bg-muted/30 rounded-xl border border-border">
                     {(formData.the_ban_hang_ct || formData.service_items || []).map((item: any, idx) => (
-                      <div key={idx} className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0">
-                        <div className="flex items-center gap-3">
-                          <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary">
+                      <div key={idx} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 py-2 sm:py-1.5 border-b border-border/50 last:border-0">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary shrink-0">
                             {idx + 1}
                           </div>
-                          <span className="font-bold text-[14px] text-foreground">{item.san_pham || item.ten_dich_vu}</span>
+                          <span className="font-bold text-[13px] sm:text-[14px] text-foreground break-words">{item.san_pham || item.ten_dich_vu}</span>
                         </div>
-                        <div className="text-right flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 pl-8 sm:pl-0 shrink-0">
                           <span className="font-mono text-[13px] font-bold text-primary">{(item.gia_ban || 0).toLocaleString()}đ</span>
                           <span className="text-[11px] text-muted-foreground font-bold">×</span>
                           <span className="font-mono text-[13px] font-bold text-foreground">{item.so_luong || 1}</span>
@@ -374,7 +404,7 @@ const SalesCardFormModal: React.FC<{
 
               <InputField label="Ngày nhắc thay dầu" name="ngay_nhac_thay_dau" type="date" value={formData.ngay_nhac_thay_dau || ''} onChange={handleInputChange} icon={Calendar} disabled={isReadOnly} />
 
-              <div className="space-y-1.5 md:col-span-2">
+              <div className="space-y-1.5 sm:col-span-2">
                 <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                   <FileText size={14} className="text-primary/70" />
                   Chú thích
@@ -394,10 +424,10 @@ const SalesCardFormModal: React.FC<{
             </div>
 
             {((formData.service_items && formData.service_items.length > 0) || (formData.the_ban_hang_ct && formData.the_ban_hang_ct.length > 0) || formData.dich_vu) && (
-              <div className="mt-8 bg-primary/5 p-5 rounded-2xl border border-primary/20 border-dashed flex justify-between items-center animate-in fade-in slide-in-from-bottom-2 duration-300">
-                <div className="space-y-0.5">
-                  <div className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider">Tổng giá trị phiếu</div>
-                  <div className="text-[11px] text-muted-foreground font-medium">
+              <div className="mt-4 sm:mt-8 bg-primary/5 p-4 sm:p-5 rounded-2xl border border-primary/20 border-dashed flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="space-y-0.5 min-w-0">
+                  <div className="text-[11px] sm:text-[12px] font-bold text-muted-foreground uppercase tracking-wider">Tổng giá trị phiếu</div>
+                  <div className="text-[10px] sm:text-[11px] text-muted-foreground font-medium">
                     {formData.service_items && formData.service_items.length > 0
                       ? `${formData.service_items.length} hạng mục dịch vụ`
                       : formData.the_ban_hang_ct && formData.the_ban_hang_ct.length > 0
@@ -405,7 +435,7 @@ const SalesCardFormModal: React.FC<{
                         : `1 hạng mục (${formData.dich_vu?.ten_dich_vu})`}
                   </div>
                 </div>
-                <div className="text-2xl font-black text-primary tracking-tight">
+                <div className="text-xl sm:text-2xl font-black text-primary tracking-tight shrink-0">
                   {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
                     formData.service_items && formData.service_items.length > 0
                       ? formData.service_items.reduce((sum, it) => sum + ((it.gia_ban || 0) * (it.so_luong || 1)), 0)
@@ -417,7 +447,7 @@ const SalesCardFormModal: React.FC<{
               </div>
             )}
 
-            <div className="mt-8 flex flex-col gap-4 pt-6 border-t border-border">
+            <div className="mt-4 sm:mt-8 flex flex-col gap-3 sm:gap-4 pt-4 sm:pt-6 border-t border-border pb-2 sm:pb-0">
               {/* Lịch sử chỉnh sửa */}
               {isReadOnly && editingCard && (
                 <div className="w-full">
@@ -486,10 +516,10 @@ const SalesCardFormModal: React.FC<{
                 </div>
               )}
 
-              <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
+              <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
                 {editingCard && onCollectPayment && formData.thu_chi ? (
-                  <div className="px-4 py-1.5 sm:px-6 sm:py-2 rounded-xl text-sm font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 flex items-center justify-center gap-2 select-none opacity-80"
+                  <div className="w-full sm:w-auto px-4 py-2.5 sm:py-2 rounded-xl text-sm font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 flex items-center justify-center gap-2 select-none opacity-80"
                        title={`Đơn hàng đã thanh toán bằng ${formData.thu_chi.phuong_thuc || 'Tiền mặt'}`}>
                     <Save size={18} />
                     <span>ĐÃ THU ({formData.thu_chi.phuong_thuc || 'Tiền mặt'})</span>
@@ -512,7 +542,7 @@ const SalesCardFormModal: React.FC<{
                         }
                       }}
                       className={clsx(
-                        "px-4 py-1.5 sm:px-6 sm:py-2 rounded-xl text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all flex items-center gap-2",
+                        "w-full sm:w-auto px-4 py-2.5 sm:py-2 rounded-xl text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all flex items-center justify-center gap-2",
                         isCollecting && "opacity-70 cursor-not-allowed"
                       )}
                     >
@@ -523,12 +553,12 @@ const SalesCardFormModal: React.FC<{
                 )}
               </div>
 
-              <div className="flex items-center gap-3">
-                <button type="button" onClick={onClose} disabled={isSubmitting || isCollecting} className={clsx("px-4 py-1.5 sm:px-6 sm:py-2 rounded-xl text-sm font-bold border border-border hover:bg-muted transition-all", (isSubmitting || isCollecting) && "opacity-50 cursor-not-allowed")}>
+              <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+                <button type="button" onClick={onClose} disabled={isSubmitting || isCollecting} className={clsx("flex-1 sm:flex-none px-4 py-2.5 sm:py-2 rounded-xl text-sm font-bold border border-border hover:bg-muted transition-all", (isSubmitting || isCollecting) && "opacity-50 cursor-not-allowed")}>
                   {isReadOnly ? 'Đóng' : 'Hủy'}
                 </button>
                 {!isReadOnly && (
-                  <button type="submit" disabled={isSubmitting || isCollecting} className={clsx("px-4 py-1.5 sm:px-8 sm:py-2 rounded-xl text-sm font-bold text-white bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 transition-all flex items-center gap-2", (isSubmitting || isCollecting) && "opacity-70 cursor-not-allowed")}>
+                  <button type="submit" disabled={isSubmitting || isCollecting} className={clsx("flex-1 sm:flex-none px-4 py-2.5 sm:px-8 sm:py-2 rounded-xl text-sm font-bold text-white bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 transition-all flex items-center justify-center gap-2", (isSubmitting || isCollecting) && "opacity-70 cursor-not-allowed")}>
                     {isSubmitting ? (
                       <><Loader2 size={18} className="animate-spin" /> <span>Đang lưu...</span></>
                     ) : (

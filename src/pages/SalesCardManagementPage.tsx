@@ -39,6 +39,7 @@ import {
   buildServiceNameLookup,
   deleteSalesCard, 
   getNextSalesCardCode, 
+  getSalesCardsForExport,
   getSalesCardsPaginated, 
   normalizeSalesCards,
   resolveServiceDisplayName,
@@ -91,6 +92,7 @@ const SalesCardManagementPage: React.FC = () => {
   const [selectedStaff, setSelectedStaff] = useState('');
   const [selectedBranch, setSelectedBranch] = useState('');
   const [customerFirstSaleDateMap, setCustomerFirstSaleDateMap] = useState<Record<string, string>>({});
+  const [exportingExcel, setExportingExcel] = useState(false);
 
   // Debounce search
   useEffect(() => {
@@ -387,7 +389,8 @@ const SalesCardManagementPage: React.FC = () => {
       return {
         value: c.ma_khach_hang || c.id,
         label: `${c.ho_va_ten}${c.so_dien_thoai ? ` - ${c.so_dien_thoai}` : ''}`,
-        searchKey: searchParts.join(' ')
+        searchKey: searchParts.join(' '),
+        bien_so_xe: c.bien_so_xe || '',
       };
     });
 
@@ -566,7 +569,8 @@ const SalesCardManagementPage: React.FC = () => {
             id: mappedKhId.length === 36 ? mappedKhId : '',
             ma_khach_hang: card.khach_hang.ma_khach_hang || (mappedKhId.length !== 36 ? mappedKhId : ''),
             ho_va_ten: card.khach_hang.ho_va_ten || 'Khách hàng',
-            so_dien_thoai: card.khach_hang.so_dien_thoai || ''
+            so_dien_thoai: card.khach_hang.so_dien_thoai || '',
+            bien_so_xe: card.khach_hang.bien_so_xe || '',
           } as KhachHang;
           setCustomers(prev => [c!, ...prev]);
         }
@@ -636,7 +640,8 @@ const SalesCardManagementPage: React.FC = () => {
           id: mappedKhId.length === 36 ? mappedKhId : '',
           ma_khach_hang: card.khach_hang.ma_khach_hang || (mappedKhId.length !== 36 ? mappedKhId : ''),
           ho_va_ten: card.khach_hang.ho_va_ten || 'Khách hàng',
-          so_dien_thoai: card.khach_hang.so_dien_thoai || ''
+          so_dien_thoai: card.khach_hang.so_dien_thoai || '',
+          bien_so_xe: card.khach_hang.bien_so_xe || '',
         } as KhachHang;
         setCustomers(prev => [c!, ...prev]);
       }
@@ -1191,6 +1196,71 @@ const SalesCardManagementPage: React.FC = () => {
     setCurrentPage(1);
   };
 
+  const handleExportFilteredExcel = async () => {
+    try {
+      setExportingExcel(true);
+      const cards = await getSalesCardsForExport(
+        debouncedSearch,
+        startDate || undefined,
+        endDate || undefined,
+        isAdmin && selectedStaff ? selectedStaff : undefined,
+        isAdmin && selectedBranch ? selectedBranch : undefined
+      );
+
+      if (cards.length === 0) {
+        showToast('Không có phiếu nào khớp bộ lọc để xuất.', 'error');
+        return;
+      }
+
+      const rows = cards.map((card) => {
+        const items = card.the_ban_hang_ct || [];
+        const dichVu = items.length > 0
+          ? items.map((ct) => `${ct.san_pham || (ct as { ten_dich_vu?: string }).ten_dich_vu || ''} x${ct.so_luong || 1}`).join('; ')
+          : card.dich_vu?.ten_dich_vu || '';
+        const total = items.reduce(
+          (s, ct) => s + (Number(ct.thanh_tien) || Number(ct.gia_ban || 0) * Number(ct.so_luong || 1)),
+          0
+        ) || Number(card.tong_tien || 0) || Number(card.dich_vu?.gia_ban || 0);
+        const coSo = items[0]?.co_so || card.dich_vu?.co_so || '';
+        const staff = card.nhan_su_list?.length
+          ? card.nhan_su_list.map((p) => p.ho_ten).filter(Boolean).join(', ')
+          : card.nhan_su?.ho_ten || card.nhan_vien_id || '';
+
+        return {
+          'Mã phiếu': card.id_bh || card.id,
+          'Ngày': card.ngay,
+          'Giờ': card.gio,
+          'Mã khách hàng': card.khach_hang_id || '',
+          'Tên khách hàng': card.khach_hang?.ho_va_ten || card.ten_khach_hang || '',
+          'SĐT': card.khach_hang?.so_dien_thoai || card.so_dien_thoai || '',
+          'Biển số xe': card.khach_hang?.bien_so_xe || '',
+          'Địa chỉ': card.khach_hang?.dia_chi_hien_tai || '',
+          'Phụ trách': staff,
+          'Dịch vụ': dichVu,
+          'Tổng tiền': total,
+          'Thanh toán': card.thu_chi?.phuong_thuc || card.phuong_thuc_thanh_toan || '',
+          'Số km': card.so_km ?? '',
+          'Nhắc thay dầu': card.ngay_nhac_thay_dau || '',
+          'Ghi chú': card.ghi_chu || '',
+          'Cơ sở': coSo,
+          'Đánh giá': card.danh_gia || '',
+        };
+      });
+
+      const worksheet = XLSX.utils.json_to_sheet(rows);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'PhieuBanHang');
+      const stamp = new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(workbook, `phieu_ban_hang_${stamp}.xlsx`);
+      showToast(`Đã xuất ${rows.length} phiếu bán hàng.`, 'success');
+    } catch (error) {
+      console.error(error);
+      showToast('Không thể xuất Excel. Vui lòng thử lại.', 'error');
+    } finally {
+      setExportingExcel(false);
+    }
+  };
+
   return (
     <div className="w-full h-full flex flex-col p-4 lg:p-6 animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-y-auto pt-8">
       <div className="w-full space-y-6">
@@ -1405,6 +1475,16 @@ const SalesCardManagementPage: React.FC = () => {
                 </button>
               )}
             </div>
+
+            <button
+              type="button"
+              onClick={handleExportFilteredExcel}
+              disabled={exportingExcel || loading}
+              className="col-span-2 sm:col-span-1 w-full sm:w-auto px-3 py-2 bg-blue-500/10 hover:bg-blue-500/15 text-blue-700 border border-blue-500/25 rounded-lg flex items-center justify-center gap-1.5 text-[11px] sm:text-[13px] font-bold transition-all disabled:opacity-60"
+            >
+              {exportingExcel ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+              <span>{exportingExcel ? 'Đang xuất Excel...' : 'Xuất Excel (bộ lọc)'}</span>
+            </button>
           </div>
         </div>
 
@@ -1469,37 +1549,49 @@ const SalesCardManagementPage: React.FC = () => {
                     const branch = items.length > 0 ? items[0].co_so : (card.dich_vu?.co_so || 'Cơ sở chính');
 
                     return (
-                      <div key={card.id} className="bg-card p-3 rounded-xl border border-border shadow-sm space-y-3 relative group hover:border-primary/30 transition-all">
-                        <div className="flex items-center justify-between gap-2 min-h-7">
-                          <div className="flex items-center gap-2 min-w-0 flex-1">
-                            <div className="flex items-center gap-1 text-primary font-bold text-[13px] sm:text-[14px] shrink-0">
-                              <Calendar size={14} />
-                              {card.gio}
-                            </div>
-                            <span className="text-muted-foreground/40 shrink-0 text-[10px]">·</span>
-                            <div className="text-[12px] sm:text-[13px] font-bold text-foreground truncate leading-none min-w-0">
-                              👤 {card.nhan_su_list && card.nhan_su_list.length > 0
-                                ? card.nhan_su_list.map((p) => p.ho_ten).filter(Boolean).join(', ')
-                                : (card.nhan_vien_id || 'N/A')}
-                            </div>
-                          </div>
-                          <div className="text-primary font-black text-[17px] sm:text-[19px] leading-none whitespace-nowrap shrink-0">
-                            {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalAmount)}
-                          </div>
-                        </div>
-
-                        <div className="space-y-1">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="text-[17px] font-black text-foreground leading-tight truncate">
+                      <div key={card.id} className="bg-card p-3 rounded-xl border border-border shadow-sm space-y-2.5 relative group hover:border-primary/30 transition-all active:scale-[0.99]">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1 space-y-1">
+                            <div className="text-[16px] font-black text-foreground leading-tight truncate">
                               {card.khach_hang?.ho_va_ten || card.ten_khach_hang || 'N/A'}
                             </div>
-                            <div className="text-[13px] text-muted-foreground truncate shrink-0 max-w-[52%] text-right">
-                              {card.khach_hang?.so_dien_thoai || card.so_dien_thoai || 'N/A'} • {branch}
+                            <div className="text-[12px] text-muted-foreground font-medium truncate">
+                              {card.khach_hang?.so_dien_thoai || card.so_dien_thoai || 'N/A'}
                             </div>
+                            {card.khach_hang?.bien_so_xe && (
+                              <div className="text-[11px] font-black text-blue-600 uppercase tracking-wide truncate">
+                                {card.khach_hang.bien_so_xe}
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-right shrink-0">
+                            <div className="text-primary font-black text-[16px] leading-none whitespace-nowrap">
+                              {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalAmount)}
+                            </div>
+                            {Number(card.so_km) > 0 && (
+                              <div className="text-[10px] font-bold text-muted-foreground mt-1 tabular-nums">
+                                {Number(card.so_km).toLocaleString('vi-VN')} km
+                              </div>
+                            )}
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-end gap-2 pt-1 border-t border-border/30">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground font-bold pt-1 border-t border-border/30">
+                          <span className="flex items-center gap-1 text-primary shrink-0">
+                            <Calendar size={12} />
+                            {card.gio}
+                          </span>
+                          <span className="opacity-30">·</span>
+                          <span className="truncate min-w-0">
+                            {card.nhan_su_list && card.nhan_su_list.length > 0
+                              ? card.nhan_su_list.map((p) => p.ho_ten).filter(Boolean).join(', ')
+                              : (card.nhan_vien_id || 'N/A')}
+                          </span>
+                          <span className="opacity-30">·</span>
+                          <span className="truncate">{branch}</span>
+                        </div>
+
+                        <div className="flex items-center justify-end gap-1.5 pt-0.5">
                           <button onClick={() => handleViewCard(card)} className="flex items-center gap-1 px-3 py-1.5 text-blue-600 hover:bg-blue-50 rounded-lg text-[12px] font-bold border border-blue-100 transition-colors">
                             <Eye size={14} /> Xem
                           </button>

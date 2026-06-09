@@ -338,7 +338,7 @@ async function attachCustomer(cards: SalesCard[]) {
 
       const { data: customers } = await supabase
         .from('khach_hang')
-        .select('id, ma_khach_hang, ho_va_ten, so_dien_thoai, dia_chi_hien_tai')
+        .select('id, ma_khach_hang, ho_va_ten, so_dien_thoai, dia_chi_hien_tai, bien_so_xe')
         .or(orParts.join(','));
 
       if (customers) allCustomers.push(...customers);
@@ -352,9 +352,12 @@ async function attachCustomer(cards: SalesCard[]) {
         const key = card.khach_hang_id.toLowerCase();
         const cust = maMap.get(key) || idMap.get(key);
         if (cust) card.khach_hang = {
+          id: cust.id,
+          ma_khach_hang: cust.ma_khach_hang,
           ho_va_ten: cust.ho_va_ten,
           so_dien_thoai: cust.so_dien_thoai,
-          dia_chi_hien_tai: cust.dia_chi_hien_tai
+          dia_chi_hien_tai: cust.dia_chi_hien_tai,
+          bien_so_xe: cust.bien_so_xe,
         };
       }
     });
@@ -478,22 +481,14 @@ export const getSalesCards = async (staffId?: string): Promise<SalesCard[]> => {
   return cards;
 };
 
-export const getSalesCardsPaginated = async (
-  page: number,
-  pageSize: number,
+async function fetchFilteredSalesCardsList(
   searchQuery?: string,
   startDate?: string,
   endDate?: string,
   staffId?: string,
   branch?: string
-): Promise<{ data: SalesCard[], totalCount: number, totalAmount: number, totalCustomers: number, newCustomersCount: number, returningCustomersCount: number }> => {
-  const from = (page - 1) * pageSize;
-  const to = from + pageSize - 1;
-
-  // 1. Build the base filter query for the main table (without range yet)
-  let baseQuery = supabase
-    .from('the_ban_hang')
-    .select('*', { count: 'exact' });
+): Promise<{ allCards: SalesCard[]; totalCount: number }> {
+  let baseQuery = supabase.from('the_ban_hang').select('*', { count: 'exact' });
 
   let searchCustomerIdSet = new Set<string>();
   let searchServiceIdSet = new Set<string>();
@@ -536,7 +531,6 @@ export const getSalesCardsPaginated = async (
   if (endDate) baseQuery = baseQuery.lte('ngay', endDate);
   if (staffId) baseQuery = baseQuery.ilike('nhan_vien_id', `%${staffId}%`);
 
-  // Pre-fetch branch customer identifiers (filter will be applied client-side for accuracy)
   let branchCustomerSet: Set<string> | null = null;
   if (branch) {
     const branchNameOnly = branch.replace('Cơ sở ', '');
@@ -547,13 +541,12 @@ export const getSalesCardsPaginated = async (
       .limit(10000);
 
     branchCustomerSet = new Set<string>();
-    (matchedCustomers || []).forEach(c => {
+    (matchedCustomers || []).forEach((c) => {
       if (c.id) branchCustomerSet!.add(c.id.toLowerCase());
       if (c.ma_khach_hang) branchCustomerSet!.add(c.ma_khach_hang.toLowerCase());
     });
   }
 
-  // 2. Fetch all matching cards to calculate the true total
   const { data: allMatchingCards, count, error } = await baseQuery
     .order('ngay', { ascending: false })
     .order('gio', { ascending: false })
@@ -561,11 +554,10 @@ export const getSalesCardsPaginated = async (
     .limit(10000);
 
   if (error) {
-    if (error.code === 'PGRST103') return { data: [], totalCount: count || 0, totalAmount: 0, totalCustomers: 0, newCustomersCount: 0, returningCustomersCount: 0 };
+    if (error.code === 'PGRST103') return { allCards: [], totalCount: count || 0 };
     throw error;
   }
 
-  // Apply branch + accent-insensitive search client-side
   let allCards = (allMatchingCards as SalesCard[]) || [];
   if (trimmedSearch) {
     allCards = allCards.filter((c) =>
@@ -573,8 +565,55 @@ export const getSalesCardsPaginated = async (
     );
   }
   if (branchCustomerSet) {
-    allCards = allCards.filter(c => c.khach_hang_id && branchCustomerSet!.has(c.khach_hang_id.toLowerCase()));
+    allCards = allCards.filter(
+      (c) => c.khach_hang_id && branchCustomerSet!.has(c.khach_hang_id.toLowerCase())
+    );
   }
+
+  return {
+    allCards,
+    totalCount: branchCustomerSet ? allCards.length : (count || 0),
+  };
+}
+
+export const getSalesCardsForExport = async (
+  searchQuery?: string,
+  startDate?: string,
+  endDate?: string,
+  staffId?: string,
+  branch?: string
+): Promise<SalesCard[]> => {
+  const { allCards } = await fetchFilteredSalesCardsList(
+    searchQuery,
+    startDate,
+    endDate,
+    staffId,
+    branch
+  );
+  if (allCards.length === 0) return [];
+  await enrichSalesCards(allCards);
+  return allCards;
+};
+
+export const getSalesCardsPaginated = async (
+  page: number,
+  pageSize: number,
+  searchQuery?: string,
+  startDate?: string,
+  endDate?: string,
+  staffId?: string,
+  branch?: string
+): Promise<{ data: SalesCard[], totalCount: number, totalAmount: number, totalCustomers: number, newCustomersCount: number, returningCustomersCount: number }> => {
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  const { allCards, totalCount } = await fetchFilteredSalesCardsList(
+    searchQuery,
+    startDate,
+    endDate,
+    staffId,
+    branch
+  );
   const pagedCards = allCards.slice(from, to + 1);
 
   await enrichSalesCards(pagedCards);
@@ -662,7 +701,7 @@ export const getSalesCardsPaginated = async (
 
   return {
     data: pagedCards,
-    totalCount: branchCustomerSet ? allCards.length : (count || 0),
+    totalCount,
     totalAmount: grandTotal,
     totalCustomers: totalCustomersCount,
     newCustomersCount,

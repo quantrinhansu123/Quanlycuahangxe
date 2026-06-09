@@ -213,6 +213,59 @@ export const getCustomersPaginated = async (
   };
 };
 
+/** Lấy toàn bộ khách theo bộ lọc hiện tại (tối đa 10.000 dòng) — dùng xuất Excel. */
+export const getCustomersForExport = async (
+  searchQuery?: string,
+  depts?: string[],
+  cycles?: number[],
+  branchScope?: string
+): Promise<KhachHang[]> => {
+  const buildBase = () => {
+    let query = supabase
+      .from('khach_hang')
+      .select('id, ho_va_ten, so_dien_thoai, anh, dia_chi_hien_tai, bien_so_xe, ngay_dang_ky, so_km, so_ngay_thay_dau, ngay_thay_dau, ma_khach_hang');
+
+    const rawSearch = searchQuery?.trim();
+    if (rawSearch) {
+      const esc = escapeIlike(rawSearch);
+      query = query.or(
+        `ho_va_ten.ilike.%${esc}%,so_dien_thoai.ilike.%${esc}%,bien_so_xe.ilike.%${esc}%,ma_khach_hang.ilike.%${esc}%`
+      );
+    }
+
+    if (depts && depts.length > 0) {
+      query = query.in('dia_chi_hien_tai', depts);
+    }
+
+    if (cycles && cycles.length > 0) {
+      query = query.in('so_ngay_thay_dau', cycles);
+    }
+
+    const branchVariants = buildBranchVariants(branchScope);
+    if (branchVariants.length > 0) {
+      query = query.in('dia_chi_hien_tai', branchVariants);
+    }
+
+    return query;
+  };
+
+  let res = await buildBase()
+    .order('ngay_dang_ky', { ascending: false, nullsFirst: false })
+    .order('id', { ascending: false })
+    .limit(10000);
+
+  if (isMissingCreatedAtColumn(res.error)) {
+    res = await buildBase().order('id', { ascending: false }).limit(10000);
+  }
+
+  if (res.error) {
+    console.error('Error fetching customers for export:', res.error);
+    throw res.error;
+  }
+
+  return (res.data as KhachHang[]) || [];
+};
+
 export const upsertCustomer = async (customer: Partial<KhachHang>): Promise<KhachHang> => {
   const payload = sanitizeCustomerPayload(customer);
   let myHoTen = '';

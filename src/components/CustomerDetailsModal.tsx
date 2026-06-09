@@ -3,7 +3,7 @@ import { Calendar, Check, Clock, Gauge, History, Info, Loader2, MapPin, MessageS
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { getCustomerServiceHistory, type KhachHang } from '../data/customerData';
+import { getCustomerServiceHistory, upsertCustomer, type KhachHang } from '../data/customerData';
 import { formatLocalDateYYYYMMDD } from '../lib/utils';
 import CustomerKmPromptModal from './CustomerKmPromptModal';
 
@@ -49,7 +49,14 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
    const [copySuccess, setCopySuccess] = useState(false);
    const [kmPromptOpen, setKmPromptOpen] = useState(false);
 
-   const goToCreateOrder = (soKm: number) => {
+   const goToCreateOrder = async (soKm: number, coSo?: string) => {
+      if (coSo && customer) {
+         try {
+            await upsertCustomer({ id: customer.id, dia_chi_hien_tai: coSo });
+         } catch (error) {
+            console.error('Lỗi khi lưu cơ sở khách hàng:', error);
+         }
+      }
       onClose();
       navigate('/ban-hang/phieu-ban-hang', {
          state: {
@@ -147,8 +154,8 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
 
    return createPortal(
       <>
-      <div className="fixed inset-0 z-9999 flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
-         <div className="bg-card w-full max-w-3xl rounded-3xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden border border-border animate-in zoom-in-95 duration-300">
+      <div className="fixed inset-0 z-9999 flex items-end sm:items-center justify-center p-0 sm:p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
+         <div className="bg-card w-full max-w-3xl rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col max-h-[100dvh] sm:max-h-[92vh] overflow-hidden border border-border animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300">
 
             {/* Header */}
             <div className="px-4 py-3 sm:px-8 sm:py-5 border-b border-border flex items-center justify-between bg-muted/30 shrink-0">
@@ -158,9 +165,12 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
                   </div>
                   <div>
                      <h2 className="text-base sm:text-xl font-black text-foreground">{customer.ho_va_ten}</h2>
-                     <div className="flex items-center gap-2 sm:gap-3 text-[10px] sm:text-[11px] text-muted-foreground font-bold uppercase tracking-wider mt-0.5">
-                        <span className="flex items-center gap-1"><Phone size={11} /> {customer.so_dien_thoai}</span>
-                        <span className="flex items-center gap-1"><MapPin size={11} /> {customer.dia_chi_hien_tai || 'Chưa rõ'}</span>
+                     <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 text-[10px] sm:text-[11px] text-muted-foreground font-bold uppercase tracking-wider mt-0.5">
+                        <span className="flex items-center gap-1 shrink-0"><Phone size={11} /> {customer.so_dien_thoai}</span>
+                        {customer.bien_so_xe && (
+                           <span className="flex items-center gap-1 shrink-0 text-blue-600 normal-case tracking-normal font-black">{customer.bien_so_xe}</span>
+                        )}
+                        <span className="flex items-center gap-1 min-w-0 truncate normal-case tracking-normal font-semibold"><MapPin size={11} className="shrink-0" /> <span className="truncate">{customer.dia_chi_hien_tai || 'Chưa rõ'}</span></span>
                      </div>
                   </div>
                </div>
@@ -175,22 +185,22 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
             {/* Date Selector + stats: dòng 1 ngày, dòng 2 tổng chi / lần ghé (tránh chồng lên input) */}
             <div className="px-4 py-2.5 sm:px-8 sm:py-4 border-b border-border bg-card flex flex-col gap-3 sm:gap-3.5 w-full shadow-sm">
                <div className="flex flex-wrap items-end gap-2 sm:gap-4 w-full min-w-0">
-                  <div className="flex flex-col gap-0.5 min-w-0">
+                  <div className="flex flex-col gap-0.5 min-w-0 flex-1 basis-[calc(50%-0.25rem)] sm:flex-none sm:basis-auto">
                      <span className="text-[9px] sm:text-[10px] font-black text-muted-foreground uppercase tracking-widest px-1">Từ ngày</span>
                      <input
                         type="date"
                         value={startDateStr}
                         onChange={(e) => setStartDateStr(e.target.value)}
-                        className="font-bold text-foreground text-[12px] sm:text-[14px] bg-muted/40 hover:bg-muted/60 border border-border/50 rounded-lg sm:rounded-xl px-2.5 py-1.5 sm:px-4 sm:py-2 outline-none focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer w-full max-w-[11rem] sm:max-w-none"
+                        className="font-bold text-foreground text-[12px] sm:text-[14px] bg-muted/40 hover:bg-muted/60 border border-border/50 rounded-lg sm:rounded-xl px-2.5 py-1.5 sm:px-4 sm:py-2 outline-none focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer w-full"
                      />
                   </div>
-                  <div className="flex flex-col gap-0.5 min-w-0">
+                  <div className="flex flex-col gap-0.5 min-w-0 flex-1 basis-[calc(50%-0.25rem)] sm:flex-none sm:basis-auto">
                      <span className="text-[9px] sm:text-[10px] font-black text-muted-foreground uppercase tracking-widest px-1">Đến ngày</span>
                      <input
                         type="date"
                         value={endDateStr}
                         onChange={(e) => setEndDateStr(e.target.value)}
-                        className="font-bold text-foreground text-[12px] sm:text-[14px] bg-muted/40 hover:bg-muted/60 border border-border/50 rounded-lg sm:rounded-xl px-2.5 py-1.5 sm:px-4 sm:py-2 outline-none focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer w-full max-w-[11rem] sm:max-w-none"
+                        className="font-bold text-foreground text-[12px] sm:text-[14px] bg-muted/40 hover:bg-muted/60 border border-border/50 rounded-lg sm:rounded-xl px-2.5 py-1.5 sm:px-4 sm:py-2 outline-none focus:ring-2 focus:ring-primary/20 transition-all cursor-pointer w-full"
                      />
                   </div>
                </div>
@@ -216,7 +226,8 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
                      activeTab === 'history' ? "text-primary bg-background" : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
                   )}
                >
-                  <History size={14} className="sm:hidden" /><History size={18} className="hidden sm:block" /> Lịch sử dịch vụ
+                  <History size={14} className="sm:hidden" /><History size={18} className="hidden sm:block" />
+                  <span className="sm:hidden">Dịch vụ</span><span className="hidden sm:inline">Lịch sử dịch vụ</span>
                   {activeTab === 'history' && <div className="absolute bottom-0 left-0 right-0 h-0.5 sm:h-1 bg-primary rounded-t-full" />}
                </button>
                <button
@@ -226,7 +237,8 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
                      activeTab === 'km_history' ? "text-primary bg-background" : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
                   )}
                >
-                  <Gauge size={14} className="sm:hidden" /><Gauge size={18} className="hidden sm:block" /> Lịch sử số km
+                  <Gauge size={14} className="sm:hidden" /><Gauge size={18} className="hidden sm:block" />
+                  <span className="sm:hidden">Số km</span><span className="hidden sm:inline">Lịch sử số km</span>
                   {activeTab === 'km_history' && <div className="absolute bottom-0 left-0 right-0 h-0.5 sm:h-1 bg-primary rounded-t-full" />}
                </button>
                <button
@@ -236,7 +248,8 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
                      activeTab === 'info' ? "text-primary bg-background" : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
                   )}
                >
-                  <Info size={14} className="sm:hidden" /><Info size={18} className="hidden sm:block" /> Thông tin chi tiết
+                  <Info size={14} className="sm:hidden" /><Info size={18} className="hidden sm:block" />
+                  <span className="sm:hidden">Chi tiết</span><span className="hidden sm:inline">Thông tin chi tiết</span>
                   {activeTab === 'info' && <div className="absolute bottom-0 left-0 right-0 h-0.5 sm:h-1 bg-primary rounded-t-full" />}
                </button>
             </div>
@@ -436,15 +449,11 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
       <CustomerKmPromptModal
          isOpen={kmPromptOpen}
          customerName={customer.ho_va_ten}
-         customerLink={{
-            id: customer.id,
-            ma_khach_hang: customer.ma_khach_hang,
-            so_dien_thoai: customer.so_dien_thoai,
-         }}
+         currentBranch={customer.dia_chi_hien_tai}
          onCancel={() => setKmPromptOpen(false)}
-         onConfirm={(km) => {
+         onConfirm={(km, coSo) => {
             setKmPromptOpen(false);
-            goToCreateOrder(km);
+            goToCreateOrder(km, coSo);
          }}
       />
       </>,
