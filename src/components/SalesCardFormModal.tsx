@@ -63,11 +63,13 @@ const SalesCardFormModal: React.FC<{
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showServiceWarning, setShowServiceWarning] = useState(false);
 
   // Sync formData with initialData when modal opens or initialData changes (for new cards)
   React.useEffect(() => {
     if (isOpen) {
       setFormData(initialData);
+      setShowServiceWarning(false);
     }
   }, [isOpen, initialData]);
 
@@ -119,7 +121,12 @@ const SalesCardFormModal: React.FC<{
   };
 
   const handleServiceChange = (vals: string[]) => {
-    setFormData(prev => ({ ...prev, dich_vu_ids: vals }));
+    setShowServiceWarning(vals.length === 0);
+    setFormData(prev => ({
+      ...prev,
+      dich_vu_ids: vals,
+      service_items: vals.length > 0 ? prev.service_items?.filter(it => vals.includes(it.id)) : []
+    }));
   };
 
   const handleItemPriceChange = (id: string, newPrice: number) => {
@@ -213,12 +220,14 @@ const SalesCardFormModal: React.FC<{
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const hasServices = (formData.dich_vu_ids && formData.dich_vu_ids.length > 0) ||
-                        (formData.service_items && formData.service_items.length > 0);
+    const hasServices = (formData.dich_vu_ids || []).some(id => id.trim() !== '');
     if (!hasServices) {
+      setShowServiceWarning(true);
       alert('Vui lòng chọn ít nhất một dịch vụ trước khi lập phiếu.');
       return;
     }
+
+    setShowServiceWarning(false);
 
     if (!editingCard && (!formData.so_km || formData.so_km <= 0)) {
       alert('Vui lòng nhập Số Km trước khi lập phiếu.');
@@ -346,8 +355,13 @@ const SalesCardFormModal: React.FC<{
                       onValueChange={handleServiceChange}
                       placeholder="-- Chọn hoặc tìm dịch vụ --"
                       searchPlaceholder="Tìm tên dịch vụ..."
-                      className="font-bold"
+                      className={clsx("font-bold", showServiceWarning && "border-red-500 ring-2 ring-red-500/20")}
                     />
+                    {showServiceWarning && (
+                      <p className="text-[12px] font-bold text-red-600">
+                        Vui lòng chọn ít nhất một dịch vụ trước khi lập phiếu.
+                      </p>
+                    )}
 
                     {formData.service_items && formData.service_items.length > 0 && (
                       <div className="space-y-3 bg-muted/20 p-4 rounded-2xl border border-border/50">
