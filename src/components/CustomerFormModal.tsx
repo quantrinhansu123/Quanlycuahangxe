@@ -11,11 +11,9 @@ import {
   MapPin,
   Phone,
   Plus,
-  PlusCircle,
   Save,
   ShoppingCart,
   Tag,
-  Trash2,
   User,
   X
 } from 'lucide-react';
@@ -23,12 +21,22 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import type { KhachHang, OilChangeEntry } from '../data/customerData';
+import type { KhachHang } from '../data/customerData';
 import { getCustomerByPhone, getCustomerByPlate, uploadCustomerImage, upsertCustomer } from '../data/customerData';
 import { computeCustomerChanges, getCustomerEditHistory, saveCustomerEditHistory, type CustomerEditHistory } from '../data/customerHistoryData';
 import { formatDateTime24h } from '../utils/datetimeFormat';
 import { useToast } from '../context/ToastContext';
-import CustomerKmPromptModal from './CustomerKmPromptModal';
+import CustomerKmPromptModal, { CUSTOMER_BRANCH_OPTIONS } from './CustomerKmPromptModal';
+
+function resolveStaffBranch(coSo?: string | null): string {
+  const v = (coSo || '').trim();
+  if (!v) return '';
+  if ((CUSTOMER_BRANCH_OPTIONS as readonly string[]).includes(v)) return v;
+  const lower = v.toLowerCase();
+  if (lower.includes('bắc giang') || lower.includes('bac giang')) return 'Cơ sở Bắc Giang';
+  if (lower.includes('bắc ninh') || lower.includes('bac ninh')) return 'Cơ sở Bắc Ninh';
+  return v;
+}
 
 interface CustomerFormModalProps {
   isOpen: boolean;
@@ -69,36 +77,23 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
   useEffect(() => {
     if (isOpen) {
       if (customer) {
-        // Migration logic: If customer has legacy data but no history array, create the first entry
-        let initialHistory = customer.lich_su_thay_dau || [];
-        if (initialHistory.length === 0 && (customer.so_km || customer.ngay_thay_dau)) {
-          initialHistory = [{
-            ngay: formatDateForInput(customer.ngay_thay_dau),
-            so_km: customer.so_km || 0,
-            chu_ky: customer.so_ngay_thay_dau || 0,
-            ghi_chu: 'Dữ liệu cũ'
-          }];
-        }
-
         setFormData({
           ...customer,
           ngay_dang_ky: formatDateForInput(customer.ngay_dang_ky),
-          lich_su_thay_dau: initialHistory
         });
       } else {
         setFormData({
           ho_va_ten: '',
           so_dien_thoai: '',
-          dia_chi_hien_tai: '',
+          dia_chi_hien_tai: resolveStaffBranch(nhanVien?.co_so),
           anh: '',
           ngay_dang_ky: new Date().toISOString().split('T')[0],
           bien_so_xe: '',
           ma_khach_hang: 'KH-' + Math.random().toString(36).substring(2, 8).toUpperCase(),
-          lich_su_thay_dau: []
         });
       }
     }
-  }, [isOpen, customer]);
+  }, [isOpen, customer, nhanVien?.co_so]);
 
   // Duplication Plate Check logic
   useEffect(() => {
@@ -151,18 +146,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    if (name === 'so_km' || name === 'so_ngay_thay_dau') {
-      const numericValue = value.replace(/\./g, '').replace(/^0+(?!$)/, '');
-      const num = parseInt(numericValue, 10) || 0;
-      setFormData((prev: Partial<KhachHang>) => ({ ...prev, [name]: num }));
-    } else {
-      setFormData((prev: Partial<KhachHang>) => ({ ...prev, [name]: value }));
-    }
-  };
-
-  const formatNumber = (num: number | undefined) => {
-    if (num === undefined || num === null) return '0';
-    return num.toLocaleString('vi-VN');
+    setFormData((prev: Partial<KhachHang>) => ({ ...prev, [name]: value }));
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -185,50 +169,6 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
         setUploadingImage(false);
       }
     }
-  };
-
-  const handleAddHistoryEntry = () => {
-    const newEntry: OilChangeEntry = {
-      ngay: new Date().toISOString().split('T')[0],
-      so_km: 0,
-      chu_ky: 0, // Default for new records
-      ghi_chu: ''
-    };
-    setFormData((prev: Partial<KhachHang>) => ({
-      ...prev,
-      lich_su_thay_dau: [newEntry, ...(prev.lich_su_thay_dau || [])]
-    }));
-  };
-
-  const handleUpdateHistoryEntry = (index: number, field: keyof OilChangeEntry, value: any) => {
-    const newHistory = [...(formData.lich_su_thay_dau || [])];
-    if (field === 'so_km' || field === 'chu_ky') {
-      const numericValue = value.toString().replace(/\./g, '').replace(/^0+(?!$)/, '');
-      value = parseInt(numericValue, 10) || 0;
-    }
-    newHistory[index] = { ...newHistory[index], [field]: value };
-
-    // Also update legacy fields for backward compatibility/simplicity in main list
-    const newest = newHistory[0];
-    setFormData((prev: Partial<KhachHang>) => ({
-      ...prev,
-      lich_su_thay_dau: newHistory,
-      so_km: newest?.so_km || 0,
-      ngay_thay_dau: newest?.ngay || '',
-      so_ngay_thay_dau: newest?.chu_ky || 0
-    }));
-  };
-
-  const handleRemoveHistoryEntry = (index: number) => {
-    const newHistory = (formData.lich_su_thay_dau || []).filter((_, i) => i !== index);
-    const newest = newHistory[0];
-    setFormData((prev: Partial<KhachHang>) => ({
-      ...prev,
-      lich_su_thay_dau: newHistory,
-      so_km: newest?.so_km || 0,
-      ngay_thay_dau: newest?.ngay || '',
-      so_ngay_thay_dau: newest?.chu_ky || 0
-    }));
   };
 
   const handleSubmit = async (e: React.FormEvent, shouldOrder: boolean = false) => {
@@ -334,90 +274,9 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
             <InputField label="Họ và tên" name="ho_va_ten" value={formData.ho_va_ten} onChange={handleInputChange} icon={User} placeholder="Nhập họ tên đầy đủ..." required />
             <InputField label="Số điện thoại" name="so_dien_thoai" value={formData.so_dien_thoai} onChange={handleInputChange} icon={Phone} placeholder="09xx..." required />
             <InputField label="Mã khách hàng" name="ma_khach_hang" value={formData.ma_khach_hang} onChange={handleInputChange} icon={Tag} placeholder="KH-XXXXXX" />
-            <InputField label="Địa chỉ lưu trú hiện tại" name="dia_chi_hien_tai" value={formData.dia_chi_hien_tai} onChange={handleInputChange} icon={MapPin} type="select" options={["Cơ sở Bắc Giang", "Cơ sở Bắc Ninh"]} placeholder="Chọn cơ sở..." />
+            <InputField label="Địa chỉ lưu trú hiện tại" name="dia_chi_hien_tai" value={formData.dia_chi_hien_tai} onChange={handleInputChange} icon={MapPin} type="select" options={[...CUSTOMER_BRANCH_OPTIONS]} placeholder="Chọn cơ sở..." />
             <InputField label="Biển số xe" name="bien_so_xe" value={formData.bien_so_xe} onChange={handleInputChange} icon={CreditCard} placeholder="98A-xxx.xx" />
             <InputField label="Ngày đăng ký" name="ngay_dang_ky" type="date" value={formData.ngay_dang_ky} onChange={handleInputChange} icon={Calendar} />
-
-            {/* Sub-table for Oil Change History */}
-            <div className="md:col-span-2 mt-4 space-y-4">
-              <div className="flex items-center justify-between border-b border-border pb-2">
-                <h4 className="text-sm font-black text-foreground flex items-center gap-2 uppercase tracking-tight">
-                  <History size={18} className="text-primary" />
-                  Lịch sử thay dầu & Bảo trì
-                </h4>
-                <button
-                  type="button"
-                  onClick={handleAddHistoryEntry}
-                  className="px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5"
-                >
-                  <PlusCircle size={14} />
-                  Thêm bản ghi mới
-                </button>
-              </div>
-
-              <div className="border border-border rounded-2xl overflow-hidden bg-muted/5">
-                <table className="w-full text-left text-[13px]">
-                  <thead className="bg-muted/30 text-muted-foreground font-black uppercase text-[10px] tracking-widest border-b border-border">
-                    <tr>
-                      <th className="px-4 py-3">Ngày thay dầu</th>
-                      <th className="px-4 py-3">Số KM lúc thay</th>
-                      <th className="px-4 py-3">Số ngày thay dầu</th>
-                      <th className="px-4 py-3 w-10"></th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border/50">
-                    {(!formData.lich_su_thay_dau || formData.lich_su_thay_dau.length === 0) ? (
-                      <tr>
-                        <td colSpan={4} className="px-4 py-8 text-center italic text-muted-foreground text-sm">
-                          Chưa có bản ghi lịch sử nào.
-                        </td>
-                      </tr>
-                    ) : (
-                      formData.lich_su_thay_dau.map((entry: OilChangeEntry, idx: number) => (
-                        <tr key={idx} className="hover:bg-muted/20 transition-colors">
-                          <td className="px-3 py-2">
-                            <input
-                              type="date"
-                              value={entry.ngay}
-                              onChange={(e) => handleUpdateHistoryEntry(idx, 'ngay', e.target.value)}
-                              className="bg-transparent border-none outline-none font-bold text-foreground w-full focus:ring-1 focus:ring-primary/20 rounded px-1"
-                            />
-                          </td>
-                          <td className="px-3 py-2">
-                            <input
-                              type="text"
-                              value={formatNumber(entry.so_km)}
-                              onChange={(e) => handleUpdateHistoryEntry(idx, 'so_km', e.target.value)}
-                              className="bg-transparent border-none outline-none font-bold text-foreground w-full focus:ring-1 focus:ring-primary/20 rounded px-1"
-                            />
-                          </td>
-                          <td className="px-3 py-2">
-                            <input
-                              type="text"
-                              value={formatNumber(entry.chu_ky)}
-                              onChange={(e) => handleUpdateHistoryEntry(idx, 'chu_ky', e.target.value)}
-                              className="bg-transparent border-none outline-none font-bold text-foreground w-full focus:ring-1 focus:ring-primary/20 rounded px-1"
-                            />
-                          </td>
-                          <td className="px-3 py-2">
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveHistoryEntry(idx)}
-                              className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-              <p className="text-[11px] text-muted-foreground italic font-medium">
-                * Dòng trên cùng sẽ là dữ liệu mới nhất được hiển thị ở bảng chính.
-              </p>
-            </div>
           </div>
 
           {/* Lịch sử chỉnh sửa */}

@@ -58,12 +58,50 @@ function escapeIlike(s: string): string {
   return s.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
 }
 
-function isMissingCreatedAtColumn(error: { message?: string; code?: string } | null): boolean {
+function isMissingSortColumn(error: { message?: string; code?: string } | null, column: string): boolean {
   if (!error) return false;
   return (
     error.code === '42703' ||
-    /created_at|column.*does not exist|schema cache/i.test(error.message || '')
+    new RegExp(`${column}|column.*does not exist|schema cache`, 'i').test(error.message || '')
   );
+}
+
+type CustomerListQuery = {
+  order: (column: string, options?: { ascending?: boolean; nullsFirst?: boolean }) => CustomerListQuery;
+  limit: (count: number) => CustomerListQuery;
+  range: (from: number, to: number) => CustomerListQuery;
+  then: PromiseLike<{ data: unknown[] | null; count: number | null; error: { message?: string; code?: string } | null }>['then'];
+};
+
+async function runCustomerListQuery(
+  buildBase: () => CustomerListQuery,
+  extra?: (q: CustomerListQuery) => CustomerListQuery
+) {
+  const orderPlans: Array<(q: CustomerListQuery) => CustomerListQuery> = [
+    (q) => q
+      .order('last_order_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false, nullsFirst: false })
+      .order('id', { ascending: false }),
+    (q) => q
+      .order('created_at', { ascending: false, nullsFirst: false })
+      .order('id', { ascending: false }),
+    (q) => q
+      .order('ngay_dang_ky', { ascending: false, nullsFirst: false })
+      .order('id', { ascending: false }),
+  ];
+
+  const missingColumns = ['last_order_at', 'created_at', 'ngay_dang_ky'];
+  for (let i = 0; i < orderPlans.length; i++) {
+    let query = orderPlans[i](buildBase());
+    if (extra) query = extra(query);
+    const res = await query;
+    if (!res.error) return res;
+    if (!isMissingSortColumn(res.error, missingColumns[i])) {
+      return res;
+    }
+  }
+
+  return extra ? extra(buildBase().order('id', { ascending: false })) : buildBase().order('id', { ascending: false });
 }
 
 const buildBranchVariants = (branchScope?: string): string[] => {
@@ -92,14 +130,7 @@ export const getCustomers = async (branchScope?: string): Promise<KhachHang[]> =
     return query;
   };
 
-  // Sắp theo ngày đăng ký (không dùng created_at — import hàng loạt làm lộn thứ tự trang).
-  let res = await buildBase()
-    .order('ngay_dang_ky', { ascending: false, nullsFirst: false })
-    .order('id', { ascending: false });
-
-  if (isMissingCreatedAtColumn(res.error)) {
-    res = await buildBase().order('id', { ascending: false });
-  }
+  const res = await runCustomerListQuery(() => buildBase());
 
   if (res.error) {
     console.error('Error fetching customers:', res.error);
@@ -136,19 +167,13 @@ export const getCustomersForSelect = async (
     return query;
   };
 
-  let res = await buildBase()
-    .order('ngay_dang_ky', { ascending: false, nullsFirst: false })
-    .order('id', { ascending: false })
-    .limit(10000);
-  if (isMissingCreatedAtColumn(res.error)) {
-    res = await buildBase().order('id', { ascending: false }).limit(10000);
-  }
+  const res = await runCustomerListQuery(() => buildBase(), (q) => q.limit(10000));
 
   if (res.error) {
     console.error('Error fetching customers for select:', res.error);
     throw res.error;
   }
-  return res.data || [];
+  return (res.data as Pick<KhachHang, 'id' | 'ho_va_ten' | 'so_dien_thoai' | 'bien_so_xe' | 'ma_khach_hang' | 'dia_chi_hien_tai'>[]) || [];
 };
 
 export const getCustomersPaginated = async (
@@ -191,16 +216,7 @@ export const getCustomersPaginated = async (
     return query;
   };
 
-  let res = await buildBase()
-    .order('ngay_dang_ky', { ascending: false, nullsFirst: false })
-    .order('id', { ascending: false })
-    .range(from, to);
-
-  if (isMissingCreatedAtColumn(res.error)) {
-    res = await buildBase()
-      .order('id', { ascending: false })
-      .range(from, to);
-  }
+  const res = await runCustomerListQuery(() => buildBase(), (q) => q.range(from, to));
 
   if (res.error) {
     console.error('Error fetching paginated customers:', res.error);
@@ -249,14 +265,7 @@ export const getCustomersForExport = async (
     return query;
   };
 
-  let res = await buildBase()
-    .order('ngay_dang_ky', { ascending: false, nullsFirst: false })
-    .order('id', { ascending: false })
-    .limit(10000);
-
-  if (isMissingCreatedAtColumn(res.error)) {
-    res = await buildBase().order('id', { ascending: false }).limit(10000);
-  }
+  const res = await runCustomerListQuery(() => buildBase(), (q) => q.limit(10000));
 
   if (res.error) {
     console.error('Error fetching customers for export:', res.error);

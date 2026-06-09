@@ -6,6 +6,7 @@ import type { DichVu } from './serviceData';
 import type { ThuChi } from './financialData';
 import { getTransactionsByOrderIds } from './financialData';
 import { digitsOnly, phoneLookupVariants, samePhoneCore } from '../lib/phoneUtils';
+import { touchCustomerLastOrderAt } from '../lib/customerActivity';
 import {
   getCustomerLinkKeys,
   orderMatchesCustomerLink,
@@ -259,6 +260,32 @@ export interface SalesCard {
   thu_chi?: Partial<ThuChi>;
 }
 
+function getSalesCardSortTime(card: SalesCard): number {
+  const createdAt = card.created_at ? Date.parse(card.created_at) : NaN;
+  if (Number.isFinite(createdAt)) return createdAt;
+
+  const dateTime = `${card.ngay || ''}T${card.gio || '00:00:00'}`;
+  const enteredAt = Date.parse(dateTime);
+  return Number.isFinite(enteredAt) ? enteredAt : 0;
+}
+
+function compareSalesCardsNewestFirst(a: SalesCard, b: SalesCard): number {
+  const byInputTime = getSalesCardSortTime(b) - getSalesCardSortTime(a);
+  if (byInputTime !== 0) return byInputTime;
+
+  const byDate = (b.ngay || '').localeCompare(a.ngay || '');
+  if (byDate !== 0) return byDate;
+
+  const byTime = (b.gio || '').localeCompare(a.gio || '');
+  if (byTime !== 0) return byTime;
+
+  return (b.id_bh || b.id || '').localeCompare(a.id_bh || a.id || '');
+}
+
+function sortSalesCardsNewestFirst(cards: SalesCard[]): SalesCard[] {
+  return cards.sort(compareSalesCardsNewestFirst);
+}
+
 export async function enrichSalesCards(cards: SalesCard[]) {
   await Promise.all([
     attachDetails(cards),
@@ -465,6 +492,7 @@ export const getSalesCards = async (staffId?: string): Promise<SalesCard[]> => {
   let query = supabase
     .from('the_ban_hang')
     .select(`*`)
+    .order('created_at', { ascending: false })
     .order('ngay', { ascending: false })
     .order('gio', { ascending: false });
 
@@ -474,7 +502,7 @@ export const getSalesCards = async (staffId?: string): Promise<SalesCard[]> => {
 
   const { data } = await query;
 
-  const cards = (data as SalesCard[]) || [];
+  const cards = sortSalesCardsNewestFirst((data as SalesCard[]) || []);
 
   await enrichSalesCards(cards);
 
@@ -548,9 +576,9 @@ async function fetchFilteredSalesCardsList(
   }
 
   const { data: allMatchingCards, count, error } = await baseQuery
+    .order('created_at', { ascending: false })
     .order('ngay', { ascending: false })
     .order('gio', { ascending: false })
-    .order('created_at', { ascending: false })
     .limit(10000);
 
   if (error) {
@@ -569,6 +597,7 @@ async function fetchFilteredSalesCardsList(
       (c) => c.khach_hang_id && branchCustomerSet!.has(c.khach_hang_id.toLowerCase())
     );
   }
+  sortSalesCardsNewestFirst(allCards);
 
   return {
     allCards,
@@ -1082,6 +1111,15 @@ export const upsertSalesCard = async (card: Partial<SalesCard>, isNew: boolean =
         console.error('Error creating sales card (Insert):', error);
         throw error;
       }
+      void touchCustomerLastOrderAt(
+        {
+          khach_hang_id: normalizedCard.khach_hang_id,
+          ma_khach_hang: normalizedCard.khach_hang_id,
+          so_dien_thoai: normalizedCard.so_dien_thoai,
+        },
+        normalizedCard.ngay,
+        normalizedCard.gio
+      );
       return data as SalesCard;
     }
 
@@ -1098,6 +1136,15 @@ export const upsertSalesCard = async (card: Partial<SalesCard>, isNew: boolean =
       console.error('Error upserting sales card:', error);
       throw error;
     }
+    void touchCustomerLastOrderAt(
+      {
+        khach_hang_id: normalizedCard.khach_hang_id,
+        ma_khach_hang: normalizedCard.khach_hang_id,
+        so_dien_thoai: normalizedCard.so_dien_thoai,
+      },
+      normalizedCard.ngay,
+      normalizedCard.gio
+    );
     return data as SalesCard;
   }
 
@@ -1116,6 +1163,18 @@ export const bulkUpsertSalesCards = async (cards: Partial<SalesCard>[]): Promise
     const cleanInserts = toInsert.map(({ id, ...rest }) => rest);
     const { error } = await supabase.from('the_ban_hang').insert(cleanInserts);
     if (error) { console.error('Error inserting sales cards:', error); throw error; }
+  }
+
+  for (const card of cards) {
+    void touchCustomerLastOrderAt(
+      {
+        khach_hang_id: card.khach_hang_id,
+        ma_khach_hang: card.khach_hang_id,
+        so_dien_thoai: card.so_dien_thoai,
+      },
+      card.ngay,
+      card.gio
+    );
   }
 };
 

@@ -56,6 +56,27 @@ import { formatTime24h } from '../utils/datetimeFormat';
 
 const SalesCardFormModal = React.lazy(() => import('../components/SalesCardFormModal'));
 
+const BRANCH_OPTIONS = ['Cơ sở Bắc Giang', 'Cơ sở Bắc Ninh'] as const;
+
+function resolveStaffBranch(coSo: string | null | undefined): string | null {
+  if (!coSo?.trim()) return null;
+  const v = coSo.trim().toLowerCase();
+  if (v.includes('bắc giang') || v.includes('bac giang')) return 'Cơ sở Bắc Giang';
+  if (v.includes('bắc ninh') || v.includes('bac ninh')) return 'Cơ sở Bắc Ninh';
+  const exact = BRANCH_OPTIONS.find((b) => b.toLowerCase() === v);
+  return exact ?? coSo.trim();
+}
+
+function matchesServiceBranch(serviceCoSo: string | null | undefined, staffBranch: string): boolean {
+  const s = (serviceCoSo || '').trim().toLowerCase();
+  const b = staffBranch.trim().toLowerCase();
+  if (!s || !b) return false;
+  if (s === b) return true;
+  if (b.includes('bắc giang') && s.includes('bắc giang')) return true;
+  if (b.includes('bắc ninh') && s.includes('bắc ninh')) return true;
+  return false;
+}
+
 const SalesCardManagementPage: React.FC = () => {
   const { nhanVien, isAdmin, canManageOrders } = useAuth();
   const { showToast } = useToast();
@@ -180,7 +201,22 @@ const SalesCardManagementPage: React.FC = () => {
   const displayItems = useMemo(() => salesCards, [salesCards]);
   const serviceLookup = useMemo(() => buildServiceNameLookup(services), [services]);
 
+  const staffBranch = useMemo(() => resolveStaffBranch(nhanVien?.co_so), [nhanVien?.co_so]);
+
+  const orderServices = useMemo(() => {
+    if (!staffBranch) return services;
+    return services.filter((s) => matchesServiceBranch(s.co_so, staffBranch));
+  }, [services, staffBranch]);
+
   const groupedSales = useMemo(() => {
+    const getSortTime = (card: SalesCard) => {
+      const createdAt = card.created_at ? Date.parse(card.created_at) : NaN;
+      if (Number.isFinite(createdAt)) return createdAt;
+
+      const enteredAt = Date.parse(`${card.ngay || ''}T${card.gio || '00:00:00'}`);
+      return Number.isFinite(enteredAt) ? enteredAt : 0;
+    };
+
     const groups: Record<string, {
       date: string;
       items: SalesCard[];
@@ -189,10 +225,12 @@ const SalesCardManagementPage: React.FC = () => {
       newCustomers: Set<string>;
       returningCustomers: Set<string>;
       latestTime: string;
+      latestSortTime: number;
     }> = {};
 
     displayItems.forEach(card => {
       const date = card.ngay;
+      const sortTime = getSortTime(card);
       if (!groups[date]) {
         groups[date] = {
           date,
@@ -201,7 +239,8 @@ const SalesCardManagementPage: React.FC = () => {
           uniqueCustomers: new Set(),
           newCustomers: new Set(),
           returningCustomers: new Set(),
-          latestTime: card.gio || '00:00'
+          latestTime: card.gio || '00:00',
+          latestSortTime: sortTime
         };
       }
       
@@ -232,10 +271,14 @@ const SalesCardManagementPage: React.FC = () => {
       if (card.gio && card.gio > groups[date].latestTime) {
         groups[date].latestTime = card.gio;
       }
+      if (sortTime > groups[date].latestSortTime) {
+        groups[date].latestSortTime = sortTime;
+      }
     });
 
-    // Sort by date descending
     return Object.values(groups).sort((a, b) => {
+      const byNewestInput = b.latestSortTime - a.latestSortTime;
+      if (byNewestInput !== 0) return byNewestInput;
       return new Date(b.date).getTime() - new Date(a.date).getTime();
     });
   }, [displayItems]);
@@ -843,7 +886,11 @@ const SalesCardManagementPage: React.FC = () => {
 
       handleCloseModal();
       showToast('Lập phiếu bán hàng thành công!', 'success');
-      void loadSalesCards();
+      if (!editingCard && currentPage !== 1) {
+        setCurrentPage(1);
+      } else {
+        void loadSalesCards();
+      }
     } catch (error: any) {
       console.error('Save sales card failed:', {
         message: error?.message,
@@ -1853,7 +1900,7 @@ const SalesCardManagementPage: React.FC = () => {
             initialData={formData}
             customerOptions={customerOptions}
             personnel={personnel}
-            services={services}
+            services={orderServices}
             onClose={handleCloseModal}
             onSubmit={handleSubmit}
             isReadOnly={isReadOnlyModal}

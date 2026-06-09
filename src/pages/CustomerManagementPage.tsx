@@ -272,7 +272,7 @@ const CustomerManagementPage: React.FC = () => {
     setter(prev => prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val]);
   }, []);
 
-  // Nhóm theo ngày đăng ký — giữ đúng thứ tự server (ngay_dang_ky ↓), không sort lại các nhóm.
+  // Nhóm theo ngày đăng ký — giữ đúng thứ tự server (hoá đơn mới / mới tạo ↓), không sort lại các nhóm.
   const groupedCustomers = useMemo(() => {
     const groups: { date: string; items: KhachHang[] }[] = [];
 

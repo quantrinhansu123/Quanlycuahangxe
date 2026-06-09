@@ -180,6 +180,26 @@ const SalesCardFormModal: React.FC<{
     return options;
   }, [customerOptions, formData.khach_hang_id, initialData]);
 
+  const serviceSelectOptions = React.useMemo(() => {
+    const base = services.map((s) => ({
+      value: s.id,
+      label: `${s.ten_dich_vu} (${s.gia_ban.toLocaleString()}đ)`,
+    }));
+    const knownIds = new Set(base.map((o) => o.value));
+    const extras = (formData.dich_vu_ids || [])
+      .filter((id) => !knownIds.has(id))
+      .map((id) => {
+        const item = formData.service_items?.find((it) => it.id === id);
+        if (!item) return null;
+        return {
+          value: id,
+          label: `${item.ten_dich_vu} (${(item.gia_ban || 0).toLocaleString()}đ)`,
+        };
+      })
+      .filter(Boolean) as { value: string; label: string }[];
+    return [...base, ...extras];
+  }, [services, formData.dich_vu_ids, formData.service_items]);
+
   const selectedBsx = React.useMemo(() => {
     const fromCard =
       initialData?.khach_hang?.bien_so_xe ||
@@ -321,7 +341,7 @@ const SalesCardFormModal: React.FC<{
                 ) : (
                   <div className="space-y-4">
                     <MultiSearchableSelect
-                      options={services.map(s => ({ value: s.id, label: `${s.ten_dich_vu} (${s.gia_ban.toLocaleString()}đ)` }))}
+                      options={serviceSelectOptions}
                       value={formData.dich_vu_ids || []}
                       onValueChange={handleServiceChange}
                       placeholder="-- Chọn hoặc tìm dịch vụ --"
