@@ -37,3 +37,10 @@ FROM (
   GROUP BY so_dien_thoai
 ) sub
 WHERE kh.so_dien_thoai = sub.so_dien_thoai;
+
+-- Khách chưa có hoá đơn: dùng ngày tạo để xếp (mới tạo lên đầu).
+UPDATE public.khach_hang
+SET last_order_at = GREATEST(
+  COALESCE(last_order_at, '-infinity'::timestamptz),
+  COALESCE(created_at, '-infinity'::timestamptz)
+);

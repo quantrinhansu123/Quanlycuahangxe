@@ -1,3 +1,9 @@
+import {
+  buildCustomerSearchOrConditions,
+  CUSTOMER_SEARCH_ID_LIMIT,
+  customerSearchIdsFromRows,
+  type CustomerSearchRow,
+} from '../lib/customerSearchFilter';
 import { supabase } from '../lib/supabase';
 import { buildCustomerOrderLinkFilter, orderMatchesCustomerLink, type CustomerLinkInput } from '../lib/customerOrderLink';
 import { chunkArray, enrichSalesCards, type SalesCard } from './salesCardData';
@@ -58,6 +64,53 @@ function escapeIlike(s: string): string {
   return s.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
 }
 
+const CUSTOMER_SEARCH_SELECT =
+  'id, ma_khach_hang, ho_va_ten, so_dien_thoai, bien_so_xe';
+
+async function resolveCustomerSearchKeys(term: string): Promise<string[]> {
+  const raw = term.trim();
+  if (!raw) return [];
+
+  const rowMap = new Map<string, CustomerSearchRow>();
+  const mergeRows = (rows: CustomerSearchRow[] | null | undefined) => {
+    for (const row of rows || []) {
+      if (row?.id) rowMap.set(row.id, row);
+    }
+  };
+
+  const orConditions = buildCustomerSearchOrConditions(raw);
+  if (orConditions.length > 0) {
+    const { data, error } = await supabase
+      .from('khach_hang')
+      .select(CUSTOMER_SEARCH_SELECT)
+      .or(orConditions.join(','))
+      .limit(5000);
+
+    if (error) {
+      console.error('Customer search .or() failed, fallback per-field:', error.message);
+    } else {
+      mergeRows(data as CustomerSearchRow[]);
+    }
+  }
+
+  if (rowMap.size === 0) {
+    const pattern = `%${escapeIlike(raw)}%`;
+    const fields = ['bien_so_xe', 'so_dien_thoai', 'ho_va_ten', 'ma_khach_hang'] as const;
+    await Promise.all(
+      fields.map(async (field) => {
+        const { data } = await supabase
+          .from('khach_hang')
+          .select(CUSTOMER_SEARCH_SELECT)
+          .ilike(field, pattern)
+          .limit(1000);
+        mergeRows(data as CustomerSearchRow[]);
+      })
+    );
+  }
+
+  return customerSearchIdsFromRows([...rowMap.values()], raw);
+}
+
 function isMissingSortColumn(error: { message?: string; code?: string } | null, column: string): boolean {
   if (!error) return false;
   return (
@@ -80,7 +133,6 @@ async function runCustomerListQuery(
   const orderPlans: Array<(q: CustomerListQuery) => CustomerListQuery> = [
     (q) => q
       .order('last_order_at', { ascending: false, nullsFirst: false })
-      .order('created_at', { ascending: false, nullsFirst: false })
       .order('id', { ascending: false }),
     (q) => q
       .order('created_at', { ascending: false, nullsFirst: false })
@@ -187,17 +239,19 @@ export const getCustomersPaginated = async (
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
+  const rawSearch = searchQuery?.trim();
+  const searchIds = rawSearch ? await resolveCustomerSearchKeys(rawSearch) : null;
+  if (rawSearch && searchIds && searchIds.length === 0) {
+    return { data: [], totalCount: 0 };
+  }
+
   const buildBase = () => {
     let query = supabase
       .from('khach_hang')
       .select('id, ho_va_ten, so_dien_thoai, anh, dia_chi_hien_tai, bien_so_xe, ngay_dang_ky, so_km, so_ngay_thay_dau, ngay_thay_dau, ma_khach_hang', { count: 'exact' });
 
-    const rawSearch = searchQuery?.trim();
-    if (rawSearch) {
-      const esc = escapeIlike(rawSearch);
-      query = query.or(
-        `ho_va_ten.ilike.%${esc}%,so_dien_thoai.ilike.%${esc}%,bien_so_xe.ilike.%${esc}%,ma_khach_hang.ilike.%${esc}%`
-      );
+    if (searchIds && searchIds.length > 0) {
+      query = query.in('id', searchIds.slice(0, CUSTOMER_SEARCH_ID_LIMIT));
     }
 
     if (depts && depts.length > 0) {
@@ -236,17 +290,19 @@ export const getCustomersForExport = async (
   cycles?: number[],
   branchScope?: string
 ): Promise<KhachHang[]> => {
+  const rawSearch = searchQuery?.trim();
+  const searchIds = rawSearch ? await resolveCustomerSearchKeys(rawSearch) : null;
+  if (rawSearch && searchIds && searchIds.length === 0) {
+    return [];
+  }
+
   const buildBase = () => {
     let query = supabase
       .from('khach_hang')
       .select('id, ho_va_ten, so_dien_thoai, anh, dia_chi_hien_tai, bien_so_xe, ngay_dang_ky, so_km, so_ngay_thay_dau, ngay_thay_dau, ma_khach_hang');
 
-    const rawSearch = searchQuery?.trim();
-    if (rawSearch) {
-      const esc = escapeIlike(rawSearch);
-      query = query.or(
-        `ho_va_ten.ilike.%${esc}%,so_dien_thoai.ilike.%${esc}%,bien_so_xe.ilike.%${esc}%,ma_khach_hang.ilike.%${esc}%`
-      );
+    if (searchIds && searchIds.length > 0) {
+      query = query.in('id', searchIds.slice(0, CUSTOMER_SEARCH_ID_LIMIT));
     }
 
     if (depts && depts.length > 0) {
@@ -298,6 +354,9 @@ export const upsertCustomer = async (customer: Partial<KhachHang>): Promise<Khac
   }
 
   const hasValidId = !!payload.id;
+  if (!hasValidId) {
+    (payload as { last_order_at?: string }).last_order_at = new Date().toISOString();
+  }
   const table = supabase.from('khach_hang');
 
   const { data, error } = hasValidId

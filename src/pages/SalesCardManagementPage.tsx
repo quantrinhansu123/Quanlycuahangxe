@@ -1403,25 +1403,24 @@ const SalesCardManagementPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Filter Bar */}
-        <div className="bg-card p-3 sm:p-4 rounded-xl border border-border shadow-sm font-sans">
-          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end sm:gap-4">
+        {/* Filter Bar — một dòng, cuộn ngang trên mobile */}
+        <div className="bg-card p-2 sm:p-3 rounded-xl border border-border shadow-sm font-sans overflow-x-auto">
+          <div className="flex flex-nowrap items-center justify-end gap-2 sm:gap-3 min-w-max">
             {isAdmin && (
               <>
-                {/* Branch Filter */}
-                <div className="col-span-1 flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-[13px] font-bold text-muted-foreground w-full">
-                  <Building size={14} className="shrink-0 hidden sm:block" />
-                  <div className="relative w-full">
+                <div className="flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold text-muted-foreground shrink-0">
+                  <Building size={14} className="shrink-0" />
+                  <div className="relative">
                     <select
                       value={selectedBranch}
                       onChange={(e) => {
                         setSelectedBranch(e.target.value);
                         setCurrentPage(1);
                       }}
-                      className="appearance-none w-full pl-2 pr-7 sm:pl-3 sm:pr-8 py-1.5 bg-muted/50 border border-border rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none cursor-pointer transition-all text-[11px] sm:text-[13px]"
+                      className="appearance-none min-w-[7.5rem] sm:min-w-[9rem] pl-2 pr-7 sm:pl-3 sm:pr-8 py-1.5 bg-muted/50 border border-border rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none cursor-pointer transition-all text-[11px] sm:text-[13px]"
                     >
                       <option value="">Cơ sở...</option>
-                      {["Cơ sở Bắc Giang", "Cơ sở Bắc Ninh"].map(branch => (
+                      {['Cơ sở Bắc Giang', 'Cơ sở Bắc Ninh'].map((branch) => (
                         <option key={branch} value={branch}>{branch}</option>
                       ))}
                     </select>
@@ -1429,17 +1428,16 @@ const SalesCardManagementPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Staff Filter */}
-                <div className="col-span-1 flex items-center gap-1.5 sm:gap-2 text-[11px] sm:text-[13px] font-bold text-muted-foreground w-full">
-                  <User size={14} className="shrink-0 hidden sm:block" />
-                  <div className="relative w-full">
+                <div className="flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold text-muted-foreground shrink-0">
+                  <User size={14} className="shrink-0" />
+                  <div className="relative">
                     <select
                       value={selectedStaff}
                       onChange={(e) => {
                         setSelectedStaff(e.target.value);
                         setCurrentPage(1);
                       }}
-                      className="appearance-none w-full pl-2 pr-7 sm:pl-3 sm:pr-8 py-1.5 bg-muted/50 border border-border rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none cursor-pointer transition-all text-[11px] sm:text-[13px]"
+                      className="appearance-none min-w-[7.5rem] sm:min-w-[9rem] pl-2 pr-7 sm:pl-3 sm:pr-8 py-1.5 bg-muted/50 border border-border rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none cursor-pointer transition-all text-[11px] sm:text-[13px]"
                     >
                       <option value="">Nhân sự...</option>
                       {personnel.map((p) => (
@@ -1452,15 +1450,14 @@ const SalesCardManagementPage: React.FC = () => {
               </>
             )}
 
-            {/* Month Filter */}
-            <div className="hidden sm:flex col-span-1 items-center gap-1.5 sm:gap-2 text-[11px] sm:text-[13px] font-bold text-muted-foreground w-full sm:w-auto">
+            <div className="flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold text-muted-foreground shrink-0">
+              <Calendar size={14} className="shrink-0" />
               <span className="hidden sm:inline">Tháng:</span>
-              <Calendar size={14} className="shrink-0 sm:hidden" />
-              <div className="relative w-full sm:w-auto">
+              <div className="relative">
                 <select
                   value={selectedMonth}
                   onChange={(e) => handleMonthChange(e.target.value)}
-                  className="appearance-none w-full sm:min-w-[120px] pl-2 pr-7 sm:pl-3 sm:pr-8 py-1.5 bg-muted/50 border border-border rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none cursor-pointer transition-all text-[11px] sm:text-[13px]"
+                  className="appearance-none min-w-[6.5rem] sm:min-w-[7.5rem] pl-2 pr-7 sm:pl-3 sm:pr-8 py-1.5 bg-muted/50 border border-border rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none cursor-pointer transition-all text-[11px] sm:text-[13px]"
                 >
                   <option value="">Tháng...</option>
                   {Array.from({ length: 12 }, (_, i) => {
@@ -1475,20 +1472,7 @@ const SalesCardManagementPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Clear Button (Mobile next to Month) */}
-            <div className="sm:hidden col-span-1 flex justify-end">
-              {(startDate || endDate || searchQuery || selectedMonth || (isAdmin && (selectedStaff || selectedBranch))) && (
-                <button
-                  onClick={handleClearFilters}
-                  className="px-3 py-1.5 bg-rose-500/5 text-rose-500 border border-rose-200 rounded-lg flex items-center gap-1.5 text-[11px] font-bold"
-                >
-                  <X size={14} /> Xóa lọc
-                </button>
-              )}
-            </div>
-
-            {/* Date Range */}
-            <div className="col-span-2 sm:w-auto flex items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border">
+            <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg border border-border shrink-0">
               <input
                 type="date"
                 value={startDate}
@@ -1496,9 +1480,9 @@ const SalesCardManagementPage: React.FC = () => {
                   setStartDate(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="bg-transparent border-none text-[11px] sm:text-[13px] font-medium outline-none p-1 w-full sm:w-[130px] cursor-pointer"
+                className="bg-transparent border-none text-[11px] sm:text-[13px] font-medium outline-none p-1 w-[7.25rem] sm:w-[8.5rem] cursor-pointer"
               />
-              <span className="text-muted-foreground opacity-50 px-1">-</span>
+              <span className="text-muted-foreground opacity-50 px-0.5">-</span>
               <input
                 type="date"
                 value={endDate}
@@ -1506,31 +1490,30 @@ const SalesCardManagementPage: React.FC = () => {
                   setEndDate(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="bg-transparent border-none text-[11px] sm:text-[13px] font-medium outline-none p-1 w-full sm:w-[130px] cursor-pointer"
+                className="bg-transparent border-none text-[11px] sm:text-[13px] font-medium outline-none p-1 w-[7.25rem] sm:w-[8.5rem] cursor-pointer"
               />
             </div>
 
-            {/* Clear Button (Desktop only) */}
-            <div className="hidden sm:block">
-              {(startDate || endDate || searchQuery || selectedMonth || (isAdmin && (selectedStaff || selectedBranch))) && (
-                <button
-                  onClick={handleClearFilters}
-                  className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-all border border-transparent hover:border-rose-100 shrink-0"
-                  title="Xóa bộ lọc"
-                >
-                  <X size={20} />
-                </button>
-              )}
-            </div>
+            {(startDate || endDate || searchQuery || selectedMonth || (isAdmin && (selectedStaff || selectedBranch))) && (
+              <button
+                onClick={handleClearFilters}
+                className="p-1.5 sm:p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-all border border-transparent hover:border-rose-100 shrink-0"
+                title="Xóa bộ lọc"
+              >
+                <X size={18} className="sm:hidden" />
+                <X size={20} className="hidden sm:block" />
+              </button>
+            )}
 
             <button
               type="button"
               onClick={handleExportFilteredExcel}
               disabled={exportingExcel || loading}
-              className="col-span-2 sm:col-span-1 w-full sm:w-auto px-3 py-2 bg-blue-500/10 hover:bg-blue-500/15 text-blue-700 border border-blue-500/25 rounded-lg flex items-center justify-center gap-1.5 text-[11px] sm:text-[13px] font-bold transition-all disabled:opacity-60"
+              className="shrink-0 px-2.5 sm:px-3 py-1.5 sm:py-2 bg-blue-500/10 hover:bg-blue-500/15 text-blue-700 border border-blue-500/25 rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold transition-all disabled:opacity-60 whitespace-nowrap"
             >
               {exportingExcel ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
-              <span>{exportingExcel ? 'Đang xuất Excel...' : 'Xuất Excel (bộ lọc)'}</span>
+              <span className="hidden sm:inline">{exportingExcel ? 'Đang xuất Excel...' : 'Xuất Excel (bộ lọc)'}</span>
+              <span className="sm:hidden">{exportingExcel ? '...' : 'Excel'}</span>
             </button>
           </div>
         </div>
@@ -1690,20 +1673,19 @@ const SalesCardManagementPage: React.FC = () => {
         {/* Data Table (Desktop View) */}
         <div className="hidden md:block bg-card rounded-lg border border-slate-200 shadow-sm overflow-hidden">
           <div className="overflow-x-auto custom-scrollbar">
-            <table className="w-full min-w-[1560px] text-left border-separate border-spacing-0">
+            <table className="w-full min-w-[1410px] text-left border-separate border-spacing-0">
               <thead className="sticky top-0 z-10">
                 <tr className="bg-slate-100 text-slate-600 text-[12px] font-bold uppercase tracking-wide shadow-[inset_0_-1px_0_#cbd5e1]">
                   <th className="px-4 py-4 font-bold text-center w-[112px]">Thời gian</th>
                   <th className="px-4 py-4 font-bold w-[150px]">Khách hàng</th>
                   <th className="px-4 py-4 font-bold w-[130px]">SĐT</th>
+                  <th className="px-4 py-4 font-bold w-[120px]">BSX</th>
                   <th className="px-4 py-4 font-bold w-[190px]">Địa chỉ</th>
                   <th className="px-4 py-4 font-bold w-[180px]">Phụ trách</th>
-                  <th className="px-4 py-4 font-bold text-center w-[120px]">Đánh giá</th>
                   <th className="px-4 py-4 font-bold w-[300px]">Dịch vụ sử dụng</th>
                   <th className="px-4 py-4 font-bold text-right w-[130px]">Tổng tiền</th>
                   <th className="px-4 py-4 font-bold text-center w-[130px]">Thanh toán</th>
                   <th className="px-4 py-4 font-bold text-right w-[110px]">Số Km</th>
-                  <th className="px-4 py-4 font-bold text-center w-[150px]">Nhắc thay dầu</th>
                   <th className="px-4 py-4 font-bold w-[180px]">Ghi chú</th>
                   <th className="px-4 py-4 text-center font-bold w-[120px]">Thao tác</th>
                 </tr>
@@ -1711,7 +1693,7 @@ const SalesCardManagementPage: React.FC = () => {
               <tbody className="text-[14px]">
                 {loading ? (
                   <tr>
-                    <td colSpan={13} className="px-4 py-12 text-center text-muted-foreground">
+                    <td colSpan={12} className="px-4 py-12 text-center text-muted-foreground">
                       <Loader2 className="animate-spin inline-block mr-2" size={20} />
                       Đang tải dữ liệu phiếu bán hàng...
                     </td>
@@ -1721,7 +1703,7 @@ const SalesCardManagementPage: React.FC = () => {
                     <React.Fragment key={group.date}>
                       {/* Group Header Row */}
                       <tr className="bg-slate-50">
-                        <td colSpan={13} className="px-4 py-3 border-y border-slate-200">
+                        <td colSpan={12} className="px-4 py-3 border-y border-slate-200">
                           <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
                             <span className="inline-flex items-center gap-2 text-[13px] font-black text-primary bg-blue-50 px-3 py-1.5 rounded-full border border-blue-200">
                               <Calendar size={14} />
@@ -1760,6 +1742,15 @@ const SalesCardManagementPage: React.FC = () => {
                       <div className="font-black text-primary leading-snug">{card.khach_hang?.ho_va_ten || card.ten_khach_hang || 'N/A'}</div>
                     </td>
                     <td className="px-4 py-4 text-slate-600 font-medium border-b border-slate-100 align-top">{card.khach_hang?.so_dien_thoai || card.so_dien_thoai || 'N/A'}</td>
+                    <td className="px-4 py-4 border-b border-slate-100 align-top">
+                      {card.khach_hang?.bien_so_xe ? (
+                        <span className="inline-flex max-w-[110px] px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 font-black text-[12px] uppercase border border-blue-100 truncate" title={card.khach_hang.bien_so_xe}>
+                          {card.khach_hang.bien_so_xe}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground/30">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-4 text-slate-500 text-[13px] leading-relaxed border-b border-slate-100 align-top">{card.khach_hang?.dia_chi_hien_tai || '—'}</td>
                     <td className="px-4 py-4 border-b border-slate-100 align-top">
                       <div className="flex flex-col gap-1">
@@ -1777,7 +1768,6 @@ const SalesCardManagementPage: React.FC = () => {
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-4 text-center text-slate-400 border-b border-slate-100 align-top">—</td>
                     <td className="px-4 py-4 border-b border-slate-100 align-top">
                       <div className="flex flex-wrap gap-1.5">
                         {(card as any).the_ban_hang_ct && (card as any).the_ban_hang_ct.length > 0 ? (
@@ -1816,14 +1806,6 @@ const SalesCardManagementPage: React.FC = () => {
                       )}
                     </td>
                     <td className="px-4 py-4 text-right font-mono font-bold text-slate-900 border-b border-slate-100 align-top whitespace-nowrap">{card.so_km?.toLocaleString()} km</td>
-                    <td className="px-4 py-4 text-center border-b border-slate-100 align-top">
-                      {card.ngay_nhac_thay_dau ? (
-                        <div className="inline-flex items-center justify-center gap-1.5 text-rose-700 bg-rose-50 border border-rose-100 rounded-md px-2.5 py-1.5 font-bold whitespace-nowrap">
-                          <Calendar size={15} />
-                          {new Date(card.ngay_nhac_thay_dau).toLocaleDateString('vi-VN')}
-                        </div>
-                      ) : '—'}
-                    </td>
                     <td className="px-4 py-4 max-w-[200px] border-b border-slate-100 align-top">
                       {card.ghi_chu ? (
                         <div className="flex items-start gap-1.5 text-amber-600/70 italic text-[12px] leading-relaxed line-clamp-2" title={card.ghi_chu}>
@@ -1851,14 +1833,14 @@ const SalesCardManagementPage: React.FC = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={13} className="px-4 py-12 text-center text-muted-foreground italic border-b border-dashed border-border">
+                    <td colSpan={12} className="px-4 py-12 text-center text-muted-foreground italic border-b border-dashed border-border">
                       Chưa có phiếu bán hàng nào được lập.
                     </td>
                   </tr>
                 )}
                 {!loading && groupedSales.length > 0 && (
                   <tr className="bg-primary/5 font-black border-t-2 border-primary/20">
-                    <td colSpan={7} className="px-4 py-5 text-right">
+                    <td colSpan={6} className="px-4 py-5 text-right">
                       <div className="flex flex-col items-end">
                         <span className="text-muted-foreground text-[11px] tracking-widest uppercase mb-1">Tổng khách (toàn bộ):</span>
                         <div className="flex items-center gap-2">

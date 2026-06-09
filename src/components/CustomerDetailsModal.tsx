@@ -122,7 +122,6 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
       let msg = `Chào ${customer.ho_va_ten}, Gara gửi tóm tắt dịch vụ của bạn:\n`;
       msg += `-------------------------\n`;
       msg += `🚗 Xe: ${customer.bien_so_xe} — KM: ${(latestOrderKm ?? customer.so_km ?? 0).toLocaleString()} Km\n`;
-      msg += `📅 Chu kỳ thay dầu: ${customer.so_ngay_thay_dau || '—'} ngày\n`;
       msg += `-------------------------\n`;
       msg += `📊 Thống kê (${start} - ${end}):\n`;
       msg += `- Tổng chi tiêu: ${formatCurrency(totalSpent)}\n`;
@@ -383,16 +382,6 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
                                  icon={Gauge}
                                  label="Số KM Hiện tại"
                                  value={`${(latestOrderKm ?? customer.so_km ?? 0).toLocaleString()} Km`}
-                              />
-                              <InfoRow
-                                 icon={Clock}
-                                 label="Chu kỳ thay dầu"
-                                 value={`${customer.so_ngay_thay_dau || '—'} ngày`}
-                              />
-                              <InfoRow
-                                 icon={Calendar}
-                                 label="Lần thay dầu cuối"
-                                 value={customer.ngay_thay_dau ? new Date(customer.ngay_thay_dau).toLocaleDateString('vi-VN') : '—'}
                               />
                            </div>
                         </div>

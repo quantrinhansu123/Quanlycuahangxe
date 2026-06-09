@@ -72,6 +72,7 @@ const CustomerManagementPage: React.FC = () => {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [rlsBlocked, setRlsBlocked] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [lastOrderDates, setLastOrderDates] = useState<Record<string, string>>({});
   const [customerStats, setCustomerStats] = useState<Record<string, { totalRevenue: number; visitCount: number; latestSoKm?: number }>>({});
   const [latestKmMap, setLatestKmMap] = useState<Record<string, number>>({});
@@ -131,7 +132,7 @@ const CustomerManagementPage: React.FC = () => {
 
   const [visibleColumns, setVisibleColumns] = useState<string[]>([
     'anh', 'ho_va_ten', 'so_dien_thoai', 'dia_chi_hien_tai', 'bien_so_xe',
-    'total_revenue', 'visit_count', 'ngay_dang_ky', 'so_km', 'so_ngay_thay_dau', 'ngay_thay_dau', 'actions'
+    'total_revenue', 'visit_count', 'ngay_dang_ky', 'so_km', 'actions'
 
   ]);
 
@@ -147,8 +148,6 @@ const CustomerManagementPage: React.FC = () => {
     { id: 'ngay_dang_ky', label: 'Ngày đăng ký' },
 
     { id: 'so_km', label: 'Số KM' },
-    { id: 'so_ngay_thay_dau', label: 'Chu kỳ' },
-    { id: 'ngay_thay_dau', label: 'Ngày thay dầu' },
     { id: 'actions', label: 'Thao tác' }
 
   ];
@@ -157,12 +156,6 @@ const CustomerManagementPage: React.FC = () => {
     setVisibleColumns(prev =>
       prev.includes(colId) ? prev.filter(c => c !== colId) : [...prev, colId]
     );
-  }, []);
-
-  const today = useMemo(() => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d;
   }, []);
 
   // Load data from Supabase with pagination
@@ -174,7 +167,7 @@ const CustomerManagementPage: React.FC = () => {
       const { data, totalCount } = await getCustomersPaginated(
         currentPage,
         pageSize,
-        searchQuery,
+        debouncedSearch,
         selectedDepts,
         [],
         undefined
@@ -242,17 +235,20 @@ const CustomerManagementPage: React.FC = () => {
   };
 
   useEffect(() => {
-    loadCustomers();
-  }, [currentPage, pageSize, selectedDepts]);
-
-  // Reset page when searching
-  useEffect(() => {
     const timer = setTimeout(() => {
-      if (currentPage !== 1) setCurrentPage(1);
-      else loadCustomers();
-    }, 500); // Debounce search
+      setDebouncedSearch(searchQuery.trim());
+      setCurrentPage(1);
+    }, 400);
     return () => clearTimeout(timer);
   }, [searchQuery]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedDepts]);
+
+  useEffect(() => {
+    loadCustomers();
+  }, [currentPage, pageSize, debouncedSearch, selectedDepts]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -274,7 +270,7 @@ const CustomerManagementPage: React.FC = () => {
 
   // Nhóm theo ngày đăng ký — giữ đúng thứ tự server (hoá đơn mới / mới tạo ↓), không sort lại các nhóm.
   const groupedCustomers = useMemo(() => {
-    const groups: { date: string; items: KhachHang[] }[] = [];
+    const groups: { key: string; date: string; items: KhachHang[] }[] = [];
 
     for (const customer of customers) {
       const dateStr = customer.ngay_dang_ky
@@ -284,7 +280,11 @@ const CustomerManagementPage: React.FC = () => {
       if (last && last.date === dateStr) {
         last.items.push(customer);
       } else {
-        groups.push({ date: dateStr, items: [customer] });
+        groups.push({
+          key: `${dateStr}-${customer.id}`,
+          date: dateStr,
+          items: [customer],
+        });
       }
     }
 
@@ -335,7 +335,7 @@ const CustomerManagementPage: React.FC = () => {
   const handleExportFilteredExcel = async () => {
     try {
       setExportingExcel(true);
-      const rows = await getCustomersForExport(searchQuery, selectedDepts, [], undefined);
+      const rows = await getCustomersForExport(debouncedSearch, selectedDepts, [], undefined);
 
       if (rows.length === 0) {
         showToast('Không có khách hàng nào khớp bộ lọc để xuất.', 'error');
@@ -361,8 +361,6 @@ const CustomerManagementPage: React.FC = () => {
           'Địa chỉ': c.dia_chi_hien_tai,
           'Ngày đăng ký': c.ngay_dang_ky ? formatDateVi(c.ngay_dang_ky) : '',
           'Số km (đơn gần nhất)': km ?? c.so_km ?? '',
-          'Chu kỳ thay dầu (ngày)': c.so_ngay_thay_dau ?? '',
-          'Ngày thay dầu': c.ngay_thay_dau ? formatDateVi(c.ngay_thay_dau) : '',
           'Tổng doanh số': st?.totalRevenue ?? 0,
           'Số lần ghé': st?.visitCount ?? 0,
         };
@@ -392,9 +390,7 @@ const CustomerManagementPage: React.FC = () => {
         "Địa chỉ lưu trú hiện tại": "Bắc Giang",
         "Biển số Xe": "98A-123.45",
         "Ngày đăng ký": "2024-01-01",
-        "Số Km": 15000,
-        "Số ngày thay dầu": 60,
-        "Ngày thay dầu": "2024-02-15"
+        "Số Km": 15000
       }
     ];
 
@@ -453,8 +449,6 @@ const CustomerManagementPage: React.FC = () => {
             bien_so_xe: String(getValue(['biển số xe', 'biển số', 'plate']) || '').trim(),
             ngay_dang_ky: formatExcelDate(getValue(['ngày đăng ký', 'ngay dang ky'])),
             so_km: Number(getValue(['số km', 'số km hiện tại', 'km'])) || 0,
-            so_ngay_thay_dau: Number(getValue(['số ngày thay dầu', 'chu kỳ', 'số ngày'])) || 0,
-            ngay_thay_dau: formatExcelDate(getValue(['ngày thay dầu', 'ngay thay dau'])),
             ma_khach_hang: excelId || ('KH-' + Math.random().toString(36).substring(2, 8).toUpperCase())
           };
 
@@ -530,7 +524,7 @@ const CustomerManagementPage: React.FC = () => {
   const deptOptions = allDepts;
 
   return (
-    <div className="w-full flex-1 animate-in fade-in slide-in-from-bottom-4 duration-500 text-muted-foreground font-sans">
+    <div className="w-full flex-1 animate-in fade-in slide-in-from-bottom-4 duration-500 text-foreground font-sans">
       <div className="space-y-4">
         {fetchError && (
           <div className="rounded-2xl px-4 py-3 text-sm bg-destructive/10 text-destructive border border-destructive/20">
@@ -558,17 +552,17 @@ const CustomerManagementPage: React.FC = () => {
             <button
               type="button"
               onClick={() => navigate(-1)}
-              className="p-1.5 sm:p-2 hover:bg-muted rounded-xl flex items-center text-muted-foreground transition-all border border-border shadow-sm shrink-0"
+              className="p-1.5 sm:p-2 hover:bg-muted rounded-xl flex items-center text-foreground transition-all border border-border shadow-sm shrink-0"
               title="Quay lại"
             >
               <ArrowLeft className="size-4 sm:size-5" />
             </button>
 
             <div className="relative group flex-1 min-w-0">
-              <Search className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 size-3.5 sm:size-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+              <Search className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 size-3.5 sm:size-4 text-foreground group-focus-within:text-primary transition-colors" />
               <input
                 type="text"
-                placeholder="Tìm khách hàng..."
+                placeholder="Tìm tên, SĐT, BSX..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full min-w-[120px] pl-8 sm:pl-9 pr-2 sm:pr-4 py-1.5 sm:py-2 bg-muted/30 border border-border rounded-xl text-[12px] sm:text-[13px] focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
@@ -594,7 +588,7 @@ const CustomerManagementPage: React.FC = () => {
                 onClick={() => toggleDropdown('columns')}
                 className={clsx(
                   "p-2 border rounded-xl transition-all shadow-sm",
-                  openDropdown === 'columns' ? "bg-primary/10 border-primary text-primary" : "bg-muted/30 border-border text-muted-foreground hover:bg-muted"
+                  openDropdown === 'columns' ? "bg-primary/10 border-primary text-primary" : "bg-muted/30 border-border text-foreground hover:bg-muted"
                 )}
                 title="Cài đặt cột"
                 type="button"
@@ -637,7 +631,7 @@ const CustomerManagementPage: React.FC = () => {
             <button
               type="button"
               onClick={handleDownloadTemplate}
-              className="px-3 py-2 bg-muted/30 hover:bg-muted border border-border rounded-xl flex items-center gap-1.5 text-[12px] sm:text-[13px] font-bold text-muted-foreground transition-all shadow-sm"
+              className="px-3 py-2 bg-muted/30 hover:bg-muted border border-border rounded-xl flex items-center gap-1.5 text-[12px] sm:text-[13px] font-bold text-foreground transition-all shadow-sm"
               title="Tải mẫu Excel"
             >
               <Download className="size-4" />
@@ -682,9 +676,9 @@ const CustomerManagementPage: React.FC = () => {
                     <button type="button" onClick={() => setSelectedDepts([])} className="text-[10px] text-destructive hover:underline font-medium">Xoá chọn</button>
                   </div>
                   {deptOptions.length === 0 ? (
-                    <p className="px-3 py-3 text-[12px] text-muted-foreground">Chưa có dữ liệu địa chỉ / chi nhánh.</p>
+                    <p className="px-3 py-3 text-[12px] text-foreground">Chưa có dữ liệu địa chỉ / chi nhánh.</p>
                   ) : (
-                    <ul className="py-1 text-[13px] text-muted-foreground max-h-[250px] overflow-y-auto custom-scrollbar">
+                    <ul className="py-1 text-[13px] text-foreground max-h-[250px] overflow-y-auto custom-scrollbar">
                       {deptOptions.map(dept => (
                         <li key={dept} className="px-3 py-2 hover:bg-accent cursor-pointer flex items-center gap-2" onClick={() => handleFilterChange(setSelectedDepts, dept)}>
                           <input type="checkbox" checked={selectedDepts.includes(dept)} readOnly className="rounded border-border text-primary size-4" /> {dept}
@@ -696,7 +690,7 @@ const CustomerManagementPage: React.FC = () => {
               )}
             </div>
             <div className="flex items-center gap-1.5 sm:gap-2 ml-auto shrink-0">
-              <span className="text-[11px] sm:text-[13px] font-semibold text-muted-foreground whitespace-nowrap">Số khách hàng</span>
+              <span className="text-[11px] sm:text-[13px] font-semibold text-foreground whitespace-nowrap">Số khách hàng</span>
               <span className="text-base sm:text-xl font-black tabular-nums text-primary">
                 {loading ? '…' : totalCount.toLocaleString('vi-VN')}
               </span>
@@ -723,10 +717,10 @@ const CustomerManagementPage: React.FC = () => {
           ) : customers.length > 0 ? (
             <div className="px-3 py-3 space-y-3">
               {groupedCustomers.map(group => (
-                <div key={group.date} className="space-y-3 mb-6">
+                <div key={group.key} className="space-y-3 mb-6">
                   <div className="flex items-center gap-2 px-1">
                     <div className="h-px bg-border flex-1" />
-                    <span className="text-[11px] font-black text-muted-foreground/60 uppercase tracking-widest whitespace-nowrap bg-muted/50 px-3 py-1 rounded-full border border-border shadow-sm italic">
+                    <span className="text-[11px] font-black text-foreground uppercase tracking-widest whitespace-nowrap bg-muted/50 px-3 py-1 rounded-full border border-border shadow-sm italic">
                       {group.date} : <span className="text-primary">{group.items.length}</span> khách hàng
                     </span>
                     <div className="h-px bg-border flex-1" />
@@ -734,7 +728,6 @@ const CustomerManagementPage: React.FC = () => {
                   
                   <div className="space-y-3">
                     {group.items.map(customer => {
-                      const isDue = customer.ngay_thay_dau ? new Date(customer.ngay_thay_dau) <= today : false;
                       const formatDateMobile = (dateStr?: string) => formatDateVi(dateStr);
 
                       return (
@@ -763,33 +756,27 @@ const CustomerManagementPage: React.FC = () => {
                               <div className="flex items-baseline gap-1.5 min-w-0">
                                 <h3 className="font-extrabold text-foreground text-sm truncate">{customer.ho_va_ten}</h3>
                                 {customer.so_dien_thoai && (
-                                  <span className="text-[11px] text-muted-foreground/80 font-medium whitespace-nowrap">· {customer.so_dien_thoai}</span>
+                                  <span className="text-[11px] text-foreground font-medium whitespace-nowrap">· {customer.so_dien_thoai}</span>
                                 )}
                               </div>
-                              {isDue ? (
-                                <span className="bg-red-500/10 text-red-600 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider shrink-0 ml-2 animate-pulse">
-                                  Thay dầu
-                                </span>
-                              ) : (
-                                <span className="bg-primary/5 text-primary/70 border border-primary/10 px-1.5 py-0.5 rounded text-[9px] font-bold tracking-tight shrink-0 ml-2">
-                                  {(() => {
-                                    const lastDate = lastOrderDates[customer.id] || (customer.ma_khach_hang ? lastOrderDates[customer.ma_khach_hang] : null);
-                                    if (!lastDate) return 'Chưa có đơn';
-                                    const d = new Date(lastDate);
-                                    return `Đơn cuối: ${isNaN(d.getTime()) ? lastDate : d.toLocaleDateString('vi-VN')}`;
-                                  })()}
-                                </span>
-                              )}
+                              <span className="bg-primary/5 text-primary/70 border border-primary/10 px-1.5 py-0.5 rounded text-[9px] font-bold tracking-tight shrink-0 ml-2">
+                                {(() => {
+                                  const lastDate = lastOrderDates[customer.id] || (customer.ma_khach_hang ? lastOrderDates[customer.ma_khach_hang] : null);
+                                  if (!lastDate) return 'Chưa có đơn';
+                                  const d = new Date(lastDate);
+                                  return `Đơn cuối: ${isNaN(d.getTime()) ? lastDate : d.toLocaleDateString('vi-VN')}`;
+                                })()}
+                              </span>
 
                             </div>
 
                             {/* Line 2: Plate + KM + Address */}
-                            <div className="flex items-center gap-1.5 text-[11px] mt-1 text-muted-foreground font-medium min-w-0">
+                            <div className="flex items-center gap-1.5 text-[11px] mt-1 text-foreground font-medium min-w-0">
                               <div className="flex items-center gap-1 shrink-0">
                                 <Car size={14} className="text-primary" />
                                 <span className={clsx(
                                   "font-bold",
-                                  customer.bien_so_xe === 'Xe Chưa Biển' ? "text-amber-600" : "text-foreground"
+                                  "text-foreground"
                                 )}>{customer.bien_so_xe}</span>
                               </div>
                               <span className="text-border">•</span>
@@ -801,36 +788,24 @@ const CustomerManagementPage: React.FC = () => {
                                 <>
                                   <span className="text-border">•</span>
                                   <div className="flex items-center gap-1 truncate">
-                                    <Building2 size={14} className="text-muted-foreground/60 shrink-0" />
+                                    <Building2 size={14} className="text-foreground shrink-0" />
                                     <span className="truncate">{customer.dia_chi_hien_tai}</span>
                                   </div>
                                 </>
                               )}
                             </div>
 
-                            {/* Line 3: Dates + Cycle */}
-                            <div className="flex items-center gap-1.5 text-[10px] mt-1 text-muted-foreground min-w-0">
+                            {/* Line 3: Ngày đăng ký */}
+                            <div className="flex items-center gap-1.5 text-[10px] mt-1 text-foreground min-w-0">
                               <div className="flex items-center gap-0.5 shrink-0">
-                                <Calendar size={12} className="text-muted-foreground/60" />
+                                <Calendar size={12} className="text-foreground" />
                                 <span className="font-semibold text-foreground">ĐK: {formatDateMobile(customer.ngay_dang_ky)}</span>
-                              </div>
-                              <span className="text-border opacity-40">•</span>
-                              <div className="flex items-center gap-0.5 shrink-0">
-                                <History size={12} className="text-muted-foreground/60" />
-                                <span>{customer.so_ngay_thay_dau} ngày</span>
-                              </div>
-                              <span className="text-border opacity-40">•</span>
-                              <div className="flex items-center gap-0.5 shrink-0">
-                                <Calendar size={12} className={isDue ? "text-red-500" : "text-muted-foreground/60"} />
-                                <span className={clsx("font-bold", isDue ? "text-red-600" : "text-primary")}>
-                                  {formatDateMobile(customer.ngay_thay_dau)}
-                                </span>
                               </div>
                             </div>
                             
                             {/* Line 4: Stats (Revenue + Visits) */}
                             <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                              <div className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-600 bg-emerald-500/5 px-2 py-1 rounded-lg">
+                              <div className="flex items-center gap-1.5 text-[11px] font-bold text-foreground bg-muted/40 px-2 py-1 rounded-lg">
                                 <ShoppingCart size={14} />
                                 <span>{
                                   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
@@ -838,7 +813,7 @@ const CustomerManagementPage: React.FC = () => {
                                   )
                                 }</span>
                               </div>
-                              <div className="flex items-center gap-1.5 text-[11px] font-bold text-blue-600 bg-blue-500/5 px-2 py-1 rounded-lg">
+                              <div className="flex items-center gap-1.5 text-[11px] font-bold text-foreground bg-muted/40 px-2 py-1 rounded-lg">
                                 <History size={14} />
                                 <span>Ghé: {
                                   (customerStats[customer.id]?.visitCount || (customer.ma_khach_hang ? customerStats[customer.ma_khach_hang]?.visitCount : 0)) || 0
@@ -890,7 +865,7 @@ const CustomerManagementPage: React.FC = () => {
               ))}
             </div>
           ) : (
-            <div className="px-3 py-8 text-center text-muted-foreground text-[13px]">
+            <div className="px-3 py-8 text-center text-foreground text-[13px]">
               Chưa có khách hàng nào được tìm thấy.
             </div>
           )}
@@ -901,7 +876,7 @@ const CustomerManagementPage: React.FC = () => {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-muted border-b border-border text-muted-foreground text-[13px] font-bold uppercase tracking-tight">
+                <tr className="bg-muted border-b border-border text-foreground text-[13px] font-bold uppercase tracking-tight">
                   <th className="px-4 py-3 w-8 text-center"><input className="rounded border-border text-primary size-4" type="checkbox" /></th>
                   {visibleColumns.includes('ma_khach_hang') && <th className="px-4 py-3 font-semibold">Mã KH</th>}
                   {visibleColumns.includes('anh') && <th className="px-4 py-3 font-semibold text-center">Ảnh</th>}
@@ -915,8 +890,6 @@ const CustomerManagementPage: React.FC = () => {
 
 
                   {visibleColumns.includes('so_km') && <th className="px-4 py-3 font-semibold text-right">Số Km</th>}
-                  {visibleColumns.includes('so_ngay_thay_dau') && <th className="px-4 py-3 font-semibold text-center">Số ngày thay dầu</th>}
-                  {visibleColumns.includes('ngay_thay_dau') && <th className="px-4 py-3 font-semibold">Ngày thay dầu</th>}
                   {visibleColumns.includes('actions') && <th className="px-4 py-3 text-center font-semibold">Thao tác</th>}
                 </tr>
               </thead>
@@ -926,11 +899,11 @@ const CustomerManagementPage: React.FC = () => {
                     <SkeletonRow key={i} visibleColumns={visibleColumns} />
                   ))
                 ) : groupedCustomers.map(group => (
-                  <React.Fragment key={group.date}>
+                  <React.Fragment key={group.key}>
                     <tr className="bg-muted/40 border-y border-border/50">
                       <td colSpan={12} className="px-4 py-2">
                         <div className="flex items-center gap-3">
-                            <span className="text-[11px] font-black text-muted-foreground/70 uppercase tracking-widest italic">
+                            <span className="text-[11px] font-black text-foreground uppercase tracking-widest italic">
                               {group.date}
                             </span>
                             <div className="h-px bg-border flex-1 opacity-50" />
@@ -948,7 +921,6 @@ const CustomerManagementPage: React.FC = () => {
                         onEdit={handleOpenModal}
                         onDelete={handleDelete}
                         onOpenDetails={handleOpenDetails}
-                        today={today}
                         stats={resolveCustomerStats(customer, customerStats) || { totalRevenue: 0, visitCount: 0 }}
                         displayKm={displayCustomerKm(customer, latestKmMap, customerStats)}
                         canManageCustomers={canManageCustomers}
@@ -962,7 +934,7 @@ const CustomerManagementPage: React.FC = () => {
                 ))}
                 {!loading && !fetchError && customers.length === 0 && (
                   <tr>
-                    <td colSpan={12} className="px-4 py-8 text-center text-muted-foreground">
+                    <td colSpan={12} className="px-4 py-8 text-center text-foreground">
                       {rlsBlocked
                         ? 'Không đọc được khách hàng — xem hướng dẫn sửa RLS phía trên.'
                         : searchQuery || selectedDepts.length > 0
@@ -1022,16 +994,11 @@ const CustomerTableRow: React.FC<{
   onEdit: (customer: KhachHang) => void;
   onDelete: (id: string) => void;
   onOpenDetails: (customer: KhachHang) => void;
-  today: Date;
   stats: { totalRevenue: number; visitCount: number; latestSoKm?: number };
   displayKm: number;
   canManageCustomers: boolean;
   isAdmin: boolean;
-}> = React.memo(({ customer, visibleColumns, onEdit, onDelete, onOpenDetails, today, stats, displayKm, canManageCustomers, isAdmin }) => {
-
-
-  const isCầnThayDầu = customer.ngay_thay_dau ? new Date(customer.ngay_thay_dau) <= today : false;
-
+}> = React.memo(({ customer, visibleColumns, onEdit, onDelete, onOpenDetails, stats, displayKm, canManageCustomers, isAdmin }) => {
   const formatDate = (dateStr: string | undefined) => formatDateVi(dateStr);
 
   return (
@@ -1045,7 +1012,7 @@ const CustomerTableRow: React.FC<{
       <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
         <input className="rounded border-border text-primary size-4" type="checkbox" />
       </td>
-      {visibleColumns.includes('ma_khach_hang') && <td className="px-4 py-3 font-mono text-[12px] text-muted-foreground">{customer.ma_khach_hang || customer.id.slice(0, 8)}</td>}
+      {visibleColumns.includes('ma_khach_hang') && <td className="px-4 py-3 font-mono text-[12px] text-foreground">{customer.ma_khach_hang || customer.id.slice(0, 8)}</td>}
       {visibleColumns.includes('anh') && (
         <td className="px-4 py-3">
           <div className="w-8 h-8 rounded bg-primary/10 flex items-center justify-center text-primary overflow-hidden border border-border shadow-sm mx-auto">
@@ -1062,9 +1029,9 @@ const CustomerTableRow: React.FC<{
           {customer.ho_va_ten}
         </td>
       )}
-      {visibleColumns.includes('so_dien_thoai') && <td className="px-4 py-3 text-muted-foreground whitespace-nowrap text-[14px] tabular-nums">{customer.so_dien_thoai}</td>}
+      {visibleColumns.includes('so_dien_thoai') && <td className="px-4 py-3 text-foreground whitespace-nowrap text-[14px] tabular-nums">{customer.so_dien_thoai}</td>}
       {visibleColumns.includes('dia_chi_hien_tai') && (
-        <td className="px-4 py-3 text-muted-foreground text-[13px] truncate max-w-[200px]" title={customer.dia_chi_hien_tai}>
+        <td className="px-4 py-3 text-foreground text-[13px] truncate max-w-[200px]" title={customer.dia_chi_hien_tai}>
           {customer.dia_chi_hien_tai || '—'}
         </td>
       )}
@@ -1072,40 +1039,30 @@ const CustomerTableRow: React.FC<{
         <td className="px-4 py-3">
           <span className={clsx(
             "px-2 py-1 rounded text-[12px] font-black border tracking-wider",
-            customer.bien_so_xe === 'Xe Chưa Biển' ? "bg-amber-50 text-amber-600 border-amber-100" : "bg-blue-50 text-blue-600 border-blue-100"
+            customer.bien_so_xe === 'Xe Chưa Biển' ? "bg-muted/50 text-foreground border-border" : "bg-muted/30 text-foreground border-border"
           )}>
             {customer.bien_so_xe}
           </span>
         </td>
       )}
       {visibleColumns.includes('total_revenue') && (
-        <td className="px-4 py-3 text-right font-black text-emerald-600 tabular-nums text-[14px]">
+        <td className="px-4 py-3 text-right font-black text-foreground tabular-nums text-[14px]">
           {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(stats?.totalRevenue || 0)}
         </td>
       )}
 
       {visibleColumns.includes('visit_count') && (
-        <td className="px-4 py-3 text-center font-bold text-blue-600 tabular-nums text-[14px]">
+        <td className="px-4 py-3 text-center font-bold text-foreground tabular-nums text-[14px]">
           {stats?.visitCount || 0}
         </td>
       )}
 
-      {visibleColumns.includes('ngay_dang_ky') && <td className="px-4 py-3 text-muted-foreground whitespace-nowrap text-[13px]">{formatDate(customer.ngay_dang_ky)}</td>}
+      {visibleColumns.includes('ngay_dang_ky') && <td className="px-4 py-3 text-foreground whitespace-nowrap text-[13px]">{formatDate(customer.ngay_dang_ky)}</td>}
 
 
       {visibleColumns.includes('so_km') && (
         <td className="px-4 py-3 font-bold text-foreground text-[14px] tabular-nums text-right">
-          {displayKm.toLocaleString()} <span className="font-normal text-muted-foreground text-[10px]">Km</span>
-        </td>
-      )}
-      {visibleColumns.includes('so_ngay_thay_dau') && <td className="px-4 py-3 text-center text-muted-foreground text-[13px]">{customer.so_ngay_thay_dau} ngày</td>}
-      {visibleColumns.includes('ngay_thay_dau') && (
-        <td className="px-4 py-3">
-          <div className="flex items-center gap-1">
-            <span className={clsx("font-bold text-[14px] tabular-nums", isCầnThayDầu ? "text-red-500 font-black" : "text-primary")}>
-              {formatDate(customer.ngay_thay_dau)}
-            </span>
-          </div>
+          {displayKm.toLocaleString()} <span className="font-normal text-foreground text-[10px]">Km</span>
         </td>
       )}
       {visibleColumns.includes('actions') && (
