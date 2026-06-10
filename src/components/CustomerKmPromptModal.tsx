@@ -1,12 +1,9 @@
 import { Building2, Gauge, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { CUSTOMER_BRANCH_OPTIONS, isCustomerBranchEmpty } from '../constants/customerBranches';
 
-export const CUSTOMER_BRANCH_OPTIONS = ['Cơ sở Bắc Giang', 'Cơ sở Bắc Ninh'] as const;
-
-export function isCustomerBranchEmpty(diaChi?: string | null): boolean {
-  return !(diaChi || '').trim();
-}
+export { CUSTOMER_BRANCH_OPTIONS, isCustomerBranchEmpty };
 
 interface CustomerKmPromptModalProps {
   isOpen: boolean;

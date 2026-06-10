@@ -3,9 +3,8 @@ import { Calendar, Check, Clock, Gauge, History, Info, Loader2, MapPin, MessageS
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { getCustomerServiceHistory, upsertCustomer, type KhachHang } from '../data/customerData';
+import { getCustomerServiceHistory, type KhachHang } from '../data/customerData';
 import { formatLocalDateYYYYMMDD } from '../lib/utils';
-import CustomerKmPromptModal from './CustomerKmPromptModal';
 
 function sumCardAmountVnd(card: {
   the_ban_hang_ct?: { gia_ban?: unknown; so_luong?: unknown }[];
@@ -47,22 +46,12 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
    const [activeTab, setActiveTab] = useState<'history' | 'km_history' | 'info'>('history');
    const navigate = useNavigate();
    const [copySuccess, setCopySuccess] = useState(false);
-   const [kmPromptOpen, setKmPromptOpen] = useState(false);
-
-   const goToCreateOrder = async (soKm: number, coSo?: string) => {
-      if (coSo && customer) {
-         try {
-            await upsertCustomer({ id: customer.id, dia_chi_hien_tai: coSo });
-         } catch (error) {
-            console.error('Lỗi khi lưu cơ sở khách hàng:', error);
-         }
-      }
+   const goToCreateOrder = () => {
+      if (!customer) return;
       onClose();
       navigate('/ban-hang/phieu-ban-hang', {
          state: {
-            pendingCustomerId: customer!.id,
-            pendingMaKhachHang: customer!.ma_khach_hang,
-            pendingSoKm: soKm,
+            pendingCustomerData: customer,
          },
       });
    };
@@ -426,7 +415,7 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
                   </div>
                <button 
                   type="button"
-                  onClick={() => setKmPromptOpen(true)}
+                  onClick={goToCreateOrder}
                   className="flex-1 min-w-0 px-2 py-2.5 sm:px-6 sm:py-3 bg-primary hover:bg-primary/90 text-white text-[9px] sm:text-sm font-black rounded-xl sm:rounded-2xl border border-primary/20 transition-all active:scale-95 shadow-lg shadow-primary/20 uppercase tracking-tight sm:tracking-widest flex items-center justify-center"
                >
                   <span className="truncate text-center leading-tight">LÊN ĐƠN HÀNG</span>
@@ -435,16 +424,6 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
          </div>
       </div>
 
-      <CustomerKmPromptModal
-         isOpen={kmPromptOpen}
-         customerName={customer.ho_va_ten}
-         currentBranch={customer.dia_chi_hien_tai}
-         onCancel={() => setKmPromptOpen(false)}
-         onConfirm={(km, coSo) => {
-            setKmPromptOpen(false);
-            goToCreateOrder(km, coSo);
-         }}
-      />
       </>,
       document.body
    );

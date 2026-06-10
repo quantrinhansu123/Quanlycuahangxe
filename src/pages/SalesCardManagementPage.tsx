@@ -127,19 +127,20 @@ const SalesCardManagementPage: React.FC = () => {
 
   const loadReferenceData = useCallback(async () => {
     if (hasLoadedRefData.current) return;
+    hasLoadedRefData.current = true;
     try {
-      const [custData, persData, servData] = await Promise.all([
-        getCustomersForSelect(), // Lightweight: only id, name, phone, plate, legacy_id
+      const [persData, servData] = await Promise.all([
         getPersonnel(),
-        getServices()
+        getServices(),
       ]);
-      setCustomers(custData as KhachHang[]);
       setPersonnel(persData);
       setServices(servData);
-      hasLoadedRefData.current = true;
     } catch (error) {
       console.error('Error loading reference data:', error);
     }
+    void getCustomersForSelect()
+      .then((custData) => setCustomers(custData as KhachHang[]))
+      .catch((error) => console.error('Error loading customers for select:', error));
   }, []);
 
   const loadSalesCards = useCallback(async () => {
@@ -413,7 +414,7 @@ const SalesCardManagementPage: React.FC = () => {
   const pendingCustomerRef = React.useRef<string | null>(null);
   const pendingMaRef = React.useRef<string | null>(null);
   const pendingCustomerDataRef = React.useRef<KhachHang | null>(null);
-  const pendingSoKmRef = React.useRef<number | null>(null);
+  const pendingAutoOpenHandledRef = React.useRef(false);
   const [pendingNewCustomer, setPendingNewCustomer] = useState<KhachHang | null>(null);
 
   // Giải tỏa Mobile UI: Tính toán 10.000 customer string ở Parent 1 lần rồi share cho Modal
@@ -434,6 +435,7 @@ const SalesCardManagementPage: React.FC = () => {
         label: `${c.ho_va_ten}${c.so_dien_thoai ? ` - ${c.so_dien_thoai}` : ''}`,
         searchKey: searchParts.join(' '),
         bien_so_xe: c.bien_so_xe || '',
+        dia_chi_hien_tai: c.dia_chi_hien_tai || '',
       };
     });
 
@@ -461,11 +463,6 @@ const SalesCardManagementPage: React.FC = () => {
     pendingCustomerRef.current = id || '';
     pendingMaRef.current = ma || '';
     pendingCustomerDataRef.current = pendingData || null;
-    pendingSoKmRef.current =
-      state?.pendingSoKm != null && !Number.isNaN(Number(state.pendingSoKm))
-        ? Number(state.pendingSoKm)
-        : null;
-
     // Clear storage immediately (without re-triggering location change)
     if (id || pendingData) {
       sessionStorage.removeItem('pendingCustomerId');
@@ -474,116 +471,121 @@ const SalesCardManagementPage: React.FC = () => {
     }
   }
 
-  // After loadData completes and lists are ready, auto-open the modal
+  // Mở form lập đơn ngay khi chuyển từ modal km — không chờ tải danh sách phiếu/khách hàng
   useEffect(() => {
+    if (pendingAutoOpenHandledRef.current) return;
+
     const pendingId = pendingCustomerRef.current;
     const pendingMa = pendingMaRef.current;
     const pendingData = pendingCustomerDataRef.current;
-    const pendingSoKm = pendingSoKmRef.current;
-    if ((!pendingId && !pendingData) || loading) return; // Wait until loading is done
-    if (customers.length === 0 && !pendingData) return; // Wait until customers list is loaded
+    if (!pendingId && !pendingData) return;
 
-    // Reset the ref so this only runs once
+    pendingAutoOpenHandledRef.current = true;
     pendingCustomerRef.current = '';
     pendingMaRef.current = '';
     pendingCustomerDataRef.current = null;
-    pendingSoKmRef.current = null;
+
+    void loadReferenceData();
+
+    const injectCustomer = (customer: KhachHang) => {
+      setPendingNewCustomer(customer);
+      setCustomers((prev) => {
+        const exists = prev.some(
+          (c) => c.id === customer.id || (customer.ma_khach_hang && c.ma_khach_hang === customer.ma_khach_hang)
+        );
+        return exists ? prev : [customer, ...prev];
+      });
+    };
 
     const openFormForCustomer = async () => {
       try {
-        let customer: KhachHang | null = null;
-        if (pendingData) {
-          customer = pendingData as KhachHang;
-          setPendingNewCustomer(customer);
-          setCustomers(prev => [{ ...customer!, ho_va_ten: `${customer!.ho_va_ten}` } as KhachHang, ...prev]);
-        } else {
-          // 1. Find the customer in the already-loaded list or fetch directly
-          customer = customers.find(c => {
+        const modalChunk = import('../components/SalesCardFormModal');
+
+        let customer: KhachHang | null = pendingData ? (pendingData as KhachHang) : null;
+
+        if (!customer && pendingId) {
+          customer = customers.find((c) => {
             const optionValue = c.ma_khach_hang || c.id;
             return c.id === pendingId || c.ma_khach_hang === pendingId || optionValue === pendingId
               || (pendingMa && (c.ma_khach_hang === pendingMa || optionValue === pendingMa));
           }) || null;
 
           if (!customer) {
-            // Fallback: fetch from Supabase if not in list — try UUID first, then ma_khach_hang
-            let query = supabase
+            const { data: fetchedCustomer } = await supabase
               .from('khach_hang')
-              .select('id, ma_khach_hang, ho_va_ten, so_dien_thoai, so_km, bien_so_xe');
-
-            const { data: fetchedCustomer } = await query
+              .select('id, ma_khach_hang, ho_va_ten, so_dien_thoai, so_km, bien_so_xe, dia_chi_hien_tai')
               .or(`id.eq.${pendingId}${pendingMa ? `,ma_khach_hang.eq.${pendingMa}` : ''}`)
               .limit(1)
               .maybeSingle();
 
             if (!fetchedCustomer) {
-              console.warn('[DEBUG] Customer not found for id:', pendingId);
+              console.warn('[Auto-open] Customer not found for id:', pendingId);
               return;
             }
             customer = fetchedCustomer as KhachHang;
-            // Add to customers list so dropdown can resolve it
-            setCustomers(prev => [customer!, ...prev]);
           }
         }
 
-        // 2. Find last person in charge from sales history
-        const lookupIds = [customer.id];
-        if (customer.ma_khach_hang) lookupIds.push(customer.ma_khach_hang);
+        if (!customer) return;
 
-        const { data: lastCard } = await supabase
-          .from('the_ban_hang')
-          .select('nhan_vien_id')
-          .in('khach_hang_id', lookupIds)
-          .order('ngay', { ascending: false })
-          .order('gio', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+        injectCustomer(customer);
+        await modalChunk;
 
-        console.log('[DEBUG] Auto-open:', { customer: customer.ho_va_ten, lastCard });
+        const defaultKm = customer.so_km && customer.so_km > 0 ? customer.so_km : 0;
 
-        let targetNhanVien = '';
-        if (lastCard?.nhan_vien_id) {
-          targetNhanVien = lastCard.nhan_vien_id;
-        } else {
-          const matchedUser = personnel.find(
-            p => p.ho_ten?.toLowerCase() === nhanVien?.ho_ten?.toLowerCase()
-          );
-          targetNhanVien = matchedUser ? matchedUser.ho_ten : '';
-        }
-
-        let defaultKm = pendingSoKm != null && pendingSoKm > 0 ? pendingSoKm : 0;
-        if (defaultKm <= 0) {
-          const latestKm = await getLatestOrderKmForCustomer({
-            id: customer.id,
-            ma_khach_hang: customer.ma_khach_hang,
-            so_dien_thoai: customer.so_dien_thoai,
-          });
-          if (latestKm != null) defaultKm = latestKm;
-        }
-
-        // 3. Set form data and open modal
-        const nextCode = await getNextSalesCardCode();
         setEditingCard(null);
         setIsReadOnlyModal(false);
         setFormData({
           ngay: new Date().toISOString().split('T')[0],
           gio: formatTime24h(new Date(), false),
-          id_bh: nextCode,
+          id_bh: '',
           khach_hang_id: preferCustomerLinkKey(customer),
-          nhan_vien_id: targetNhanVien,
+          nhan_vien_id: nhanVien?.ho_ten || '',
           dich_vu_id: '',
           dich_vu_ids: [],
           so_km: defaultKm,
-          ngay_nhac_thay_dau: ''
+          ngay_nhac_thay_dau: '',
+          co_so_khach: customer.dia_chi_hien_tai?.trim() || staffBranch || '',
         });
-        // Delay modal open to ensure customers list state is flushed before dropdown renders
-        setTimeout(() => setIsModalOpen(true), 50);
+        setIsModalOpen(true);
+
+        const lookupIds = [customer.id];
+        if (customer.ma_khach_hang) lookupIds.push(customer.ma_khach_hang);
+
+        void Promise.allSettled([
+          getNextSalesCardCode().then((code) => {
+            setFormData((prev) => ({ ...prev, id_bh: code }));
+          }),
+          supabase
+            .from('the_ban_hang')
+            .select('nhan_vien_id')
+            .in('khach_hang_id', lookupIds)
+            .order('ngay', { ascending: false })
+            .order('gio', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+            .then(({ data: lastCard }) => {
+              if (lastCard?.nhan_vien_id) {
+                setFormData((prev) => ({ ...prev, nhan_vien_id: lastCard.nhan_vien_id }));
+              }
+            }),
+          getLatestOrderKmForCustomer({
+            id: customer!.id,
+            ma_khach_hang: customer!.ma_khach_hang,
+            so_dien_thoai: customer!.so_dien_thoai,
+          }).then((latestKm) => {
+            if (latestKm != null) {
+              setFormData((prev) => ({ ...prev, so_km: latestKm }));
+            }
+          }),
+        ]);
       } catch (err) {
         console.error('[CRITICAL] Error auto-opening form:', err);
       }
     };
 
-    openFormForCustomer();
-  }, [loading, customers.length]); // Runs when loading finishes and customers are ready
+    void openFormForCustomer();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleOpenModal = async (card?: SalesCard) => {
     if (!canManageOrders) {
@@ -741,6 +743,7 @@ const SalesCardManagementPage: React.FC = () => {
         service_items,
         the_ban_hang_ct,
         thu_chi,
+        co_so_khach,
         ...cleanData
       } = formDataHeader as any;
 
@@ -761,6 +764,18 @@ const SalesCardManagementPage: React.FC = () => {
           cleanData.khach_hang_id = preferCustomerLinkKey(found);
           if (!cleanData.ten_khach_hang) cleanData.ten_khach_hang = found.ho_va_ten;
           if (!cleanData.so_dien_thoai) cleanData.so_dien_thoai = found.so_dien_thoai;
+          if (co_so_khach?.trim() && !(found.dia_chi_hien_tai || '').trim() && found.id) {
+            void upsertCustomer({ id: found.id, dia_chi_hien_tai: co_so_khach.trim() }).catch((err) => {
+              console.error('Lỗi khi lưu cơ sở khách hàng:', err);
+            });
+            setCustomers((prev) =>
+              prev.map((c) =>
+                c.id === found.id || c.ma_khach_hang === found.ma_khach_hang
+                  ? { ...c, dia_chi_hien_tai: co_so_khach.trim() }
+                  : c
+              )
+            );
+          }
         }
       }
 
@@ -769,7 +784,10 @@ const SalesCardManagementPage: React.FC = () => {
 
       // Deferred Save execution: if there is a pending new customer and it's the one selected
       if (pendingNewCustomer && (cleanData.khach_hang_id === pendingNewCustomer.ma_khach_hang || cleanData.khach_hang_id === pendingNewCustomer.id)) {
-        const dataToSave: any = { ...pendingNewCustomer };
+        const dataToSave: any = {
+          ...pendingNewCustomer,
+          ...(co_so_khach?.trim() ? { dia_chi_hien_tai: co_so_khach.trim() } : {}),
+        };
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (!dataToSave.id || !uuidRegex.test(dataToSave.id)) {
           delete dataToSave.id;
@@ -1875,7 +1893,11 @@ const SalesCardManagementPage: React.FC = () => {
 
       {/* Modals */}
       {isModalOpen && (
-        <React.Suspense fallback={null}>
+        <React.Suspense fallback={
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/30">
+            <Loader2 className="animate-spin text-primary" size={32} />
+          </div>
+        }>
           <SalesCardFormModal
             isOpen={isModalOpen}
             editingCard={editingCard}
@@ -1883,6 +1905,7 @@ const SalesCardManagementPage: React.FC = () => {
             customerOptions={customerOptions}
             personnel={personnel}
             services={orderServices}
+            defaultBranch={staffBranch || ''}
             onClose={handleCloseModal}
             onSubmit={handleSubmit}
             isReadOnly={isReadOnlyModal}

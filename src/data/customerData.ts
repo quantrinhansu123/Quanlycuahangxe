@@ -29,7 +29,12 @@ export interface KhachHang {
   ma_khach_hang?: string; // Mã khách hàng (Legacy/Short ID)
   lich_su_thay_dau?: OilChangeEntry[]; // Bảng lịch sử thay dầu
   nhan_vien_id?: string | null; // Người tạo khách hàng
+  last_order_at?: string | null; // Hoá đơn gần nhất (sort + hiển thị nhanh)
 }
+
+/** Cột danh sách — không lấy `anh` (base64 nặng) để tải trang nhanh hơn. */
+const CUSTOMER_LIST_SELECT =
+  'id, ho_va_ten, so_dien_thoai, dia_chi_hien_tai, bien_so_xe, ngay_dang_ky, so_km, so_ngay_thay_dau, ngay_thay_dau, ma_khach_hang, last_order_at';
 
 const sanitizeCustomerPayload = (customer: Partial<KhachHang>) => {
   const payload: Partial<KhachHang> = {
@@ -126,6 +131,8 @@ type CustomerListQuery = {
   then: PromiseLike<{ data: unknown[] | null; count: number | null; error: { message?: string; code?: string } | null }>['then'];
 };
 
+let customerListSortPlanIndex: number | null = null;
+
 async function runCustomerListQuery(
   buildBase: () => CustomerListQuery,
   extra?: (q: CustomerListQuery) => CustomerListQuery
@@ -143,11 +150,19 @@ async function runCustomerListQuery(
   ];
 
   const missingColumns = ['last_order_at', 'created_at', 'ngay_dang_ky'];
-  for (let i = 0; i < orderPlans.length; i++) {
+  const planIndices =
+    customerListSortPlanIndex != null
+      ? [customerListSortPlanIndex]
+      : orderPlans.map((_, i) => i);
+
+  for (const i of planIndices) {
     let query = orderPlans[i](buildBase());
     if (extra) query = extra(query);
     const res = await query;
-    if (!res.error) return res;
+    if (!res.error) {
+      customerListSortPlanIndex = i;
+      return res;
+    }
     if (!isMissingSortColumn(res.error, missingColumns[i])) {
       return res;
     }
@@ -219,7 +234,7 @@ export const getCustomersForSelect = async (
     return query;
   };
 
-  const res = await runCustomerListQuery(() => buildBase(), (q) => q.limit(10000));
+  const res = await runCustomerListQuery(() => buildBase(), (q) => q.limit(3000));
 
   if (res.error) {
     console.error('Error fetching customers for select:', res.error);
@@ -248,7 +263,7 @@ export const getCustomersPaginated = async (
   const buildBase = () => {
     let query = supabase
       .from('khach_hang')
-      .select('id, ho_va_ten, so_dien_thoai, anh, dia_chi_hien_tai, bien_so_xe, ngay_dang_ky, so_km, so_ngay_thay_dau, ngay_thay_dau, ma_khach_hang', { count: 'exact' });
+      .select(`${CUSTOMER_LIST_SELECT}`, { count: 'exact' });
 
     if (searchIds && searchIds.length > 0) {
       query = query.in('id', searchIds.slice(0, CUSTOMER_SEARCH_ID_LIMIT));
@@ -299,7 +314,7 @@ export const getCustomersForExport = async (
   const buildBase = () => {
     let query = supabase
       .from('khach_hang')
-      .select('id, ho_va_ten, so_dien_thoai, anh, dia_chi_hien_tai, bien_so_xe, ngay_dang_ky, so_km, so_ngay_thay_dau, ngay_thay_dau, ma_khach_hang');
+      .select(CUSTOMER_LIST_SELECT);
 
     if (searchIds && searchIds.length > 0) {
       query = query.in('id', searchIds.slice(0, CUSTOMER_SEARCH_ID_LIMIT));

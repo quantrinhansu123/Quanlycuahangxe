@@ -1,4 +1,5 @@
-import { Banknote, Calendar, Car, ChevronDown, ChevronUp, Clock, FileText, History, Loader2, Save, ShoppingCart, User, Wrench, X } from 'lucide-react';
+import { Banknote, Building2, Calendar, Car, ChevronDown, ChevronUp, Clock, FileText, History, Loader2, Save, ShoppingCart, User, Wrench, X } from 'lucide-react';
+import { CUSTOMER_BRANCH_OPTIONS } from '../constants/customerBranches';
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { NhanSu } from '../data/personnelData';
@@ -52,12 +53,13 @@ const SalesCardFormModal: React.FC<{
   customerOptions: any[];
   personnel: NhanSu[];
   services: DichVu[];
+  defaultBranch?: string;
   onClose: () => void;
   onSubmit: (data: Partial<SalesCard>) => Promise<void>;
   onCollectPayment?: (data: any, method: string) => Promise<void>;
   isReadOnly?: boolean;
-}> = React.memo(({ isOpen, editingCard, initialData, customerOptions, personnel, services, onClose, onSubmit, isReadOnly, onCollectPayment }) => {
-  const [formData, setFormData] = useState<Partial<SalesCard & { service_items?: { id: string, ten_dich_vu: string, gia_ban: number, so_luong: number }[], thu_chi?: any }>>(initialData);
+}> = React.memo(({ isOpen, editingCard, initialData, customerOptions, personnel, services, defaultBranch = '', onClose, onSubmit, isReadOnly, onCollectPayment }) => {
+  const [formData, setFormData] = useState<Partial<SalesCard & { service_items?: { id: string, ten_dich_vu: string, gia_ban: number, so_luong: number }[], thu_chi?: any, co_so_khach?: string }>>(initialData);
   const [isCollecting, setIsCollecting] = useState(false);
   const [historyRecords, setHistoryRecords] = useState<EditHistoryRecord[]>([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -179,7 +181,8 @@ const SalesCardFormModal: React.FC<{
         {
           value: formData.khach_hang_id,
           label: `${fallbackName}${fallbackPhone ? ` - ${fallbackPhone}` : ''}`,
-          searchKey: fallbackName
+          searchKey: fallbackName,
+          dia_chi_hien_tai: initialData?.khach_hang?.dia_chi_hien_tai || (initialData as { co_so_khach?: string })?.co_so_khach || '',
         },
         ...options
       ];
@@ -206,6 +209,19 @@ const SalesCardFormModal: React.FC<{
       .filter(Boolean) as { value: string; label: string }[];
     return [...base, ...extras];
   }, [services, formData.dich_vu_ids, formData.service_items]);
+
+  const customerBranchFromProfile = React.useMemo(() => {
+    const opt = extendedCustomerOptions.find((o) => o.value === formData.khach_hang_id);
+    return ((opt as { dia_chi_hien_tai?: string })?.dia_chi_hien_tai || '').trim();
+  }, [extendedCustomerOptions, formData.khach_hang_id]);
+
+  const displayCoSo = customerBranchFromProfile || (formData.co_so_khach || '').trim() || defaultBranch;
+
+  React.useEffect(() => {
+    if (!isOpen || isReadOnly) return;
+    const next = customerBranchFromProfile || defaultBranch || '';
+    setFormData((prev) => ({ ...prev, co_so_khach: next }));
+  }, [isOpen, isReadOnly, formData.khach_hang_id, customerBranchFromProfile, defaultBranch]);
 
   const selectedBsx = React.useMemo(() => {
     const fromCard =
@@ -239,9 +255,15 @@ const SalesCardFormModal: React.FC<{
       return;
     }
 
+    const coSo = customerBranchFromProfile || (formData.co_so_khach || '').trim();
+    if (!coSo) {
+      alert('Vui lòng chọn cơ sở trước khi lập phiếu.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      await onSubmit(formData);
+      await onSubmit({ ...formData, co_so_khach: coSo });
     } finally {
       setIsSubmitting(false);
     }
@@ -270,19 +292,17 @@ const SalesCardFormModal: React.FC<{
 
         <form onSubmit={handleFormSubmit} className="overflow-y-auto p-4 sm:p-8 flex-1 custom-scrollbar overscroll-contain">
           <div className="space-y-4 sm:space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
-              <div className="grid grid-cols-2 gap-3 sm:contents">
-                <InputField label="Ngày lập" name="ngay" type="date" value={formData.ngay || ''} onChange={handleInputChange} icon={Calendar} required disabled={isReadOnly} />
-                <InputField label="Giờ lập" name="gio" type="time" value={formData.gio || ''} onChange={handleInputChange} icon={Clock} required disabled={isReadOnly} />
-              </div>
+            <div className="grid grid-cols-2 gap-3 sm:gap-6 [&>*]:min-w-0">
+              <InputField label="Ngày lập" name="ngay" type="date" value={formData.ngay || ''} onChange={handleInputChange} icon={Calendar} required disabled={isReadOnly} />
+              <InputField label="Giờ lập" name="gio" type="time" value={formData.gio || ''} onChange={handleInputChange} icon={Clock} required disabled={isReadOnly} />
               {editingCard && (
                 <>
                   <InputField label="Mã phiếu" name="id_bh" value={formData.id_bh || ''} onChange={handleInputChange} icon={ShoppingCart} required placeholder="BH-XXXXXX" disabled={isReadOnly} />
-                  <div className="hidden md:block"></div>
+                  <div className="hidden sm:block" aria-hidden />
                 </>
               )}
 
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 col-span-2 min-w-0">
                 <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <User size={14} className="text-primary/70" />
@@ -309,7 +329,31 @@ const SalesCardFormModal: React.FC<{
                 placeholder="—"
               />
 
-              <div className="space-y-1.5">
+              {customerBranchFromProfile || isReadOnly ? (
+                <InputField
+                  label="Cơ sở"
+                  name="co_so_display"
+                  value={displayCoSo || '—'}
+                  onChange={() => {}}
+                  icon={Building2}
+                  disabled
+                  placeholder="—"
+                />
+              ) : (
+                <InputField
+                  label="Cơ sở"
+                  name="co_so_khach"
+                  type="select"
+                  value={formData.co_so_khach || ''}
+                  onChange={handleInputChange}
+                  icon={Building2}
+                  required
+                  options={['', ...CUSTOMER_BRANCH_OPTIONS]}
+                  disabled={isReadOnly}
+                />
+              )}
+
+              <div className="space-y-1.5 col-span-2 min-w-0">
                 <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                   <User size={14} className="text-primary/70" />
                   Người phụ trách (Nhân viên) <span className="text-red-500">*</span>
@@ -324,7 +368,7 @@ const SalesCardFormModal: React.FC<{
                 />
               </div>
 
-              <div className="space-y-1.5 sm:col-span-2">
+              <div className="space-y-1.5 col-span-2 min-w-0">
                 <label className="text-[11px] sm:text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                   <Wrench size={14} className="text-primary/70" />
                   Dịch vụ sử dụng <span className="text-red-500">*</span>
@@ -417,9 +461,9 @@ const SalesCardFormModal: React.FC<{
                 )}
               </div>
 
-              <InputField label="Số Km" name="so_km" value={formatNumber(formData.so_km)} onChange={handleInputChange} icon={History} placeholder="12.000" disabled={isReadOnly} />
+              <InputField label="Số Km" name="so_km" value={formatNumber(formData.so_km)} onChange={handleInputChange} icon={History} placeholder="Nhập số km hiện tại" required disabled={isReadOnly} />
 
-              <div className="space-y-1.5 md:col-span-1">
+              <div className="space-y-1.5 min-w-0">
                 <InputField 
                   label="Hình thức thanh toán" 
                   name="phuong_thuc_thanh_toan" 
@@ -431,14 +475,19 @@ const SalesCardFormModal: React.FC<{
                   required={true}
                   disabled={!!formData.thu_chi} 
                 />
-                {!formData.thu_chi && (
-                  <p className="text-[10px] text-muted-foreground italic px-1">Lưu ý: Nếu chọn, phiếu thu sẽ tự động được tạo sau khi lưu phiếu.</p>
-                )}
               </div>
 
-              <InputField label="Ngày nhắc thay dầu" name="ngay_nhac_thay_dau" type="date" value={formData.ngay_nhac_thay_dau || ''} onChange={handleInputChange} icon={Calendar} disabled={isReadOnly} />
+              <div className="col-span-2">
+                <InputField label="Ngày nhắc thay dầu" name="ngay_nhac_thay_dau" type="date" value={formData.ngay_nhac_thay_dau || ''} onChange={handleInputChange} icon={Calendar} disabled={isReadOnly} />
+              </div>
 
-              <div className="space-y-1.5 sm:col-span-2">
+              {!formData.thu_chi && (
+                <p className="col-span-2 text-[10px] text-muted-foreground italic px-1 -mt-1">
+                  Lưu ý: Nếu chọn hình thức thanh toán, phiếu thu sẽ tự động được tạo sau khi lưu phiếu.
+                </p>
+              )}
+
+              <div className="space-y-1.5 col-span-2 min-w-0">
                 <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                   <FileText size={14} className="text-primary/70" />
                   Chú thích

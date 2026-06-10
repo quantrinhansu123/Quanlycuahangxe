@@ -26,7 +26,7 @@ import { getCustomerByPhone, getCustomerByPlate, uploadCustomerImage, upsertCust
 import { computeCustomerChanges, getCustomerEditHistory, saveCustomerEditHistory, type CustomerEditHistory } from '../data/customerHistoryData';
 import { formatDateTime24h } from '../utils/datetimeFormat';
 import { useToast } from '../context/ToastContext';
-import CustomerKmPromptModal, { CUSTOMER_BRANCH_OPTIONS } from './CustomerKmPromptModal';
+import { CUSTOMER_BRANCH_OPTIONS } from '../constants/customerBranches';
 
 function resolveStaffBranch(coSo?: string | null): string {
   const v = (coSo || '').trim();
@@ -60,7 +60,6 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
   const { showToast } = useToast();
 
   const [duplicateWarning, setDuplicateWarning] = useState<KhachHang | null>(null);
-  const [duplicateOrderKmOpen, setDuplicateOrderKmOpen] = useState(false);
 
   const formatDateForInput = (dateStr: string | undefined) => {
     if (!dateStr) return '';
@@ -407,7 +406,14 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
             <div className="mt-6 flex gap-3">
               <button
                 type="button"
-                onClick={() => setDuplicateOrderKmOpen(true)}
+                onClick={() => {
+                  if (!duplicateWarning) return;
+                  navigate('/ban-hang/phieu-ban-hang', {
+                    state: { pendingCustomerData: duplicateWarning },
+                  });
+                  setDuplicateWarning(null);
+                  onClose();
+                }}
                 className="flex-1 px-4 py-2.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary/90 transition-all flex items-center justify-center gap-2"
               >
                 <ShoppingCart size={16} />
@@ -425,32 +431,6 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
         </div>
       )}
 
-      <CustomerKmPromptModal
-        isOpen={duplicateOrderKmOpen && !!duplicateWarning}
-        customerName={duplicateWarning?.ho_va_ten || ''}
-        currentBranch={duplicateWarning?.dia_chi_hien_tai}
-        onCancel={() => setDuplicateOrderKmOpen(false)}
-        onConfirm={async (km, coSo) => {
-          if (!duplicateWarning) return;
-          if (coSo) {
-            try {
-              await upsertCustomer({ id: duplicateWarning.id, dia_chi_hien_tai: coSo });
-            } catch (error) {
-              console.error('Lỗi khi lưu cơ sở khách hàng:', error);
-            }
-          }
-          navigate('/ban-hang/phieu-ban-hang', {
-            state: {
-              pendingCustomerId: duplicateWarning.id,
-              pendingMaKhachHang: duplicateWarning.ma_khach_hang,
-              pendingSoKm: km,
-            },
-          });
-          setDuplicateOrderKmOpen(false);
-          setDuplicateWarning(null);
-          onClose();
-        }}
-      />
     </div>,
     document.body
   );

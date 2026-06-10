@@ -24,7 +24,7 @@ import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import CustomerDetailsModal from '../components/CustomerDetailsModal';
 import CustomerFormModal from '../components/CustomerFormModal';
-import CustomerKmPromptModal from '../components/CustomerKmPromptModal';
+import { CUSTOMER_BRANCH_OPTIONS } from '../constants/customerBranches';
 import Pagination from '../components/Pagination';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
@@ -36,9 +36,6 @@ import {
   getCustomersForExport,
   getCustomersForSelect,
   getCustomersPaginated,
-  getLatestOrderKmForCustomer,
-  getLatestOrderKmMapForCustomers,
-  upsertCustomer,
 } from '../data/customerData';
 import { getCustomerOrderAggregatesByPhone } from '../data/salesCardData';
 import { formatDateVi } from '../utils/datetimeFormat';
@@ -59,6 +56,19 @@ function displayCustomerKm(
   if (fromMap != null) return fromMap;
   const st = resolveCustomerStats(customer, statsMap);
   return st?.latestSoKm ?? customer.so_km ?? 0;
+}
+
+function formatLastOrderLabel(
+  customer: KhachHang,
+  lastOrderDates: Record<string, string>
+): string {
+  const lastDate =
+    customer.last_order_at ||
+    lastOrderDates[customer.id] ||
+    (customer.ma_khach_hang ? lastOrderDates[customer.ma_khach_hang] : null);
+  if (!lastDate) return 'Chưa có đơn';
+  const d = new Date(lastDate);
+  return `Đơn cuối: ${isNaN(d.getTime()) ? lastDate : d.toLocaleDateString('vi-VN')}`;
 }
 
 
@@ -96,36 +106,11 @@ const CustomerManagementPage: React.FC = () => {
 
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<KhachHang | null>(null);
-  const [orderKmCustomer, setOrderKmCustomer] = useState<{ customer: KhachHang; isTemp?: boolean } | null>(null);
-
-  const goToCreateOrder = useCallback(async (customer: KhachHang, soKm: number, isTemp?: boolean, coSo?: string) => {
-    let target = customer;
-    if (coSo) {
-      if (isTemp) {
-        target = { ...customer, dia_chi_hien_tai: coSo };
-      } else {
-        try {
-          target = await upsertCustomer({ id: customer.id, dia_chi_hien_tai: coSo });
-        } catch (error) {
-          console.error('Lỗi khi lưu cơ sở khách hàng:', error);
-          target = { ...customer, dia_chi_hien_tai: coSo };
-        }
-      }
-    }
-    if (isTemp) {
-      navigate('/ban-hang/phieu-ban-hang', {
-        state: {
-          pendingCustomerData: target,
-          pendingSoKm: soKm,
-        },
-      });
-      return;
-    }
+  const goToCreateOrder = useCallback((customer: KhachHang, isTemp?: boolean) => {
     navigate('/ban-hang/phieu-ban-hang', {
       state: {
-        pendingCustomerId: target.id,
-        pendingMaKhachHang: target.ma_khach_hang,
-        pendingSoKm: soKm,
+        pendingCustomerData: customer,
+        pendingIsTemp: isTemp,
       },
     });
   }, [navigate]);
@@ -158,6 +143,38 @@ const CustomerManagementPage: React.FC = () => {
     );
   }, []);
 
+  const loadCustomerStats = useCallback(async (rows: KhachHang[]) => {
+    if (rows.length === 0) {
+      setLastOrderDates({});
+      setLatestKmMap({});
+      setCustomerStats({});
+      return;
+    }
+
+    const phoneRows = rows.map((c) => ({
+      id: c.id,
+      ma_khach_hang: c.ma_khach_hang,
+      so_dien_thoai: c.so_dien_thoai,
+    }));
+
+    try {
+      const { lastOrderDates: datesMap, stats: statsMap } = await getCustomerOrderAggregatesByPhone(phoneRows);
+      const kmMap: Record<string, number> = {};
+      for (const c of phoneRows) {
+        const st = statsMap[c.id] || (c.ma_khach_hang ? statsMap[c.ma_khach_hang] : undefined);
+        if (st?.latestSoKm == null) continue;
+        kmMap[c.id] = st.latestSoKm;
+        const ma = (c.ma_khach_hang || '').trim();
+        if (ma) kmMap[ma] = st.latestSoKm;
+      }
+      setLastOrderDates(datesMap);
+      setLatestKmMap(kmMap);
+      setCustomerStats(statsMap);
+    } catch (error) {
+      console.error('Error loading customer stats:', error);
+    }
+  }, []);
+
   // Load data from Supabase with pagination
   const loadCustomers = async () => {
     try {
@@ -174,52 +191,17 @@ const CustomerManagementPage: React.FC = () => {
       );
       setCustomers(data);
       setTotalCount(totalCount);
+      setLoading(false);
 
       if (totalCount === 0) {
         const access = await diagnoseKhachHangAccess();
         setRlsBlocked(access === 'rls_blocked');
-      } else {
-        setRlsBlocked(false);
-      }
-
-      // Fetch last order dates & revenues for the current list
-      if (data.length > 0) {
-        const phoneRows = data.map((c) => ({
-          id: c.id,
-          ma_khach_hang: c.ma_khach_hang,
-          so_dien_thoai: c.so_dien_thoai,
-        }));
-        const { lastOrderDates: datesMap, stats: statsMap } = await getCustomerOrderAggregatesByPhone(phoneRows);
-        const kmMap = await getLatestOrderKmMapForCustomers(phoneRows);
-
-        const missingKm = phoneRows.filter((c) => {
-          const hasKm =
-            kmMap[c.id] != null ||
-            (c.ma_khach_hang ? kmMap[c.ma_khach_hang] != null : false);
-          if (hasKm) return false;
-          const st = statsMap[c.id] || (c.ma_khach_hang ? statsMap[c.ma_khach_hang] : undefined);
-          return (st?.visitCount ?? 0) > 0;
-        });
-
-        if (missingKm.length > 0) {
-          await Promise.all(
-            missingKm.map(async (c) => {
-              const km = await getLatestOrderKmForCustomer(c);
-              if (km == null) return;
-              kmMap[c.id] = km;
-              const ma = (c.ma_khach_hang || '').trim();
-              if (ma) kmMap[ma] = km;
-            })
-          );
-        }
-
-        setLastOrderDates(datesMap);
-        setLatestKmMap(kmMap);
-        setCustomerStats(statsMap);
-      } else {
         setLastOrderDates({});
         setLatestKmMap({});
         setCustomerStats({});
+      } else {
+        setRlsBlocked(false);
+        void loadCustomerStats(data);
       }
     } catch (error) {
       console.error(error);
@@ -318,9 +300,9 @@ const CustomerManagementPage: React.FC = () => {
     showToast(`Đã lưu thông tin khách hàng ${customer.ho_va_ten} thành công!`, 'success');
 
     if (shouldCreateOrder) {
-      setOrderKmCustomer({ customer, isTemp });
+      goToCreateOrder(customer, isTemp);
     }
-  }, [loadCustomers, showToast]);
+  }, [loadCustomers, showToast, goToCreateOrder]);
 
   const handleOpenDetails = useCallback((customer: KhachHang) => {
     setSelectedCustomer(customer);
@@ -348,11 +330,10 @@ const CustomerManagementPage: React.FC = () => {
         so_dien_thoai: c.so_dien_thoai,
       }));
       const { stats: statsMap } = await getCustomerOrderAggregatesByPhone(phoneRows);
-      const kmMap = await getLatestOrderKmMapForCustomers(phoneRows);
 
       const excelRows = rows.map((c) => {
         const st = statsMap[c.id] || (c.ma_khach_hang ? statsMap[c.ma_khach_hang] : undefined);
-        const km = kmMap[c.id] ?? (c.ma_khach_hang ? kmMap[c.ma_khach_hang] : undefined);
+        const km = st?.latestSoKm ?? c.so_km ?? '';
         return {
           'Mã khách hàng': c.ma_khach_hang || c.id.slice(0, 8),
           'Họ và tên': c.ho_va_ten,
@@ -512,16 +493,7 @@ const CustomerManagementPage: React.FC = () => {
     }
   }, [loadCustomers, isAdmin, showToast]);
 
-  // We'll use a larger pool of customers to populate the branch filter list
-  const [allDepts, setAllDepts] = useState<string[]>([]);
-  useEffect(() => {
-    getCustomersForSelect(undefined).then(data => {
-      const depts = Array.from(new Set(data.map(c => c.dia_chi_hien_tai).filter(Boolean))).sort();
-      setAllDepts(depts);
-    });
-  }, []);
-
-  const deptOptions = allDepts;
+  const deptOptions = CUSTOMER_BRANCH_OPTIONS;
 
   return (
     <div className="w-full flex-1 animate-in fade-in slide-in-from-bottom-4 duration-500 text-foreground font-sans">
@@ -749,73 +721,74 @@ const CustomerManagementPage: React.FC = () => {
                               )}
                             </div>
                           </div>
-                          {/* Card Content: 3 Lines + Actions */}
-                          <div className="flex-1 min-w-0 flex flex-col justify-center">
-                            {/* Line 1: Name + Phone + Due Badge */}
-                            <div className="flex items-center justify-between">
+                          {/* Card Content */}
+                          <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+                            <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 items-center">
                               <div className="flex items-baseline gap-1.5 min-w-0">
-                                <h3 className="font-extrabold text-foreground text-sm truncate">{customer.ho_va_ten}</h3>
+                                <span className="font-extrabold text-foreground text-sm truncate">
+                                  {customer.ho_va_ten}
+                                </span>
                                 {customer.so_dien_thoai && (
-                                  <span className="text-[11px] text-foreground font-medium whitespace-nowrap">· {customer.so_dien_thoai}</span>
+                                  <span className="text-[11px] text-foreground font-medium tabular-nums whitespace-nowrap shrink-0">
+                                    · {customer.so_dien_thoai}
+                                  </span>
                                 )}
                               </div>
-                              <span className="bg-primary/5 text-primary/70 border border-primary/10 px-1.5 py-0.5 rounded text-[9px] font-bold tracking-tight shrink-0 ml-2">
-                                {(() => {
-                                  const lastDate = lastOrderDates[customer.id] || (customer.ma_khach_hang ? lastOrderDates[customer.ma_khach_hang] : null);
-                                  if (!lastDate) return 'Chưa có đơn';
-                                  const d = new Date(lastDate);
-                                  return `Đơn cuối: ${isNaN(d.getTime()) ? lastDate : d.toLocaleDateString('vi-VN')}`;
-                                })()}
+                              <span
+                                className="text-[9px] font-bold text-primary/80 bg-primary/5 border border-primary/10 px-1.5 py-0.5 rounded whitespace-nowrap max-w-[48%] truncate shrink-0"
+                                title={formatLastOrderLabel(customer, lastOrderDates)}
+                              >
+                                {formatLastOrderLabel(customer, lastOrderDates)}
                               </span>
-
                             </div>
 
-                            {/* Line 2: Plate + KM + Address */}
-                            <div className="flex items-center gap-1.5 text-[11px] mt-1 text-foreground font-medium min-w-0">
-                              <div className="flex items-center gap-1 shrink-0">
-                                <Car size={14} className="text-primary" />
-                                <span className={clsx(
-                                  "font-bold",
-                                  "text-foreground"
-                                )}>{customer.bien_so_xe}</span>
+                            <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-foreground font-medium">
+                              <div className="flex items-center gap-1 min-w-0">
+                                <Car size={13} className="text-primary shrink-0" />
+                                <span className="font-bold truncate" title={customer.bien_so_xe}>
+                                  {customer.bien_so_xe || '—'}
+                                </span>
                               </div>
-                              <span className="text-border">•</span>
-                              <div className="flex items-center gap-0.5 shrink-0 text-primary font-bold">
-                                <Gauge size={14} />
+                              <div className="flex items-center gap-1 justify-end text-primary font-bold tabular-nums min-w-0">
+                                <Gauge size={13} className="shrink-0" />
                                 <span>{displayCustomerKm(customer, latestKmMap, customerStats).toLocaleString()} km</span>
                               </div>
-                              {customer.dia_chi_hien_tai && (
+
+                              {customer.dia_chi_hien_tai ? (
                                 <>
-                                  <span className="text-border">•</span>
-                                  <div className="flex items-center gap-1 truncate">
-                                    <Building2 size={14} className="text-foreground shrink-0" />
-                                    <span className="truncate">{customer.dia_chi_hien_tai}</span>
+                                  <div className="flex items-start gap-1 min-w-0">
+                                    <Building2 size={13} className="text-foreground shrink-0 mt-0.5" />
+                                    <span className="text-[10px] leading-snug break-words">{customer.dia_chi_hien_tai}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1 justify-end min-w-0">
+                                    <Calendar size={12} className="text-foreground shrink-0" />
+                                    <span className="text-[10px] font-semibold whitespace-nowrap">
+                                      ĐK: {formatDateMobile(customer.ngay_dang_ky)}
+                                    </span>
                                   </div>
                                 </>
+                              ) : (
+                                <div className="col-span-2 flex items-center gap-1 min-w-0">
+                                  <Calendar size={12} className="text-foreground shrink-0" />
+                                  <span className="text-[10px] font-semibold whitespace-nowrap">
+                                    ĐK: {formatDateMobile(customer.ngay_dang_ky)}
+                                  </span>
+                                </div>
                               )}
                             </div>
 
-                            {/* Line 3: Ngày đăng ký */}
-                            <div className="flex items-center gap-1.5 text-[10px] mt-1 text-foreground min-w-0">
-                              <div className="flex items-center gap-0.5 shrink-0">
-                                <Calendar size={12} className="text-foreground" />
-                                <span className="font-semibold text-foreground">ĐK: {formatDateMobile(customer.ngay_dang_ky)}</span>
-                              </div>
-                            </div>
-                            
-                            {/* Line 4: Stats (Revenue + Visits) */}
-                            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                              <div className="flex items-center gap-1.5 text-[11px] font-bold text-foreground bg-muted/40 px-2 py-1 rounded-lg">
-                                <ShoppingCart size={14} />
-                                <span>{
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="flex items-center gap-1 min-w-0 text-[11px] font-bold text-foreground bg-muted/40 px-2 py-1 rounded-lg">
+                                <ShoppingCart size={13} className="shrink-0" />
+                                <span className="truncate tabular-nums">{
                                   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
                                     (customerStats[customer.id]?.totalRevenue || (customer.ma_khach_hang ? customerStats[customer.ma_khach_hang]?.totalRevenue : 0)) || 0
                                   )
                                 }</span>
                               </div>
-                              <div className="flex items-center gap-1.5 text-[11px] font-bold text-foreground bg-muted/40 px-2 py-1 rounded-lg">
-                                <History size={14} />
-                                <span>Ghé: {
+                              <div className="flex items-center gap-1 justify-end min-w-0 text-[11px] font-bold text-foreground bg-muted/40 px-2 py-1 rounded-lg">
+                                <History size={13} className="shrink-0" />
+                                <span className="whitespace-nowrap tabular-nums">Ghé: {
                                   (customerStats[customer.id]?.visitCount || (customer.ma_khach_hang ? customerStats[customer.ma_khach_hang]?.visitCount : 0)) || 0
                                 } lần</span>
                               </div>
@@ -827,7 +800,7 @@ const CustomerManagementPage: React.FC = () => {
                               {canCreateOrder && (
                               <button
                                 type="button"
-                                onClick={() => setOrderKmCustomer({ customer })}
+                                onClick={() => goToCreateOrder(customer)}
                                 className="flex items-center gap-1 px-2 py-1 bg-emerald-500/10 text-emerald-700 border border-emerald-500/25 rounded-lg active:scale-95 transition-transform font-sans"
                                 title="Lập phiếu bán hàng cho khách này"
                               >
@@ -973,16 +946,6 @@ const CustomerManagementPage: React.FC = () => {
         customer={selectedCustomer}
       />
 
-      <CustomerKmPromptModal
-        isOpen={!!orderKmCustomer}
-        customerName={orderKmCustomer?.customer.ho_va_ten || ''}
-        currentBranch={orderKmCustomer?.customer.dia_chi_hien_tai}
-        onCancel={() => setOrderKmCustomer(null)}
-        onConfirm={(km, coSo) => {
-          if (orderKmCustomer) goToCreateOrder(orderKmCustomer.customer, km, orderKmCustomer.isTemp, coSo);
-          setOrderKmCustomer(null);
-        }}
-      />
     </div>
   );
 };
