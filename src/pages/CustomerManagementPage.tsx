@@ -58,19 +58,6 @@ function displayCustomerKm(
   return st?.latestSoKm ?? customer.so_km ?? 0;
 }
 
-function formatLastOrderLabel(
-  customer: KhachHang,
-  lastOrderDates: Record<string, string>
-): string {
-  const lastDate =
-    customer.last_order_at ||
-    lastOrderDates[customer.id] ||
-    (customer.ma_khach_hang ? lastOrderDates[customer.ma_khach_hang] : null);
-  if (!lastDate) return 'Chưa có đơn';
-  const d = new Date(lastDate);
-  return `Đơn cuối: ${isNaN(d.getTime()) ? lastDate : d.toLocaleDateString('vi-VN')}`;
-}
-
 
 const CustomerManagementPage: React.FC = () => {
   const navigate = useNavigate();
@@ -83,7 +70,6 @@ const CustomerManagementPage: React.FC = () => {
   const [rlsBlocked, setRlsBlocked] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [lastOrderDates, setLastOrderDates] = useState<Record<string, string>>({});
   const [customerStats, setCustomerStats] = useState<Record<string, { totalRevenue: number; visitCount: number; latestSoKm?: number }>>({});
   const [latestKmMap, setLatestKmMap] = useState<Record<string, number>>({});
   const [exportingExcel, setExportingExcel] = useState(false);
@@ -145,7 +131,6 @@ const CustomerManagementPage: React.FC = () => {
 
   const loadCustomerStats = useCallback(async (rows: KhachHang[]) => {
     if (rows.length === 0) {
-      setLastOrderDates({});
       setLatestKmMap({});
       setCustomerStats({});
       return;
@@ -158,7 +143,7 @@ const CustomerManagementPage: React.FC = () => {
     }));
 
     try {
-      const { lastOrderDates: datesMap, stats: statsMap } = await getCustomerOrderAggregatesByPhone(phoneRows);
+      const { stats: statsMap } = await getCustomerOrderAggregatesByPhone(phoneRows);
       const kmMap: Record<string, number> = {};
       for (const c of phoneRows) {
         const st = statsMap[c.id] || (c.ma_khach_hang ? statsMap[c.ma_khach_hang] : undefined);
@@ -167,7 +152,6 @@ const CustomerManagementPage: React.FC = () => {
         const ma = (c.ma_khach_hang || '').trim();
         if (ma) kmMap[ma] = st.latestSoKm;
       }
-      setLastOrderDates(datesMap);
       setLatestKmMap(kmMap);
       setCustomerStats(statsMap);
     } catch (error) {
@@ -196,7 +180,6 @@ const CustomerManagementPage: React.FC = () => {
       if (totalCount === 0) {
         const access = await diagnoseKhachHangAccess();
         setRlsBlocked(access === 'rls_blocked');
-        setLastOrderDates({});
         setLatestKmMap({});
         setCustomerStats({});
       } else {
@@ -723,23 +706,15 @@ const CustomerManagementPage: React.FC = () => {
                           </div>
                           {/* Card Content */}
                           <div className="flex-1 min-w-0 flex flex-col gap-1.5">
-                            <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 items-center">
-                              <div className="flex items-baseline gap-1.5 min-w-0">
-                                <span className="font-extrabold text-foreground text-sm truncate">
-                                  {customer.ho_va_ten}
-                                </span>
-                                {customer.so_dien_thoai && (
-                                  <span className="text-[11px] text-foreground font-medium tabular-nums whitespace-nowrap shrink-0">
-                                    · {customer.so_dien_thoai}
-                                  </span>
-                                )}
-                              </div>
-                              <span
-                                className="text-[9px] font-bold text-primary/80 bg-primary/5 border border-primary/10 px-1.5 py-0.5 rounded whitespace-nowrap max-w-[48%] truncate shrink-0"
-                                title={formatLastOrderLabel(customer, lastOrderDates)}
-                              >
-                                {formatLastOrderLabel(customer, lastOrderDates)}
+                            <div className="flex items-baseline justify-between gap-3 min-w-0">
+                              <span className="font-extrabold text-foreground text-sm truncate min-w-0">
+                                {customer.ho_va_ten}
                               </span>
+                              {customer.so_dien_thoai && (
+                                <span className="text-[11px] text-foreground font-medium tabular-nums whitespace-nowrap shrink-0 pl-2">
+                                  {customer.so_dien_thoai}
+                                </span>
+                              )}
                             </div>
 
                             <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-foreground font-medium">
