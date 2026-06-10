@@ -3,7 +3,7 @@ import { CUSTOMER_BRANCH_OPTIONS } from '../constants/customerBranches';
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { NhanSu } from '../data/personnelData';
-import type { SalesCard } from '../data/salesCardData';
+import type { SalesCard, SalesCardFormData } from '../data/salesCardData';
 import type { EditHistoryRecord } from '../data/salesCardHistoryData';
 import { getEditHistory } from '../data/salesCardHistoryData';
 import type { DichVu } from '../data/serviceData';
@@ -49,17 +49,17 @@ const InputField: React.FC<{
 const SalesCardFormModal: React.FC<{
   isOpen: boolean;
   editingCard: SalesCard | null;
-  initialData: Partial<SalesCard>;
+  initialData: SalesCardFormData;
   customerOptions: any[];
   personnel: NhanSu[];
   services: DichVu[];
   defaultBranch?: string;
   onClose: () => void;
-  onSubmit: (data: Partial<SalesCard>) => Promise<void>;
+  onSubmit: (data: SalesCardFormData) => Promise<void>;
   onCollectPayment?: (data: any, method: string) => Promise<void>;
   isReadOnly?: boolean;
 }> = React.memo(({ isOpen, editingCard, initialData, customerOptions, personnel, services, defaultBranch = '', onClose, onSubmit, isReadOnly, onCollectPayment }) => {
-  const [formData, setFormData] = useState<Partial<SalesCard & { service_items?: { id: string, ten_dich_vu: string, gia_ban: number, so_luong: number }[], thu_chi?: any, co_so_khach?: string }>>(initialData);
+  const [formData, setFormData] = useState<SalesCardFormData>(initialData);
   const [isCollecting, setIsCollecting] = useState(false);
   const [historyRecords, setHistoryRecords] = useState<EditHistoryRecord[]>([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);

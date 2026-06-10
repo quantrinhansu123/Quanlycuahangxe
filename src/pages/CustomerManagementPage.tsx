@@ -476,7 +476,7 @@ const CustomerManagementPage: React.FC = () => {
     }
   }, [loadCustomers, isAdmin, showToast]);
 
-  const deptOptions = CUSTOMER_BRANCH_OPTIONS;
+  const deptOptions: string[] = [...CUSTOMER_BRANCH_OPTIONS];
 
   return (
     <div className="w-full flex-1 animate-in fade-in slide-in-from-bottom-4 duration-500 text-foreground font-sans">

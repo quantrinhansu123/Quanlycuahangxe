@@ -260,6 +260,13 @@ export interface SalesCard {
   thu_chi?: Partial<ThuChi>;
 }
 
+/** Trường form lập phiếu (một số chỉ dùng UI, không lưu vào the_ban_hang). */
+export type SalesCardFormData = Partial<SalesCard> & {
+  dich_vu_ids?: string[];
+  service_items?: { id: string; ten_dich_vu: string; gia_ban: number; so_luong?: number }[];
+  co_so_khach?: string;
+};
+
 function getSalesCardSortTime(card: SalesCard): number {
   const createdAt = card.created_at ? Date.parse(card.created_at) : NaN;
   if (Number.isFinite(createdAt)) return createdAt;

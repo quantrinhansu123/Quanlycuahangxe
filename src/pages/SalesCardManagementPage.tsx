@@ -33,7 +33,7 @@ import { deleteTransactionByOrderId, getTransactionByOrderId, upsertTransaction 
 import type { NhanSu } from '../data/personnelData';
 import { getPersonnel } from '../data/personnelData';
 import { bulkUpsertSalesCardCTs, deleteSalesCardCTsByOrderId } from '../data/salesCardCTData';
-import type { SalesCard } from '../data/salesCardData';
+import type { SalesCard, SalesCardFormData } from '../data/salesCardData';
 import { 
   bulkUpsertSalesCards,
   buildServiceNameLookup,
@@ -104,7 +104,7 @@ const SalesCardManagementPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isReadOnlyModal, setIsReadOnlyModal] = useState(false);
   const [editingCard, setEditingCard] = useState<SalesCard | null>(null);
-  const [formData, setFormData] = useState<Partial<SalesCard & { dich_vu_ids?: string[], service_items?: any[] }>>({});
+  const [formData, setFormData] = useState<SalesCardFormData>({});
 
   // Date filtering states — mặc định không lọc ngày (hiển thị tất cả)
   const [startDate, setStartDate] = useState('');
@@ -727,7 +727,7 @@ const SalesCardManagementPage: React.FC = () => {
     setPendingNewCustomer(null);
   };
 
-  const handleSubmit = async (formDataHeader: Partial<SalesCard & { dich_vu_ids?: string[], service_items?: { id: string, ten_dich_vu: string, gia_ban: number, so_luong?: number }[] }>) => {
+  const handleSubmit = async (formDataHeader: SalesCardFormData) => {
     try {
       if (!canManageOrders) {
         showToast('Bạn không có quyền lập hoặc sửa đơn hàng.', 'error');
