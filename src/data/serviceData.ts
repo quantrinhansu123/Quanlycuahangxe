@@ -1,4 +1,20 @@
+import type { PostgrestError } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+
+export function formatServiceSaveError(error: unknown): string {
+  const e = error as PostgrestError & { status?: number };
+  const msg = (e?.message || '').toLowerCase();
+  if (e?.code === '23505' || e?.status === 409) {
+    if (msg.includes('id_dich_vu')) {
+      return 'Mã dịch vụ đã tồn tại. Đóng form, mở lại để lấy mã mới hoặc sửa bản ghi cũ.';
+    }
+    if (msg.includes('ten_dich_vu')) {
+      return 'Tên dịch vụ đã tồn tại tại cơ sở này. Vui lòng đổi tên hoặc sửa bản ghi cũ.';
+    }
+    return 'Dịch vụ trùng mã hoặc tên. Vui lòng kiểm tra lại.';
+  }
+  return e?.message ? `Không thể lưu dịch vụ: ${e.message}` : 'Không thể lưu dịch vụ.';
+}
 
 export interface DichVu {
   id: string;
@@ -30,19 +46,45 @@ export const getServices = async (): Promise<DichVu[]> => {
 
 export const upsertService = async (service: Partial<DichVu>): Promise<DichVu> => {
   const cleanData = { ...service };
-  
-  // Sanitize date fields to prevent "invalid input syntax for type date: ''" error
+
   if (cleanData.tu_ngay === '') cleanData.tu_ngay = null;
   if (cleanData.toi_ngay === '') cleanData.toi_ngay = null;
 
-  const { data, error } = await supabase
-    .from('dich_vu')
-    .upsert(cleanData)
-    .select()
-    .single();
+  if (cleanData.id) {
+    const { id, ...updatePayload } = cleanData;
+    const { data, error } = await supabase
+      .from('dich_vu')
+      .update(updatePayload)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating service:', error);
+      throw error;
+    }
+    return data as DichVu;
+  }
+
+  const insertOnce = async (payload: Omit<Partial<DichVu>, 'id'>) => {
+    const { data, error } = await supabase
+      .from('dich_vu')
+      .insert(payload)
+      .select()
+      .single();
+    return { data: data as DichVu | null, error };
+  };
+
+  const { id: _omit, ...insertPayload } = cleanData;
+  let { data, error } = await insertOnce(insertPayload);
+
+  if (error?.code === '23505' && insertPayload.id_dich_vu) {
+    const nextCode = await getNextServiceCode();
+    ({ data, error } = await insertOnce({ ...insertPayload, id_dich_vu: nextCode }));
+  }
 
   if (error) {
-    console.error('Error upserting service:', error);
+    console.error('Error inserting service:', error);
     throw error;
   }
   return data as DichVu;

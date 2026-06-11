@@ -82,10 +82,11 @@ const ServiceFormModal: React.FC<ServiceFormModalProps> = React.memo(({
     return (
       allServices.find((s) => {
         if (editingService && s.id === editingService.id) return false;
-        return removeVietnameseTones(s.ten_dich_vu) === normalizedName;
+        const sameBranch = (s.co_so || '').trim() === (formData.co_so || '').trim();
+        return sameBranch && removeVietnameseTones(s.ten_dich_vu) === normalizedName;
       }) ?? null
     );
-  }, [allServices, normalizedName, editingService, isReadOnly]);
+  }, [allServices, normalizedName, editingService, isReadOnly, formData.co_so]);
 
   const pickSuggestion = useCallback((service: DichVu) => {
     setFormData((prev) => ({ ...prev, ten_dich_vu: service.ten_dich_vu }));

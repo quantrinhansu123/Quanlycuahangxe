@@ -27,6 +27,7 @@ import {
   getNextServiceCode,
   getServices,
   getServicesPaginated,
+  formatServiceSaveError,
   upsertService
 } from '../data/serviceData';
 
@@ -419,8 +420,8 @@ const ServiceManagementPage: React.FC = () => {
       await upsertService(formDataToSave);
       await loadData();
       handleCloseModal();
-    } catch {
-      alert('Lỗi: Không thể lưu thông tin dịch vụ.');
+    } catch (err) {
+      alert(formatServiceSaveError(err));
     }
   };
 

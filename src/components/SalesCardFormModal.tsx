@@ -9,6 +9,7 @@ import { getEditHistory } from '../data/salesCardHistoryData';
 import type { DichVu } from '../data/serviceData';
 import { MultiSearchableSelect } from './ui/MultiSearchableSelect';
 import { SearchableSelect } from './ui/SearchableSelect';
+import { useAuth } from '../context/AuthContext';
 import { formatDateTime24h } from '../utils/datetimeFormat';
 
 // Helper for dynamic classes
@@ -59,6 +60,7 @@ const SalesCardFormModal: React.FC<{
   onCollectPayment?: (data: any, method: string) => Promise<void>;
   isReadOnly?: boolean;
 }> = React.memo(({ isOpen, editingCard, initialData, customerOptions, personnel, services, defaultBranch = '', onClose, onSubmit, isReadOnly, onCollectPayment }) => {
+  const { nhanVien } = useAuth();
   const [formData, setFormData] = useState<SalesCardFormData>(initialData);
   const [isCollecting, setIsCollecting] = useState(false);
   const [historyRecords, setHistoryRecords] = useState<EditHistoryRecord[]>([]);
@@ -67,13 +69,20 @@ const SalesCardFormModal: React.FC<{
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showServiceWarning, setShowServiceWarning] = useState(false);
 
-  // Sync formData with initialData when modal opens or initialData changes (for new cards)
+  // Sync formData when modal opens — đơn mới: NV = user đăng nhập, km để trống.
   React.useEffect(() => {
-    if (isOpen) {
+    if (!isOpen) return;
+    if (editingCard) {
       setFormData(initialData);
-      setShowServiceWarning(false);
+    } else {
+      setFormData({
+        ...initialData,
+        nhan_vien_id: nhanVien?.ho_ten || initialData.nhan_vien_id || '',
+        so_km: undefined,
+      });
     }
-  }, [isOpen, initialData]);
+    setShowServiceWarning(false);
+  }, [isOpen, initialData, editingCard, nhanVien?.ho_ten]);
 
   // Dùng customerOptions được parent tính toán sẵn 1 lần thay vì map lại gây đơ Mobile CPU
   // Removed heavy 10k items mapping here.
@@ -461,7 +470,7 @@ const SalesCardFormModal: React.FC<{
                 )}
               </div>
 
-              <InputField label="Số Km" name="so_km" value={formatNumber(formData.so_km)} onChange={handleInputChange} icon={History} placeholder="Nhập số km hiện tại" required disabled={isReadOnly} />
+              <InputField label="Số Km" name="so_km" value={formatNumber(formData.so_km)} onChange={handleInputChange} icon={History} required disabled={isReadOnly} />
 
               <div className="space-y-1.5 min-w-0">
                 <InputField 

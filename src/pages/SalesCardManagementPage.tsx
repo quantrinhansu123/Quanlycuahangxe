@@ -27,7 +27,7 @@ import Pagination from '../components/Pagination';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import type { KhachHang } from '../data/customerData';
-import { getCustomersForSelect, getLatestOrderKmForCustomer, upsertCustomer } from '../data/customerData';
+import { getCustomersForSelect, upsertCustomer } from '../data/customerData';
 import type { ThuChi } from '../data/financialData';
 import { deleteTransactionByOrderId, getTransactionByOrderId, upsertTransaction } from '../data/financialData';
 import type { NhanSu } from '../data/personnelData';
@@ -531,8 +531,6 @@ const SalesCardManagementPage: React.FC = () => {
         injectCustomer(customer);
         await modalChunk;
 
-        const defaultKm = customer.so_km && customer.so_km > 0 ? customer.so_km : 0;
-
         setEditingCard(null);
         setIsReadOnlyModal(false);
         setFormData({
@@ -543,42 +541,14 @@ const SalesCardManagementPage: React.FC = () => {
           nhan_vien_id: nhanVien?.ho_ten || '',
           dich_vu_id: '',
           dich_vu_ids: [],
-          so_km: defaultKm,
           ngay_nhac_thay_dau: '',
           co_so_khach: customer.dia_chi_hien_tai?.trim() || staffBranch || '',
         });
         setIsModalOpen(true);
 
-        const lookupIds = [customer.id];
-        if (customer.ma_khach_hang) lookupIds.push(customer.ma_khach_hang);
-
-        void Promise.allSettled([
-          getNextSalesCardCode().then((code) => {
-            setFormData((prev) => ({ ...prev, id_bh: code }));
-          }),
-          supabase
-            .from('the_ban_hang')
-            .select('nhan_vien_id')
-            .in('khach_hang_id', lookupIds)
-            .order('ngay', { ascending: false })
-            .order('gio', { ascending: false })
-            .limit(1)
-            .maybeSingle()
-            .then(({ data: lastCard }) => {
-              if (lastCard?.nhan_vien_id) {
-                setFormData((prev) => ({ ...prev, nhan_vien_id: lastCard.nhan_vien_id }));
-              }
-            }),
-          getLatestOrderKmForCustomer({
-            id: customer!.id,
-            ma_khach_hang: customer!.ma_khach_hang,
-            so_dien_thoai: customer!.so_dien_thoai,
-          }).then((latestKm) => {
-            if (latestKm != null) {
-              setFormData((prev) => ({ ...prev, so_km: latestKm }));
-            }
-          }),
-        ]);
+        void getNextSalesCardCode().then((code) => {
+          setFormData((prev) => ({ ...prev, id_bh: code }));
+        });
       } catch (err) {
         console.error('[CRITICAL] Error auto-opening form:', err);
       }
@@ -654,8 +624,6 @@ const SalesCardManagementPage: React.FC = () => {
     } else {
       setEditingCard(null);
 
-      // Tự động gán người phụ trách là tên user đăng nhập hiện tại từ AuthContext, nếu không thấy thì bỏ trống
-      const matchedUser = personnel.find(p => p.ho_ten?.toLowerCase() === nhanVien?.ho_ten?.toLowerCase());
       const nextCode = await getNextSalesCardCode();
 
       setFormData({
@@ -663,10 +631,9 @@ const SalesCardManagementPage: React.FC = () => {
         gio: formatTime24h(new Date(), false),
         id_bh: nextCode,
         khach_hang_id: '',
-        nhan_vien_id: matchedUser ? matchedUser.ho_ten : '', // TEXT ID (ho_ten)
+        nhan_vien_id: nhanVien?.ho_ten || '',
         dich_vu_id: '',
         dich_vu_ids: [],
-        so_km: 0,
         ngay_nhac_thay_dau: ''
       });
     }
