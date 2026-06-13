@@ -52,6 +52,13 @@ export const upsertService = async (service: Partial<DichVu>): Promise<DichVu> =
 
   if (cleanData.id) {
     const { id, ...updatePayload } = cleanData;
+    if (updatePayload.id_dich_vu?.trim()) {
+      const codeFree = await isServiceCodeAvailable(updatePayload.id_dich_vu, id);
+      if (!codeFree) {
+        const err = { code: '23505', message: 'duplicate key id_dich_vu' } as PostgrestError;
+        throw err;
+      }
+    }
     const { data, error } = await supabase
       .from('dich_vu')
       .update(updatePayload)
@@ -76,18 +83,27 @@ export const upsertService = async (service: Partial<DichVu>): Promise<DichVu> =
   };
 
   const { id: _omit, ...insertPayload } = cleanData;
-  let { data, error } = await insertOnce(insertPayload);
+  const reserved = new Set<string>();
+  let code = await resolveInsertServiceCode(insertPayload.id_dich_vu);
+  const maxAttempts = 6;
 
-  if (error?.code === '23505' && insertPayload.id_dich_vu) {
-    const nextCode = await getNextServiceCode();
-    ({ data, error } = await insertOnce({ ...insertPayload, id_dich_vu: nextCode }));
-  }
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    reserved.add(code.toUpperCase());
+    const { data, error } = await insertOnce({ ...insertPayload, id_dich_vu: code });
 
-  if (error) {
+    if (!error && data) return data;
+
+    if (error?.code === '23505' && isIdDichVuConflict(error)) {
+      code = await getNextServiceCode(reserved);
+      continue;
+    }
+
     console.error('Error inserting service:', error);
     throw error;
   }
-  return data as DichVu;
+
+  const err = { code: '23505', message: 'duplicate key id_dich_vu' } as PostgrestError;
+  throw err;
 };
 
 export const bulkUpsertServices = async (services: Partial<DichVu>[]): Promise<void> => {
@@ -191,26 +207,55 @@ export const getServicesPaginated = async (
   };
 };
 
-export const getNextServiceCode = async (): Promise<string> => {
-  const { data, error } = await supabase
-    .from('dich_vu')
-    .select('id_dich_vu');
+function isIdDichVuConflict(error: PostgrestError | null): boolean {
+  return (error?.message || '').toLowerCase().includes('id_dich_vu');
+}
+
+async function isServiceCodeAvailable(code: string, excludeId?: string): Promise<boolean> {
+  const trimmed = code.trim();
+  if (!trimmed) return false;
+
+  let query = supabase.from('dich_vu').select('id').eq('id_dich_vu', trimmed).limit(1);
+  if (excludeId) query = query.neq('id', excludeId);
+
+  const { data, error } = await query;
+  if (error) {
+    console.error('Error checking service code:', error);
+    return false;
+  }
+  return !data?.length;
+}
+
+export const getNextServiceCode = async (reserved = new Set<string>()): Promise<string> => {
+  const { data, error } = await supabase.from('dich_vu').select('id_dich_vu');
 
   if (error) {
     console.error('Error fetching next service code:', error);
     return 'DV-0001';
   }
 
-  if (!data?.length) {
-    return 'DV-0001';
+  const used = new Set<string>(reserved);
+  for (const row of data || []) {
+    const code = String(row.id_dich_vu || '').trim().toUpperCase();
+    if (code) used.add(code);
   }
 
   let max = 0;
-  for (const row of data) {
-    const match = String(row.id_dich_vu || '').match(/^DV-(\d+)$/i);
+  used.forEach((code) => {
+    const match = code.match(/^DV-(\d+)$/i);
     if (match) max = Math.max(max, parseInt(match[1], 10));
+  });
+
+  for (let n = Math.max(max, 0) + 1; n < max + 500; n++) {
+    const candidate = `DV-${String(n).padStart(4, '0')}`;
+    if (!used.has(candidate.toUpperCase())) return candidate;
   }
 
-  if (max === 0) return 'DV-0001';
   return `DV-${String(max + 1).padStart(4, '0')}`;
 };
+
+async function resolveInsertServiceCode(requested?: string | null): Promise<string> {
+  const trimmed = (requested || '').trim();
+  if (trimmed && (await isServiceCodeAvailable(trimmed))) return trimmed;
+  return getNextServiceCode(trimmed ? new Set([trimmed.toUpperCase()]) : undefined);
+}
