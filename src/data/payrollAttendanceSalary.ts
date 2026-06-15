@@ -3,7 +3,7 @@
  */
 
 import { removeVietnameseTones } from '../lib/utils';
-import { overtimeMinutesForDayShifts, parseTimeStringToMinutes } from '../utils/timekeeping';
+import { MOC_TANG_CA_TINH_TU, overtimeMinutesForDayShifts, parseTimeStringToMinutes } from '../utils/timekeeping';
 
 export const ATTENDANCE_SALARY = {
   NGAY_LAM_TRONG_THANG: 28,
@@ -18,7 +18,7 @@ export const ATTENDANCE_SALARY = {
   /** Năm thứ 2 trở đi: mỗi năm cộng vào LCB khi tính ngày/giờ */
   HE_SO_TANG_CA: 1.5,
   GIO_TANG_CA_TOI_DA_THANG: 25,
-  /** Checkout từ giờ này (trở lên) → thêm 1 bữa tăng ca sau ăn / ngày. */
+  /** @deprecated Dùng MOC_TANG_CA_TINH_TU (19:40) từ utils/timekeeping */
   GIO_CHECKOUT_BU_SUNG_BUA_TANG_CA: 19,
   BUA_MOT_NGAY_TAI_CO: 2,
   BUA_MOT_NGAY_NGOAI: 1,
@@ -159,7 +159,7 @@ function viTriLamNgoai(viTri: string | null | undefined): boolean {
 /**
  * Số bữa ăn trong tháng theo từng bản ghi chấm công (Nhân sự → bảng `cham_cong`).
  * Mỗi **ngày** có chấm (có check-in): 2 bữa tại cơ sở, 1 bữa nếu vị trí gợi ý làm ngoài;
- * thêm 1 bữa nếu **checkout** ≥ GIO_CHECKOUT (mặc định 19:00) — tăng ca sau giờ ăn.
+ * thêm 1 bữa nếu **checkout** ≥ giờ ra chuẩn (19:40) — tăng ca sau giờ ăn.
  */
 export function demSoBuaAnTheoDongCham(
   cacDong: DongChamBuaNhap[],
@@ -177,7 +177,7 @@ export function demSoBuaAnTheoDongCham(
     list.push(d);
     theoNgay.set(d.ngay, list);
   }
-  const G0 = 60 * ATTENDANCE_SALARY.GIO_CHECKOUT_BU_SUNG_BUA_TANG_CA;
+  const G0 = MOC_TANG_CA_TINH_TU;
   let soBua = 0;
   for (const [, dongsCuaMNgay] of theoNgay) {
     const coVao = dongsCuaMNgay.filter((d) => d.checkin && String(d.checkin).trim() !== '');
@@ -226,7 +226,7 @@ export function demSoNgayCongTheoDongCham(
 }
 
 /**
- * Tổng giờ tăng ca (tháng) từ chấm công — cùng quy ước màn hình Tăng ca (sau 19:00, mỗi phút).
+ * Tổng giờ tăng ca (tháng) từ chấm công — cùng quy ước màn hình Tăng ca (sau 19:40, mỗi phút).
  * Mỗi **ngày** chỉ tính một lần: lấy **giờ ra muộn nhất** nếu có nhiều bản ghi.
  */
 export function demGioTangCaTheoDongCham(

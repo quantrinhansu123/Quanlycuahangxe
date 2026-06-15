@@ -5,6 +5,7 @@ import { getChamCongTrongKhoang } from '../data/attendanceData';
 import { getRevenueByPersonnelFromTongTien } from '../data/reportData';
 import { removeVietnameseTones } from '../lib/utils';
 import { formatDateVi } from '../utils/datetimeFormat';
+import { GIO_RA_CHUAN_LABEL } from '../utils/timekeeping';
 import {
   demGioTangCaTheoDongCham,
   demSoBuaAnTheoDongCham,
@@ -645,7 +646,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                         className="w-[4.5rem] min-h-10 text-sm bg-transparent border border-border/60 rounded-md px-2 py-1.5 text-right font-mono"
                         title={
                           gTcTuCham !== undefined
-                            ? 'Giờ tăng ca từ chấm công (sau 19:00; mỗi ngày giờ ra muộn nhất; khớp tên / mã NV)'
+                            ? `Giờ tăng ca từ chấm công (sau ${GIO_RA_CHUAN_LABEL}; mỗi ngày giờ ra muộn nhất; khớp tên / mã NV)`
                             : 'Nhập giờ tăng ca thủ công khi chưa có dữ liệu chấm công tháng'
                         }
                         readOnly={gTcTuCham !== undefined}

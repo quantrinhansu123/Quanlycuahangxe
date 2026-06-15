@@ -40,6 +40,8 @@ import DateInputVi from '../components/ui/DateInputVi';
 import {
   calculateAttendanceStatus,
   formatMinutesToHours,
+  GIO_RA_CHUAN_LABEL,
+  GIO_RA_CHUAN_PHUT,
   overtimeMinutesForDayShifts,
   parseTimeStringToMinutes,
 } from '../utils/timekeeping';
@@ -580,7 +582,7 @@ const AttendanceManagementPage: React.FC = () => {
     });
   }, [records]);
 
-  /** Tổng phút tăng ca trong ngày (cùng nhân sự): sau 19:00, nhiều lượt → giờ ra muộn nhất. */
+  /** Tổng phút tăng ca trong ngày (cùng nhân sự): sau 19:40, nhiều lượt → giờ ra muộn nhất. */
   const tangCaPhutTrongNgay = React.useMemo(() => {
     const map = new Map<string, number>();
     const buckets: Record<string, AttendanceRecord[]> = {};
@@ -607,8 +609,8 @@ const AttendanceManagementPage: React.FC = () => {
     if ((r as { isMockAbsent?: boolean }).isMockAbsent) return '';
     const p = r.checkout ? parseTimeStringToMinutes(r.checkout) : null;
     if (p == null) return 'Chưa có giờ ra — chưa tính tăng ca';
-    if (p < 19 * 60) {
-      return 'Tăng ca: chỉ tính phút làm sau 19:00 (giờ ra hiện trước 19:00 nên 0p). Nếu làm tối, hãy chấm thêm lượt có giờ ra sau 19:00 cùng ngày.';
+    if (p < GIO_RA_CHUAN_PHUT) {
+      return `Tăng ca: chỉ tính phút làm sau ${GIO_RA_CHUAN_LABEL} (giờ ra hiện trước ${GIO_RA_CHUAN_LABEL} nên 0p). Nếu làm tối, hãy chấm thêm lượt có giờ ra sau ${GIO_RA_CHUAN_LABEL} cùng ngày.`;
     }
     return '';
   };
@@ -883,7 +885,7 @@ const AttendanceManagementPage: React.FC = () => {
                           className="px-4 py-4 font-bold"
                           title={
                             !isMockAbsent && phutTangCaNgay > 0
-                              ? 'Tổng tăng ca trong ngày (sau 19:00; nhiều lượt chấm: lấy giờ ra muộn nhất)'
+                              ? `Tổng tăng ca trong ngày (sau ${GIO_RA_CHUAN_LABEL}; nhiều lượt chấm: lấy giờ ra muộn nhất)`
                               : !isMockAbsent
                                 ? titleTangCaKhiKhongHien(record) || 'Không phát sinh tăng ca'
                                 : undefined
@@ -1045,7 +1047,7 @@ const AttendanceManagementPage: React.FC = () => {
                         {!isMockAbsent && phutTangCaNgay > 0 && (
                            <span
                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-orange-50 text-orange-600 text-[11px] font-bold border border-orange-100"
-                             title="Tổng tăng ca trong ngày (sau 19:00; nhiều lượt: giờ ra muộn nhất)"
+                             title={`Tổng tăng ca trong ngày (sau ${GIO_RA_CHUAN_LABEL}; nhiều lượt: giờ ra muộn nhất)`}
                            >
                              OT: {formatMinutesToHours(phutTangCaNgay)}
                            </span>

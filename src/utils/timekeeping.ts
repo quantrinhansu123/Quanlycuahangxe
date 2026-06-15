@@ -1,11 +1,19 @@
-/** Mốc bắt đầu tính tăng ca (sau giờ ca tối / cùng hệ thống bữa tăng 19:00). */
-export const MOC_TANG_CA_TINH_TU = 19 * 60; // 19:00
+/** Giờ vào ca chuẩn (07:30). */
+export const GIO_VAO_CHUAN_PHUT = 7 * 60 + 30;
+/** Giờ ra ca chuẩn — từ phút sau mốc này tính tăng ca (19:40). */
+export const GIO_RA_CHUAN_PHUT = 19 * 60 + 40;
+export const MOC_TANG_CA_TINH_TU = GIO_RA_CHUAN_PHUT;
+/** Check-in sau mốc này (07:40) mới ghi nhận đi muộn (tính từ 07:30). */
+export const GIO_MUON_BAT_DAU_PHUT = GIO_VAO_CHUAN_PHUT + 10;
+
+export const GIO_VAO_CHUAN_LABEL = '07:30';
+export const GIO_RA_CHUAN_LABEL = '19:40';
 
 export interface AttendanceStatus {
   isLate: boolean;          // Có đi muộn không (checkin > 07:40)
-  lateMinutes: number;      // Số phút đi muộn (so với mốc 07:30 gốc)
+  lateMinutes: number;      // Số phút đi muộn (so với mốc 07:30)
   isAbsent: boolean;        // Không có dữ liệu ở Ngày đó => Vắng mặt
-  overtimeMinutes: number;  // (Giờ ra − 19:00) tính bằng phút, nếu > 0
+  overtimeMinutes: number;  // (Giờ ra − 19:40) tính bằng phút, nếu > 0
   overtimeFormatted: string;// Chuỗi format VD: "1h 30p"
 }
 
@@ -83,15 +91,14 @@ export const calculateAttendanceStatus = (checkin: string | null, checkout: stri
   const outMins = timeToMinutes(checkout);
 
   // === 1. TÍNH ĐI MUỘN Buổi Sáng ===
-  // Quy định: 7:30 là chuẩn (450 phút). Cột mốc late trigger: 07:40 (460 phút).
-  // Nếu check-in > 07:40 => Tính đi muộn so với mốc 07:30.
-  // Không áp dụng đi muộn nếu đi ca chiều (checkin >= 12:00 / 720p)
-  if (inMins > 460 && inMins < 720) {
+  // Quy định: 07:30 là chuẩn. Check-in sau 07:40 → đi muộn (tính từ 07:30).
+  // Không áp dụng đi muộn nếu đi ca chiều (checkin >= 12:00)
+  if (inMins > GIO_MUON_BAT_DAU_PHUT && inMins < 720) {
     result.isLate = true;
-    result.lateMinutes = inMins - 450; // Tính theo mốc 07:30
+    result.lateMinutes = inMins - GIO_VAO_CHUAN_PHUT;
   }
 
-  // === 2. TĂNG CA: mọi phút sau mốc MOC_TANG_CA_TINH_TU (mặc định 19:00)
+  // === 2. TĂNG CA: mọi phút sau giờ ra chuẩn (19:40)
   if (outMins > 0) {
     const phutSauMoc = outMins - MOC_TANG_CA_TINH_TU;
     if (phutSauMoc > 0) {
