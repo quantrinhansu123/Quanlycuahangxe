@@ -871,20 +871,18 @@ const FinancialManagementPage: React.FC = () => {
                           <th className="px-3 py-2 font-semibold text-center">Ngày hạch toán</th>
                           <th className="px-3 py-2 font-semibold text-center">Ngày chứng từ</th>
                           <th className="px-3 py-2 font-semibold">Số phiếu</th>
+                          <th className="px-3 py-2 font-semibold">Phiếu thu chi</th>
                           <th className="px-3 py-2 font-semibold">Diễn giải</th>
                           <th className="px-3 py-2 font-semibold text-center">Tài khoản</th>
                           <th className="px-3 py-2 font-semibold text-center">TK đối ứng</th>
-                          <th className="px-3 py-2 font-semibold text-right">Nợ</th>
+                          <th className="px-3 py-2 font-semibold text-right">Số tiền</th>
                           <th className="px-3 py-2 font-semibold text-right">Có</th>
-                          <th className="px-3 py-2 font-semibold text-right">Số tồn</th>
-                          <th className="px-3 py-2 font-semibold">Người nhận/Người nộp</th>
-                          <th className="px-3 py-2 font-semibold">Mã đối tượng</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 text-[13px]">
                         {loading ? (
                           <tr>
-                            <td colSpan={11} className="px-4 py-12 text-center text-muted-foreground">
+                            <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">
                               <Loader2 className="animate-spin inline-block mr-2" size={20} />
                               Đang tải dữ liệu...
                             </td>
@@ -898,23 +896,24 @@ const FinancialManagementPage: React.FC = () => {
                                 </td>
                                 <td className="px-3 py-2 text-center whitespace-nowrap">—</td>
                                 <td className="px-3 py-2 font-mono text-[11px] text-indigo-700">TĐK</td>
+                                <td className="px-3 py-2 text-center text-muted-foreground">—</td>
                                 <td className="px-3 py-2 text-indigo-900">Tồn đầu kỳ</td>
                                 <td className="px-3 py-2 text-center font-semibold">1111</td>
                                 <td className="px-3 py-2 text-center text-muted-foreground">—</td>
                                 <td className="px-3 py-2 text-right" />
                                 <td className="px-3 py-2 text-right" />
-                                <td className="px-3 py-2 text-right font-black text-indigo-700">
-                                  {formatCurrency(openingBalance)}
-                                </td>
-                                <td className="px-3 py-2">—</td>
-                                <td className="px-3 py-2">—</td>
                               </tr>
                             )}
                             {cashbookRows.map((transaction) => (
                           <tr key={transaction.id} className="hover:bg-muted/50 transition-colors">
                             <td className="px-3 py-2 text-center whitespace-nowrap">{new Date(transaction.ngay).toLocaleDateString('vi-VN')}</td>
                             <td className="px-3 py-2 text-center whitespace-nowrap">{new Date(transaction.ngay).toLocaleDateString('vi-VN')}</td>
-                            <td className="px-3 py-2 font-mono text-[11px]">{`PT${transaction.id.slice(0, 6).toUpperCase()}`}</td>
+                            <td className="px-3 py-2 font-mono text-[11px]">
+                              {`${transaction.loai_phieu === 'phiếu thu' ? 'PT' : 'PC'}${transaction.id.slice(0, 6).toUpperCase()}`}
+                            </td>
+                            <td className="px-3 py-2 text-center font-semibold">
+                              {transaction.loai_phieu === 'phiếu thu' ? 'Phiếu thu' : 'Phiếu chi'}
+                            </td>
                             <td className="px-3 py-2 max-w-[280px] truncate" title={transaction.danh_muc || transaction.ghi_chu || ''}>
                               {transaction.danh_muc || transaction.ghi_chu || 'Không có diễn giải'}
                             </td>
@@ -922,16 +921,13 @@ const FinancialManagementPage: React.FC = () => {
                             <td className="px-3 py-2 text-center text-muted-foreground">{transaction.loai_phieu === 'phiếu thu' ? '131' : '6422'}</td>
                             <td className="px-3 py-2 text-right font-bold text-emerald-700">{transaction.debit > 0 ? formatCurrency(transaction.debit) : ''}</td>
                             <td className="px-3 py-2 text-right font-bold text-rose-700">{transaction.credit > 0 ? formatCurrency(transaction.credit) : ''}</td>
-                            <td className="px-3 py-2 text-right font-black text-sky-700">{formatCurrency(transaction.runningBalance)}</td>
-                            <td className="px-3 py-2">{transaction.nguoi_nhan || transaction.nguoi_chi || '—'}</td>
-                            <td className="px-3 py-2 font-mono text-[11px]">{transaction.id_khach_hang || transaction.id_don || '—'}</td>
                           </tr>
                             ))}
                           </>
                         )}
                         {!loading && cashbookRows.length === 0 && openingBalance === 0 && !isSoQuyPage && (
                           <tr>
-                            <td colSpan={11} className="px-2 py-8 text-center text-muted-foreground">Không có dữ liệu giao dịch.</td>
+                            <td colSpan={9} className="px-2 py-8 text-center text-muted-foreground">Không có dữ liệu giao dịch.</td>
                           </tr>
                         )}
                       </tbody>
