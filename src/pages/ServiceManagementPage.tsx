@@ -428,7 +428,7 @@ const ServiceManagementPage: React.FC = () => {
   const handleDownloadTemplate = () => {
     const templateData = [
       {
-        id: 'DV-001',
+        id: '',
         'Tên dịch vụ': 'Bảo dưỡng toàn bộ',
         'Cơ sở': 'Cơ sở Bắc Giang',
         'Giá nhập': 200000,

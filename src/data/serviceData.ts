@@ -6,7 +6,7 @@ export function formatServiceSaveError(error: unknown): string {
   const msg = (e?.message || '').toLowerCase();
   if (e?.code === '23505' || e?.status === 409) {
     if (msg.includes('id_dich_vu')) {
-      return 'Mã dịch vụ đã tồn tại. Đóng form, mở lại để lấy mã mới hoặc sửa bản ghi cũ.';
+      return 'Mã dịch vụ bị trùng. Vui lòng thử lưu lại.';
     }
     if (msg.includes('ten_dich_vu')) {
       return 'Tên dịch vụ đã tồn tại tại cơ sở này. Vui lòng đổi tên hoặc sửa bản ghi cũ.';
@@ -117,7 +117,14 @@ export const bulkUpsertServices = async (services: Partial<DichVu>[]): Promise<v
     if (error) { console.error('Error upserting services:', error); throw error; }
   }
   if (toInsert.length > 0) {
-    const cleanInserts = toInsert.map(({ id, ...rest }) => rest);
+    const cleanInserts = await Promise.all(
+      toInsert.map(async ({ id, ...rest }) => {
+        const raw = (rest.id_dich_vu || '').trim();
+        const id_dich_vu =
+          raw && (await isServiceCodeAvailable(raw)) ? raw : await getNextServiceCode();
+        return { ...rest, id_dich_vu };
+      })
+    );
     const { error } = await supabase.from('dich_vu').insert(cleanInserts);
     if (error) { console.error('Error inserting services:', error); throw error; }
   }
@@ -211,6 +218,21 @@ function isIdDichVuConflict(error: PostgrestError | null): boolean {
   return (error?.message || '').toLowerCase().includes('id_dich_vu');
 }
 
+/** Mã dịch vụ unique: DV-20260529-A3F2B1 (ngày + 6 ký tự ngẫu nhiên). */
+export function generateUniqueServiceCode(): string {
+  const d = new Date();
+  const ymd = [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, '0'),
+    String(d.getDate()).padStart(2, '0'),
+  ].join('');
+  const tail =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID().replace(/-/g, '').slice(0, 6).toUpperCase()
+      : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`.slice(-6).toUpperCase();
+  return `DV-${ymd}-${tail}`;
+}
+
 async function isServiceCodeAvailable(code: string, excludeId?: string): Promise<boolean> {
   const trimmed = code.trim();
   if (!trimmed) return false;
@@ -227,35 +249,15 @@ async function isServiceCodeAvailable(code: string, excludeId?: string): Promise
 }
 
 export const getNextServiceCode = async (reserved = new Set<string>()): Promise<string> => {
-  const { data, error } = await supabase.from('dich_vu').select('id_dich_vu');
-
-  if (error) {
-    console.error('Error fetching next service code:', error);
-    return 'DV-0001';
+  for (let attempt = 0; attempt < 25; attempt++) {
+    const code = generateUniqueServiceCode();
+    if (reserved.has(code.toUpperCase())) continue;
+    if (await isServiceCodeAvailable(code)) return code;
   }
-
-  const used = new Set<string>(reserved);
-  for (const row of data || []) {
-    const code = String(row.id_dich_vu || '').trim().toUpperCase();
-    if (code) used.add(code);
-  }
-
-  let max = 0;
-  used.forEach((code) => {
-    const match = code.match(/^DV-(\d+)$/i);
-    if (match) max = Math.max(max, parseInt(match[1], 10));
-  });
-
-  for (let n = Math.max(max, 0) + 1; n < max + 500; n++) {
-    const candidate = `DV-${String(n).padStart(4, '0')}`;
-    if (!used.has(candidate.toUpperCase())) return candidate;
-  }
-
-  return `DV-${String(max + 1).padStart(4, '0')}`;
+  const fallback = `DV-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+  return fallback;
 };
 
-async function resolveInsertServiceCode(requested?: string | null): Promise<string> {
-  const trimmed = (requested || '').trim();
-  if (trimmed && (await isServiceCodeAvailable(trimmed))) return trimmed;
-  return getNextServiceCode(trimmed ? new Set([trimmed.toUpperCase()]) : undefined);
+async function resolveInsertServiceCode(_requested?: string | null): Promise<string> {
+  return getNextServiceCode();
 }

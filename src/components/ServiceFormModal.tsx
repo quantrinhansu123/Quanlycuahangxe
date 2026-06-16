@@ -181,7 +181,7 @@ const ServiceFormModal: React.FC<ServiceFormModalProps> = React.memo(({
                   value={formData.id_dich_vu || ''} 
                   onChange={handleInputChange} 
                   disabled={isReadOnly || !editingService}
-                  placeholder="Tự sinh khi lưu"
+                  placeholder="VD: DV-20260529-A3F2B1"
                   tabIndex={1}
                   className={clsx("w-full px-4 py-2 bg-background border border-border rounded-xl outline-none focus:border-primary text-[14px] font-bold text-primary", isReadOnly && "bg-muted cursor-not-allowed")} 
                 />
