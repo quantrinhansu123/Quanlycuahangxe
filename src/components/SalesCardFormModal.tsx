@@ -1,5 +1,5 @@
 import { Banknote, Building2, Calendar, Car, ChevronDown, ChevronUp, Clock, FileText, History, Loader2, Save, ShoppingCart, User, Wrench, X } from 'lucide-react';
-import { CUSTOMER_BRANCH_OPTIONS } from '../constants/customerBranches';
+import { CUSTOMER_BRANCH_OPTIONS, matchesServiceBranch } from '../constants/customerBranches';
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { NhanSu } from '../data/personnelData';
@@ -54,12 +54,11 @@ const SalesCardFormModal: React.FC<{
   customerOptions: any[];
   personnel: NhanSu[];
   services: DichVu[];
-  defaultBranch?: string;
   onClose: () => void;
   onSubmit: (data: SalesCardFormData) => Promise<void>;
   onCollectPayment?: (data: any, method: string) => Promise<void>;
   isReadOnly?: boolean;
-}> = React.memo(({ isOpen, editingCard, initialData, customerOptions, personnel, services, defaultBranch = '', onClose, onSubmit, isReadOnly, onCollectPayment }) => {
+}> = React.memo(({ isOpen, editingCard, initialData, customerOptions, personnel, services, onClose, onSubmit, isReadOnly, onCollectPayment }) => {
   const { nhanVien } = useAuth();
   const [formData, setFormData] = useState<SalesCardFormData>(initialData);
   const [isCollecting, setIsCollecting] = useState(false);
@@ -87,6 +86,40 @@ const SalesCardFormModal: React.FC<{
   // Dùng customerOptions được parent tính toán sẵn 1 lần thay vì map lại gây đơ Mobile CPU
   // Removed heavy 10k items mapping here.
 
+  const extendedCustomerOptions = React.useMemo(() => {
+    let options = [...customerOptions];
+    if (formData.khach_hang_id && !options.find(o => o.value === formData.khach_hang_id)) {
+      const fallbackName = 
+         initialData?.khach_hang?.ho_va_ten || 
+         (initialData as any)?.ten_khach_hang || 
+         'Khách hàng (Chưa tải dữ liệu)';
+      const fallbackPhone = initialData?.khach_hang?.so_dien_thoai || (initialData as any)?.so_dien_thoai || '';
+      
+      options = [
+        {
+          value: formData.khach_hang_id,
+          label: `${fallbackName}${fallbackPhone ? ` - ${fallbackPhone}` : ''}`,
+          searchKey: fallbackName,
+          dia_chi_hien_tai: initialData?.khach_hang?.dia_chi_hien_tai || (initialData as { co_so_khach?: string })?.co_so_khach || '',
+        },
+        ...options
+      ];
+    }
+    return options;
+  }, [customerOptions, formData.khach_hang_id, initialData]);
+
+  const customerBranchFromProfile = React.useMemo(() => {
+    const opt = extendedCustomerOptions.find((o) => o.value === formData.khach_hang_id);
+    return ((opt as { dia_chi_hien_tai?: string })?.dia_chi_hien_tai || '').trim();
+  }, [extendedCustomerOptions, formData.khach_hang_id]);
+
+  const formBranchForServices = (formData.co_so_khach || customerBranchFromProfile || '').trim();
+
+  const servicesForBranch = React.useMemo(() => {
+    if (!formBranchForServices) return [];
+    return services.filter((s) => matchesServiceBranch(s.co_so, formBranchForServices));
+  }, [services, formBranchForServices]);
+
   // Sync service information based on dich_vu_ids (Multi-select support)
   React.useEffect(() => {
     if (formData.dich_vu_ids && formData.dich_vu_ids.length > 0) {
@@ -96,7 +129,8 @@ const SalesCardFormModal: React.FC<{
         const existing = currentItems.find(it => it.id === id);
         if (existing) return existing;
 
-        const s = services.find(serv => serv.id === id || serv.ten_dich_vu === id);
+        const s = services.find(serv => serv.id === id || serv.ten_dich_vu === id)
+          || servicesForBranch.find(serv => serv.id === id || serv.ten_dich_vu === id);
         return {
           id: s?.id || id,
           ten_dich_vu: s?.ten_dich_vu || id,
@@ -115,7 +149,7 @@ const SalesCardFormModal: React.FC<{
         setFormData(prev => ({ ...prev, service_items: [] }));
       }
     }
-  }, [formData.dich_vu_ids, services]);
+  }, [formData.dich_vu_ids, servicesForBranch, services]);
 
   // Note: id_bh is now managed by the parent component (SalesCardManagementPage)
   // to ensure sequential and unique values via getNextSalesCardCode()
@@ -177,30 +211,8 @@ const SalesCardFormModal: React.FC<{
 
   // Robust Fallback: If formData has a khach_hang_id that is NOT in the customerOptions,
   // we dynamically inject a fallback option using the name from initialData so the dropdown isn't blank.
-  const extendedCustomerOptions = React.useMemo(() => {
-    let options = [...customerOptions];
-    if (formData.khach_hang_id && !options.find(o => o.value === formData.khach_hang_id)) {
-      const fallbackName = 
-         initialData?.khach_hang?.ho_va_ten || 
-         (initialData as any)?.ten_khach_hang || 
-         'Khách hàng (Chưa tải dữ liệu)';
-      const fallbackPhone = initialData?.khach_hang?.so_dien_thoai || (initialData as any)?.so_dien_thoai || '';
-      
-      options = [
-        {
-          value: formData.khach_hang_id,
-          label: `${fallbackName}${fallbackPhone ? ` - ${fallbackPhone}` : ''}`,
-          searchKey: fallbackName,
-          dia_chi_hien_tai: initialData?.khach_hang?.dia_chi_hien_tai || (initialData as { co_so_khach?: string })?.co_so_khach || '',
-        },
-        ...options
-      ];
-    }
-    return options;
-  }, [customerOptions, formData.khach_hang_id, initialData]);
-
   const serviceSelectOptions = React.useMemo(() => {
-    const base = services.map((s) => ({
+    const base = servicesForBranch.map((s) => ({
       value: s.id,
       label: `${s.ten_dich_vu} (${s.gia_ban.toLocaleString()}đ)`,
     }));
@@ -217,20 +229,33 @@ const SalesCardFormModal: React.FC<{
       })
       .filter(Boolean) as { value: string; label: string }[];
     return [...base, ...extras];
-  }, [services, formData.dich_vu_ids, formData.service_items]);
+  }, [servicesForBranch, formData.dich_vu_ids, formData.service_items]);
 
-  const customerBranchFromProfile = React.useMemo(() => {
-    const opt = extendedCustomerOptions.find((o) => o.value === formData.khach_hang_id);
-    return ((opt as { dia_chi_hien_tai?: string })?.dia_chi_hien_tai || '').trim();
-  }, [extendedCustomerOptions, formData.khach_hang_id]);
-
-  const displayCoSo = customerBranchFromProfile || (formData.co_so_khach || '').trim() || defaultBranch;
+  const displayCoSo = customerBranchFromProfile || (formData.co_so_khach || '').trim();
 
   React.useEffect(() => {
     if (!isOpen || isReadOnly) return;
-    const next = customerBranchFromProfile || defaultBranch || '';
+    const next = customerBranchFromProfile || '';
     setFormData((prev) => ({ ...prev, co_so_khach: next }));
-  }, [isOpen, isReadOnly, formData.khach_hang_id, customerBranchFromProfile, defaultBranch]);
+  }, [isOpen, isReadOnly, formData.khach_hang_id, customerBranchFromProfile]);
+
+  React.useEffect(() => {
+    if (!isOpen || isReadOnly || !formBranchForServices) return;
+    setFormData((prev) => {
+      const ids = prev.dich_vu_ids || [];
+      const validIds = ids.filter((id) => {
+        const svc = services.find((s) => s.id === id);
+        return svc && matchesServiceBranch(svc.co_so, formBranchForServices);
+      });
+      if (validIds.length === ids.length) return prev;
+      const validSet = new Set(validIds);
+      return {
+        ...prev,
+        dich_vu_ids: validIds,
+        service_items: prev.service_items?.filter((it) => validSet.has(it.id)),
+      };
+    });
+  }, [formBranchForServices, isOpen, isReadOnly, services]);
 
   const selectedBsx = React.useMemo(() => {
     const fromCard =
@@ -402,6 +427,9 @@ const SalesCardFormModal: React.FC<{
                   </div>
                 ) : (
                   <div className="space-y-4">
+                    {!formBranchForServices && (
+                      <p className="text-[12px] text-amber-700 font-medium">Chọn cơ sở trước để xem dịch vụ.</p>
+                    )}
                     <MultiSearchableSelect
                       options={serviceSelectOptions}
                       value={formData.dich_vu_ids || []}

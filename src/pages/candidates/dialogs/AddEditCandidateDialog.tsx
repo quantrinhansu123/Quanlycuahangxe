@@ -19,6 +19,8 @@ import { createPortal } from 'react-dom';
 import type { CandidateDocument, CandidateFormState, FilterOption } from '../types';
 import DatePickerVi from '../../../components/ui/DatePickerVi';
 
+const BRANCH_OPTIONS = ['Cơ sở Bắc Giang', 'Cơ sở Bắc Ninh'] as const;
+
 interface Props {
   isOpen: boolean;
   isClosing: boolean;
@@ -52,6 +54,22 @@ const AddEditCandidateDialog: React.FC<Props> = ({
 
   const setFormDocuments = (updater: (prev: CandidateDocument[]) => CandidateDocument[]) => {
     setFormField('formDocuments', updater(formDocuments));
+  };
+
+  const selectedBranches = React.useMemo(
+    () =>
+      formAddress
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    [formAddress]
+  );
+
+  const toggleBranch = (branch: string) => {
+    const next = selectedBranches.includes(branch)
+      ? selectedBranches.filter((b) => b !== branch)
+      : [...selectedBranches, branch];
+    setFormField('formAddress', next.join(', '));
   };
 
   return createPortal(
@@ -172,17 +190,24 @@ const AddEditCandidateDialog: React.FC<Props> = ({
               )}
               <div className="space-y-1.5">
                 <label className="text-[13px] font-bold text-foreground">{'C\u01a1 s\u1edf / chi nh\u00e1nh'}</label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground/40" size={16} />
-                  <select
-                    value={formAddress}
-                    onChange={e => setFormField('formAddress', e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 bg-muted/10 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all"
-                  >
-                    <option value="">{'Ch\u1ecdn c\u01a1 s\u1edf'}</option>
-                    <option value={'C\u01a1 s\u1edf B\u1eafc Giang'}>{'C\u01a1 s\u1edf B\u1eafc Giang'}</option>
-                    <option value={'C\u01a1 s\u1edf B\u1eafc Ninh'}>{'C\u01a1 s\u1edf B\u1eafc Ninh'}</option>
-                  </select>
+                <div className="w-full px-3 py-2 bg-muted/10 border border-border rounded-xl text-[13px]">
+                  <div className="flex items-center gap-2 mb-1.5 text-muted-foreground">
+                    <MapPin size={16} className="text-muted-foreground/60" />
+                    <span>{selectedBranches.length > 0 ? selectedBranches.join(', ') : 'Chọn một hoặc nhiều cơ sở'}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    {BRANCH_OPTIONS.map((branch) => (
+                      <label key={branch} className="inline-flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedBranches.includes(branch)}
+                          onChange={() => toggleBranch(branch)}
+                          className="size-3.5"
+                        />
+                        <span>{branch}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
               </div>
               <div className="space-y-1.5 md:col-span-2">

@@ -21,7 +21,7 @@ interface MultiSearchableSelectProps {
   disabled?: boolean
 }
 
-const MAX_VISIBLE_ITEMS = 50;
+const MAX_VISIBLE_ITEMS = 200;
 
 export const MultiSearchableSelect = React.memo(function MultiSearchableSelect({
   options,
@@ -39,19 +39,16 @@ export const MultiSearchableSelect = React.memo(function MultiSearchableSelect({
   const triggerRef = React.useRef<HTMLDivElement>(null)
   const [dropdownPos, setDropdownPos] = React.useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 })
 
-  // Filter + limit items for performance
+  // Filter items. Khi có search thì hiển thị toàn bộ kết quả khớp.
   const filteredOptions = React.useMemo(() => {
     if (!search) return options.slice(0, MAX_VISIBLE_ITEMS);
     const q = search.toLowerCase();
-    const matched = options.filter(o => o.label.toLowerCase().includes(q));
-    return matched.slice(0, MAX_VISIBLE_ITEMS);
+    return options.filter(o => o.label.toLowerCase().includes(q));
   }, [options, search]);
 
   const remainingCount = React.useMemo(() => {
     if (!search) return Math.max(0, options.length - MAX_VISIBLE_ITEMS);
-    const q = search.toLowerCase();
-    const totalMatched = options.filter(o => o.label.toLowerCase().includes(q)).length;
-    return Math.max(0, totalMatched - MAX_VISIBLE_ITEMS);
+    return 0;
   }, [options, search]);
 
   // Memoize selected labels for the trigger display

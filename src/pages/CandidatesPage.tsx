@@ -32,6 +32,7 @@ const CandidatesPage: React.FC = () => {
   const [totalCount, setTotalCount] = useState(0);
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedBranches, setSelectedBranches] = useState<string[]>([]);
   
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
@@ -84,7 +85,21 @@ const CandidatesPage: React.FC = () => {
     loadData();
   }, [loadData]);
 
-  const filteredCandidates = candidates;
+  const branchOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of candidates) {
+      set.add((c.co_so ?? '').trim() || 'Chưa xác định');
+    }
+    return [...set].sort((a, b) => a.localeCompare(b, 'vi'));
+  }, [candidates]);
+
+  const filteredCandidates = useMemo(() => {
+    if (selectedBranches.length === 0) return candidates;
+    return candidates.filter((c) => {
+      const branch = (c.co_so ?? '').trim() || 'Chưa xác định';
+      return selectedBranches.includes(branch);
+    });
+  }, [candidates, selectedBranches]);
 
   const candidatesByBranch = useMemo(() => {
     const m = new Map<string, Candidate[]>();
@@ -98,6 +113,12 @@ const CandidatesPage: React.FC = () => {
   }, [filteredCandidates]);
 
   const navigate = useNavigate();
+
+  const toggleBranchFilter = (branch: string) => {
+    setSelectedBranches((prev) =>
+      prev.includes(branch) ? prev.filter((b) => b !== branch) : [...prev, branch]
+    );
+  };
 
   const renderCandidateRows = (branchRows: Candidate[]) =>
     branchRows.map((candidate) => (
@@ -326,6 +347,34 @@ const CandidatesPage: React.FC = () => {
                <Calendar size={16} />
                Tất cả thời gian
              </button>
+          </div>
+        </div>
+        <div className="mt-3 pt-3 border-t border-border/60">
+          <div className="flex flex-wrap items-center gap-2 text-[12px]">
+            <span className="font-bold text-muted-foreground">Cơ sở / Chi nhánh:</span>
+            <label className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg border border-border bg-muted/10 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={selectedBranches.length === 0}
+                onChange={() => setSelectedBranches([])}
+                className="size-3.5"
+              />
+              <span>Tất cả</span>
+            </label>
+            {branchOptions.map((branch) => (
+              <label
+                key={branch}
+                className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg border border-border bg-muted/10 cursor-pointer"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedBranches.includes(branch)}
+                  onChange={() => toggleBranchFilter(branch)}
+                  className="size-3.5"
+                />
+                <span>{branch}</span>
+              </label>
+            ))}
           </div>
         </div>
       </div>

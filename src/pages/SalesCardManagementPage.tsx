@@ -56,27 +56,6 @@ import { formatTime24h } from '../utils/datetimeFormat';
 
 const SalesCardFormModal = React.lazy(() => import('../components/SalesCardFormModal'));
 
-const BRANCH_OPTIONS = ['Cơ sở Bắc Giang', 'Cơ sở Bắc Ninh'] as const;
-
-function resolveStaffBranch(coSo: string | null | undefined): string | null {
-  if (!coSo?.trim()) return null;
-  const v = coSo.trim().toLowerCase();
-  if (v.includes('bắc giang') || v.includes('bac giang')) return 'Cơ sở Bắc Giang';
-  if (v.includes('bắc ninh') || v.includes('bac ninh')) return 'Cơ sở Bắc Ninh';
-  const exact = BRANCH_OPTIONS.find((b) => b.toLowerCase() === v);
-  return exact ?? coSo.trim();
-}
-
-function matchesServiceBranch(serviceCoSo: string | null | undefined, staffBranch: string): boolean {
-  const s = (serviceCoSo || '').trim().toLowerCase();
-  const b = staffBranch.trim().toLowerCase();
-  if (!s || !b) return false;
-  if (s === b) return true;
-  if (b.includes('bắc giang') && s.includes('bắc giang')) return true;
-  if (b.includes('bắc ninh') && s.includes('bắc ninh')) return true;
-  return false;
-}
-
 const SalesCardManagementPage: React.FC = () => {
   const { nhanVien, isAdmin, canManageOrders } = useAuth();
   const { showToast } = useToast();
@@ -201,13 +180,6 @@ const SalesCardManagementPage: React.FC = () => {
   // Server-side filtering, so we use salesCards directly
   const displayItems = useMemo(() => salesCards, [salesCards]);
   const serviceLookup = useMemo(() => buildServiceNameLookup(services), [services]);
-
-  const staffBranch = useMemo(() => resolveStaffBranch(nhanVien?.co_so), [nhanVien?.co_so]);
-
-  const orderServices = useMemo(() => {
-    if (!staffBranch) return services;
-    return services.filter((s) => matchesServiceBranch(s.co_so, staffBranch));
-  }, [services, staffBranch]);
 
   const groupedSales = useMemo(() => {
     const getSortTime = (card: SalesCard) => {
@@ -542,7 +514,7 @@ const SalesCardManagementPage: React.FC = () => {
           dich_vu_id: '',
           dich_vu_ids: [],
           ngay_nhac_thay_dau: '',
-          co_so_khach: customer.dia_chi_hien_tai?.trim() || staffBranch || '',
+          co_so_khach: customer.dia_chi_hien_tai?.trim() || '',
         });
         setIsModalOpen(true);
 
@@ -1871,8 +1843,7 @@ const SalesCardManagementPage: React.FC = () => {
             initialData={formData}
             customerOptions={customerOptions}
             personnel={personnel}
-            services={orderServices}
-            defaultBranch={staffBranch || ''}
+            services={services}
             onClose={handleCloseModal}
             onSubmit={handleSubmit}
             isReadOnly={isReadOnlyModal}
