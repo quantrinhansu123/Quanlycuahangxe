@@ -90,6 +90,12 @@ export function isTechnicianViTri(viTri: string | null | undefined): boolean {
   return normalizePositionKey(viTri ?? '') === 'kỹ thuật viên';
 }
 
+export function isQuanLyViTri(viTri: string | null | undefined): boolean {
+  const v = (viTri ?? '').toLowerCase().trim();
+  if (!v) return false;
+  return v.includes('quản lý') || v.includes('quan ly') || v === 'ql';
+}
+
 export function getStoredPermissionMap(): Record<string, ViewPermissionKey[]> {
   try {
     const raw = localStorage.getItem(VIEW_PERMISSION_STORAGE_KEY);

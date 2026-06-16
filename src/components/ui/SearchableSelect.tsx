@@ -44,26 +44,35 @@ export const SearchableSelect = React.memo(function SearchableSelect({
     [options, value]
   )
 
-  // Filter + limit items for performance
+  // Filter + limit items for performance (dedupe value trước khi render)
+  const uniqueOptions = React.useMemo(() => {
+    const seen = new Set<string>();
+    return options.filter((o) => {
+      if (!o.value || seen.has(o.value)) return false;
+      seen.add(o.value);
+      return true;
+    });
+  }, [options]);
+
   const filteredOptions = React.useMemo(() => {
-    if (!search) return options.slice(0, MAX_VISIBLE_ITEMS);
+    if (!search) return uniqueOptions.slice(0, MAX_VISIBLE_ITEMS);
     const q = search.toLowerCase();
-    const matched = options.filter(o => {
+    const matched = uniqueOptions.filter(o => {
       const targetStr = o.searchKey ? o.searchKey.toLowerCase() : (typeof o.label === 'string' ? o.label.toLowerCase() : '');
       return targetStr.includes(q);
     });
     return matched.slice(0, MAX_VISIBLE_ITEMS);
-  }, [options, search]);
+  }, [uniqueOptions, search]);
 
   const remainingCount = React.useMemo(() => {
-    if (!search) return Math.max(0, options.length - MAX_VISIBLE_ITEMS);
+    if (!search) return Math.max(0, uniqueOptions.length - MAX_VISIBLE_ITEMS);
     const q = search.toLowerCase();
-    const totalMatched = options.filter(o => {
+    const totalMatched = uniqueOptions.filter(o => {
       const targetStr = o.searchKey ? o.searchKey.toLowerCase() : (typeof o.label === 'string' ? o.label.toLowerCase() : '');
       return targetStr.includes(q);
     }).length;
     return Math.max(0, totalMatched - MAX_VISIBLE_ITEMS);
-  }, [options, search]);
+  }, [uniqueOptions, search]);
 
   const [isMobile, setIsMobile] = React.useState(false);
 
@@ -139,9 +148,9 @@ export const SearchableSelect = React.memo(function SearchableSelect({
               </div>
             ) : (
               <>
-                {filteredOptions.map((option) => (
+                {filteredOptions.map((option, optionIdx) => (
                   <div
-                    key={option.value}
+                    key={`${option.value}-${optionIdx}`}
                     onClick={() => {
                       onValueChange(option.value)
                       setOpen(false)
@@ -191,9 +200,9 @@ export const SearchableSelect = React.memo(function SearchableSelect({
               </div>
             ) : (
               <>
-                {filteredOptions.map((option) => (
+                {filteredOptions.map((option, optionIdx) => (
                   <div
-                    key={option.value}
+                    key={`${option.value}-${optionIdx}`}
                     onClick={() => {
                       onValueChange(option.value)
                       setOpen(false)

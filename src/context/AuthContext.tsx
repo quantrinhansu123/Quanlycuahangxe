@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import {
   canAccessView,
+  isQuanLyViTri,
   isTechnicianViTri,
   VIEW_PERMISSIONS_UPDATED_EVENT,
   VIEW_PERMISSION_STORAGE_KEY,
@@ -81,6 +82,7 @@ function isAdminViTri(viTri: string | null | undefined): boolean {
   const v = (viTri ?? '').toLowerCase().trim();
   if (!v) return false;
   if (v.includes('quản trị viên') || v.includes('admin')) return true;
+  if (v.includes('quản lý') || v.includes('quan ly') || v === 'ql') return true;
   if (['chủ cửa hàng', 'quản lý', 'quản trị viên'].includes(v)) return true;
   if (v.includes('chủ cửa')) return true;
   return false;
@@ -177,9 +179,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const isAdmin = nhanVien ? isAdminViTri(nhanVien.vi_tri) : false;
   const isTechnician = nhanVien ? isTechnicianViTri(nhanVien.vi_tri) : false;
+  const isQuanLy = nhanVien ? isQuanLyViTri(nhanVien.vi_tri) : false;
   const canModifyData = !isTechnician;
-  const canManageCustomers = isAdmin || isTechnician;
-  const canManageOrders = isAdmin || isTechnician;
+  const canManageCustomers = isAdmin || isTechnician || isQuanLy;
+  const canManageOrders = isAdmin || isTechnician || isQuanLy;
 
   const hasViewAccess = useCallback(
     (viewKey: ViewPermissionKey): boolean =>

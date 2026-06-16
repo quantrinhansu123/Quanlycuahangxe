@@ -32,6 +32,7 @@ import type { ThuChi } from '../data/financialData';
 import { deleteTransactionByOrderId, getTransactionByOrderId, upsertTransaction } from '../data/financialData';
 import type { NhanSu } from '../data/personnelData';
 import { getPersonnel } from '../data/personnelData';
+import { isQuanLyViTri } from '../data/viewPermissions';
 import { bulkUpsertSalesCardCTs, deleteSalesCardCTsByOrderId } from '../data/salesCardCTData';
 import type { SalesCard, SalesCardFormData } from '../data/salesCardData';
 import { 
@@ -56,8 +57,74 @@ import { formatTime24h } from '../utils/datetimeFormat';
 
 const SalesCardFormModal = React.lazy(() => import('../components/SalesCardFormModal'));
 
+type ServiceLineItem = { id: string; ten_dich_vu: string; gia_ban: number; so_luong: number };
+
+function mergeServiceLineItems(
+  ctRows: Array<{
+    id?: string;
+    dich_vu_id?: string | null;
+    san_pham_vat_tu_id?: string | null;
+    ten_dich_vu?: string | null;
+    san_pham?: string | null;
+    gia_ban?: number | null;
+    so_luong?: number | null;
+    co_so?: string | null;
+  }>,
+  services: DichVu[],
+  serviceLookup: ReturnType<typeof buildServiceNameLookup>
+): ServiceLineItem[] {
+  const merged = new Map<string, ServiceLineItem>();
+
+  for (const ct of ctRows) {
+    const displayName = resolveServiceNameForDetail(
+      ct.ten_dich_vu || ct.san_pham,
+      ct.gia_ban,
+      ct.co_so,
+      serviceLookup,
+      services
+    );
+    const masterService = services.find((s) =>
+      (ct.dich_vu_id && s.id === ct.dich_vu_id) ||
+      (displayName && s.ten_dich_vu.toLowerCase() === displayName.toLowerCase()) ||
+      (ct.gia_ban != null && Math.abs(Number(s.gia_ban) - Number(ct.gia_ban)) < 1)
+    );
+    const serviceId = masterService?.id || ct.dich_vu_id || ct.san_pham_vat_tu_id || ct.id;
+    if (!serviceId) continue;
+
+    const qty = ct.so_luong || 1;
+    const price = ct.gia_ban || 0;
+    const existing = merged.get(serviceId);
+    if (existing) {
+      existing.so_luong += qty;
+    } else {
+      merged.set(serviceId, {
+        id: serviceId,
+        ten_dich_vu: displayName,
+        gia_ban: price,
+        so_luong: qty,
+      });
+    }
+  }
+
+  return Array.from(merged.values());
+}
+
+function upsertCustomerInList(prev: KhachHang[], customer: KhachHang): KhachHang[] {
+  const exists = prev.some(
+    (c) =>
+      (customer.id && c.id === customer.id) ||
+      (customer.ma_khach_hang && c.ma_khach_hang === customer.ma_khach_hang)
+  );
+  return exists ? prev : [customer, ...prev];
+}
+
 const SalesCardManagementPage: React.FC = () => {
   const { nhanVien, isAdmin, canManageOrders } = useAuth();
+  const isQuanLy = isQuanLyViTri(nhanVien?.vi_tri);
+  const canEditSalesCard = useCallback(
+    (card: SalesCard) => (isAdmin || isQuanLy) || (canManageOrders && !card.thu_chi),
+    [isAdmin, isQuanLy, canManageOrders]
+  );
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [salesCards, setSalesCards] = useState<SalesCard[]>([]);
@@ -177,8 +244,15 @@ const SalesCardManagementPage: React.FC = () => {
     normalizeSalesCards().catch(err => console.error("Error normalizing sales cards:", err));
   }, []);
 
-  // Server-side filtering, so we use salesCards directly
-  const displayItems = useMemo(() => salesCards, [salesCards]);
+  // Loại bỏ phiếu trùng id (tránh cảnh báo React key trùng).
+  const displayItems = useMemo(() => {
+    const seen = new Set<string>();
+    return salesCards.filter((card) => {
+      if (!card.id || seen.has(card.id)) return false;
+      seen.add(card.id);
+      return true;
+    });
+  }, [salesCards]);
   const serviceLookup = useMemo(() => buildServiceNameLookup(services), [services]);
 
   const groupedSales = useMemo(() => {
@@ -411,14 +485,17 @@ const SalesCardManagementPage: React.FC = () => {
       };
     });
 
-    // Remove duplicates based on value (key)
+    // Remove duplicates based on value (key) and customer id
     const uniqueOptions = [];
-    const seenValues = new Set();
+    const seenValues = new Set<string>();
+    const seenIds = new Set<string>();
     for (const opt of rawOptions) {
-      if (opt.value && !seenValues.has(opt.value)) {
-        seenValues.add(opt.value);
-        uniqueOptions.push(opt);
-      }
+      const customer = list.find((c) => (c.ma_khach_hang || c.id) === opt.value);
+      const customerId = customer?.id || '';
+      if (!opt.value || seenValues.has(opt.value) || (customerId && seenIds.has(customerId))) continue;
+      seenValues.add(opt.value);
+      if (customerId) seenIds.add(customerId);
+      uniqueOptions.push(opt);
     }
     return uniqueOptions;
   }, [customers, pendingNewCustomer]);
@@ -461,12 +538,7 @@ const SalesCardManagementPage: React.FC = () => {
 
     const injectCustomer = (customer: KhachHang) => {
       setPendingNewCustomer(customer);
-      setCustomers((prev) => {
-        const exists = prev.some(
-          (c) => c.id === customer.id || (customer.ma_khach_hang && c.ma_khach_hang === customer.ma_khach_hang)
-        );
-        return exists ? prev : [customer, ...prev];
-      });
+      setCustomers((prev) => upsertCustomerInList(prev, customer));
     };
 
     const openFormForCustomer = async () => {
@@ -539,7 +611,7 @@ const SalesCardManagementPage: React.FC = () => {
       return;
     }
 
-    if (card && card.thu_chi) {
+    if (card && card.thu_chi && !isAdmin && !isQuanLy) {
       showToast('Đơn hàng đã thu tiền, không thể chỉnh sửa.', 'warning');
       handleViewCard(card);
       return;
@@ -559,33 +631,17 @@ const SalesCardManagementPage: React.FC = () => {
             so_dien_thoai: card.khach_hang.so_dien_thoai || '',
             bien_so_xe: card.khach_hang.bien_so_xe || '',
           } as KhachHang;
-          setCustomers(prev => [c!, ...prev]);
+          setCustomers((prev) => upsertCustomerInList(prev, c!));
         }
         if (c) mappedKhId = c.ma_khach_hang || c.id;
       }
 
-      const mappedServiceItems = ((card as any).the_ban_hang_ct || []).map((ct: any) => {
-        const displayName = resolveServiceNameForDetail(
-          ct.ten_dich_vu || ct.san_pham,
-          ct.gia_ban,
-          ct.co_so,
-          serviceLookup,
-          services
-        );
-        const masterService = services.find(s =>
-          (ct.dich_vu_id && s.id === ct.dich_vu_id) ||
-          (displayName && s.ten_dich_vu.toLowerCase() === displayName.toLowerCase()) ||
-          (ct.gia_ban != null && Math.abs(Number(s.gia_ban) - Number(ct.gia_ban)) < 1)
-        );
-
-        return {
-          id: masterService?.id || ct.dich_vu_id || ct.san_pham_vat_tu_id || Math.random().toString(),
-          ten_dich_vu: displayName,
-          gia_ban: ct.gia_ban || 0,
-          so_luong: ct.so_luong || 1
-        };
-      });
-      const mappedIds = mappedServiceItems.map((item: any) => item.id);
+      const mappedServiceItems = mergeServiceLineItems(
+        (card as any).the_ban_hang_ct || [],
+        services,
+        serviceLookup
+      );
+      const mappedIds = mappedServiceItems.map((item) => item.id);
 
       setFormData({
         ...card,
@@ -627,27 +683,17 @@ const SalesCardManagementPage: React.FC = () => {
           so_dien_thoai: card.khach_hang.so_dien_thoai || '',
           bien_so_xe: card.khach_hang.bien_so_xe || '',
         } as KhachHang;
-        setCustomers(prev => [c!, ...prev]);
+        setCustomers((prev) => upsertCustomerInList(prev, c!));
       }
       if (c) mappedKhId = c.ma_khach_hang || c.id;
     }
 
-    const mappedServiceItems = ((card as any).the_ban_hang_ct || []).map((ct: any) => {
-      const displayName = resolveServiceNameForDetail(
-        ct.ten_dich_vu || ct.san_pham,
-        ct.gia_ban,
-        ct.co_so,
-        serviceLookup,
-        services
-      );
-      return {
-        id: ct.dich_vu_id || ct.san_pham_vat_tu_id || Math.random().toString(),
-        ten_dich_vu: displayName,
-        gia_ban: ct.gia_ban || 0,
-        so_luong: ct.so_luong || 1
-      };
-    });
-    const mappedIds = mappedServiceItems.map((item: any) => item.id).filter((id: any) => !id.startsWith('0.'));
+    const mappedServiceItems = mergeServiceLineItems(
+      (card as any).the_ban_hang_ct || [],
+      services,
+      serviceLookup
+    );
+    const mappedIds = mappedServiceItems.map((item) => item.id);
 
     setFormData({
       ...card,
@@ -1170,6 +1216,13 @@ const SalesCardManagementPage: React.FC = () => {
     }
   };
 
+  const toLocalIsoDate = (d: Date): string => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
   const handleMonthChange = (monthStr: string) => {
     setSelectedMonth(monthStr);
     if (!monthStr) {
@@ -1185,8 +1238,8 @@ const SalesCardManagementPage: React.FC = () => {
     const firstDay = new Date(year, month - 1, 1);
     const lastDay = new Date(year, month, 0);
 
-    setStartDate(firstDay.toISOString().split('T')[0]);
-    setEndDate(lastDay.toISOString().split('T')[0]);
+    setStartDate(toLocalIsoDate(firstDay));
+    setEndDate(toLocalIsoDate(lastDay));
     setCurrentPage(1);
   };
 
@@ -1582,7 +1635,7 @@ const SalesCardManagementPage: React.FC = () => {
                           <button onClick={() => handleViewCard(card)} className="flex items-center gap-1 px-3 py-1.5 text-blue-600 hover:bg-blue-50 rounded-lg text-[12px] font-bold border border-blue-100 transition-colors">
                             <Eye size={14} /> Xem
                           </button>
-                          {canManageOrders && !card.thu_chi && (
+                          {canEditSalesCard(card) && (
                             <button onClick={() => handleOpenModal(card)} className="flex items-center gap-1 px-3 py-1.5 text-primary hover:bg-primary/10 rounded-lg text-[12px] font-bold border border-primary/20 transition-colors">
                               <Edit2 size={14} /> Sửa
                             </button>
@@ -1776,7 +1829,7 @@ const SalesCardManagementPage: React.FC = () => {
                     <td className="px-4 py-4 text-center border-b border-slate-100 align-top">
                       <div className="flex items-center justify-center gap-1.5">
                         <button onClick={() => handleViewCard(card)} className="h-9 w-9 inline-flex items-center justify-center text-blue-600 hover:bg-blue-50 rounded-md transition-colors border border-transparent hover:border-blue-100" title="Xem chi tiết"><Eye size={18} /></button>
-                        {canManageOrders && !card.thu_chi && (
+                        {canEditSalesCard(card) && (
                           <button onClick={() => handleOpenModal(card)} className="h-9 w-9 inline-flex items-center justify-center text-primary hover:bg-primary/10 rounded-md transition-colors border border-transparent hover:border-blue-100" title="Chỉnh sửa"><Edit2 size={18} /></button>
                         )}
                         {isAdmin && (

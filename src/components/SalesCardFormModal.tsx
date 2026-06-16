@@ -166,11 +166,12 @@ const SalesCardFormModal: React.FC<{
   };
 
   const handleServiceChange = (vals: string[]) => {
-    setShowServiceWarning(vals.length === 0);
+    const uniqueVals = Array.from(new Set(vals));
+    setShowServiceWarning(uniqueVals.length === 0);
     setFormData(prev => ({
       ...prev,
-      dich_vu_ids: vals,
-      service_items: vals.length > 0 ? prev.service_items?.filter(it => vals.includes(it.id)) : []
+      dich_vu_ids: uniqueVals,
+      service_items: uniqueVals.length > 0 ? prev.service_items?.filter(it => uniqueVals.includes(it.id)) : []
     }));
   };
 
@@ -228,7 +229,12 @@ const SalesCardFormModal: React.FC<{
         };
       })
       .filter(Boolean) as { value: string; label: string }[];
-    return [...base, ...extras];
+    const seen = new Set<string>();
+    return [...base, ...extras].filter((opt) => {
+      if (seen.has(opt.value)) return false;
+      seen.add(opt.value);
+      return true;
+    });
   }, [servicesForBranch, formData.dich_vu_ids, formData.service_items]);
 
   const displayCoSo = customerBranchFromProfile || (formData.co_so_khach || '').trim();
@@ -448,7 +454,7 @@ const SalesCardFormModal: React.FC<{
                       <div className="space-y-3 bg-muted/20 p-4 rounded-2xl border border-border/50">
                         <p className="text-[11px] font-bold text-muted-foreground uppercase opacity-70 mb-2">Điều chỉnh số lượng & giá bán (nếu cần)</p>
                         {formData.service_items.map((item, idx) => (
-                          <div key={item.id} className="bg-card p-3 rounded-xl border border-border shadow-sm animate-in fade-in zoom-in-95 duration-200 space-y-2.5">
+                          <div key={`${item.id}-${idx}`} className="bg-card p-3 rounded-xl border border-border shadow-sm animate-in fade-in zoom-in-95 duration-200 space-y-2.5">
                             <div className="flex items-center justify-between gap-2">
                               <div className="flex items-center gap-2.5 min-w-0 flex-1">
                                 <div className="shrink-0 w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary">

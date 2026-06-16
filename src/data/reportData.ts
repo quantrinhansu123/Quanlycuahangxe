@@ -1,3 +1,4 @@
+import { getPersonnel } from './personnelData';
 import { getStoredDemoRole } from '../lib/authStorage';
 import { supabase } from '../lib/supabase';
 import { removeVietnameseTones } from '../lib/utils';
@@ -5,6 +6,88 @@ import { removeVietnameseTones } from '../lib/utils';
 /** Chuẩn hóa tên để khớp bảng lương / nhan_vien_id trên đơn (bỏ dấu, thường, gộp khoảng trắng). */
 function chuanHoaTenTheoDon(s: string): string {
   return removeVietnameseTones(s.trim().toLowerCase()).replace(/\s+/g, ' ');
+}
+
+const REPORT_PAGE_SIZE = 1000;
+
+async function fetchAllRowsPaginated<T>(
+  loadPage: (offset: number, pageSize: number) => Promise<{ data: T[] | null; error: unknown }>
+): Promise<T[]> {
+  const out: T[] = [];
+  let offset = 0;
+  for (;;) {
+    const { data, error } = await loadPage(offset, REPORT_PAGE_SIZE);
+    if (error) throw error;
+    const chunk = data ?? [];
+    out.push(...chunk);
+    if (chunk.length < REPORT_PAGE_SIZE) break;
+    offset += REPORT_PAGE_SIZE;
+  }
+  return out;
+}
+
+/** Map token nhân viên (tên / UUID / mã) → họ tên chuẩn hóa. */
+function buildPersonnelAliasMap(
+  personnel: Array<{ id: string; ho_ten: string; id_nhan_su?: string | null }>
+): Map<string, string> {
+  const aliasToCanonical = new Map<string, string>();
+  for (const p of personnel) {
+    const canonical = chuanHoaTenTheoDon(p.ho_ten || '');
+    if (!canonical) continue;
+    for (const raw of [p.ho_ten, p.id, p.id_nhan_su]) {
+      if (!raw) continue;
+      const k = chuanHoaTenTheoDon(String(raw));
+      if (k) aliasToCanonical.set(k, canonical);
+    }
+  }
+  return aliasToCanonical;
+}
+
+function resolvePersonnelKey(token: string, aliases: Map<string, string>): string {
+  const k = chuanHoaTenTheoDon(token);
+  return aliases.get(k) || k;
+}
+
+type CTRevenueRow = {
+  id_don_hang?: string | null;
+  gia_ban?: number | null;
+  so_luong?: number | null;
+  thanh_tien?: number | null;
+  ngay?: string | null;
+};
+
+function buildOrderRevenueFromCT(
+  ctRecords: CTRevenueRow[],
+  nam: number,
+  thang: number
+): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const r of ctRecords) {
+    const ky = extractNamThangTuNgayCot(r.ngay);
+    if (ky !== null && (ky.nam !== nam || ky.thang !== thang)) continue;
+    const raw = (r.id_don_hang || '').trim();
+    if (!raw) continue;
+    const key = raw.toLowerCase();
+    const rev = Number(r.thanh_tien) || Number(r.gia_ban || 0) * Number(r.so_luong || 1) || 0;
+    if (!Number.isFinite(rev) || rev <= 0) continue;
+    map.set(key, (map.get(key) || 0) + rev);
+  }
+  return map;
+}
+
+function revenueForOrderHeader(
+  h: { id: string; id_bh?: string | null; tong_tien?: number | null },
+  orderRevenueMap: Map<string, number>
+): number {
+  const candidates = [h.id_bh, h.id]
+    .filter(Boolean)
+    .map((x) => String(x).trim().toLowerCase());
+  for (const k of candidates) {
+    const fromCt = orderRevenueMap.get(k);
+    if (fromCt != null && fromCt > 0) return fromCt;
+  }
+  const tong = Number(h.tong_tien ?? 0);
+  return Number.isFinite(tong) && tong > 0 ? tong : 0;
 }
 
 function khoangNgayCuaThangReport(nam: number, thang: number): { start: string; end: string } {
@@ -153,9 +236,13 @@ async function fetchAllCTRecords(startDate?: string, endDate?: string) {
   if (startDate) query = query.gte('ngay', startDate);
   if (endDate) query = query.lte('ngay', endDate);
 
-  const { data, error } = await query.order('ngay', { ascending: true });
-  if (error) throw error;
-  return data || [];
+  return fetchAllRowsPaginated(async (offset, pageSize) => {
+    const res = await query
+      .order('ngay', { ascending: true })
+      .order('id', { ascending: true })
+      .range(offset, offset + pageSize - 1);
+    return { data: res.data, error: res.error };
+  });
 }
 
 // Fetch all header records within a date range (for personnel N-N mapping)
@@ -180,14 +267,18 @@ async function fetchAllHeaderRecords(startDate?: string, endDate?: string) {
   }
   let query = supabase
     .from('the_ban_hang')
-    .select('id, id_bh, ngay, nhan_vien_id');
+    .select('id, id_bh, ngay, gio, nhan_vien_id, tong_tien, ten_khach_hang');
 
   if (startDate) query = query.gte('ngay', startDate);
   if (endDate) query = query.lte('ngay', endDate);
 
-  const { data, error } = await query.order('ngay', { ascending: true });
-  if (error) throw error;
-  return data || [];
+  return fetchAllRowsPaginated(async (offset, pageSize) => {
+    const res = await query
+      .order('ngay', { ascending: true })
+      .order('id', { ascending: true })
+      .range(offset, offset + pageSize - 1);
+    return { data: res.data, error: res.error };
+  });
 }
 
 export async function getReportSummary(startDate?: string, endDate?: string): Promise<ReportSummary> {
@@ -450,19 +541,45 @@ export async function getRevenueByPersonnel(
   return { personnel, avg_revenue_per_person, date_list };
 }
 
+export interface PayrollRevenueOrderRow {
+  id_bh: string;
+  ngay: string;
+  gio?: string | null;
+  khach_hang: string;
+  tong_tien_don: number;
+  phan_bo: number;
+  so_nhan_vien: number;
+  phu_trach: string;
+}
+
+export interface PayrollRevenueData {
+  totals: Map<string, number>;
+  ordersByStaff: Map<string, PayrollRevenueOrderRow[]>;
+}
+
+function pushPayrollOrder(
+  ordersByStaff: Map<string, PayrollRevenueOrderRow[]>,
+  totals: Map<string, number>,
+  staffKey: string,
+  row: PayrollRevenueOrderRow
+) {
+  if (!staffKey) return;
+  const list = ordersByStaff.get(staffKey) || [];
+  list.push(row);
+  ordersByStaff.set(staffKey, list);
+  totals.set(staffKey, (totals.get(staffKey) || 0) + row.phan_bo);
+}
+
 /**
- * Gom doanh số theo nhân viên từ `the_ban_hang.tong_tien`.
- * Chỉ tính đơn có **tháng/năm lịch của cột `ngay`** trùng `thang`/`nam` (kỳ bảng lương).
- * `nhan_vien_id` khớp theo tên (đã chuẩn hóa); nhiều tên cách phẩy → chia đều `tong_tien`.
+ * Gom doanh số + chi tiết đơn theo Phụ trách (cùng logic trang Phiếu bán hàng).
+ * Ưu tiên tổng chi tiết đơn; fallback tong_tien. Nhiều NV trên đơn → chia đều.
  */
-export async function getRevenueByPersonnelFromTongTien(
-  nam: number,
-  thang: number
-): Promise<Map<string, number>> {
+export async function loadPayrollRevenueData(nam: number, thang: number): Promise<PayrollRevenueData> {
   const { start: startDate, end: endDate } = khoangNgayCuaThangReport(nam, thang);
+  const totals = new Map<string, number>();
+  const ordersByStaff = new Map<string, PayrollRevenueOrderRow[]>();
 
   if (isDemo()) {
-    const map = new Map<string, number>();
     const staff = ['Nguyễn Văn A', 'Trần Thị B', 'Lê Văn C', 'Phạm Văn D'];
     for (let i = 0; i < 20; i++) {
       const d = new Date();
@@ -473,52 +590,90 @@ export async function getRevenueByPersonnelFromTongTien(
       const amount = 500_000 + i * 10_000;
       const parts = staffList.split(',').map((s) => s.trim()).filter(Boolean);
       const share = amount / parts.length;
+      const orderRow: PayrollRevenueOrderRow = {
+        id_bh: `BH-${100 + i}`,
+        ngay: d.toISOString().split('T')[0],
+        gio: '10:00',
+        khach_hang: `Khách demo ${i + 1}`,
+        tong_tien_don: amount,
+        phan_bo: share,
+        so_nhan_vien: parts.length,
+        phu_trach: staffList,
+      };
       for (const n of parts) {
-        const k = chuanHoaTenTheoDon(n);
-        map.set(k, (map.get(k) || 0) + share);
+        pushPayrollOrder(ordersByStaff, totals, chuanHoaTenTheoDon(n), {
+          ...orderRow,
+          phan_bo: share,
+        });
       }
     }
-    return map;
+    return { totals, ordersByStaff };
   }
 
-  const map = new Map<string, number>();
-  const pageSize = 1000;
-  let offset = 0;
+  const [headers, ctRecords, personnel] = await Promise.all([
+    fetchAllHeaderRecords(startDate, endDate),
+    fetchAllCTRecords(startDate, endDate),
+    getPersonnel().catch(() => [] as Awaited<ReturnType<typeof getPersonnel>>),
+  ]);
 
-  for (;;) {
-    const { data, error } = await supabase
-      .from('the_ban_hang')
-      .select('nhan_vien_id, tong_tien, ngay')
-      .gte('ngay', startDate)
-      .lte('ngay', endDate)
-      .order('ngay', { ascending: true })
-      .order('id', { ascending: true })
-      .range(offset, offset + pageSize - 1);
+  const aliases = buildPersonnelAliasMap(personnel);
+  const orderRevenueMap = buildOrderRevenueFromCT(ctRecords, nam, thang);
 
-    if (error) throw error;
+  for (const h of headers as Array<{
+    id: string;
+    id_bh?: string | null;
+    ngay: string;
+    gio?: string | null;
+    nhan_vien_id?: string | null;
+    tong_tien?: number | null;
+    ten_khach_hang?: string | null;
+  }>) {
+    const ky = extractNamThangTuNgayCot(h.ngay);
+    if (ky !== null && (ky.nam !== nam || ky.thang !== thang)) continue;
 
-    const chunk = data ?? [];
-    for (const h of chunk) {
-      const ky = extractNamThangTuNgayCot(h.ngay);
-      if (ky !== null && (ky.nam !== nam || ky.thang !== thang)) continue;
+    const staffRaw = String(h.nhan_vien_id ?? '').trim();
+    if (!staffRaw) continue;
 
-      const staffRaw = String(h.nhan_vien_id ?? '').trim();
-      if (!staffRaw) continue;
-      const amount = Number(h.tong_tien ?? 0);
-      if (!Number.isFinite(amount) || amount <= 0) continue;
-      const names = staffRaw.split(',').map((s) => s.trim()).filter(Boolean);
-      if (names.length === 0) continue;
-      const share = amount / names.length;
-      for (const name of names) {
-        const k = chuanHoaTenTheoDon(name);
-        if (!k) continue;
-        map.set(k, (map.get(k) || 0) + share);
-      }
+    const amount = revenueForOrderHeader(h, orderRevenueMap);
+    if (amount <= 0) continue;
+
+    const names = staffRaw.split(',').map((s) => s.trim()).filter(Boolean);
+    if (names.length === 0) continue;
+
+    const share = amount / names.length;
+    const baseRow: PayrollRevenueOrderRow = {
+      id_bh: String(h.id_bh || h.id),
+      ngay: h.ngay,
+      gio: h.gio,
+      khach_hang: (h.ten_khach_hang || '').trim() || '—',
+      tong_tien_don: amount,
+      phan_bo: share,
+      so_nhan_vien: names.length,
+      phu_trach: staffRaw,
+    };
+
+    for (const name of names) {
+      const k = resolvePersonnelKey(name, aliases);
+      pushPayrollOrder(ordersByStaff, totals, k, { ...baseRow, phan_bo: share });
     }
-
-    if (chunk.length < pageSize) break;
-    offset += pageSize;
   }
 
-  return map;
+  for (const list of ordersByStaff.values()) {
+    list.sort((a, b) => {
+      const byDate = b.ngay.localeCompare(a.ngay);
+      if (byDate !== 0) return byDate;
+      return (b.gio || '').localeCompare(a.gio || '');
+    });
+  }
+
+  return { totals, ordersByStaff };
+}
+
+/** Gom doanh số theo nhân viên cho bảng lương chấm công. */
+export async function getRevenueByPersonnelFromTongTien(
+  nam: number,
+  thang: number
+): Promise<Map<string, number>> {
+  const { totals } = await loadPayrollRevenueData(nam, thang);
+  return totals;
 }

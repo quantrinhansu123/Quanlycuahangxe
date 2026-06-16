@@ -417,17 +417,30 @@ async function attachPersonnel(cards: SalesCard[]) {
     const idMap = new Map(allPersonnel.filter(p => !!p.id_nhan_su).map(p => [p.id_nhan_su!.toLowerCase(), p]));
 
     cards.forEach(card => {
-      if (card.nhan_vien_id) {
-        const ids = card.nhan_vien_id.split(',').map(s => s.trim().toLowerCase());
-        const matchedList: Partial<NhanSu>[] = [];
-        ids.forEach(id => {
-          const p = idMap.get(id) || nameMap.get(id);
-          if (p) matchedList.push({ ho_ten: p.ho_ten, vi_tri: p.vi_tri, co_so: p.co_so });
-        });
-        if (matchedList.length > 0) {
-          card.nhan_su_list = matchedList;
-          card.nhan_su = matchedList[0];
+      if (!card.nhan_vien_id) return;
+
+      const rawTokens = card.nhan_vien_id
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+
+      if (rawTokens.length === 0) return;
+
+      const matchedList: Partial<NhanSu>[] = [];
+      rawTokens.forEach(token => {
+        const key = token.toLowerCase();
+        const p = idMap.get(key) || nameMap.get(key);
+        if (p) {
+          matchedList.push({ ho_ten: p.ho_ten, vi_tri: p.vi_tri, co_so: p.co_so });
+        } else {
+          // Không khớp hồ sơ Nhân sự nhưng vẫn hiển thị thô trong \"Phụ trách\"
+          matchedList.push({ ho_ten: token });
         }
+      });
+
+      if (matchedList.length > 0) {
+        card.nhan_su_list = matchedList;
+        card.nhan_su = matchedList[0];
       }
     });
   }

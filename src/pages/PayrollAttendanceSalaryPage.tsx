@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Calculator, Calendar, Loader2, Plus, Table2, Trash2, TrendingUp, UserPlus } from 'lucide-react';
+import { Calendar, Loader2, Plus, Table2, Trash2, TrendingUp, UserPlus } from 'lucide-react';
 import { clsx } from 'clsx';
 import { getChamCongTrongKhoang } from '../data/attendanceData';
-import { getRevenueByPersonnelFromTongTien } from '../data/reportData';
+import {
+  loadPayrollRevenueData,
+  type PayrollRevenueData,
+  type PayrollRevenueOrderRow,
+} from '../data/reportData';
 import { removeVietnameseTones } from '../lib/utils';
 import { formatDateVi } from '../utils/datetimeFormat';
 import { GIO_RA_CHUAN_LABEL } from '../utils/timekeeping';
@@ -19,7 +23,7 @@ import {
   tinhMotDong,
 } from '../data/payrollAttendanceSalary';
 import { getPersonnel, type NhanSu } from '../data/personnelData';
-import { describeRecalculateTongTienResult, formatRecalculateTongTienError, recalculateTheBanHangTongTien } from '../data/salesCardData';
+import PersonnelRevenueOrdersModal from '../components/PersonnelRevenueOrdersModal';
 
 const LS_PREFIX = 'payrollChamCongLuongV2:';
 const LS_PREFIX_LEGACY = 'payrollChamCongLuongV1:';
@@ -45,16 +49,17 @@ function ngayIsoTuNhanSu(p: NhanSu): string | null {
 }
 
 /**
- * Cập nhật cột doanh số tháng từ `the_ban_hang.tong_tien` trong kỳ.
- * Khớp `nhan_vien_id` với tên dòng bảng lương (chuẩn hóa); nhiều tên cách bởi dấu phẩy → chia đều tiền.
- * Nếu trên đơn lưu mã/id thay vì họ tên, tra thêm qua danh sách nhân sự (id → họ tên).
+ * Cập nhật cột doanh số tháng từ phiếu bán trong kỳ.
+ * Khớp họ tên dòng bảng lương với nhân viên trên đơn (tên / UUID / mã NV).
  */
 async function gopDoanhSoTheoBaoCao(
   rows: BangLuongChamCongInput[],
   nam: number,
-  thang: number
-): Promise<BangLuongChamCongInput[]> {
-  const map = await getRevenueByPersonnelFromTongTien(nam, thang);
+  thang: number,
+  payrollData?: PayrollRevenueData
+): Promise<{ rows: BangLuongChamCongInput[]; payrollData: PayrollRevenueData }> {
+  const data = payrollData ?? (await loadPayrollRevenueData(nam, thang));
+  const map = data.totals;
   let nhanList: { id: string; ho_ten: string }[] = [];
   try {
     const list = await getPersonnel();
@@ -64,7 +69,7 @@ async function gopDoanhSoTheoBaoCao(
   } catch {
     // bỏ qua — vẫn map theo tên từ báo cáo
   }
-  return rows.map((r) => {
+  const mapped = rows.map((r) => {
     const ten = (r.hoTen || '').trim();
     if (!ten) return { ...r, tongDoanhThu: 0 };
 
@@ -76,6 +81,31 @@ async function gopDoanhSoTheoBaoCao(
     }
     return { ...r, tongDoanhThu: rev };
   });
+  return { rows: mapped, payrollData: data };
+}
+
+function layDonTheoHoTen(
+  hoTen: string,
+  data: PayrollRevenueData,
+  nhanTheoChuanTen: Map<string, { id: string; idNhanSu: string | null }>
+): PayrollRevenueOrderRow[] {
+  const ten = (hoTen || '').trim();
+  if (!ten) return [];
+
+  const kTen = chuanHoaTenSoSanh(ten);
+  let orders = data.ordersByStaff.get(kTen) || [];
+  if (orders.length > 0) return orders;
+
+  const meta = nhanTheoChuanTen.get(kTen);
+  if (!meta) return [];
+
+  orders = data.ordersByStaff.get(chuanHoaTenSoSanh(meta.id)) || [];
+  if (orders.length > 0) return orders;
+
+  if (meta.idNhanSu) {
+    orders = data.ordersByStaff.get(chuanHoaTenSoSanh(meta.idNhanSu)) || [];
+  }
+  return orders;
 }
 
 function newId(): string {
@@ -161,9 +191,15 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
   const [rows, setRows] = useState<BangLuongChamCongInput[]>(initial.rows);
   const [quickLoading, setQuickLoading] = useState(false);
   const [revenueLoading, setRevenueLoading] = useState(false);
-  const [tongTienSyncing, setTongTienSyncing] = useState(false);
   const [chamDong, setChamDong] = useState<DongChamBuaNhap[]>([]);
   const [nhanList, setNhanList] = useState<NhanSu[]>([]);
+  const [revenueCache, setRevenueCache] = useState<PayrollRevenueData | null>(null);
+  const [editingNameId, setEditingNameId] = useState<string | null>(null);
+  const [ordersModal, setOrdersModal] = useState<{
+    hoTen: string;
+    orders: PayrollRevenueOrderRow[];
+    loading: boolean;
+  } | null>(null);
   /** Tránh ghi localStorage bằng dòng dữ liệu tháng cũ khi vừa đổi kỳ (chờ load xong). */
   const loadedKyRef = useRef(`${y0}-${m0}`);
 
@@ -178,6 +214,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
     const periodKey = `${nam}-${thang}`;
     setPhanTramHoaHongKy(s.phanTramHoaHongKy);
     setRows(s.rows);
+    setRevenueCache(null);
     loadedKyRef.current = periodKey;
 
     let cancelled = false;
@@ -185,9 +222,10 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
       setRevenueLoading(true);
       const { start, end } = khoangNgayCuaThang(nam, thang);
       try {
-        const merged = await gopDoanhSoTheoBaoCao(s.rows, nam, thang);
+        const { rows: merged, payrollData } = await gopDoanhSoTheoBaoCao(s.rows, nam, thang);
         if (cancelled || loadedKyRef.current !== periodKey) return;
         setRows(merged);
+        setRevenueCache(payrollData);
       } catch (e) {
         console.error('Lấy doanh số tháng tự động thất bại:', e);
       }
@@ -317,8 +355,9 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
     setRevenueLoading(true);
     const { start, end } = khoangNgayCuaThang(nam, thang);
     try {
-      const next = await gopDoanhSoTheoBaoCao(rows, nam, thang);
+      const { rows: next, payrollData } = await gopDoanhSoTheoBaoCao(rows, nam, thang);
       setRows(next);
+      setRevenueCache(payrollData);
     } catch (e) {
       console.error(e);
       window.alert('Không lấy được doanh số từ hệ thống. Kiểm tra mạng / đăng nhập / bán hàng.');
@@ -362,8 +401,9 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
             ngayIsoTuNhanSu(p) ?? (p.created_at ? p.created_at.slice(0, 10) : ''),
         };
       });
-      newRows = await gopDoanhSoTheoBaoCao(newRows, nam, thang);
-      setRows(newRows);
+      const { rows: merged, payrollData } = await gopDoanhSoTheoBaoCao(newRows, nam, thang);
+      setRows(merged);
+      setRevenueCache(payrollData);
       const { start, end } = khoangNgayCuaThang(nam, thang);
       const d = await getChamCongTrongKhoang(start, end);
       setChamDong(d as DongChamBuaNhap[]);
@@ -382,6 +422,28 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
       return next.length > 0 ? next : [emptyRow()];
     });
   }, []);
+
+  const moChiTietDon = useCallback(
+    async (hoTen: string) => {
+      const ten = hoTen.trim();
+      if (!ten) return;
+      setOrdersModal({ hoTen: ten, orders: [], loading: true });
+      try {
+        let data = revenueCache;
+        if (!data) {
+          data = await loadPayrollRevenueData(nam, thang);
+          setRevenueCache(data);
+        }
+        const orders = layDonTheoHoTen(ten, data, nhanTheoChuanTen);
+        setOrdersModal({ hoTen: ten, orders, loading: false });
+      } catch (e) {
+        console.error(e);
+        setOrdersModal(null);
+        window.alert('Không tải được danh sách đơn hàng.');
+      }
+    },
+    [revenueCache, nam, thang, nhanTheoChuanTen]
+  );
 
   const thCell = (short: string, full: string) => (
     <th
@@ -466,7 +528,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
             <button
               type="button"
               onClick={capNhatDoanhSoTuPhieuBan}
-              disabled={revenueLoading || quickLoading || tongTienSyncing}
+              disabled={revenueLoading || quickLoading}
               className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-primary/10 border-primary/30 text-primary text-sm font-medium px-3 py-2 hover:bg-primary/15 disabled:opacity-50"
               title="Đơn có ngày (cột ngay) thuộc đúng tháng/năm kỳ; cộng tong_tien theo Họ tên (nhan_vien_id, nhiều tên cách phẩy → chia đều). Dòng không Họ tên → doanh số 0."
             >
@@ -475,35 +537,8 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
             </button>
             <button
               type="button"
-              disabled={revenueLoading || quickLoading || tongTienSyncing}
-              onClick={async () => {
-                if (
-                  !window.confirm(
-                    'Đồng bộ tổng tiền cho toàn bộ đơn hàng? Thao tác cập nhật nhiều dòng trong the_ban_hang.'
-                  )
-                ) {
-                  return;
-                }
-                try {
-                  setTongTienSyncing(true);
-                  const result = await recalculateTheBanHangTongTien();
-                  window.alert(describeRecalculateTongTienResult(result));
-                } catch (e) {
-                  window.alert(formatRecalculateTongTienError(e));
-                } finally {
-                  setTongTienSyncing(false);
-                }
-              }}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-100 text-sm font-medium px-3 py-2 hover:bg-amber-500/15 disabled:opacity-50"
-              title="Cộng thanh_tien chi tiết đơn → ghi tong_tien trên the_ban_hang (id_don_hang khớp id_bh hoặc id đơn)"
-            >
-              {tongTienSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Calculator className="w-4 h-4" />}
-              Tính tổng tiền
-            </button>
-            <button
-              type="button"
               onClick={taoNhanh}
-              disabled={quickLoading || revenueLoading || tongTienSyncing}
+              disabled={quickLoading || revenueLoading}
               className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-background text-sm font-medium px-3 py-2 hover:bg-muted/50 disabled:opacity-50"
             >
               {quickLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
@@ -512,7 +547,6 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
             <button
               type="button"
               onClick={addRow}
-              disabled={tongTienSyncing}
               className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium px-3 py-2 hover:opacity-90 disabled:opacity-50"
             >
               <Plus className="w-4 h-4" />
@@ -533,7 +567,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                 {thCell('Họ tên', 'Tên nhân viên')}
                 {thCell(
                   'Doanh số tháng',
-                  'Đơn có tháng/năm cột ngay = kỳ; tổng tong_tien ghép theo Họ tên (khớp nhan_vien_id); nhiều NV trên đơn (phẩy) chia đều. Hoa hồng = × % ở trên'
+                  'Tổng thành tiền chi tiết đơn trong tháng kỳ (fallback tong_tien); ghép theo Họ tên; nhiều NV trên đơn chia đều'
                 )}
                 {thCell('Loại', 'Chính thức / thời vụ')}
                 {thCell('LCB', 'Lương cơ bản (tháng)')}
@@ -567,6 +601,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
               {withKetQua.map((x, i) => {
                 const { input, kq, gTcTuCham } = x;
                 const khopNhanSu = Boolean(nhanTheoChuanTen.get(chuanHoaTenSoSanh(input.hoTen)));
+                const isEditingName = editingNameId === input.id;
                 return (
                   <tr
                     key={input.id}
@@ -577,9 +612,32 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                     </td>
                     <td className="px-2 py-1.5 min-w-[16rem]">
                       <input
-                        className="w-full min-w-0 min-h-10 text-sm bg-transparent border border-border/60 rounded-md px-2.5 py-2"
+                        className={clsx(
+                          'w-full min-w-0 min-h-10 text-sm bg-transparent border border-border/60 rounded-md px-2.5 py-2',
+                          !isEditingName &&
+                            input.hoTen.trim() &&
+                            'cursor-pointer text-primary font-medium hover:bg-primary/5 hover:border-primary/30'
+                        )}
+                        readOnly={!isEditingName}
+                        title={
+                          isEditingName
+                            ? 'Nhập họ tên'
+                            : input.hoTen.trim()
+                              ? 'Click để xem đơn hàng tính doanh số. Double-click để sửa tên.'
+                              : 'Double-click để nhập họ tên'
+                        }
                         value={input.hoTen}
                         onChange={(e) => updateRow(input.id, { hoTen: e.target.value })}
+                        onClick={() => {
+                          if (isEditingName) return;
+                          if (!input.hoTen.trim()) {
+                            setEditingNameId(input.id);
+                            return;
+                          }
+                          void moChiTietDon(input.hoTen);
+                        }}
+                        onDoubleClick={() => setEditingNameId(input.id)}
+                        onBlur={() => setEditingNameId(null)}
                       />
                     </td>
                     <td className="px-2 py-1.5 bg-primary/5">
@@ -693,6 +751,16 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
           </table>
         </div>
       </div>
+
+      <PersonnelRevenueOrdersModal
+        isOpen={ordersModal !== null}
+        onClose={() => setOrdersModal(null)}
+        hoTen={ordersModal?.hoTen ?? ''}
+        thang={thang}
+        nam={nam}
+        orders={ordersModal?.orders ?? []}
+        loading={ordersModal?.loading ?? false}
+      />
     </div>
   );
 };

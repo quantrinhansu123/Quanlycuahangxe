@@ -41,9 +41,15 @@ export const MultiSearchableSelect = React.memo(function MultiSearchableSelect({
 
   // Filter items. Khi có search thì hiển thị toàn bộ kết quả khớp.
   const filteredOptions = React.useMemo(() => {
-    if (!search) return options.slice(0, MAX_VISIBLE_ITEMS);
+    const seen = new Set<string>();
+    const unique = options.filter((o) => {
+      if (seen.has(o.value)) return false;
+      seen.add(o.value);
+      return true;
+    });
+    if (!search) return unique.slice(0, MAX_VISIBLE_ITEMS);
     const q = search.toLowerCase();
-    return options.filter(o => o.label.toLowerCase().includes(q));
+    return unique.filter(o => o.label.toLowerCase().includes(q));
   }, [options, search]);
 
   const remainingCount = React.useMemo(() => {
@@ -53,7 +59,7 @@ export const MultiSearchableSelect = React.memo(function MultiSearchableSelect({
 
   // Memoize selected labels for the trigger display
   const selectedLabels = React.useMemo(() => {
-    return value.map(val => {
+    return Array.from(new Set(value)).map(val => {
       const opt = options.find(o => o.value === val);
       return { value: val, label: opt?.label || val };
     });
@@ -100,11 +106,11 @@ export const MultiSearchableSelect = React.memo(function MultiSearchableSelect({
 
   const optionsList = (compact: boolean) => (
     <>
-      {filteredOptions.map((option) => {
+      {filteredOptions.map((option, optionIdx) => {
         const isSelected = value.includes(option.value);
         return (
           <div
-            key={option.value}
+            key={`${option.value}-${optionIdx}`}
             onClick={(e) => {
               e.stopPropagation();
               handleToggle(option.value);
@@ -232,9 +238,9 @@ export const MultiSearchableSelect = React.memo(function MultiSearchableSelect({
       >
         <div className="flex flex-wrap gap-1">
           {selectedLabels.length > 0 ? (
-            selectedLabels.map((item) => (
+            selectedLabels.map((item, idx) => (
               <div
-                key={item.value}
+                key={`${item.value}-${idx}`}
                 className="flex items-center gap-1 rounded-lg bg-primary/10 px-2 py-0.5 text-[12px] font-bold text-primary group transition-colors hover:bg-primary/20"
                 onClick={(e) => {
                   e.stopPropagation()
