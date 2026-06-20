@@ -246,12 +246,14 @@ const SalesCardFormModal: React.FC<{
   }, [isOpen, isReadOnly, formData.khach_hang_id, customerBranchFromProfile]);
 
   React.useEffect(() => {
-    if (!isOpen || isReadOnly || !formBranchForServices) return;
+    if (!isOpen || isReadOnly || !formBranchForServices || editingCard) return;
     setFormData((prev) => {
       const ids = prev.dich_vu_ids || [];
       const validIds = ids.filter((id) => {
         const svc = services.find((s) => s.id === id);
-        return svc && matchesServiceBranch(svc.co_so, formBranchForServices);
+        if (svc) return matchesServiceBranch(svc.co_so, formBranchForServices);
+        const onOrder = (prev.service_items || []).some((it) => it.id === id);
+        return onOrder;
       });
       if (validIds.length === ids.length) return prev;
       const validSet = new Set(validIds);
@@ -261,7 +263,7 @@ const SalesCardFormModal: React.FC<{
         service_items: prev.service_items?.filter((it) => validSet.has(it.id)),
       };
     });
-  }, [formBranchForServices, isOpen, isReadOnly, services]);
+  }, [formBranchForServices, isOpen, isReadOnly, editingCard, services]);
 
   const selectedBsx = React.useMemo(() => {
     const fromCard =

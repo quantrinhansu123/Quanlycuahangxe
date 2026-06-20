@@ -88,7 +88,7 @@ function mergeServiceLineItems(
       (displayName && s.ten_dich_vu.toLowerCase() === displayName.toLowerCase()) ||
       (ct.gia_ban != null && Math.abs(Number(s.gia_ban) - Number(ct.gia_ban)) < 1)
     );
-    const serviceId = masterService?.id || ct.dich_vu_id || ct.san_pham_vat_tu_id || ct.id;
+    const serviceId = masterService?.id || ct.dich_vu_id || ct.san_pham_vat_tu_id || displayName;
     if (!serviceId) continue;
 
     const qty = ct.so_luong || 1;

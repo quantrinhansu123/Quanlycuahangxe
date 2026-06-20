@@ -58,7 +58,9 @@ type ServiceBranchSectionProps = {
   loading: boolean;
   currentPage: number;
   pageSize: number;
-  isAdmin: boolean;
+  canManageServices: boolean;
+  canDeleteServices: boolean;
+  showGiaNhap: boolean;
   onPageChange: (page: number) => void;
   onPageSizeChange: (size: number) => void;
   onAdd: (branch: string) => void;
@@ -73,13 +75,15 @@ const ServiceBranchSection: React.FC<ServiceBranchSectionProps> = ({
   loading,
   currentPage,
   pageSize,
-  isAdmin,
+  canManageServices,
+  canDeleteServices,
+  showGiaNhap,
   onPageChange,
   onPageSizeChange,
   onAdd,
   onView,
   onEdit,
-  onDelete
+  onDelete,
 }) => {
   const { services, totalCount } = data;
   const isBacGiang = branch.includes('Bắc Giang');
@@ -105,7 +109,7 @@ const ServiceBranchSection: React.FC<ServiceBranchSectionProps> = ({
             ({totalCount})
           </span>
         </div>
-        {isAdmin && (
+        {canManageServices && (
           <button
             type="button"
             onClick={() => onAdd(branch)}
@@ -117,64 +121,70 @@ const ServiceBranchSection: React.FC<ServiceBranchSectionProps> = ({
         )}
       </div>
 
-      {/* Mobile cards */}
-      <div className="grid grid-cols-1 gap-3 p-3 md:hidden">
+      {/* Mobile cards — 2 dòng, ảnh bên phải */}
+      <div className="grid grid-cols-1 gap-1.5 p-2 md:hidden">
         {loading ? (
           Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="bg-muted/30 p-4 rounded-xl border border-border animate-pulse h-28" />
+            <div key={i} className="bg-muted/30 px-2.5 py-2 rounded-lg border border-border animate-pulse h-[52px]" />
           ))
         ) : services.length > 0 ? (
           services.map((service) => (
             <div
               key={service.id}
-              className="bg-card p-3 rounded-xl border border-border shadow-sm space-y-3"
+              className="bg-card px-2.5 py-2 rounded-lg border border-border flex items-center gap-2.5 min-h-[52px]"
             >
-              <div className="flex items-center justify-between">
-                {service.anh ? (
-                  <div className="w-12 h-12 rounded-lg overflow-hidden border border-border">
-                    <img src={service.anh} alt="" className="w-full h-full object-cover" />
+              <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
+                <div className="text-[13px] font-bold text-foreground truncate leading-tight">
+                  {service.ten_dich_vu}
+                </div>
+                <div className="flex items-center justify-between gap-1.5">
+                  <div className="flex items-center gap-1.5 min-w-0 text-[11px] leading-none">
+                    {showGiaNhap && (
+                      <span className="text-muted-foreground truncate">{formatCurrency(service.gia_nhap)}</span>
+                    )}
+                    <span className="font-black text-primary shrink-0">{formatCurrency(service.gia_ban)}</span>
                   </div>
-                ) : (
-                  <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center text-muted-foreground/30 border border-dashed border-border">
-                    <Camera size={20} />
+                  <div className="flex items-center gap-0.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => onView(service)}
+                      className="p-1 text-blue-600 hover:bg-blue-50 rounded border border-blue-100"
+                      title="Xem"
+                    >
+                      <Eye size={14} />
+                    </button>
+                    {canManageServices && (
+                      <button
+                        type="button"
+                        onClick={() => onEdit(service)}
+                        className="p-1 text-primary hover:bg-primary/5 rounded border border-primary/20"
+                        title="Sửa"
+                      >
+                        <Edit2 size={14} />
+                      </button>
+                    )}
+                    {canDeleteServices && (
+                      <button
+                        type="button"
+                        onClick={() => onDelete(service.id)}
+                        className="p-1 text-destructive hover:bg-destructive/5 rounded border border-destructive/20"
+                        title="Xóa"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                   </div>
-                )}
-                <div className="font-mono text-[10px] text-primary bg-primary/10 px-2 py-0.5 rounded font-black">
-                  {service.id_dich_vu || service.id.slice(0, 8)}
                 </div>
               </div>
-              <div className="text-[15px] font-black text-foreground">{service.ten_dich_vu}</div>
-              <div className="flex items-center justify-between text-[13px]">
-                <span className="text-muted-foreground">{formatCurrency(service.gia_nhap)}</span>
-                <span className="font-black text-primary">{formatCurrency(service.gia_ban)}</span>
-              </div>
-              <div className="flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => onView(service)}
-                  className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg border border-blue-100"
-                >
-                  <Eye size={16} />
-                </button>
-                {isAdmin && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => onEdit(service)}
-                      className="p-2 text-primary hover:bg-primary/5 rounded-lg border border-primary/20"
-                    >
-                      <Edit2 size={16} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onDelete(service.id)}
-                      className="p-2 text-destructive hover:bg-destructive/5 rounded-lg border border-destructive/20"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </>
-                )}
-              </div>
+              {service.anh ? (
+                <div className="w-11 h-11 rounded-lg overflow-hidden border border-border shrink-0">
+                  <img src={service.anh} alt="" className="w-full h-full object-cover" />
+                </div>
+              ) : (
+                <div className="w-11 h-11 rounded-lg bg-muted flex items-center justify-center text-muted-foreground/30 border border-dashed border-border shrink-0">
+                  <Camera size={16} />
+                </div>
+              )}
             </div>
           ))
         ) : (
@@ -189,20 +199,20 @@ const ServiceBranchSection: React.FC<ServiceBranchSectionProps> = ({
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-muted/60 border-b border-border text-muted-foreground text-[11px] font-bold uppercase tracking-wider">
-              <th className="px-3 py-2.5 font-semibold">Mã</th>
               <th className="px-3 py-2.5 font-semibold">Ảnh</th>
               <th className="px-3 py-2.5 font-semibold">Tên dịch vụ</th>
-              <th className="px-3 py-2.5 font-semibold text-right">Giá nhập</th>
+              {showGiaNhap && (
+                <th className="px-3 py-2.5 font-semibold text-right">Giá nhập</th>
+              )}
               <th className="px-3 py-2.5 font-semibold text-right">Giá bán</th>
               <th className="px-3 py-2.5 font-semibold text-right">Hoa hồng</th>
-              <th className="px-3 py-2.5 font-semibold text-center">Hiệu lực</th>
               <th className="px-3 py-2.5 text-center font-semibold">Tác vụ</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border/60 text-[12px]">
             {loading ? (
               <tr>
-                <td colSpan={8} className="px-4 py-10 text-center text-muted-foreground">
+                <td colSpan={showGiaNhap ? 6 : 5} className="px-4 py-10 text-center text-muted-foreground">
                   <Loader2 className="animate-spin inline-block mr-2" size={18} />
                   Đang tải...
                 </td>
@@ -210,9 +220,6 @@ const ServiceBranchSection: React.FC<ServiceBranchSectionProps> = ({
             ) : services.length > 0 ? (
               services.map((service) => (
                 <tr key={service.id} className="hover:bg-muted/50 transition-colors">
-                  <td className="px-3 py-3 font-mono text-[11px] font-black text-primary">
-                    {service.id_dich_vu || service.id.slice(0, 8)}
-                  </td>
                   <td className="px-3 py-3">
                     {service.anh ? (
                       <div className="w-9 h-9 rounded-lg overflow-hidden border border-border">
@@ -225,14 +232,11 @@ const ServiceBranchSection: React.FC<ServiceBranchSectionProps> = ({
                     )}
                   </td>
                   <td className="px-3 py-3 font-bold text-foreground">{service.ten_dich_vu}</td>
-                  <td className="px-3 py-3 text-right text-muted-foreground">{formatCurrency(service.gia_nhap)}</td>
+                  {showGiaNhap && (
+                    <td className="px-3 py-3 text-right text-muted-foreground">{formatCurrency(service.gia_nhap)}</td>
+                  )}
                   <td className="px-3 py-3 text-right font-black text-primary">{formatCurrency(service.gia_ban)}</td>
                   <td className="px-3 py-3 text-right text-orange-600 font-bold">{formatCurrency(service.hoa_hong)}</td>
-                  <td className="px-3 py-3 text-center text-[10px] text-muted-foreground">
-                    {service.tu_ngay ? new Date(service.tu_ngay).toLocaleDateString('vi-VN') : '—'}
-                    <br />
-                    {service.toi_ngay ? new Date(service.toi_ngay).toLocaleDateString('vi-VN') : '—'}
-                  </td>
                   <td className="px-3 py-3 text-center">
                     <div className="flex items-center justify-center gap-1">
                       <button
@@ -243,25 +247,25 @@ const ServiceBranchSection: React.FC<ServiceBranchSectionProps> = ({
                       >
                         <Eye size={16} />
                       </button>
-                      {isAdmin && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => onEdit(service)}
-                            className="p-1.5 text-primary hover:bg-primary/10 rounded"
-                            title="Sửa"
-                          >
-                            <Edit2 size={16} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => onDelete(service.id)}
-                            className="p-1.5 text-destructive hover:bg-destructive/10 rounded"
-                            title="Xóa"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </>
+                      {canManageServices && (
+                        <button
+                          type="button"
+                          onClick={() => onEdit(service)}
+                          className="p-1.5 text-primary hover:bg-primary/10 rounded"
+                          title="Sửa"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                      )}
+                      {canDeleteServices && (
+                        <button
+                          type="button"
+                          onClick={() => onDelete(service.id)}
+                          className="p-1.5 text-destructive hover:bg-destructive/10 rounded"
+                          title="Xóa"
+                        >
+                          <Trash2 size={16} />
+                        </button>
                       )}
                     </div>
                   </td>
@@ -269,7 +273,7 @@ const ServiceBranchSection: React.FC<ServiceBranchSectionProps> = ({
               ))
             ) : (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={showGiaNhap ? 6 : 5} className="px-4 py-8 text-center text-muted-foreground">
                   Không có dịch vụ tại {branchShortLabel(branch)}.
                 </td>
               </tr>
@@ -293,7 +297,9 @@ const ServiceBranchSection: React.FC<ServiceBranchSectionProps> = ({
 const ServiceManagementPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isAdmin, nhanVien } = useAuth();
+  const { isAdmin, nhanVien, isTechnician, hasViewAccess } = useAuth();
+  const canManageServices = (isAdmin || hasViewAccess('dich-vu')) && !isTechnician;
+  const showGiaNhap = !isTechnician;
 
   const visibleBranches = useMemo(() => {
     if (isAdmin) return [...BRANCH_OPTIONS];
@@ -417,7 +423,11 @@ const ServiceManagementPage: React.FC = () => {
 
   const handleSubmit = async (formDataToSave: Partial<DichVu>) => {
     try {
-      await upsertService(formDataToSave);
+      const payload = { ...formDataToSave };
+      if (!showGiaNhap && editingService) {
+        payload.gia_nhap = editingService.gia_nhap;
+      }
+      await upsertService(payload);
       await loadData();
       handleCloseModal();
     } catch (err) {
@@ -674,7 +684,9 @@ const ServiceManagementPage: React.FC = () => {
               loading={loading}
               currentPage={branchPages[branch] ?? 1}
               pageSize={pageSize}
-              isAdmin={isAdmin}
+              canManageServices={canManageServices}
+              canDeleteServices={isAdmin}
+              showGiaNhap={showGiaNhap}
               onPageChange={(page) => handleBranchPageChange(branch, page)}
               onPageSizeChange={handlePageSizeChange}
               onAdd={(b) => handleOpenModal(undefined, b)}
@@ -694,6 +706,7 @@ const ServiceManagementPage: React.FC = () => {
         onSubmit={handleSubmit}
         branchOptions={[...BRANCH_OPTIONS]}
         isReadOnly={isReadOnlyModal}
+        showGiaNhap={showGiaNhap}
       />
     </div>
   );

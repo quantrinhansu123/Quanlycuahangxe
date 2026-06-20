@@ -13,6 +13,7 @@ interface ServiceFormModalProps {
   onSubmit: (formData: Partial<DichVu>) => Promise<void>;
   branchOptions: string[];
   isReadOnly?: boolean;
+  showGiaNhap?: boolean;
 }
 
 const ServiceFormModal: React.FC<ServiceFormModalProps> = React.memo(({
@@ -22,7 +23,8 @@ const ServiceFormModal: React.FC<ServiceFormModalProps> = React.memo(({
   onClose,
   onSubmit,
   branchOptions,
-  isReadOnly
+  isReadOnly,
+  showGiaNhap = true
 }) => {
   const [formData, setFormData] = useState<Partial<DichVu>>(initialData);
   const [uploading, setUploading] = useState(false);
@@ -256,18 +258,20 @@ const ServiceFormModal: React.FC<ServiceFormModalProps> = React.memo(({
 
               <InputField label="Cơ sở" name="co_so" type="select" options={branchOptions} value={formData.co_so || ''} onChange={handleInputChange} icon={Building2} tabIndex={3} disabled={isReadOnly} />
               
-              <div className="space-y-1.5 focus-within:ring-2 focus-within:ring-primary/20 rounded-xl transition-all">
-                <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider">Giá nhập (VNĐ)</label>
-                <input 
-                  type="text" 
-                  name="gia_nhap" 
-                  value={(formData.gia_nhap || 0) === 0 ? '' : (formData.gia_nhap || 0).toLocaleString('vi-VN')} 
-                  onChange={handleInputChange} 
-                  tabIndex={3}
-                  disabled={isReadOnly}
-                  className={clsx("w-full px-4 py-2 bg-background border border-border rounded-xl outline-none focus:border-primary text-[14px]", isReadOnly && "bg-muted cursor-not-allowed")} 
-                />
-              </div>
+              {showGiaNhap && (
+                <div className="space-y-1.5 focus-within:ring-2 focus-within:ring-primary/20 rounded-xl transition-all">
+                  <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider">Giá nhập (VNĐ)</label>
+                  <input 
+                    type="text" 
+                    name="gia_nhap" 
+                    value={(formData.gia_nhap || 0) === 0 ? '' : (formData.gia_nhap || 0).toLocaleString('vi-VN')} 
+                    onChange={handleInputChange} 
+                    tabIndex={3}
+                    disabled={isReadOnly}
+                    className={clsx("w-full px-4 py-2 bg-background border border-border rounded-xl outline-none focus:border-primary text-[14px]", isReadOnly && "bg-muted cursor-not-allowed")} 
+                  />
+                </div>
+              )}
 
               <div className="space-y-1.5 focus-within:ring-2 focus-within:ring-primary/20 rounded-xl transition-all">
                 <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider">Giá bán (VNĐ) <span className="text-red-500">*</span></label>
