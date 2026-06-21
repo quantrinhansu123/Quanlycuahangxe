@@ -173,7 +173,7 @@ export function resolveServiceDisplayName(
 }
 
 /** Mã dạng UUID / hex (dữ liệu cũ lưu id thay vì tên). */
-function looksLikeOpaqueServiceCode(code: string): boolean {
+export function looksLikeOpaqueServiceCode(code: string): boolean {
   const c = code.trim();
   if (c.length < 6) return false;
   if (/[À-ỹà-ỹ\s,./()+]/u.test(c)) return false;
@@ -209,6 +209,64 @@ export function resolveServiceNameForDetail(
   }
 
   return code;
+}
+
+/** Khớp dòng chi tiết đơn với danh mục dịch vụ — ưu tiên id/tên, không đoán theo giá khi đã có tên rõ. */
+export function findServiceForOrderDetailLine(
+  ct: {
+    dich_vu_id?: string | null;
+    san_pham_vat_tu_id?: string | null;
+    ten_dich_vu?: string | null;
+    san_pham?: string | null;
+    gia_ban?: number | null;
+    co_so?: string | null;
+  },
+  services: ServiceLookupRow[],
+  lookup: Map<string, string>
+): ServiceLookupRow | undefined {
+  const raw = (ct.ten_dich_vu || ct.san_pham || '').trim();
+
+  if (ct.dich_vu_id) {
+    const byId = services.find((s) => s.id === ct.dich_vu_id);
+    if (byId) return byId;
+  }
+  if (ct.san_pham_vat_tu_id) {
+    const bySpId = services.find((s) => s.id === ct.san_pham_vat_tu_id);
+    if (bySpId) return bySpId;
+  }
+
+  if (raw && looksLikeOpaqueServiceCode(raw)) {
+    const nameFromLookup = resolveServiceDisplayName(raw, lookup);
+    if (nameFromLookup !== raw) {
+      const byLookupName = services.find(
+        (s) => s.ten_dich_vu.toLowerCase() === nameFromLookup.toLowerCase()
+      );
+      if (byLookupName) return byLookupName;
+    }
+    const byRawId = services.find((s) => s.id === raw || s.id_dich_vu === raw);
+    if (byRawId) return byRawId;
+  }
+
+  if (raw) {
+    const byName = services.find((s) => s.ten_dich_vu.toLowerCase() === raw.toLowerCase());
+    if (byName) return byName;
+  }
+
+  if (raw && looksLikeOpaqueServiceCode(raw)) {
+    const price = Number(ct.gia_ban ?? 0);
+    if (price > 0) {
+      let cands = services.filter((s) => Math.abs(Number(s.gia_ban || 0) - price) < 1);
+      const coSoTrim = (ct.co_so || '').trim();
+      if (coSoTrim) {
+        const byCoSo = cands.filter((s) => (s.co_so || '').trim() === coSoTrim);
+        if (byCoSo.length === 1) return byCoSo[0];
+        if (byCoSo.length > 0) cands = byCoSo;
+      }
+      if (cands.length === 1) return cands[0];
+    }
+  }
+
+  return undefined;
 }
 
 async function fetchAllServicesForLookup(): Promise<ServiceLookupRow[]> {
@@ -328,11 +386,20 @@ async function attachDetails(cards: SalesCard[]) {
       const detailMap = new Map<string, SalesCardCT[]>();
       allDetails.forEach((d: SalesCardCT) => {
         const code = (d.san_pham || '').trim();
-        const resolved = resolveServiceNameForDetail(code, d.gia_ban, d.co_so, codeToName, allServices);
-        if (resolved && resolved !== code) {
-          d.san_pham = resolved;
+        const master = findServiceForOrderDetailLine(
+          { san_pham: code, gia_ban: d.gia_ban, co_so: d.co_so },
+          allServices,
+          codeToName
+        );
+        const resolved =
+          master?.ten_dich_vu ||
+          (code && !looksLikeOpaqueServiceCode(code)
+            ? code
+            : resolveServiceDisplayName(code, codeToName));
+        if (master) {
+          d.san_pham = master.ten_dich_vu;
         }
-        (d as SalesCardCT & { ten_dich_vu?: string }).ten_dich_vu = resolved;
+        (d as SalesCardCT & { ten_dich_vu?: string }).ten_dich_vu = resolved || 'Dịch vụ';
 
         if (d.id_don_hang) {
           const lowerId = d.id_don_hang.toLowerCase();

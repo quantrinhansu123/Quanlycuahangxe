@@ -205,6 +205,33 @@ export const getInventoryPaginated = async (
   };
 };
 
+export const deleteProductRecord = async (id: string): Promise<void> => {
+  const { error } = await supabase.from('ds_san_pham').delete().eq('id', id);
+  if (error) {
+    console.error('Error deleting product record:', error);
+    throw error;
+  }
+};
+
+export const upsertProductRecord = async (
+  product: Partial<ProductRecord> & { ten_san_pham: string }
+): Promise<ProductRecord> => {
+  const row = {
+    ...(product.id ? { id: product.id } : {}),
+    ma_san_pham: product.ma_san_pham?.trim() || null,
+    ten_san_pham: product.ten_san_pham.trim(),
+    don_vi_tinh: (product.don_vi_tinh || 'Cái').trim(),
+    ton_dau_ky: Math.max(0, Number(product.ton_dau_ky ?? 0)),
+  };
+
+  const { data, error } = await supabase.from('ds_san_pham').upsert(row).select().single();
+  if (error) {
+    console.error('Error upserting product record:', error);
+    throw error;
+  }
+  return data as ProductRecord;
+};
+
 export const getProductRecords = async (): Promise<ProductRecord[]> => {
   const { data, error } = await supabase
     .from('ds_san_pham')

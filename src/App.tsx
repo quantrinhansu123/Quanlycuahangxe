@@ -28,6 +28,7 @@ const RevenueReportPage = lazy(() => import('./pages/RevenueReportPage'));
 const PermissionSettingsPage = lazy(() => import('./pages/PermissionSettingsPage'));
 const PersonnelManagementPage = lazy(() => import('./pages/PersonnelManagementPage'));
 const WarehouseStockListPage = lazy(() => import('./pages/WarehouseStockListPage'));
+const SparePartsListPage = lazy(() => import('./pages/SparePartsListPage'));
 
 
 function AppRoutes() {
@@ -83,6 +84,7 @@ function AppRoutes() {
             {/* Kho váº­n â€” chá»‰ admin */}
             <Route path="/kho-van" element={<ProtectedRoute viewKey="kho-van"><ModulePage /></ProtectedRoute>}>
               <Route path="xuat-nhap-kho" element={<ProtectedRoute viewKey="kho-van"><InventoryManagementPage /></ProtectedRoute>} />
+              <Route path="danh-sach-phu-tung" element={<ProtectedRoute viewKey="kho-van"><SparePartsListPage /></ProtectedRoute>} />
               <Route path="danh-sach-kho" element={<ProtectedRoute viewKey="kho-van"><WarehouseStockListPage /></ProtectedRoute>} />
             </Route>
 

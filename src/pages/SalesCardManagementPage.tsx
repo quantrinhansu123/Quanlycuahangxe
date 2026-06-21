@@ -39,9 +39,11 @@ import {
   bulkUpsertSalesCards,
   buildServiceNameLookup,
   deleteSalesCard, 
+  findServiceForOrderDetailLine,
   getNextSalesCardCode, 
   getSalesCardsForExport,
   getSalesCardsPaginated, 
+  looksLikeOpaqueServiceCode,
   normalizeSalesCards,
   resolveServiceDisplayName,
   resolveServiceNameForDetail,
@@ -76,19 +78,14 @@ function mergeServiceLineItems(
   const merged = new Map<string, ServiceLineItem>();
 
   for (const ct of ctRows) {
-    const displayName = resolveServiceNameForDetail(
-      ct.ten_dich_vu || ct.san_pham,
-      ct.gia_ban,
-      ct.co_so,
-      serviceLookup,
-      services
-    );
-    const masterService = services.find((s) =>
-      (ct.dich_vu_id && s.id === ct.dich_vu_id) ||
-      (displayName && s.ten_dich_vu.toLowerCase() === displayName.toLowerCase()) ||
-      (ct.gia_ban != null && Math.abs(Number(s.gia_ban) - Number(ct.gia_ban)) < 1)
-    );
-    const serviceId = masterService?.id || ct.dich_vu_id || ct.san_pham_vat_tu_id || displayName;
+    const raw = (ct.ten_dich_vu || ct.san_pham || '').trim();
+    const masterService = findServiceForOrderDetailLine(ct, services, serviceLookup);
+    const displayName =
+      masterService?.ten_dich_vu ||
+      (raw && !looksLikeOpaqueServiceCode(raw)
+        ? raw
+        : resolveServiceNameForDetail(raw, ct.gia_ban, ct.co_so, serviceLookup, services));
+    const serviceId = masterService?.id || ct.dich_vu_id || ct.san_pham_vat_tu_id || raw || displayName;
     if (!serviceId) continue;
 
     const qty = ct.so_luong || 1;

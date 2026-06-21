@@ -125,17 +125,24 @@ const SalesCardFormModal: React.FC<{
     if (formData.dich_vu_ids && formData.dich_vu_ids.length > 0) {
       const currentItems = formData.service_items || [];
       const newItems = formData.dich_vu_ids.map(id => {
-        // Find existing edited item or create new from service master
-        const existing = currentItems.find(it => it.id === id);
+        const s =
+          services.find(serv => serv.id === id || serv.ten_dich_vu === id) ||
+          servicesForBranch.find(serv => serv.id === id || serv.ten_dich_vu === id);
+        const existing = currentItems.find(it => it.id === id || (s && it.id === s.id));
+        if (s) {
+          return {
+            id: s.id,
+            ten_dich_vu: s.ten_dich_vu,
+            gia_ban: existing?.gia_ban ?? s.gia_ban ?? 0,
+            so_luong: existing?.so_luong ?? 1,
+          };
+        }
         if (existing) return existing;
-
-        const s = services.find(serv => serv.id === id || serv.ten_dich_vu === id)
-          || servicesForBranch.find(serv => serv.id === id || serv.ten_dich_vu === id);
         return {
-          id: s?.id || id,
-          ten_dich_vu: s?.ten_dich_vu || id,
-          gia_ban: s?.gia_ban || 0,
-          so_luong: 1
+          id,
+          ten_dich_vu: id,
+          gia_ban: 0,
+          so_luong: 1,
         };
       });
 
