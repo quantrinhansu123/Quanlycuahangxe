@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom';
 import { X, Save, Building2, Hash, DollarSign, Package, Clock, User, List, Settings } from 'lucide-react';
 import { clsx } from 'clsx';
 import { SearchableSelect } from './ui/SearchableSelect';
+import { matchesServiceBranch } from '../constants/customerBranches';
+import { useAuth } from '../context/AuthContext';
 import { addInventoryRecord, getNextInventoryId } from '../data/inventoryData';
 import type { InventoryRecord } from '../data/inventoryData';
 import type { DichVu } from '../data/serviceData';
@@ -14,7 +16,6 @@ interface InventoryFormModalProps {
   record: InventoryRecord | null;
   onSuccess: () => void;
   services: DichVu[];
-  serviceOptions: { value: string; label: string }[];
 }
 
 const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
@@ -23,8 +24,8 @@ const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
   record,
   onSuccess,
   services,
-  serviceOptions,
 }) => {
+  const { nhanVien } = useAuth();
   const [formData, setFormData] = useState<Partial<InventoryRecord>>({});
 
   useEffect(() => {
@@ -43,25 +44,58 @@ const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
         id_don_hang: '',
         co_so: 'Cơ sở Bắc Giang',
         ten_mat_hang: '',
-        ton_dau_ky: 0,
         so_luong: 0,
         gia: 0,
         tong_tien: 0,
         ngay: new Date().toISOString().split('T')[0],
         gio: formatTime24h(new Date(), false),
-        nguoi_thuc_hien: '',
+        nguoi_thuc_hien: nhanVien?.ho_ten || '',
       });
     };
 
     fetchAutoId();
-  }, [isOpen, record]);
+  }, [isOpen, record, nhanVien?.ho_ten]);
+
+  const branch = (formData.co_so || '').trim();
+
+  const servicesForBranch = React.useMemo(() => {
+    if (!branch) return [];
+    return services.filter((s) => matchesServiceBranch(s.co_so, branch));
+  }, [services, branch]);
+
+  const serviceOptions = React.useMemo(() => {
+    const uniqueMap = new Map<string, DichVu>();
+    servicesForBranch.forEach((s) => {
+      if (s.ten_dich_vu && !uniqueMap.has(s.ten_dich_vu)) {
+        uniqueMap.set(s.ten_dich_vu, s);
+      }
+    });
+    const opts = Array.from(uniqueMap.values()).map((s) => ({
+      value: s.ten_dich_vu,
+      label: `${s.id_dich_vu || 'DV'}: ${s.ten_dich_vu}`,
+      searchKey: `${s.ten_dich_vu} ${s.id_dich_vu || ''} ${s.co_so || ''}`,
+    }));
+    const name = formData.ten_mat_hang?.trim();
+    if (name && !opts.some((o) => o.value === name)) {
+      opts.unshift({ value: name, label: name, searchKey: name });
+    }
+    return opts;
+  }, [servicesForBranch, formData.ten_mat_hang]);
+
+  const applyServicePrice = (tenMatHang: string, loaiPhieu: string | undefined, soLuong: number) => {
+    const service = services.find((s) => s.ten_dich_vu === tenMatHang);
+    if (!service) return { gia: 0, tong_tien: 0 };
+    const isNhap = loaiPhieu === 'Nhập kho' || loaiPhieu === 'Phiếu nhập';
+    const gia = isNhap ? service.gia_nhap : service.gia_ban;
+    return { gia, tong_tien: soLuong * gia };
+  };
 
   if (!isOpen) return null;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
 
-    if (name === 'so_luong' || name === 'gia' || name === 'ton_dau_ky') {
+    if (name === 'so_luong' || name === 'gia') {
       const numericValue = value.replace(/[^0-9]/g, '').replace(/^0+(?!$)/, '') || '0';
       const num = parseInt(numericValue, 10) || 0;
 
@@ -75,17 +109,20 @@ const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
       return;
     }
 
-    if (name === 'loai_phieu') {
-      const isNhap = value === 'Nhập kho' || value === 'Phiếu nhập';
+    if (name === 'co_so') {
       setFormData((prev) => {
-        const selectedService = services.find((s) => s.ten_dich_vu === prev.ten_mat_hang);
-        const next = { ...prev, [name]: value };
-        if (selectedService) {
-          const gia = isNhap ? selectedService.gia_nhap : selectedService.gia_ban;
-          next.gia = gia;
-          next.tong_tien = (prev.so_luong || 0) * gia;
-        }
-        return next;
+        const svc = services.find((s) => s.ten_dich_vu === prev.ten_mat_hang);
+        const stillValid = svc && matchesServiceBranch(svc.co_so, value);
+        if (stillValid) return { ...prev, co_so: value };
+        return { ...prev, co_so: value, ten_mat_hang: '', gia: 0, tong_tien: 0 };
+      });
+      return;
+    }
+
+    if (name === 'loai_phieu') {
+      setFormData((prev) => {
+        const prices = applyServicePrice(prev.ten_mat_hang || '', value, prev.so_luong || 0);
+        return { ...prev, [name]: value, ...prices };
       });
       return;
     }
@@ -96,7 +133,7 @@ const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.ten_mat_hang) {
-      alert('Vui lòng nhập tên mặt hàng');
+      alert('Vui lòng chọn tên mặt hàng từ dịch vụ của cơ sở đã chọn.');
       return;
     }
 
@@ -107,13 +144,13 @@ const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
         id_don_hang: formData.id_don_hang || '',
         co_so: formData.co_so || 'Cơ sở Bắc Giang',
         ten_mat_hang: formData.ten_mat_hang,
-        ton_dau_ky: formData.ton_dau_ky || 0,
+        ton_dau_ky: record?.ton_dau_ky ?? 0,
         so_luong: formData.so_luong || 0,
         gia: formData.gia || 0,
         tong_tien: formData.tong_tien || 0,
         ngay: formData.ngay || '',
         gio: formData.gio || '',
-        nguoi_thuc_hien: formData.nguoi_thuc_hien || '',
+        nguoi_thuc_hien: formData.nguoi_thuc_hien?.trim() || nhanVien?.ho_ten || '',
       });
       onSuccess();
     } catch {
@@ -127,8 +164,8 @@ const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
   };
 
   return createPortal(
-    <div className="fixed inset-0 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" style={{ zIndex: 9999999 }}>
-      <div className="bg-card w-full max-w-2xl rounded-3xl border border-border shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in duration-300" style={{ zIndex: 10000000 }}>
+    <div className="fixed inset-0 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" style={{ zIndex: 1000 }}>
+      <div className="bg-card w-full max-w-2xl rounded-3xl border border-border shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in duration-300" style={{ zIndex: 1001 }}>
         <div className="px-8 py-5 border-b border-border flex items-center justify-between bg-muted/30 shrink-0">
           <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
             <Settings size={20} className="text-primary" />
@@ -161,36 +198,36 @@ const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
               </select>
             </div>
 
-            <InputField label="Mã Đơn hàng" name="id_don_hang" value={formData.id_don_hang} onChange={handleInputChange} icon={Hash} placeholder="ĐH-0001..." />
+            {record && (
+              <InputField label="Mã Đơn hàng" name="id_don_hang" value={formData.id_don_hang} onChange={handleInputChange} icon={Hash} placeholder="ĐH-0001..." />
+            )}
             <InputField label="Mã Phiếu" name="id_xuat_nhap_kho" value={formData.id_xuat_nhap_kho || ''} onChange={handleInputChange} icon={List} disabled />
 
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 md:col-span-2">
               <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                 <Package size={14} className="text-primary/70" />
                 Tên mặt hàng <span className="text-red-500">*</span>
               </label>
-              <SearchableSelect
-                options={serviceOptions}
-                value={formData.ten_mat_hang || ''}
-                onValueChange={(val) => {
-                  const selectedService = services.find((s) => s.ten_dich_vu === val);
-                  setFormData((prev) => {
-                    const next = { ...prev, ten_mat_hang: val };
-                    if (selectedService) {
-                      const isNhap = prev.loai_phieu === 'Nhập kho' || prev.loai_phieu === 'Phiếu nhập';
-                      const gia = isNhap ? selectedService.gia_nhap : selectedService.gia_ban;
-                      next.gia = gia;
-                      next.tong_tien = (prev.so_luong || 0) * gia;
-                    }
-                    return next;
-                  });
-                }}
-                placeholder="Tìm theo tên hoặc mã DV..."
-              />
+              {!branch ? (
+                <p className="text-[12px] text-amber-700 font-medium px-1">Chọn cơ sở trước để xem dịch vụ.</p>
+              ) : (
+                <SearchableSelect
+                  options={serviceOptions}
+                  value={formData.ten_mat_hang || ''}
+                  onValueChange={(val) => {
+                    setFormData((prev) => {
+                      const prices = applyServicePrice(val, prev.loai_phieu, prev.so_luong || 0);
+                      return { ...prev, ten_mat_hang: val, ...prices };
+                    });
+                  }}
+                  placeholder="Chọn dịch vụ theo cơ sở..."
+                  searchPlaceholder="Tìm tên hoặc mã dịch vụ..."
+                  emptyMessage="Không có dịch vụ tại cơ sở này."
+                />
+              )}
             </div>
 
             <InputField label="Số lượng" name="so_luong" type="text" value={formatNumber(formData.so_luong)} onChange={handleInputChange} icon={Hash} />
-            <InputField label="Tồn đầu kỳ" name="ton_dau_ky" type="text" value={formatNumber(formData.ton_dau_ky)} onChange={handleInputChange} icon={Package} />
             <InputField label="Giá" name="gia" type="text" value={formatNumber(formData.gia)} onChange={handleInputChange} icon={DollarSign} />
             <InputField label="Ngày" name="ngay" type="date" value={formData.ngay} onChange={handleInputChange} icon={Clock} />
             <InputField label="Giờ" name="gio" type="time" value={formData.gio} onChange={handleInputChange} icon={Clock} />

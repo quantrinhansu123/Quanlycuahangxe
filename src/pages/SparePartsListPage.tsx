@@ -3,12 +3,17 @@ import { ArrowLeft, Edit2, Loader2, Package, Plus, Search, Trash2, X } from 'luc
 import { useNavigate } from 'react-router-dom';
 import { clsx } from 'clsx';
 import { useAuth } from '../context/AuthContext';
+import { SearchableSelect } from '../components/ui/SearchableSelect';
 import {
   deleteProductRecord,
+  formatProductSaveError,
+  getNextProductCode,
   getProductRecords,
   type ProductRecord,
   upsertProductRecord,
 } from '../data/inventoryData';
+import type { DichVu } from '../data/serviceData';
+import { getServices } from '../data/serviceData';
 
 const formatNumber = (n: number): string =>
   new Intl.NumberFormat('vi-VN').format(Math.round(n || 0));
@@ -18,11 +23,12 @@ type FormState = {
   ma_san_pham: string;
   ten_san_pham: string;
   don_vi_tinh: string;
+  gia: string;
   ton_dau_ky: string;
 };
 
 function emptyForm(): FormState {
-  return { ma_san_pham: '', ten_san_pham: '', don_vi_tinh: 'Cái', ton_dau_ky: '0' };
+  return { ma_san_pham: '', ten_san_pham: '', don_vi_tinh: 'Cái', gia: '0', ton_dau_ky: '0' };
 }
 
 const SparePartsListPage: React.FC = () => {
@@ -32,14 +38,16 @@ const SparePartsListPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
   const [rows, setRows] = useState<ProductRecord[]>([]);
+  const [services, setServices] = useState<DichVu[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm());
 
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await getProductRecords();
+      const [data, svc] = await Promise.all([getProductRecords(), getServices()]);
       setRows(data);
+      setServices(svc);
     } catch (e) {
       console.error(e);
       setRows([]);
@@ -63,8 +71,38 @@ const SparePartsListPage: React.FC = () => {
     );
   }, [rows, search]);
 
-  const openCreate = () => {
-    setForm(emptyForm());
+  const usedProductNames = useMemo(
+    () => new Set(rows.map((r) => r.ten_san_pham.trim().toLowerCase())),
+    [rows]
+  );
+
+  const serviceOptions = useMemo(() => {
+    const uniqueMap = new Map<string, DichVu>();
+    services.forEach((s) => {
+      if (s.ten_dich_vu && !uniqueMap.has(s.ten_dich_vu)) {
+        uniqueMap.set(s.ten_dich_vu, s);
+      }
+    });
+    const opts = Array.from(uniqueMap.values())
+      .filter((s) => {
+        if (form.ten_san_pham && s.ten_dich_vu === form.ten_san_pham) return true;
+        return !usedProductNames.has(s.ten_dich_vu.trim().toLowerCase());
+      })
+      .map((s) => ({
+        value: s.ten_dich_vu,
+        label: `${s.id_dich_vu || 'DV'}: ${s.ten_dich_vu}`,
+        searchKey: `${s.ten_dich_vu} ${s.id_dich_vu || ''} ${s.co_so || ''}`,
+      }));
+
+    if (form.ten_san_pham && !opts.some((o) => o.value === form.ten_san_pham)) {
+      opts.unshift({ value: form.ten_san_pham, label: form.ten_san_pham, searchKey: form.ten_san_pham });
+    }
+    return opts;
+  }, [services, usedProductNames, form.ten_san_pham]);
+
+  const openCreate = async () => {
+    const nextCode = await getNextProductCode();
+    setForm({ ...emptyForm(), ma_san_pham: nextCode });
     setModalOpen(true);
   };
 
@@ -74,32 +112,45 @@ const SparePartsListPage: React.FC = () => {
       ma_san_pham: p.ma_san_pham || '',
       ten_san_pham: p.ten_san_pham,
       don_vi_tinh: p.don_vi_tinh || 'Cái',
+      gia: String(p.gia ?? 0),
       ton_dau_ky: String(p.ton_dau_ky ?? 0),
     });
     setModalOpen(true);
+  };
+
+  const handleServiceSelect = (val: string) => {
+    const svc = services.find((s) => s.ten_dich_vu === val);
+    setForm((f) => ({
+      ...f,
+      ten_san_pham: val,
+      gia: svc ? String(svc.gia_nhap ?? 0) : f.gia,
+    }));
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     const ten = form.ten_san_pham.trim();
     if (!ten) {
-      window.alert('Vui lòng nhập tên phụ tùng.');
+      window.alert('Vui lòng chọn tên phụ tùng từ danh sách dịch vụ.');
       return;
     }
     setSaving(true);
     try {
+      const maSanPham =
+        form.ma_san_pham.trim() || (!form.id ? await getNextProductCode() : '');
       await upsertProductRecord({
         id: form.id,
-        ma_san_pham: form.ma_san_pham.trim() || null,
+        ma_san_pham: maSanPham || null,
         ten_san_pham: ten,
         don_vi_tinh: form.don_vi_tinh.trim() || 'Cái',
+        gia: Number(form.gia.replace(/\D/g, '') || 0),
         ton_dau_ky: Number(form.ton_dau_ky.replace(/\D/g, '') || 0),
       });
       setModalOpen(false);
       await loadData();
     } catch (err) {
       console.error(err);
-      window.alert('Không lưu được phụ tùng. Kiểm tra tên trùng hoặc quyền truy cập.');
+      window.alert(formatProductSaveError(err));
     } finally {
       setSaving(false);
     }
@@ -163,6 +214,7 @@ const SparePartsListPage: React.FC = () => {
                 <th className="px-4 py-3 font-semibold">Mã phụ tùng</th>
                 <th className="px-4 py-3 font-semibold">Tên phụ tùng</th>
                 <th className="px-4 py-3 font-semibold">ĐVT</th>
+                <th className="px-4 py-3 font-semibold text-right">Giá</th>
                 <th className="px-4 py-3 font-semibold text-right">Tồn đầu kỳ</th>
                 {isAdmin && (
                   <th className="px-4 py-3 font-semibold text-center w-24">Thao tác</th>
@@ -172,14 +224,14 @@ const SparePartsListPage: React.FC = () => {
             <tbody className="divide-y divide-border/60">
               {loading ? (
                 <tr>
-                  <td colSpan={isAdmin ? 5 : 4} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={isAdmin ? 6 : 5} className="px-4 py-12 text-center text-muted-foreground">
                     <Loader2 className="animate-spin inline-block mr-2" size={20} />
                     Đang tải...
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={isAdmin ? 5 : 4} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={isAdmin ? 6 : 5} className="px-4 py-12 text-center text-muted-foreground">
                     {search ? 'Không tìm thấy phụ tùng khớp.' : 'Chưa có phụ tùng nào.'}
                   </td>
                 </tr>
@@ -189,6 +241,9 @@ const SparePartsListPage: React.FC = () => {
                     <td className="px-4 py-3 font-mono text-muted-foreground">{p.ma_san_pham || '—'}</td>
                     <td className="px-4 py-3 font-semibold text-foreground">{p.ten_san_pham}</td>
                     <td className="px-4 py-3 text-muted-foreground">{p.don_vi_tinh || 'Cái'}</td>
+                    <td className="px-4 py-3 text-right font-bold tabular-nums text-primary">
+                      {formatNumber(p.gia ?? 0)}đ
+                    </td>
                     <td className="px-4 py-3 text-right font-bold tabular-nums">{formatNumber(p.ton_dau_ky)}</td>
                     {isAdmin && (
                       <td className="px-4 py-3">
@@ -239,21 +294,42 @@ const SparePartsListPage: React.FC = () => {
                 <span className="text-xs font-bold text-muted-foreground uppercase">Mã phụ tùng</span>
                 <input
                   value={form.ma_san_pham}
-                  onChange={(e) => setForm((f) => ({ ...f, ma_san_pham: e.target.value }))}
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background"
-                  placeholder="Tùy chọn"
+                  readOnly
+                  className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-muted font-mono font-bold text-primary cursor-default"
+                  placeholder="Tự sinh khi lưu"
                 />
+                {!form.id && (
+                  <p className="text-[11px] text-muted-foreground">Mã tự sinh theo thứ tự PT-0001, PT-0002...</p>
+                )}
               </label>
-              <label className="block space-y-1.5">
+              <div className="block space-y-1.5">
                 <span className="text-xs font-bold text-muted-foreground uppercase">
                   Tên phụ tùng <span className="text-red-500">*</span>
                 </span>
-                <input
-                  value={form.ten_san_pham}
-                  onChange={(e) => setForm((f) => ({ ...f, ten_san_pham: e.target.value }))}
-                  required
-                  className="w-full px-3 py-2 border border-border rounded-lg text-sm bg-background"
+                <SearchableSelect
+                  options={serviceOptions}
+                  value={form.ten_san_pham || ''}
+                  onValueChange={handleServiceSelect}
+                  placeholder="Chọn từ danh sách dịch vụ..."
+                  searchPlaceholder="Tìm tên hoặc mã dịch vụ..."
+                  emptyMessage="Không có dịch vụ khả dụng."
                 />
+              </div>
+              <label className="block space-y-1.5">
+                <span className="text-xs font-bold text-muted-foreground uppercase">Giá</span>
+                <div className="relative">
+                  <input
+                    value={Number(form.gia.replace(/\D/g, '') || 0).toLocaleString('vi-VN')}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, gia: e.target.value.replace(/\D/g, '') }))
+                    }
+                    inputMode="numeric"
+                    className="w-full px-3 py-2 pr-8 border border-border rounded-lg text-sm bg-background text-right font-mono"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">
+                    đ
+                  </span>
+                </div>
               </label>
               <label className="block space-y-1.5">
                 <span className="text-xs font-bold text-muted-foreground uppercase">Đơn vị tính</span>

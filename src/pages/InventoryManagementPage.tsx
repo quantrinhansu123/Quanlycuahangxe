@@ -50,24 +50,24 @@ const InventoryManagementPage: React.FC = () => {
   ]);
 
   const allColumns = [
-    { id: 'id_xuat_nhap_kho', label: 'MÃ£ Phiáº¿u' },
+    { id: 'id_xuat_nhap_kho', label: 'Mã Phiếu' },
     { id: 'id', label: 'UUID' },
-    { id: 'loai_phieu', label: 'Loáº¡i phiáº¿u' },
-    { id: 'id_don_hang', label: 'MÃ£ Ä‘Æ¡n hÃ ng' },
-    { id: 'co_so', label: 'CÆ¡ sá»Ÿ' },
-    { id: 'ten_mat_hang', label: 'TÃªn máº·t hÃ ng' },
-    { id: 'ton_dau_ky', label: 'Tá»“n Ä‘áº§u ká»³' },
-    { id: 'so_luong', label: 'Sá»‘ lÆ°á»£ng' },
-    { id: 'gia', label: 'GiÃ¡' },
-    { id: 'tong_tien', label: 'Tá»•ng tiá»n' },
-    { id: 'ngay', label: 'NgÃ y' },
-    { id: 'gio', label: 'Giá»' },
-    { id: 'nguoi_thuc_hien', label: 'NgÆ°á»i thá»±c hiá»‡n' },
-    { id: 'actions', label: 'Thao tÃ¡c' }
+    { id: 'loai_phieu', label: 'Loại phiếu' },
+    { id: 'id_don_hang', label: 'Mã đơn hàng' },
+    { id: 'co_so', label: 'Cơ sở' },
+    { id: 'ten_mat_hang', label: 'Tên mặt hàng' },
+    { id: 'ton_dau_ky', label: 'Tồn đầu kỳ' },
+    { id: 'so_luong', label: 'Số lượng' },
+    { id: 'gia', label: 'Giá' },
+    { id: 'tong_tien', label: 'Tổng tiền' },
+    { id: 'ngay', label: 'Ngày' },
+    { id: 'gio', label: 'Giờ' },
+    { id: 'nguoi_thuc_hien', label: 'Người thực hiện' },
+    { id: 'actions', label: 'Thao tác' }
   ];
 
-  const typeOptions = ["Nháº­p kho", "Phiáº¿u nháº­p"];
-  const deptOptions = ["CÆ¡ sá»Ÿ Báº¯c Giang", "CÆ¡ sá»Ÿ Báº¯c Ninh"];
+  const typeOptions = ["Nhập kho", "Phiếu nhập", "Xuất kho"];
+  const deptOptions = ["Cơ sở Bắc Giang", "Cơ sở Bắc Ninh"];
 
   // Debounce search
   useEffect(() => {
@@ -110,20 +110,6 @@ const InventoryManagementPage: React.FC = () => {
     loadProducts();
   }, [loadRecords, loadProducts]);
 
-  const serviceOptions = React.useMemo(() => {
-    // Lá»c bá» danh sÃ¡ch dá»‹ch vá»¥ trÃ¹ng tÃªn Ä‘á»ƒ khÃ´ng dÃ­nh lá»—i duplicate key cá»§a tháº» select
-    const uniqueMap = new Map();
-    services.forEach(s => {
-      if (s.ten_dich_vu && !uniqueMap.has(s.ten_dich_vu)) {
-        uniqueMap.set(s.ten_dich_vu, s);
-      }
-    });
-    return Array.from(uniqueMap.values()).map(s => ({
-      value: s.ten_dich_vu,
-      label: `${s.id_dich_vu || 'DV'}: ${s.ten_dich_vu}`
-    }));
-  }, [services]);
-
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -153,7 +139,7 @@ const InventoryManagementPage: React.FC = () => {
   };
 
   const formatDateForDisplay = (dateStr: string | undefined) => {
-    if (!dateStr) return 'â€”';
+    if (!dateStr) return '—';
     try {
       const d = new Date(dateStr);
       if (isNaN(d.getTime())) return dateStr;
@@ -188,17 +174,17 @@ const InventoryManagementPage: React.FC = () => {
   const handleDownloadTemplate = () => {
     const templateData = [
       {
-        "NgÃ y": "2024-03-24",
-        "Giá»": "10:30",
+        "Ngày": "2024-03-24",
+        "Giờ": "10:30",
         "ID": "Optional: UUID format",
-        "Loáº¡i phiáº¿u": "Nháº­p kho",
-        "MÃ£ Ä‘Æ¡n hÃ ng": "DH-001",
-        "CÆ¡ sá»Ÿ": "CÆ¡ sá»Ÿ Báº¯c Giang",
-        "TÃªn máº·t hÃ ng": "Lá»‘p xe Honda",
-        "Tá»“n Ä‘áº§u ká»³": 5,
-        "Sá»‘ lÆ°á»£ng": 10,
-        "GiÃ¡": 450000,
-        "NgÆ°á»i thá»±c hiá»‡n": "Nguyá»…n VÄƒn A"
+        "Loại phiếu": "Nhập kho",
+        "Mã đơn hàng": "DH-001",
+        "Cơ sở": "Cơ sở Bắc Giang",
+        "Tên mặt hàng": "Lốp xe Honda",
+        "Tồn đầu kỳ": 5,
+        "Số lượng": 10,
+        "Giá": 450000,
+        "Người thực hiện": "Nguyễn Văn A"
       }
     ];
 
@@ -209,14 +195,14 @@ const InventoryManagementPage: React.FC = () => {
   };
 
   const handleDeleteAll = async () => {
-    if (window.confirm('Cáº¢NH BÃO: HÃ nh Ä‘á»™ng nÃ y sáº½ xÃ³a TOÃ€N Bá»˜ lá»‹ch sá»­ xuáº¥t nháº­p kho. Báº¡n cÃ³ cháº¯c cháº¯n muá»‘n tiáº¿p tá»¥c?')) {
+    if (window.confirm('CẢNH BÁO: Hành động này sẽ xóa TOÀN BỘ lịch sử xuất nhập kho. Bạn có chắc chắn muốn tiếp tục?')) {
       try {
         setLoading(true);
         await deleteAllInventoryRecords();
         await loadRecords();
-        alert('ÄÃ£ xÃ³a toÃ n bá»™ lá»‹ch sá»­ kho.');
+        alert('Đã xóa toàn bộ lịch sử kho.');
       } catch (error) {
-        alert('Lá»—i: KhÃ´ng thá»ƒ xÃ³a toÃ n bá»™ dá»¯ liá»‡u.');
+        alert('Lỗi: Không thể xóa toàn bộ dữ liệu.');
       } finally {
         setLoading(false);
       }
@@ -273,32 +259,32 @@ const InventoryManagementPage: React.FC = () => {
              return String(val).substring(0, 5);
           };
 
-          const so_luong = Math.round(Number(getValue(['Sá»‘ lÆ°á»£ng', 'sá»‘ lÆ°á»£ng', 'quantity'])) || 0);
-          const ton_dau_ky = Math.round(Number(getValue(['Tá»“n Ä‘áº§u ká»³', 'tá»“n Ä‘áº§u ká»³', 'opening_stock'])) || 0);
-          const gia = Math.round(Number(getValue(['GiÃ¡', 'giÃ¡', 'Ä‘Æ¡n giÃ¡', 'price'])) || 0);
-          const tong_tien = Math.round(Number(getValue(['Tá»•ng tiá»n', 'thÃ nh tiá»n', 'tá»•ng', 'total'])) || (so_luong * gia));
+          const so_luong = Math.round(Number(getValue(['Số lượng', 'số lượng', 'quantity'])) || 0);
+          const ton_dau_ky = Math.round(Number(getValue(['Tồn đầu kỳ', 'tồn đầu kỳ', 'opening_stock'])) || 0);
+          const gia = Math.round(Number(getValue(['Giá', 'giá', 'đơn giá', 'price'])) || 0);
+          const tong_tien = Math.round(Number(getValue(['Tổng tiền', 'thành tiền', 'tổng', 'total'])) || (so_luong * gia));
 
-          const rawItemValue = String(getValue(['TÃªn máº·t hÃ ng', 'tÃªn', 'sáº£n pháº©m', 'item_name']) || '').trim();
-          // Tra cá»©u tÃªn dá»‹ch vá»¥ tá»« mÃ£ DV
+          const rawItemValue = String(getValue(['Tên mặt hàng', 'tên', 'sản phẩm', 'item_name']) || '').trim();
+          // Tra cứu tên dịch vụ từ mã DV
           const lookupName = rawItemValue ? serviceMap.get(rawItemValue.toLowerCase()) : null;
-          const ten_mat_hang = lookupName || rawItemValue || 'Máº·t hÃ ng má»›i';
+          const ten_mat_hang = lookupName || rawItemValue || 'Mặt hàng mới';
 
           const record: any = {
-            id_xuat_nhap_kho: String(getValue(['id', 'ID', 'uuid', 'mÃ£', 'MÃ£ Phiáº¿u']) || '').trim(),
-            ngay: formatExcelDate(getValue(['NgÃ y', 'ngÃ y', 'date'])) || new Date().toISOString().split('T')[0],
-            gio: formatExcelTime(getValue(['Giá»', 'giá»', 'time'])),
-            loai_phieu: getValue(['Loáº¡i phiáº¿u', 'loáº¡i', 'type']) || 'Nháº­p kho',
-            id_don_hang: String(getValue(['id Ä‘Æ¡n hÃ ng', 'ID Ä‘Æ¡n hÃ ng', 'order_id', 'mÃ£ Ä‘Æ¡n']) || '').trim(),
-            co_so: getValue(['CÆ¡ sá»Ÿ', 'cÆ¡ sá»Ÿ', 'chi nhÃ¡nh', 'branch']) || 'CÆ¡ sá»Ÿ Báº¯c Giang',
+            id_xuat_nhap_kho: String(getValue(['id', 'ID', 'uuid', 'mã', 'Mã Phiếu']) || '').trim(),
+            ngay: formatExcelDate(getValue(['Ngày', 'ngày', 'date'])) || new Date().toISOString().split('T')[0],
+            gio: formatExcelTime(getValue(['Giờ', 'giờ', 'time'])),
+            loai_phieu: getValue(['Loại phiếu', 'loại', 'type']) || 'Nhập kho',
+            id_don_hang: String(getValue(['id đơn hàng', 'ID đơn hàng', 'order_id', 'mã đơn']) || '').trim(),
+            co_so: getValue(['Cơ sở', 'cơ sở', 'chi nhánh', 'branch']) || 'Cơ sở Bắc Giang',
             ten_mat_hang,
             ton_dau_ky,
             so_luong,
             gia,
             tong_tien,
-            nguoi_thuc_hien: getValue(['NgÆ°á»i thá»±c hiá»‡n', 'nhÃ¢n viÃªn', 'performer']) || ''
+            nguoi_thuc_hien: getValue(['Người thực hiện', 'nhân viên', 'performer']) || ''
           };
 
-          const rawId = String(getValue(['id', 'ID', 'uuid', 'mÃ£']) || '').trim();
+          const rawId = String(getValue(['id', 'ID', 'uuid', 'mã']) || '').trim();
           const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
           if (rawId && uuidRegex.test(rawId)) {
             record.id = rawId;
@@ -309,14 +295,14 @@ const InventoryManagementPage: React.FC = () => {
 
         if (formattedData.length > 0) {
           setLoading(true);
-          // Check trÃ¹ng: fetch danh sÃ¡ch hiá»‡n cÃ³ vÃ  gÃ¡n ID náº¿u tÃ¬m tháº¥y báº£n ghi trÃ¹ng
+          // Check trùng: fetch danh sách hiện có và gán ID nếu tìm thấy bản ghi trùng
           const existingRecords = await getInventoryRecords();
           let updatedCount = 0;
           formattedData.forEach((rec: any) => {
             const existing = existingRecords.find(e => {
-              // So sÃ¡nh theo id_xuat_nhap_kho
+              // So sánh theo id_xuat_nhap_kho
               if (rec.id_xuat_nhap_kho && e.id_xuat_nhap_kho && rec.id_xuat_nhap_kho === e.id_xuat_nhap_kho) return true;
-              // So sÃ¡nh theo tá»• há»£p id_don_hang + ten_mat_hang + ngay
+              // So sánh theo tổ hợp id_don_hang + ten_mat_hang + ngay
               if (rec.id_don_hang && e.id_don_hang && rec.ten_mat_hang && e.ten_mat_hang && rec.ngay && e.ngay) {
                 return rec.id_don_hang === e.id_don_hang && rec.ten_mat_hang === e.ten_mat_hang && rec.ngay === e.ngay;
               }
@@ -332,11 +318,11 @@ const InventoryManagementPage: React.FC = () => {
           await loadRecords();
           await loadProducts();
           const newCount = formattedData.length - updatedCount;
-          alert(`âœ… HoÃ n táº¥t: ${newCount} báº£n ghi má»›i, ${updatedCount} báº£n ghi cáº­p nháº­t.`);
+          alert(`✅ Hoàn tất: ${newCount} bản ghi mới, ${updatedCount} bản ghi cập nhật.`);
         }
       } catch (error) {
         console.error(error);
-        alert("Lá»—i khi Ä‘á»c file Excel.");
+        alert("Lỗi khi đọc file Excel.");
       } finally {
         setLoading(false);
         if (e.target) e.target.value = '';
@@ -346,12 +332,12 @@ const InventoryManagementPage: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('Báº¡n cÃ³ cháº¯c cháº¯n muá»‘n xÃ³a báº£n ghi nÃ y?')) {
+    if (window.confirm('Bạn có chắc chắn muốn xóa bản ghi này?')) {
       try {
         await deleteInventoryRecord(id);
         await loadRecords();
       } catch (error) {
-        alert('Lá»—i: KhÃ´ng thá»ƒ xÃ³a báº£n ghi.');
+        alert('Lỗi: Không thể xóa bản ghi.');
       }
     }
   };
@@ -363,7 +349,7 @@ const InventoryManagementPage: React.FC = () => {
         <div className="bg-card p-3 rounded-lg border border-border shadow-sm flex flex-wrap items-center justify-between gap-4" ref={dropdownRef}>
           <div className="flex items-center gap-3 flex-1 flex-wrap">
             <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors">
-              <ArrowLeft size={18} /> Quay láº¡i
+              <ArrowLeft size={18} /> Quay lại
             </button>
             <div className="relative w-full sm:w-[250px]">
               <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/60">
@@ -376,16 +362,16 @@ const InventoryManagementPage: React.FC = () => {
                   setCurrentPage(1);
                 }}
                 className="w-full pl-9 pr-4 py-1.5 border border-border rounded text-[13px] focus:ring-1 focus:ring-primary focus:border-primary placeholder-slate-400 outline-none" 
-                placeholder="TÃ¬m mÃ£ Ä‘Æ¡n hÃ ng, Sáº£n pháº©m..." 
+                placeholder="Tìm mã đơn hàng, Sản phẩm..." 
                 type="text"
               />
             </div>
             
             <div className="flex flex-wrap items-center gap-2">
-              {/* Loáº¡i phiáº¿u Dropdown */}
+              {/* Loại phiếu Dropdown */}
               <div className="relative">
                 <button onClick={() => toggleDropdown('type')} className="flex items-center gap-2 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground min-w-[140px] justify-between bg-card hover:bg-accent">
-                  <div className="flex items-center gap-2"><Settings size={18} />Loáº¡i phiáº¿u</div>
+                  <div className="flex items-center gap-2"><Settings size={18} />Loại phiếu</div>
                   <ChevronDown size={18} />
                 </button>
                 {openDropdown === 'type' && (
@@ -397,9 +383,9 @@ const InventoryManagementPage: React.FC = () => {
                           checked={selectedTypes.length === typeOptions.length && typeOptions.length > 0}
                           onChange={(e) => setSelectedTypes(e.target.checked ? typeOptions : [])} 
                           className="rounded border-border text-primary size-4"
-                        /> Chá»n táº¥t cáº£
+                        /> Chọn tất cả
                       </label>
-                      <button onClick={() => setSelectedTypes([])} className="text-[11px] text-destructive hover:underline font-medium">XoÃ¡ chá»n</button>
+                      <button onClick={() => setSelectedTypes([])} className="text-[11px] text-destructive hover:underline font-medium">Xóa chọn</button>
                     </div>
                     <ul className="py-1 text-[13px] text-muted-foreground max-h-[200px] overflow-y-auto">
                       {typeOptions.map(type => (
@@ -417,10 +403,10 @@ const InventoryManagementPage: React.FC = () => {
                 )}
               </div>
 
-              {/* Chi nhÃ¡nh Dropdown */}
+              {/* Chi nhánh Dropdown */}
               <div className="relative">
                 <button onClick={() => toggleDropdown('dept')} className="flex items-center gap-2 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground min-w-[140px] justify-between bg-card hover:bg-accent">
-                  <div className="flex items-center gap-2"><Building2 size={18} />CÆ¡ sá»Ÿ</div>
+                  <div className="flex items-center gap-2"><Building2 size={18} />Cơ sở</div>
                   <ChevronDown size={18} />
                 </button>
                 {openDropdown === 'dept' && (
@@ -432,9 +418,9 @@ const InventoryManagementPage: React.FC = () => {
                           checked={selectedDepts.length === deptOptions.length && deptOptions.length > 0}
                           onChange={(e) => setSelectedDepts(e.target.checked ? deptOptions : [])} 
                           className="rounded border-border text-primary size-4"
-                        /> Chá»n táº¥t cáº£
+                        /> Chọn tất cả
                       </label>
-                      <button onClick={() => setSelectedDepts([])} className="text-[11px] text-destructive hover:underline font-medium">XoÃ¡ chá»n</button>
+                      <button onClick={() => setSelectedDepts([])} className="text-[11px] text-destructive hover:underline font-medium">Xóa chọn</button>
                     </div>
                     <ul className="py-1 text-[13px] text-muted-foreground max-h-[200px] overflow-y-auto">
                       {deptOptions.map(dept => (
@@ -460,19 +446,19 @@ const InventoryManagementPage: React.FC = () => {
                 <button 
                   onClick={handleDownloadTemplate}
                   className="flex items-center gap-2 px-2 sm:px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
-                  title="Táº£i máº«u Excel"
+                  title="Tải mẫu Excel"
                 >
                   <Download size={18} />
-                  <span className="hidden sm:inline">Táº£i máº«u</span>
+                  <span className="hidden sm:inline">Tải mẫu</span>
                 </button>
                 <div className="relative">
                   <button 
                     onClick={() => document.getElementById('excel-import')?.click()}
                     className="flex items-center gap-2 px-2 sm:px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
-                    title="Nháº­p kho tá»« Excel"
+                    title="Nhập kho từ Excel"
                   >
                     <Upload size={18} />
-                    <span className="hidden sm:inline">Nháº­p Excel</span>
+                    <span className="hidden sm:inline">Nhập Excel</span>
                   </button>
                   <input 
                     id="excel-import"
@@ -492,15 +478,15 @@ const InventoryManagementPage: React.FC = () => {
                   "p-1.5 border rounded transition-colors",
                   openDropdown === 'columns' ? "bg-primary/10 border-primary text-primary" : "border-border text-muted-foreground hover:bg-accent"
                 )}
-                title="CÃ i Ä‘áº·t cá»™t hiá»ƒn thá»‹"
+                title="Cài đặt cột hiển thị"
               >
                 <List size={20} />
               </button>
               {openDropdown === 'columns' && (
                 <div className="absolute top-10 right-0 z-50 min-w-[200px] bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
                   <div className="px-4 py-2 bg-muted border-b border-border flex items-center justify-between">
-                    <span className="text-[12px] font-bold text-foreground">CÃ i Ä‘áº·t hiá»ƒn thá»‹ cá»™t</span>
-                    <button onClick={() => setVisibleColumns(allColumns.map(c => c.id))} className="text-[10px] text-primary hover:underline">Hiá»‡n táº¥t cáº£</button>
+                    <span className="text-[12px] font-bold text-foreground">Cài đặt hiển thị cột</span>
+                    <button onClick={() => setVisibleColumns(allColumns.map(c => c.id))} className="text-[10px] text-primary hover:underline">Hiện tất cả</button>
                   </div>
                   <ul className="py-2 text-[13px] text-muted-foreground max-h-[300px] overflow-y-auto custom-scrollbar">
                     {allColumns.map(col => (
@@ -526,10 +512,10 @@ const InventoryManagementPage: React.FC = () => {
               <button
                 onClick={handleDeleteAll}
                 className="hidden sm:flex px-3 py-1.5 border border-red-200 rounded text-[13px] text-red-600 hover:bg-red-50 transition-colors font-medium bg-white items-center gap-2"
-                title="XÃ³a toÃ n bá»™ dá»¯ liá»‡u"
+                title="Xóa toàn bộ dữ liệu"
               >
                 <Trash2 size={18} />
-                <span>XÃ³a táº¥t cáº£</span>
+                <span>Xóa tất cả</span>
               </button>
             )}
             {isAdmin && (
@@ -537,7 +523,7 @@ const InventoryManagementPage: React.FC = () => {
                 onClick={() => handleOpenModal()}
                 className="bg-primary hover:bg-primary/90 text-white px-3 sm:px-5 py-1.5 rounded flex items-center gap-2 text-[13px] sm:text-[14px] font-semibold transition-colors"
               >
-                <Plus size={20} /> <span className="hidden sm:inline">ThÃªm má»›i</span>
+                <Plus size={20} /> <span className="hidden sm:inline">Thêm mới</span>
               </button>
             )}
           </div>
@@ -551,20 +537,20 @@ const InventoryManagementPage: React.FC = () => {
               <thead>
                 <tr className="bg-muted border-b border-border text-muted-foreground text-[12px] font-bold uppercase tracking-wider">
                   <th className="px-4 py-3 w-10 text-center"><input className="rounded border-border text-primary size-4" type="checkbox" /></th>
-                  {visibleColumns.includes('id_xuat_nhap_kho') && <th className="px-4 py-3 font-semibold">MÃ£ Phiáº¿u</th>}
+                  {visibleColumns.includes('id_xuat_nhap_kho') && <th className="px-4 py-3 font-semibold">Mã Phiếu</th>}
                   {visibleColumns.includes('id') && <th className="px-4 py-3 font-semibold">UUID</th>}
-                  {visibleColumns.includes('loai_phieu') && <th className="px-4 py-3 font-semibold text-center">Loáº¡i phiáº¿u</th>}
-                  {visibleColumns.includes('id_don_hang') && <th className="px-4 py-3 font-semibold">MÃ£ Ä‘Æ¡n hÃ ng</th>}
-                  {visibleColumns.includes('ten_mat_hang') && <th className="px-4 py-3 font-semibold">Sáº£n pháº©m</th>}
-                  {visibleColumns.includes('co_so') && <th className="px-4 py-3 font-semibold">CÆ¡ sá»Ÿ</th>}
-                  {visibleColumns.includes('ton_dau_ky') && <th className="px-4 py-3 font-semibold text-right">Tá»“n Ä‘áº§u ká»³</th>}
-                  {visibleColumns.includes('so_luong') && <th className="px-4 py-3 font-semibold text-right">Sá»‘ lÆ°á»£ng</th>}
-                  {visibleColumns.includes('gia') && <th className="px-4 py-3 font-semibold text-right">GiÃ¡</th>}
-                  {visibleColumns.includes('tong_tien') && <th className="px-4 py-3 font-semibold text-right">Tá»•ng tiá»n</th>}
-                  {visibleColumns.includes('ngay') && <th className="px-4 py-3 font-semibold">NgÃ y</th>}
-                  {visibleColumns.includes('gio') && <th className="px-4 py-3 font-semibold">Giá»</th>}
-                  {visibleColumns.includes('nguoi_thuc_hien') && <th className="px-4 py-3 font-semibold">NgÆ°á»i thá»±c hiá»‡n</th>}
-                  {visibleColumns.includes('actions') && <th className="px-4 py-3 text-center font-semibold">Thao tÃ¡c</th>}
+                  {visibleColumns.includes('loai_phieu') && <th className="px-4 py-3 font-semibold text-center">Loại phiếu</th>}
+                  {visibleColumns.includes('id_don_hang') && <th className="px-4 py-3 font-semibold">Mã đơn hàng</th>}
+                  {visibleColumns.includes('ten_mat_hang') && <th className="px-4 py-3 font-semibold">Sản phẩm</th>}
+                  {visibleColumns.includes('co_so') && <th className="px-4 py-3 font-semibold">Cơ sở</th>}
+                  {visibleColumns.includes('ton_dau_ky') && <th className="px-4 py-3 font-semibold text-right">Tồn đầu kỳ</th>}
+                  {visibleColumns.includes('so_luong') && <th className="px-4 py-3 font-semibold text-right">Số lượng</th>}
+                  {visibleColumns.includes('gia') && <th className="px-4 py-3 font-semibold text-right">Giá</th>}
+                  {visibleColumns.includes('tong_tien') && <th className="px-4 py-3 font-semibold text-right">Tổng tiền</th>}
+                  {visibleColumns.includes('ngay') && <th className="px-4 py-3 font-semibold">Ngày</th>}
+                  {visibleColumns.includes('gio') && <th className="px-4 py-3 font-semibold">Giờ</th>}
+                  {visibleColumns.includes('nguoi_thuc_hien') && <th className="px-4 py-3 font-semibold">Người thực hiện</th>}
+                  {visibleColumns.includes('actions') && <th className="px-4 py-3 text-center font-semibold">Thao tác</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-[13px]">
@@ -572,36 +558,36 @@ const InventoryManagementPage: React.FC = () => {
                    <tr>
                      <td colSpan={14} className="px-4 py-12 text-center text-muted-foreground">
                        <Loader2 className="animate-spin inline-block mr-2" size={20} />
-                       Äang táº£i dá»¯ liá»‡u...
+                       Đang tải dữ liệu...
                      </td>
                    </tr>
                 ) : records.map((record: InventoryRecord) => (
                     <tr key={record.id} className="hover:bg-muted/80 transition-colors">
                       <td className="px-4 py-4 text-center"><input className="rounded border-border text-primary size-4" type="checkbox" /></td>
-                      {visibleColumns.includes('id_xuat_nhap_kho') && <td className="px-4 py-4 font-bold text-blue-600 whitespace-nowrap">{record.id_xuat_nhap_kho || 'â€”'}</td>}
+                      {visibleColumns.includes('id_xuat_nhap_kho') && <td className="px-4 py-4 font-bold text-blue-600 whitespace-nowrap">{record.id_xuat_nhap_kho || '—'}</td>}
                       {visibleColumns.includes('id') && <td className="px-4 py-4 font-mono text-[10px] text-muted-foreground max-w-[80px] truncate" title={record.id}>{record.id}</td>}
                       {visibleColumns.includes('loai_phieu') && (
                         <td className="px-4 py-4 text-center">
-                          <span className={clsx("px-2 py-0.5 rounded text-[11px] font-bold border whitespace-nowrap", record.loai_phieu === 'Nháº­p kho' ? "bg-teal-50 text-teal-600 border-teal-100 uppercase" : "bg-orange-50 text-orange-600 border-orange-100 uppercase")}>{record.loai_phieu}</span>
+                          <span className={clsx("px-2 py-0.5 rounded text-[11px] font-bold border whitespace-nowrap", record.loai_phieu === 'Nhập kho' ? "bg-teal-50 text-teal-600 border-teal-100 uppercase" : "bg-orange-50 text-orange-600 border-orange-100 uppercase")}>{record.loai_phieu}</span>
                         </td>
                       )}
-                      {visibleColumns.includes('id_don_hang') && <td className="px-4 py-4 text-foreground whitespace-nowrap">{record.id_don_hang || 'â€”'}</td>}
+                      {visibleColumns.includes('id_don_hang') && <td className="px-4 py-4 text-foreground whitespace-nowrap">{record.id_don_hang || '—'}</td>}
                       {visibleColumns.includes('ten_mat_hang') && <td className="px-4 py-4 font-semibold text-foreground whitespace-nowrap">{record.ten_mat_hang}</td>}
-                      {visibleColumns.includes('co_so') && <td className="px-4 py-4 text-muted-foreground text-[12px] truncate max-w-[150px]" title={record.co_so}>{record.co_so || 'â€”'}</td>}
+                      {visibleColumns.includes('co_so') && <td className="px-4 py-4 text-muted-foreground text-[12px] truncate max-w-[150px]" title={record.co_so}>{record.co_so || '—'}</td>}
                       {visibleColumns.includes('ton_dau_ky') && <td className="px-4 py-4 font-bold text-foreground text-right">{formatNumber(record.ton_dau_ky)}</td>}
                       {visibleColumns.includes('so_luong') && <td className="px-4 py-4 font-bold text-foreground text-right">{formatNumber(record.so_luong)}</td>}
-                      {visibleColumns.includes('gia') && <td className="px-4 py-4 font-medium text-foreground text-right">{formatNumber(record.gia)} <span className="text-[10px] text-muted-foreground font-normal">VNÄ</span></td>}
+                      {visibleColumns.includes('gia') && <td className="px-4 py-4 font-medium text-foreground text-right">{formatNumber(record.gia)} <span className="text-[10px] text-muted-foreground font-normal">VNĐ</span></td>}
                       {visibleColumns.includes('tong_tien') && <td className="px-4 py-4 font-bold text-primary text-right whitespace-nowrap">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(record.tong_tien)}</td>}
                       {visibleColumns.includes('ngay') && <td className="px-4 py-4 text-muted-foreground whitespace-nowrap">{formatDateForDisplay(record.ngay)}</td>}
-                      {visibleColumns.includes('gio') && <td className="px-4 py-4 text-muted-foreground whitespace-nowrap">{record.gio || 'â€”'}</td>}
-                      {visibleColumns.includes('nguoi_thuc_hien') && <td className="px-4 py-4 text-muted-foreground whitespace-nowrap">{record.nguoi_thuc_hien || 'â€”'}</td>}
+                      {visibleColumns.includes('gio') && <td className="px-4 py-4 text-muted-foreground whitespace-nowrap">{record.gio || '—'}</td>}
+                      {visibleColumns.includes('nguoi_thuc_hien') && <td className="px-4 py-4 text-muted-foreground whitespace-nowrap">{record.nguoi_thuc_hien || '—'}</td>}
                       {visibleColumns.includes('actions') && (
                         <td className="px-4 py-4">
                           <div className="flex items-center justify-center gap-4">
                             {isAdmin ? (
                               <>
-                                <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleOpenModal(record); }} className="text-primary hover:text-blue-700 transition-colors" title="Sá»­a"><Edit2 size={18} /></button>
-                                <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDelete(record.id); }} className="text-destructive hover:text-destructive/80 transition-colors" title="XÃ³a"><Trash2 size={18} /></button>
+                                <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleOpenModal(record); }} className="text-primary hover:text-blue-700 transition-colors" title="Sửa"><Edit2 size={18} /></button>
+                                <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDelete(record.id); }} className="text-destructive hover:text-destructive/80 transition-colors" title="Xóa"><Trash2 size={18} /></button>
                               </>
                             ) : (
                               <span className="text-[11px] italic text-slate-400">Read-only</span>
@@ -613,7 +599,7 @@ const InventoryManagementPage: React.FC = () => {
                 ))}
                 {!loading && records.length === 0 && (
                   <tr>
-                    <td colSpan={14} className="px-4 py-8 text-center text-muted-foreground">KhÃ´ng tÃ¬m tháº¥y dá»¯ liá»‡u.</td>
+                    <td colSpan={14} className="px-4 py-8 text-center text-muted-foreground">Không tìm thấy dữ liệu.</td>
                   </tr>
                 )}
               </tbody>
@@ -625,17 +611,17 @@ const InventoryManagementPage: React.FC = () => {
             {loading ? (
               <div className="px-4 py-12 text-center text-muted-foreground">
                 <Loader2 className="animate-spin inline-block mr-2" size={20} />
-                Äang táº£i dá»¯ liá»‡u...
+                Đang tải dữ liệu...
               </div>
             ) : records.length === 0 ? (
-              <div className="px-4 py-8 text-center text-muted-foreground text-[13px]">KhÃ´ng tÃ¬m tháº¥y dá»¯ liá»‡u.</div>
+              <div className="px-4 py-8 text-center text-muted-foreground text-[13px]">Không tìm thấy dữ liệu.</div>
             ) : (
               <div className="divide-y divide-border">
                 {records.map(record => (
                   <div key={record.id} className="p-4 flex items-start gap-3">
                     <div className={clsx(
                       "w-10 h-10 rounded-lg flex items-center justify-center shrink-0 border",
-                      record.loai_phieu === 'Nháº­p kho' ? "bg-teal-50 border-teal-100 text-teal-600" : "bg-orange-50 border-orange-100 text-orange-600"
+                      record.loai_phieu === 'Nhập kho' ? "bg-teal-50 border-teal-100 text-teal-600" : "bg-orange-50 border-orange-100 text-orange-600"
                     )}>
                       <Package size={18} />
                     </div>
@@ -651,7 +637,7 @@ const InventoryManagementPage: React.FC = () => {
                         </div>
                         <span className={clsx(
                           "px-1.5 py-0.5 rounded text-[9px] font-bold uppercase shrink-0 ml-2 border",
-                          record.loai_phieu === 'Nháº­p kho' ? "bg-teal-50 text-teal-600 border-teal-100" : "bg-orange-50 text-orange-600 border-orange-100"
+                          record.loai_phieu === 'Nhập kho' ? "bg-teal-50 text-teal-600 border-teal-100" : "bg-orange-50 text-orange-600 border-orange-100"
                         )}>{record.loai_phieu}</span>
                       </div>
                       <div className="flex items-center gap-3 text-[11px] text-muted-foreground mb-1.5">
@@ -661,7 +647,7 @@ const InventoryManagementPage: React.FC = () => {
                       </div>
                       <div className="grid grid-cols-3 gap-2 text-[12px]">
                         <div>
-                          <span className="text-muted-foreground">TÄK: </span>
+                          <span className="text-muted-foreground">TĐK: </span>
                           <span className="font-bold text-foreground">{formatNumber(record.ton_dau_ky)}</span>
                         </div>
                         <div>
@@ -669,11 +655,11 @@ const InventoryManagementPage: React.FC = () => {
                           <span className="font-bold text-foreground">{formatNumber(record.so_luong)}</span>
                         </div>
                         <div>
-                          <span className="text-muted-foreground">GiÃ¡: </span>
+                          <span className="text-muted-foreground">Giá: </span>
                           <span className="font-medium text-foreground">{formatNumber(record.gia)}</span>
                         </div>
                         <div className="text-right">
-                          <span className="font-bold text-primary">{formatNumber(record.tong_tien)}Ä‘</span>
+                          <span className="font-bold text-primary">{formatNumber(record.tong_tien)}đ</span>
                         </div>
                       </div>
                     </div>
@@ -691,10 +677,10 @@ const InventoryManagementPage: React.FC = () => {
 
           <div className="px-4 py-3 bg-card border-t border-border flex flex-col sm:flex-row items-center justify-between gap-2 text-[12px]">
             <div className="flex items-center gap-1.5 text-muted-foreground">
-              Hiá»ƒn thá»‹ <span className="font-bold text-foreground">{records.length}</span> báº£n ghi (Trang {currentPage})
+              Hiển thị <span className="font-bold text-foreground">{records.length}</span> bản ghi (Trang {currentPage})
             </div>
             <div className="flex gap-4">
-               <span className="font-medium">Tá»•ng: <span className="font-bold text-primary">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(records.reduce((acc, curr) => acc + curr.tong_tien, 0))}</span></span>
+               <span className="font-medium">Tổng: <span className="font-bold text-primary">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(records.reduce((acc, curr) => acc + curr.tong_tien, 0))}</span></span>
             </div>
           </div>
           <Pagination 
@@ -751,7 +737,6 @@ const InventoryManagementPage: React.FC = () => {
           loadProducts();
         }}
         services={services}
-        serviceOptions={serviceOptions}
       />
     </div>
   );

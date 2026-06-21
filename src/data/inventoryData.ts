@@ -1,4 +1,27 @@
 ﻿import { supabase } from '../lib/supabase';
+import type { PostgrestError } from '@supabase/supabase-js';
+import { normalizeBranchLabel } from '../constants/customerBranches';
+
+export function formatProductSaveError(error: unknown): string {
+  const e = error as PostgrestError & { status?: number };
+  const msg = (e?.message || '').toLowerCase();
+  if (e?.code === '23505' || e?.status === 409) {
+    if (msg.includes('ten_san_pham')) {
+      return 'Tên phụ tùng đã tồn tại trong danh sách.';
+    }
+    if (msg.includes('ma_san_pham')) {
+      return 'Mã phụ tùng bị trùng. Vui lòng thử lưu lại.';
+    }
+    return 'Phụ tùng trùng mã hoặc tên. Vui lòng kiểm tra lại.';
+  }
+  if (e?.code === '42501' || msg.includes('row-level security')) {
+    return 'Không có quyền ghi ds_san_pham. Chạy migration 20260616_ds_san_pham_gia.sql trên Supabase.';
+  }
+  if (msg.includes('gia') && (msg.includes('column') || msg.includes('schema cache'))) {
+    return 'Thiếu cột giá trên Supabase. Chạy migration 20260616_ds_san_pham_gia.sql.';
+  }
+  return e?.message ? `Không lưu được phụ tùng: ${e.message}` : 'Không lưu được phụ tùng.';
+}
 
 export const getNextInventoryId = async (): Promise<string> => {
   const { data, error } = await supabase
@@ -43,6 +66,7 @@ export interface ProductRecord {
   ma_san_pham: string | null;
   ten_san_pham: string;
   don_vi_tinh: string | null;
+  gia: number;
   ton_dau_ky: number;
   created_at?: string;
   updated_at?: string;
@@ -136,6 +160,87 @@ export const bulkUpsertInventoryRecords = async (records: (Partial<InventoryReco
   }
 };
 
+const isNhapRecord = (loai: string | null | undefined): boolean => {
+  const normalized = String(loai || '').trim().toLowerCase();
+  return normalized.includes('nhap');
+};
+
+export const LOAI_PHIEU_XUAT_KHO = 'Xuất kho';
+
+/** Xóa phiếu xuất kho tự động gắn với đơn hàng (giữ phiếu nhập nếu có). */
+export async function deleteInventoryExportsByOrderId(
+  orderId: string,
+  orderCode?: string | null
+): Promise<void> {
+  const refs = [...new Set([orderId, orderCode].filter(Boolean))] as string[];
+  if (refs.length === 0) return;
+
+  const { data, error } = await supabase
+    .from('nhap_xuat_kho')
+    .select('id, loai_phieu')
+    .in('id_don_hang', refs);
+
+  if (error) {
+    console.error('Error loading inventory exports for order:', error);
+    throw error;
+  }
+
+  const exportIds = (data || [])
+    .filter((row) => !isNhapRecord(row.loai_phieu))
+    .map((row) => row.id);
+  if (exportIds.length === 0) return;
+
+  const { error: deleteError } = await supabase.from('nhap_xuat_kho').delete().in('id', exportIds);
+  if (deleteError) {
+    console.error('Error deleting inventory exports for order:', deleteError);
+    throw deleteError;
+  }
+}
+
+/** Tạo phiếu xuất kho tự động từ dòng dịch vụ trên đơn hàng. */
+export async function syncInventoryExportFromSalesOrder(params: {
+  orderId: string;
+  orderCode?: string | null;
+  ngay: string;
+  gio: string;
+  coSo: string;
+  nguoiThucHien: string;
+  lines: Array<{ ten_mat_hang: string; so_luong: number; gia: number }>;
+}): Promise<void> {
+  await deleteInventoryExportsByOrderId(params.orderId, params.orderCode);
+
+  const lines = params.lines
+    .map((line) => ({
+      ten_mat_hang: String(line.ten_mat_hang || '').trim(),
+      so_luong: Math.max(0, Math.round(Number(line.so_luong || 0))),
+      gia: Math.max(0, Math.round(Number(line.gia || 0))),
+    }))
+    .filter((line) => line.ten_mat_hang && line.so_luong > 0);
+
+  if (lines.length === 0) return;
+
+  const slipId = await getNextInventoryId();
+  const orderRef = params.orderCode || params.orderId;
+  const coSo = normalizeBranchLabel(params.coSo) || params.coSo || 'Cơ sở Bắc Giang';
+
+  await bulkInsertInventoryRecords(
+    lines.map((line) => ({
+      id_xuat_nhap_kho: slipId,
+      loai_phieu: LOAI_PHIEU_XUAT_KHO,
+      id_don_hang: orderRef,
+      co_so: coSo,
+      ten_mat_hang: line.ten_mat_hang,
+      ton_dau_ky: 0,
+      so_luong: line.so_luong,
+      gia: line.gia,
+      tong_tien: line.so_luong * line.gia,
+      ngay: params.ngay,
+      gio: params.gio,
+      nguoi_thuc_hien: params.nguoiThucHien,
+    }))
+  );
+}
+
 export const deleteInventoryRecord = async (id: string): Promise<void> => {
   const { error } = await supabase
     .from('nhap_xuat_kho')
@@ -205,6 +310,27 @@ export const getInventoryPaginated = async (
   };
 };
 
+/** Tạo mã PT-#### kế tiếp từ các mã đúng dạng PT-số trong ds_san_pham. */
+export const getNextProductCode = async (): Promise<string> => {
+  const { data, error } = await supabase.from('ds_san_pham').select('ma_san_pham');
+
+  if (error) {
+    console.error('Error fetching next product code:', error);
+    return 'PT-0001';
+  }
+
+  if (!data?.length) return 'PT-0001';
+
+  let max = 0;
+  for (const row of data) {
+    const m = String(row.ma_san_pham || '').match(/^PT-(\d+)$/i);
+    if (m) max = Math.max(max, parseInt(m[1], 10));
+  }
+
+  if (max === 0) return 'PT-0001';
+  return `PT-${String(max + 1).padStart(4, '0')}`;
+};
+
 export const deleteProductRecord = async (id: string): Promise<void> => {
   const { error } = await supabase.from('ds_san_pham').delete().eq('id', id);
   if (error) {
@@ -216,11 +342,17 @@ export const deleteProductRecord = async (id: string): Promise<void> => {
 export const upsertProductRecord = async (
   product: Partial<ProductRecord> & { ten_san_pham: string }
 ): Promise<ProductRecord> => {
+  let maSanPham = product.ma_san_pham?.trim() || null;
+  if (!product.id && !maSanPham) {
+    maSanPham = await getNextProductCode();
+  }
+
   const row = {
     ...(product.id ? { id: product.id } : {}),
-    ma_san_pham: product.ma_san_pham?.trim() || null,
+    ma_san_pham: maSanPham,
     ten_san_pham: product.ten_san_pham.trim(),
     don_vi_tinh: (product.don_vi_tinh || 'Cái').trim(),
+    gia: Math.max(0, Math.round(Number(product.gia ?? 0))),
     ton_dau_ky: Math.max(0, Number(product.ton_dau_ky ?? 0)),
   };
 
@@ -271,11 +403,6 @@ export const upsertProductsFromInventory = async (
     console.error('Error upserting product records:', error);
     throw error;
   }
-};
-
-const isNhapRecord = (loai: string | null | undefined): boolean => {
-  const normalized = String(loai || '').trim().toLowerCase();
-  return normalized.includes('nhap');
 };
 
 export const getInventoryStockSummary = async (

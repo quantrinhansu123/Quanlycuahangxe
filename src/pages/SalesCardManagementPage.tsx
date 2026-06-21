@@ -34,6 +34,7 @@ import type { NhanSu } from '../data/personnelData';
 import { getPersonnel } from '../data/personnelData';
 import { isQuanLyViTri } from '../data/viewPermissions';
 import { bulkUpsertSalesCardCTs, deleteSalesCardCTsByOrderId } from '../data/salesCardCTData';
+import { deleteInventoryExportsByOrderId, syncInventoryExportFromSalesOrder } from '../data/inventoryData';
 import type { SalesCard, SalesCardFormData } from '../data/salesCardData';
 import { 
   bulkUpsertSalesCards,
@@ -842,9 +843,27 @@ const SalesCardManagementPage: React.FC = () => {
       const totalAmount = detailRecords.reduce((sum: number, item: any) => sum + (item.gia_ban * (item.so_luong || 1)), 0);
       const khachHangId = savedCard.khach_hang_id;
 
+      const exportCoSo =
+        formDataHeader.service_items && formDataHeader.service_items.length > 0
+          ? services.find((s) => s.id === formDataHeader.service_items![0].id)?.co_so || 'Cơ sở chính'
+          : detailRecords[0]?.co_so || 'Cơ sở chính';
+
       // Bước 3: Đẩy đồng thời TẤT CẢ TÁC VỤ còn lại không phụ thuộc nhau
       await Promise.all([
         detailRecords.length > 0 ? bulkUpsertSalesCardCTs(detailRecords) : Promise.resolve(),
+        syncInventoryExportFromSalesOrder({
+          orderId: savedCard.id,
+          orderCode: savedCard.id_bh,
+          ngay: savedCard.ngay,
+          gio: savedCard.gio || '00:00',
+          coSo: exportCoSo,
+          nguoiThucHien: nhanVien?.ho_ten || savedCard.nhan_su?.ho_ten || 'Hệ thống',
+          lines: detailRecords.map((item) => ({
+            ten_mat_hang: item.san_pham,
+            so_luong: item.so_luong,
+            gia: item.gia_von,
+          })),
+        }),
         (async () => {
           const existingTx = await getTransactionByOrderId(savedCard.id);
           const paymentMethod =
@@ -1194,7 +1213,7 @@ const SalesCardManagementPage: React.FC = () => {
     reader.readAsBinaryString(file);
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: string, orderCode?: string | null) => {
     if (!isAdmin) {
       showToast('Chỉ quản trị viên được xóa phiếu bán hàng.', 'error');
       return;
@@ -1202,9 +1221,9 @@ const SalesCardManagementPage: React.FC = () => {
     if (window.confirm('Bạn có chắc chắn muốn xóa phiếu này?')) {
       try {
         await deleteSalesCard(id);
-        // Delete linked finance record automatically (no need to await if we want to release UI faster, but safe to do parallel)
         await Promise.all([
-          deleteTransactionByOrderId(id)
+          deleteTransactionByOrderId(id),
+          deleteInventoryExportsByOrderId(id, orderCode),
         ]);
         await loadSalesCards();
       } catch (error) {
@@ -1638,7 +1657,7 @@ const SalesCardManagementPage: React.FC = () => {
                             </button>
                           )}
                           {isAdmin && (
-                            <button onClick={() => handleDelete(card.id)} className="flex items-center gap-1 px-3 py-1.5 text-destructive hover:bg-destructive/10 rounded-lg text-[12px] font-bold border border-destructive/20 transition-colors">
+                            <button onClick={() => handleDelete(card.id, card.id_bh)} className="flex items-center gap-1 px-3 py-1.5 text-destructive hover:bg-destructive/10 rounded-lg text-[12px] font-bold border border-destructive/20 transition-colors">
                               <Trash2 size={14} /> Xóa
                             </button>
                           )}
@@ -1830,7 +1849,7 @@ const SalesCardManagementPage: React.FC = () => {
                           <button onClick={() => handleOpenModal(card)} className="h-9 w-9 inline-flex items-center justify-center text-primary hover:bg-primary/10 rounded-md transition-colors border border-transparent hover:border-blue-100" title="Chỉnh sửa"><Edit2 size={18} /></button>
                         )}
                         {isAdmin && (
-                          <button onClick={() => handleDelete(card.id)} className="h-9 w-9 inline-flex items-center justify-center text-destructive hover:bg-destructive/10 rounded-md transition-colors border border-transparent hover:border-red-100" title="Xóa"><Trash2 size={18} /></button>
+                          <button onClick={() => handleDelete(card.id, card.id_bh)} className="h-9 w-9 inline-flex items-center justify-center text-destructive hover:bg-destructive/10 rounded-md transition-colors border border-transparent hover:border-red-100" title="Xóa"><Trash2 size={18} /></button>
                         )}
                       </div>
                     </td>
