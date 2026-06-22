@@ -33,7 +33,7 @@ import { deleteTransactionByOrderId, getTransactionByOrderId, upsertTransaction 
 import type { NhanSu } from '../data/personnelData';
 import { getPersonnel } from '../data/personnelData';
 import { isQuanLyViTri } from '../data/viewPermissions';
-import { bulkUpsertSalesCardCTs, deleteSalesCardCTsByOrderId } from '../data/salesCardCTData';
+import { bulkUpsertSalesCardCTs, deleteSalesCardCTsByOrderId, type SalesCardCT } from '../data/salesCardCTData';
 import { deleteInventoryExportsByOrderId, syncInventoryExportFromSalesOrder } from '../data/inventoryData';
 import type { SalesCard, SalesCardFormData } from '../data/salesCardData';
 import { 
@@ -836,7 +836,7 @@ const SalesCardManagementPage: React.FC = () => {
 
       // Robust Service Mapping: Always use dich_vu_ids as the source of truth for ADD/DELETE,
       // and lookup in service_items ONLY for price overrides.
-      const detailRecords = (dich_vu_ids || []).map((sId: string) => {
+      const detailRecords: Partial<SalesCardCT>[] = (dich_vu_ids || []).map((sId: string) => {
         const service = services.find(s => s.id === sId);
         // Look for a manual price override from the modal's state
         const override = (formDataHeader.service_items || []).find(it => it.id === sId);
@@ -856,7 +856,10 @@ const SalesCardManagementPage: React.FC = () => {
       });
 
       // AUTOMATION: Định hình dòng tài chính - Dựa trên detailRecords vừa tính ở trên cho chính xác
-      const totalAmount = detailRecords.reduce((sum: number, item: any) => sum + (item.gia_ban * (item.so_luong || 1)), 0);
+      const totalAmount = detailRecords.reduce(
+        (sum, item) => sum + ((item.gia_ban || 0) * (item.so_luong || 1)),
+        0
+      );
       const khachHangId = savedCard.khach_hang_id;
 
       const exportCoSo = orderBranch;
@@ -872,9 +875,9 @@ const SalesCardManagementPage: React.FC = () => {
           coSo: exportCoSo,
           nguoiThucHien: nhanVien?.ho_ten || savedCard.nhan_su?.ho_ten || 'Hệ thống',
           lines: detailRecords.map((item) => ({
-            ten_mat_hang: item.san_pham,
-            so_luong: item.so_luong,
-            gia: item.gia_von,
+            ten_mat_hang: item.san_pham || 'Dịch vụ',
+            so_luong: item.so_luong ?? 1,
+            gia: item.gia_von ?? 0,
           })),
         }),
         (async () => {
