@@ -1,5 +1,5 @@
 import { Banknote, Building2, Calendar, Car, ChevronDown, ChevronUp, Clock, FileText, History, Loader2, Save, ShoppingCart, User, Wrench, X } from 'lucide-react';
-import { CUSTOMER_BRANCH_OPTIONS, matchesServiceBranch } from '../constants/customerBranches';
+import { CUSTOMER_BRANCH_OPTIONS, matchesServiceBranch, resolveCustomerBranch } from '../constants/customerBranches';
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { NhanSu } from '../data/personnelData';
@@ -25,16 +25,32 @@ const InputField: React.FC<{
   options?: string[],
   required?: boolean,
   placeholder?: string,
-  disabled?: boolean
-}> = ({ label, name, value, onChange, icon: Icon, type = 'text', options, required, placeholder, disabled }) => (
+  disabled?: boolean,
+  error?: boolean,
+}> = ({ label, name, value, onChange, icon: Icon, type = 'text', options, required, placeholder, disabled, error }) => (
   <div className="space-y-1.5">
     <label className="text-[11px] sm:text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
       <Icon size={14} className="text-primary/70" />
       {label} {required && <span className="text-red-500">*</span>}
     </label>
     {type === 'select' ? (
-      <select name={name} value={value ?? ''} onChange={onChange} required={required} disabled={disabled} className={clsx("w-full px-4 py-2.5 bg-background border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary/20 text-[14px]", disabled && "bg-muted/30 cursor-not-allowed opacity-80")}>
-        {options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+      <select
+        name={name}
+        value={value ?? ''}
+        onChange={onChange}
+        required={required}
+        disabled={disabled}
+        className={clsx(
+          'w-full px-4 py-2.5 bg-background border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary/20 text-[14px]',
+          disabled && 'bg-muted/30 cursor-not-allowed opacity-80',
+          error && 'border-red-500 ring-2 ring-red-500/20'
+        )}
+      >
+        {options?.map((opt) => (
+          <option key={opt || '__empty__'} value={opt} disabled={required && opt === ''}>
+            {opt === '' ? (placeholder || '-- Chọn --') : opt}
+          </option>
+        ))}
       </select>
     ) : (
       <input
@@ -67,6 +83,7 @@ const SalesCardFormModal: React.FC<{
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showServiceWarning, setShowServiceWarning] = useState(false);
+  const [showBranchWarning, setShowBranchWarning] = useState(false);
 
   // Sync formData when modal opens — đơn mới: NV = user đăng nhập, km để trống.
   React.useEffect(() => {
@@ -81,6 +98,7 @@ const SalesCardFormModal: React.FC<{
       });
     }
     setShowServiceWarning(false);
+    setShowBranchWarning(false);
   }, [isOpen, initialData, editingCard, nhanVien?.ho_ten]);
 
   // Dùng customerOptions được parent tính toán sẵn 1 lần thay vì map lại gây đơ Mobile CPU
@@ -110,10 +128,13 @@ const SalesCardFormModal: React.FC<{
 
   const customerBranchFromProfile = React.useMemo(() => {
     const opt = extendedCustomerOptions.find((o) => o.value === formData.khach_hang_id);
-    return ((opt as { dia_chi_hien_tai?: string })?.dia_chi_hien_tai || '').trim();
+    return resolveCustomerBranch((opt as { dia_chi_hien_tai?: string })?.dia_chi_hien_tai);
   }, [extendedCustomerOptions, formData.khach_hang_id]);
 
-  const formBranchForServices = (formData.co_so_khach || customerBranchFromProfile || '').trim();
+  const customerBranchLocked = !editingCard && Boolean(customerBranchFromProfile);
+
+  const formBranchForServices =
+    resolveCustomerBranch(formData.co_so_khach) || customerBranchFromProfile;
 
   const servicesForBranch = React.useMemo(() => {
     if (!formBranchForServices) return [];
@@ -169,6 +190,9 @@ const SalesCardFormModal: React.FC<{
       setFormData(prev => ({ ...prev, [name]: isNaN(num) ? undefined : num }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
+      if (name === 'co_so_khach' && resolveCustomerBranch(value)) {
+        setShowBranchWarning(false);
+      }
     }
   };
 
@@ -244,13 +268,14 @@ const SalesCardFormModal: React.FC<{
     });
   }, [servicesForBranch, formData.dich_vu_ids, formData.service_items]);
 
-  const displayCoSo = customerBranchFromProfile || (formData.co_so_khach || '').trim();
+  const displayCoSo =
+    resolveCustomerBranch(formData.co_so_khach) || customerBranchFromProfile;
 
   React.useEffect(() => {
-    if (!isOpen || isReadOnly) return;
-    const next = customerBranchFromProfile || '';
-    setFormData((prev) => ({ ...prev, co_so_khach: next }));
-  }, [isOpen, isReadOnly, formData.khach_hang_id, customerBranchFromProfile]);
+    if (!isOpen || isReadOnly || editingCard) return;
+    if (!customerBranchFromProfile) return;
+    setFormData((prev) => ({ ...prev, co_so_khach: customerBranchFromProfile }));
+  }, [isOpen, isReadOnly, editingCard, formData.khach_hang_id, customerBranchFromProfile]);
 
   React.useEffect(() => {
     if (!isOpen || isReadOnly || !formBranchForServices || editingCard) return;
@@ -304,11 +329,16 @@ const SalesCardFormModal: React.FC<{
       return;
     }
 
-    const coSo = customerBranchFromProfile || (formData.co_so_khach || '').trim();
+    const coSo =
+      resolveCustomerBranch(formData.co_so_khach) ||
+      customerBranchFromProfile;
     if (!coSo) {
-      alert('Vui lòng chọn cơ sở trước khi lập phiếu.');
+      setShowBranchWarning(true);
+      alert('Vui lòng chọn cơ sở (Bắc Giang hoặc Bắc Ninh) trước khi lập phiếu.');
       return;
     }
+
+    setShowBranchWarning(false);
 
     setIsSubmitting(true);
     try {
@@ -378,7 +408,7 @@ const SalesCardFormModal: React.FC<{
                 placeholder="—"
               />
 
-              {customerBranchFromProfile || isReadOnly ? (
+              {customerBranchLocked || isReadOnly ? (
                 <InputField
                   label="Cơ sở"
                   name="co_so_display"
@@ -389,17 +419,26 @@ const SalesCardFormModal: React.FC<{
                   placeholder="—"
                 />
               ) : (
-                <InputField
-                  label="Cơ sở"
-                  name="co_so_khach"
-                  type="select"
-                  value={formData.co_so_khach || ''}
-                  onChange={handleInputChange}
-                  icon={Building2}
-                  required
-                  options={['', ...CUSTOMER_BRANCH_OPTIONS]}
-                  disabled={isReadOnly}
-                />
+                <div className="space-y-1.5">
+                  <InputField
+                    label="Cơ sở"
+                    name="co_so_khach"
+                    type="select"
+                    value={formData.co_so_khach || ''}
+                    onChange={handleInputChange}
+                    icon={Building2}
+                    required
+                    placeholder="-- Chọn cơ sở --"
+                    options={['', ...CUSTOMER_BRANCH_OPTIONS]}
+                    disabled={isReadOnly}
+                    error={showBranchWarning}
+                  />
+                  {showBranchWarning && (
+                    <p className="text-[12px] font-bold text-red-600">
+                      Vui lòng chọn cơ sở trước khi lập phiếu.
+                    </p>
+                  )}
+                </div>
               )}
 
               <div className="space-y-1.5 col-span-2 min-w-0">

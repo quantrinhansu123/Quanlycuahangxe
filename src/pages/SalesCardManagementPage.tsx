@@ -56,6 +56,7 @@ import type { DichVu } from '../data/serviceData';
 import { getServices } from '../data/serviceData';
 import { supabase } from '../lib/supabase';
 import { preferCustomerLinkKey } from '../lib/customerOrderLink';
+import { resolveCustomerBranch, resolveOrderBranchFromCard } from '../constants/customerBranches';
 import { formatTime24h } from '../utils/datetimeFormat';
 
 const SalesCardFormModal = React.lazy(() => import('../components/SalesCardFormModal'));
@@ -645,7 +646,8 @@ const SalesCardManagementPage: React.FC = () => {
         ...card,
         khach_hang_id: mappedKhId,
         dich_vu_ids: mappedIds,
-        service_items: mappedServiceItems
+        service_items: mappedServiceItems,
+        co_so_khach: resolveOrderBranchFromCard(card),
       } as any);
     } else {
       setEditingCard(null);
@@ -697,7 +699,8 @@ const SalesCardManagementPage: React.FC = () => {
       ...card,
       khach_hang_id: mappedKhId,
       dich_vu_ids: mappedIds,
-      service_items: mappedServiceItems
+      service_items: mappedServiceItems,
+      co_so_khach: resolveOrderBranchFromCard(card),
     } as any);
     setIsModalOpen(true);
   };
@@ -730,6 +733,19 @@ const SalesCardManagementPage: React.FC = () => {
         ...cleanData
       } = formDataHeader as any;
 
+      const foundForBranch = cleanData.khach_hang_id
+        ? customers.find(
+            (c) => c.id === cleanData.khach_hang_id || c.ma_khach_hang === cleanData.khach_hang_id
+          )
+        : undefined;
+      const orderBranch =
+        resolveCustomerBranch(co_so_khach) ||
+        resolveCustomerBranch(foundForBranch?.dia_chi_hien_tai);
+      if (!orderBranch) {
+        showToast('Vui lòng chọn cơ sở trước khi lập phiếu.', 'error');
+        return;
+      }
+
       // Extract the name from the existing customers if ten_khach_hang is implicitly null
       if (!cleanData.ten_khach_hang && cleanData.khach_hang_id) {
         const foundCustomer = customers.find(c => c.id === cleanData.khach_hang_id || c.ma_khach_hang === cleanData.khach_hang_id);
@@ -747,14 +763,14 @@ const SalesCardManagementPage: React.FC = () => {
           cleanData.khach_hang_id = preferCustomerLinkKey(found);
           if (!cleanData.ten_khach_hang) cleanData.ten_khach_hang = found.ho_va_ten;
           if (!cleanData.so_dien_thoai) cleanData.so_dien_thoai = found.so_dien_thoai;
-          if (co_so_khach?.trim() && !(found.dia_chi_hien_tai || '').trim() && found.id) {
-            void upsertCustomer({ id: found.id, dia_chi_hien_tai: co_so_khach.trim() }).catch((err) => {
+          if (!(found.dia_chi_hien_tai || '').trim() && found.id) {
+            void upsertCustomer({ id: found.id, dia_chi_hien_tai: orderBranch }).catch((err) => {
               console.error('Lỗi khi lưu cơ sở khách hàng:', err);
             });
             setCustomers((prev) =>
               prev.map((c) =>
                 c.id === found.id || c.ma_khach_hang === found.ma_khach_hang
-                  ? { ...c, dia_chi_hien_tai: co_so_khach.trim() }
+                  ? { ...c, dia_chi_hien_tai: orderBranch }
                   : c
               )
             );
@@ -769,7 +785,7 @@ const SalesCardManagementPage: React.FC = () => {
       if (pendingNewCustomer && (cleanData.khach_hang_id === pendingNewCustomer.ma_khach_hang || cleanData.khach_hang_id === pendingNewCustomer.id)) {
         const dataToSave: any = {
           ...pendingNewCustomer,
-          ...(co_so_khach?.trim() ? { dia_chi_hien_tai: co_so_khach.trim() } : {}),
+          ...(orderBranch ? { dia_chi_hien_tai: orderBranch } : {}),
         };
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (!dataToSave.id || !uuidRegex.test(dataToSave.id)) {
@@ -830,7 +846,7 @@ const SalesCardManagementPage: React.FC = () => {
           id_don_hang: orderRef,
           ten_don_hang: formDataHeader.id_bh || `Đơn hàng ${savedCard.id_bh || savedCard.id.slice(0, 8)}`,
           san_pham: service?.ten_dich_vu || override?.ten_dich_vu || 'Dịch vụ',
-          co_so: service?.co_so || 'Cơ sở chính',
+          co_so: service?.co_so || orderBranch,
           gia_ban: override?.gia_ban ?? (service?.gia_ban || 0),
           gia_von: service?.gia_nhap || 0,
           so_luong: override?.so_luong ?? 1,
@@ -843,10 +859,7 @@ const SalesCardManagementPage: React.FC = () => {
       const totalAmount = detailRecords.reduce((sum: number, item: any) => sum + (item.gia_ban * (item.so_luong || 1)), 0);
       const khachHangId = savedCard.khach_hang_id;
 
-      const exportCoSo =
-        formDataHeader.service_items && formDataHeader.service_items.length > 0
-          ? services.find((s) => s.id === formDataHeader.service_items![0].id)?.co_so || 'Cơ sở chính'
-          : detailRecords[0]?.co_so || 'Cơ sở chính';
+      const exportCoSo = orderBranch;
 
       // Bước 3: Đẩy đồng thời TẤT CẢ TÁC VỤ còn lại không phụ thuộc nhau
       await Promise.all([
@@ -879,9 +892,7 @@ const SalesCardManagementPage: React.FC = () => {
             so_tien: totalAmount,
             ngay: savedCard.ngay,
             gio: savedCard.gio,
-            co_so: (formDataHeader.service_items && formDataHeader.service_items.length > 0)
-              ? (services.find(s => s.id === formDataHeader.service_items![0].id)?.co_so || 'Cơ sở chính')
-              : 'Cơ sở chính',
+            co_so: orderBranch,
             id_khach_hang: savedCard.khach_hang_id,
             danh_muc: 'Doanh thu dịch vụ',
             trang_thai: 'Hoàn thành',

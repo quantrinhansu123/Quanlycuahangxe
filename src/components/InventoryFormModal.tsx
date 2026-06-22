@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, Save, Building2, Hash, DollarSign, Package, Clock, User, List, Settings } from 'lucide-react';
 import { clsx } from 'clsx';
 import { SearchableSelect } from './ui/SearchableSelect';
-import { matchesServiceBranch } from '../constants/customerBranches';
+import { matchesServiceBranch, resolveCustomerBranch } from '../constants/customerBranches';
 import { useAuth } from '../context/AuthContext';
 import { addInventoryRecord, getNextInventoryId } from '../data/inventoryData';
 import type { InventoryRecord } from '../data/inventoryData';
@@ -27,9 +27,11 @@ const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
 }) => {
   const { nhanVien } = useAuth();
   const [formData, setFormData] = useState<Partial<InventoryRecord>>({});
+  const [showBranchWarning, setShowBranchWarning] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
+    setShowBranchWarning(false);
 
     if (record) {
       setFormData({ ...record });
@@ -42,7 +44,7 @@ const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
         id_xuat_nhap_kho: autoId,
         loai_phieu: 'Nhập kho',
         id_don_hang: '',
-        co_so: 'Cơ sở Bắc Giang',
+        co_so: '',
         ten_mat_hang: '',
         so_luong: 0,
         gia: 0,
@@ -110,6 +112,7 @@ const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
     }
 
     if (name === 'co_so') {
+      setShowBranchWarning(false);
       setFormData((prev) => {
         const svc = services.find((s) => s.ten_dich_vu === prev.ten_mat_hang);
         const stillValid = svc && matchesServiceBranch(svc.co_so, value);
@@ -132,17 +135,25 @@ const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const coSo = resolveCustomerBranch(formData.co_so);
+    if (!coSo) {
+      setShowBranchWarning(true);
+      alert('Vui lòng chọn cơ sở trước khi lập phiếu.');
+      return;
+    }
     if (!formData.ten_mat_hang) {
       alert('Vui lòng chọn tên mặt hàng từ dịch vụ của cơ sở đã chọn.');
       return;
     }
+
+    setShowBranchWarning(false);
 
     try {
       await addInventoryRecord({
         id_xuat_nhap_kho: formData.id_xuat_nhap_kho || null,
         loai_phieu: formData.loai_phieu || 'Nhập kho',
         id_don_hang: formData.id_don_hang || '',
-        co_so: formData.co_so || 'Cơ sở Bắc Giang',
+        co_so: coSo,
         ten_mat_hang: formData.ten_mat_hang,
         ton_dau_ky: record?.ton_dau_ky ?? 0,
         so_luong: formData.so_luong || 0,
@@ -192,10 +203,24 @@ const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
                 <Building2 size={14} className="text-primary/70" />
                 Cơ sở <span className="text-red-500">*</span>
               </label>
-              <select name="co_so" value={formData.co_so || ''} onChange={handleInputChange} className="w-full px-4 py-2.5 bg-background border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-[14px]">
+              <select
+                name="co_so"
+                value={formData.co_so || ''}
+                onChange={handleInputChange}
+                className={clsx(
+                  'w-full px-4 py-2.5 bg-background border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-[14px]',
+                  showBranchWarning && 'border-red-500 ring-2 ring-red-500/20'
+                )}
+              >
+                <option value="" disabled>
+                  -- Chọn cơ sở --
+                </option>
                 <option value="Cơ sở Bắc Giang">Cơ sở Bắc Giang</option>
                 <option value="Cơ sở Bắc Ninh">Cơ sở Bắc Ninh</option>
               </select>
+              {showBranchWarning && (
+                <p className="text-[12px] font-bold text-red-600">Vui lòng chọn cơ sở trước khi lập phiếu.</p>
+              )}
             </div>
 
             {record && (
