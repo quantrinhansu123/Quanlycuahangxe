@@ -49,7 +49,7 @@ export const POSITION_OPTIONS = ['Kỹ thuật viên', 'Quản lý', 'Admin', 'K
 
 /** Quyền mặc định theo vị trí (áp dụng mọi phòng ban nếu chưa cấu hình riêng) */
 export const DEFAULT_VIEW_PERMISSIONS_BY_POSITION: Record<string, ViewPermissionKey[]> = {
-  'kỹ thuật viên': ['khach-hang', 'don-hang', 'cham-cong'],
+  'kỹ thuật viên': ['khach-hang', 'don-hang', 'dich-vu', 'cham-cong'],
 };
 
 export function normalizeDepartmentKey(phongBan: string): string {
