@@ -13,6 +13,11 @@ export function removeVietnameseTones(str: string) {
     .toLowerCase();
 }
 
+/** Bỏ dấu, chữ thường, gộp khoảng trắng thừa — dùng so khớp tìm kiếm / cơ sở. */
+export function normalizeForCompare(str: string): string {
+  return removeVietnameseTones(str).replace(/\s+/g, ' ').trim();
+}
+
 export function formatNumberVietnamese(val: number | string) {
   if (val === undefined || val === null || val === '') return '';
   const num = typeof val === 'number' ? val : parseInt(val.replace(/\D/g, ''), 10);

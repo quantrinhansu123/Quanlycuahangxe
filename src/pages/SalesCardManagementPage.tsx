@@ -35,6 +35,7 @@ import { getPersonnel } from '../data/personnelData';
 import { isQuanLyViTri } from '../data/viewPermissions';
 import { bulkUpsertSalesCardCTs, deleteSalesCardCTsByOrderId, type SalesCardCT } from '../data/salesCardCTData';
 import { deleteInventoryExportsByOrderId, syncInventoryExportFromSalesOrder } from '../data/inventoryData';
+import { getServices } from '../data/serviceData';
 import type { SalesCard, SalesCardFormData } from '../data/salesCardData';
 import { 
   bulkUpsertSalesCards,
@@ -53,7 +54,6 @@ import {
 } from '../data/salesCardData';
 import { computeChanges, saveEditHistory } from '../data/salesCardHistoryData';
 import type { DichVu } from '../data/serviceData';
-import { getServices } from '../data/serviceData';
 import { supabase } from '../lib/supabase';
 import { preferCustomerLinkKey } from '../lib/customerOrderLink';
 import { resolveCustomerBranch, resolveOrderBranchFromCard } from '../constants/customerBranches';
@@ -186,6 +186,18 @@ const SalesCardManagementPage: React.FC = () => {
     void getCustomersForSelect()
       .then((custData) => setCustomers(custData as KhachHang[]))
       .catch((error) => console.error('Error loading customers for select:', error));
+  }, []);
+
+  /** Tải lại danh sách dịch vụ từ DB (sau khi sửa trang /dich-vu). */
+  const reloadServices = useCallback(async (): Promise<DichVu[]> => {
+    try {
+      const servData = await getServices();
+      setServices(servData);
+      return servData;
+    } catch (error) {
+      console.error('Error reloading services:', error);
+      return [];
+    }
   }, []);
 
   const loadSalesCards = useCallback(async () => {
@@ -616,6 +628,9 @@ const SalesCardManagementPage: React.FC = () => {
       return;
     }
     setIsReadOnlyModal(false);
+    const freshServices = await reloadServices();
+    const freshLookup = buildServiceNameLookup(freshServices);
+
     if (card) {
       setEditingCard(card);
 
@@ -637,8 +652,8 @@ const SalesCardManagementPage: React.FC = () => {
 
       const mappedServiceItems = mergeServiceLineItems(
         (card as any).the_ban_hang_ct || [],
-        services,
-        serviceLookup
+        freshServices,
+        freshLookup
       );
       const mappedIds = mappedServiceItems.map((item) => item.id);
 
@@ -668,9 +683,12 @@ const SalesCardManagementPage: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleViewCard = (card: SalesCard) => {
+  const handleViewCard = async (card: SalesCard) => {
     setIsReadOnlyModal(true);
     setEditingCard(card);
+
+    const freshServices = await reloadServices();
+    const freshLookup = buildServiceNameLookup(freshServices);
 
     let mappedKhId = card.khach_hang_id;
     if (mappedKhId) {
@@ -690,8 +708,8 @@ const SalesCardManagementPage: React.FC = () => {
 
     const mappedServiceItems = mergeServiceLineItems(
       (card as any).the_ban_hang_ct || [],
-      services,
-      serviceLookup
+      freshServices,
+      freshLookup
     );
     const mappedIds = mappedServiceItems.map((item) => item.id);
 

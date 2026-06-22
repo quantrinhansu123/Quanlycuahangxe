@@ -247,6 +247,7 @@ const SalesCardFormModal: React.FC<{
     const base = servicesForBranch.map((s) => ({
       value: s.id,
       label: `${s.ten_dich_vu} (${s.gia_ban.toLocaleString()}đ)`,
+      searchKey: s.ten_dich_vu,
     }));
     const knownIds = new Set(base.map((o) => o.value));
     const extras = (formData.dich_vu_ids || [])

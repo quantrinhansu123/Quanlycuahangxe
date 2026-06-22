@@ -31,17 +31,68 @@ export interface DichVu {
   updated_at?: string;
 }
 
-export const getServices = async (): Promise<DichVu[]> => {
-  const { data, error } = await supabase
-    .from('dich_vu')
-    .select('*')
-    .order('created_at', { ascending: false });
+export const SERVICE_BRANCH_BG = 'Cơ sở Bắc Giang';
+export const SERVICE_BRANCH_BN = 'Cơ sở Bắc Ninh';
+export const SERVICE_BRANCH_MAIN = 'Cơ sở chính';
+export const SERVICE_BRANCH_OPTIONS = [
+  SERVICE_BRANCH_BG,
+  SERVICE_BRANCH_BN,
+  SERVICE_BRANCH_MAIN,
+] as const;
 
-  if (error) {
-    console.error('Error fetching services:', error);
-    throw error;
+/** Dịch vụ thuộc tab Cơ sở chính (theo cột co_so). */
+export function isMainServiceBranch(coSo: string | null | undefined): boolean {
+  const s = (coSo || '').trim().toLowerCase();
+  if (!s) return true;
+  if (s.includes('chính') || s.includes('chinh')) return true;
+  if (s.includes('bắc giang') || s.includes('bac giang')) return false;
+  if (s.includes('bắc ninh') || s.includes('bac ninh')) return false;
+  return true;
+}
+
+type ServiceQuery = ReturnType<typeof supabase.from>;
+
+function applyServiceBranchFilter(query: ServiceQuery, branches: string[]): ServiceQuery {
+  if (!branches.length) return query;
+
+  const branch = branches[0];
+  if (branches.length === 1 && branch === SERVICE_BRANCH_MAIN) {
+    return query.or(
+      'co_so.is.null,co_so.eq.,co_so.ilike.%chính%,co_so.ilike.%chinh%,co_so.not.in.("Cơ sở Bắc Giang","Cơ sở Bắc Ninh")'
+    );
   }
-  return data as DichVu[];
+  if (branches.length === 1 && branch === SERVICE_BRANCH_BG) {
+    return query.or('co_so.ilike.%bắc giang%,co_so.ilike.%bac giang%,co_so.eq.Cơ sở Bắc Giang');
+  }
+  if (branches.length === 1 && branch === SERVICE_BRANCH_BN) {
+    return query.or('co_so.ilike.%bắc ninh%,co_so.ilike.%bac ninh%,co_so.eq.Cơ sở Bắc Ninh');
+  }
+  return query.in('co_so', branches);
+}
+
+const SERVICE_FETCH_BATCH = 1000;
+
+/** PostgREST mặc định tối đa 1000 dòng — phải lấy theo lô. */
+export const getServices = async (): Promise<DichVu[]> => {
+  const all: DichVu[] = [];
+  let offset = 0;
+  for (;;) {
+    const { data, error } = await supabase
+      .from('dich_vu')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .range(offset, offset + SERVICE_FETCH_BATCH - 1);
+
+    if (error) {
+      console.error('Error fetching services:', error);
+      throw error;
+    }
+    const batch = (data || []) as DichVu[];
+    all.push(...batch);
+    if (batch.length < SERVICE_FETCH_BATCH) break;
+    offset += SERVICE_FETCH_BATCH;
+  }
+  return all;
 };
 
 export const upsertService = async (service: Partial<DichVu>): Promise<DichVu> => {
@@ -196,7 +247,7 @@ export const getServicesPaginated = async (
   }
 
   if (filters?.branches?.length) {
-    query = query.in('co_so', filters.branches);
+    query = applyServiceBranchFilter(query, filters.branches);
   }
 
   const { data, count, error } = await query

@@ -270,14 +270,25 @@ export function findServiceForOrderDetailLine(
 }
 
 async function fetchAllServicesForLookup(): Promise<ServiceLookupRow[]> {
-  const { data, error } = await supabase
-    .from('dich_vu')
-    .select('id, id_dich_vu, ten_dich_vu, gia_ban, gia_nhap, co_so');
-  if (error) {
-    console.error('Error loading dich_vu for name lookup:', error);
-    return [];
+  const all: ServiceLookupRow[] = [];
+  let offset = 0;
+  const pageSize = 1000;
+  for (;;) {
+    const { data, error } = await supabase
+      .from('dich_vu')
+      .select('id, id_dich_vu, ten_dich_vu, gia_ban, gia_nhap, co_so')
+      .order('id', { ascending: true })
+      .range(offset, offset + pageSize - 1);
+    if (error) {
+      console.error('Error loading dich_vu for name lookup:', error);
+      return all.length ? all : [];
+    }
+    const batch = (data || []) as ServiceLookupRow[];
+    all.push(...batch);
+    if (batch.length < pageSize) break;
+    offset += pageSize;
   }
-  return (data || []) as ServiceLookupRow[];
+  return all;
 }
 
 // Helper to split array into chunks to avoid "URL too long" (400 Bad Request)
@@ -1596,31 +1607,63 @@ export async function getCustomerOrderAggregatesByPhone(customers: CustomerPhone
     visitCount: 0,
   });
 
-  const lookupTokens = new Set<string>();
-  customers.forEach((c) => {
-    getCustomerLinkKeys(c).forEach((v) => lookupTokens.add(v));
-  });
+  const idTokens = new Set<string>();
+  const phoneTokens = new Set<string>();
+  for (const c of customers) {
+    const ma = (c.ma_khach_hang || '').trim();
+    if (ma) idTokens.add(ma);
+    const id = (c.id || '').trim();
+    if (id) idTokens.add(id);
+    for (const p of phoneLookupVariants(c.so_dien_thoai)) {
+      phoneTokens.add(p);
+    }
+  }
 
-  const tokens = [...lookupTokens];
-  if (tokens.length === 0) {
+  if (idTokens.size === 0 && phoneTokens.size === 0) {
     return { lastOrderDates, stats };
   }
 
   const salesCardMap = new Map<string, AggregationSalesCard>();
-  for (const chunk of chunkArray(tokens, 40)) {
-    const quoted = chunk.map((t) => `"${String(t).replace(/"/g, '')}"`).join(',');
-    const { data, error } = await supabase
-      .from('the_ban_hang')
-      .select('id, id_bh, khach_hang_id, dich_vu_id, so_dien_thoai, ngay, gio, so_km')
-      .or(`so_dien_thoai.in.(${quoted}),khach_hang_id.in.(${quoted})`);
+  const salesCardSelect =
+    'id, id_bh, khach_hang_id, dich_vu_id, so_dien_thoai, ngay, gio, so_km';
+  const linkChunkSize = 15;
 
-    if (error) {
-      console.error('getCustomerOrderAggregatesByPhone:', error);
-      continue;
-    }
-    (data || []).forEach((row) => {
+  const mergeSalesCards = (rows: AggregationSalesCard[] | null | undefined) => {
+    (rows || []).forEach((row) => {
       if (row?.id) salesCardMap.set(row.id, row);
     });
+  };
+
+  const loadSalesCardsByColumn = async (
+    column: 'khach_hang_id' | 'so_dien_thoai',
+    values: string[]
+  ) => {
+    for (const chunk of chunkArray(values, linkChunkSize)) {
+      if (chunk.length === 0) continue;
+      try {
+        const { data, error } = await supabase
+          .from('the_ban_hang')
+          .select(salesCardSelect)
+          .in(column, chunk);
+        if (error) {
+          console.error(`getCustomerOrderAggregatesByPhone (${column}):`, error);
+          continue;
+        }
+        mergeSalesCards((data || []) as AggregationSalesCard[]);
+      } catch (networkErr) {
+        console.error(`getCustomerOrderAggregatesByPhone (${column}) network:`, networkErr);
+      }
+    }
+  };
+
+  try {
+    await Promise.all([
+      loadSalesCardsByColumn('khach_hang_id', [...idTokens]),
+      loadSalesCardsByColumn('so_dien_thoai', [...phoneTokens]),
+    ]);
+  } catch (err) {
+    console.error('getCustomerOrderAggregatesByPhone:', err);
+    return { lastOrderDates, stats };
   }
 
   const salesCards = [...salesCardMap.values()];
@@ -1640,33 +1683,65 @@ export async function getCustomerOrderAggregatesByPhone(customers: CustomerPhone
   const allOrderRefs = [...new Set(salesCards.flatMap((c) => [c.id, c.id_bh].filter(Boolean) as string[]))];
 
   const orderTotalsMap = new Map<string, number>();
-  for (const refChunk of chunkArray(allOrderRefs, 80)) {
-    const { data: details } = await supabase
-      .from('the_ban_hang_ct')
-      .select('id_don_hang, thanh_tien')
-      .in('id_don_hang', refChunk);
+  for (const refChunk of chunkArray(allOrderRefs, 50)) {
+    try {
+      const { data: details, error } = await supabase
+        .from('the_ban_hang_ct')
+        .select('id_don_hang, thanh_tien')
+        .in('id_don_hang', refChunk);
 
-    (details || []).forEach((d: { id_don_hang?: string | null; thanh_tien?: number | null }) => {
-      if (d.id_don_hang) {
-        const key = String(d.id_don_hang).toLowerCase();
-        orderTotalsMap.set(key, (orderTotalsMap.get(key) || 0) + (d.thanh_tien || 0));
+      if (error) {
+        console.error('getCustomerOrderAggregatesByPhone (the_ban_hang_ct):', error);
+        continue;
       }
-    });
+
+      (details || []).forEach((d: { id_don_hang?: string | null; thanh_tien?: number | null }) => {
+        if (d.id_don_hang) {
+          const key = String(d.id_don_hang).toLowerCase();
+          orderTotalsMap.set(key, (orderTotalsMap.get(key) || 0) + (d.thanh_tien || 0));
+        }
+      });
+    } catch (networkErr) {
+      console.error('getCustomerOrderAggregatesByPhone (the_ban_hang_ct) network:', networkErr);
+    }
   }
 
   const legacyServiceIds = [...new Set(salesCards.map((c) => c.dich_vu_id).filter(Boolean))] as string[];
   const servicePrices = new Map<string, number>();
   if (legacyServiceIds.length > 0) {
-    const { data: services } = await supabase
-      .from('dich_vu')
-      .select('ten_dich_vu, id_dich_vu, gia_ban')
-      .or(
-        `ten_dich_vu.in.(${legacyServiceIds.map((id) => `"${String(id).replace(/"/g, '')}"`).join(',')}),id_dich_vu.in.(${legacyServiceIds.map((id) => `"${String(id).replace(/"/g, '')}"`).join(',')})`
-      );
-    (services || []).forEach((s: { id_dich_vu?: string | null; ten_dich_vu?: string | null; gia_ban?: number | null }) => {
-      if (s.id_dich_vu) servicePrices.set(String(s.id_dich_vu).toLowerCase(), s.gia_ban || 0);
-      if (s.ten_dich_vu) servicePrices.set(String(s.ten_dich_vu).toLowerCase(), s.gia_ban || 0);
-    });
+    try {
+      for (const idChunk of chunkArray(legacyServiceIds, 20)) {
+        const { data: byId, error: byIdError } = await supabase
+          .from('dich_vu')
+          .select('ten_dich_vu, id_dich_vu, gia_ban')
+          .in('id_dich_vu', idChunk);
+
+        if (byIdError) {
+          console.error('getCustomerOrderAggregatesByPhone (dich_vu id):', byIdError);
+        } else {
+          (byId || []).forEach((s: { id_dich_vu?: string | null; ten_dich_vu?: string | null; gia_ban?: number | null }) => {
+            if (s.id_dich_vu) servicePrices.set(String(s.id_dich_vu).toLowerCase(), s.gia_ban || 0);
+            if (s.ten_dich_vu) servicePrices.set(String(s.ten_dich_vu).toLowerCase(), s.gia_ban || 0);
+          });
+        }
+
+        const { data: byName, error: byNameError } = await supabase
+          .from('dich_vu')
+          .select('ten_dich_vu, id_dich_vu, gia_ban')
+          .in('ten_dich_vu', idChunk);
+
+        if (byNameError) {
+          console.error('getCustomerOrderAggregatesByPhone (dich_vu name):', byNameError);
+        } else {
+          (byName || []).forEach((s: { id_dich_vu?: string | null; ten_dich_vu?: string | null; gia_ban?: number | null }) => {
+            if (s.id_dich_vu) servicePrices.set(String(s.id_dich_vu).toLowerCase(), s.gia_ban || 0);
+            if (s.ten_dich_vu) servicePrices.set(String(s.ten_dich_vu).toLowerCase(), s.gia_ban || 0);
+          });
+        }
+      }
+    } catch (networkErr) {
+      console.error('getCustomerOrderAggregatesByPhone (dich_vu) network:', networkErr);
+    }
   }
 
   for (const card of salesCards) {

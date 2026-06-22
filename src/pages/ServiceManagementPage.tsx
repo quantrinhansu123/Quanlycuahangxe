@@ -28,22 +28,40 @@ import {
   getServices,
   getServicesPaginated,
   formatServiceSaveError,
+  SERVICE_BRANCH_MAIN,
+  SERVICE_BRANCH_OPTIONS,
   upsertService
 } from '../data/serviceData';
 
-const BRANCH_OPTIONS = ['Cơ sở Bắc Giang', 'Cơ sở Bắc Ninh'] as const;
+const BRANCH_OPTIONS = [...SERVICE_BRANCH_OPTIONS];
 
 function resolveStaffBranch(coSo: string | null | undefined): string | null {
   if (!coSo?.trim()) return null;
   const v = coSo.trim().toLowerCase();
   if (v.includes('bắc giang') || v.includes('bac giang')) return 'Cơ sở Bắc Giang';
   if (v.includes('bắc ninh') || v.includes('bac ninh')) return 'Cơ sở Bắc Ninh';
+  if (v.includes('chính') || v.includes('chinh')) return SERVICE_BRANCH_MAIN;
   const exact = BRANCH_OPTIONS.find((b) => b.toLowerCase() === v);
   return exact ?? coSo.trim();
 }
 
+function branchSectionTheme(branch: string): { header: string; icon: string } {
+  if (branch.includes('Bắc Giang')) {
+    return { header: 'bg-emerald-500/5 border-emerald-500/20', icon: 'text-emerald-600' };
+  }
+  if (branch.includes('Bắc Ninh')) {
+    return { header: 'bg-blue-500/5 border-blue-500/20', icon: 'text-blue-600' };
+  }
+  return { header: 'bg-amber-500/5 border-amber-500/20', icon: 'text-amber-600' };
+}
+
 function branchShortLabel(branch: string): string {
   return branch.replace('Cơ sở ', '');
+}
+
+function formatCoSoDisplay(coSo: string | null | undefined): string {
+  const raw = (coSo || '').trim();
+  return raw || '—';
 }
 
 function formatCurrency(amount: number) {
@@ -86,21 +104,19 @@ const ServiceBranchSection: React.FC<ServiceBranchSectionProps> = ({
   onDelete,
 }) => {
   const { services, totalCount } = data;
-  const isBacGiang = branch.includes('Bắc Giang');
+  const theme = branchSectionTheme(branch);
 
   return (
     <section className="flex flex-col min-w-0 bg-card rounded-xl border border-border shadow-sm overflow-hidden">
       <div
         className={clsx(
           'flex items-center justify-between gap-2 px-3 py-2.5 sm:px-4 border-b',
-          isBacGiang
-            ? 'bg-emerald-500/5 border-emerald-500/20'
-            : 'bg-blue-500/5 border-blue-500/20'
+          theme.header
         )}
       >
         <div className="flex items-center gap-2 min-w-0">
           <Building2
-            className={clsx('size-4 sm:size-5 shrink-0', isBacGiang ? 'text-emerald-600' : 'text-blue-600')}
+            className={clsx('size-4 sm:size-5 shrink-0', theme.icon)}
           />
           <h2 className="text-[13px] sm:text-[15px] font-black text-foreground truncate">
             {branchShortLabel(branch)}
@@ -136,6 +152,12 @@ const ServiceBranchSection: React.FC<ServiceBranchSectionProps> = ({
               <div className="flex-1 min-w-0 flex flex-col justify-center gap-0.5">
                 <div className="text-[13px] font-bold text-foreground truncate leading-tight">
                   {service.ten_dich_vu}
+                </div>
+                <div className="text-[10px] font-semibold text-muted-foreground truncate leading-tight">
+                  Cơ sở:{' '}
+                  <span className={clsx(!service.co_so?.trim() && 'text-amber-600')}>
+                    {formatCoSoDisplay(service.co_so)}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between gap-1.5">
                   <div className="flex items-center gap-1.5 min-w-0 text-[11px] leading-none">
@@ -201,6 +223,7 @@ const ServiceBranchSection: React.FC<ServiceBranchSectionProps> = ({
             <tr className="bg-muted/60 border-b border-border text-muted-foreground text-[11px] font-bold uppercase tracking-wider">
               <th className="px-3 py-2.5 font-semibold">Ảnh</th>
               <th className="px-3 py-2.5 font-semibold">Tên dịch vụ</th>
+              <th className="px-3 py-2.5 font-semibold">Cơ sở</th>
               {showGiaNhap && (
                 <th className="px-3 py-2.5 font-semibold text-right">Giá nhập</th>
               )}
@@ -212,7 +235,7 @@ const ServiceBranchSection: React.FC<ServiceBranchSectionProps> = ({
           <tbody className="divide-y divide-border/60 text-[12px]">
             {loading ? (
               <tr>
-                <td colSpan={showGiaNhap ? 6 : 5} className="px-4 py-10 text-center text-muted-foreground">
+                <td colSpan={showGiaNhap ? 7 : 6} className="px-4 py-10 text-center text-muted-foreground">
                   <Loader2 className="animate-spin inline-block mr-2" size={18} />
                   Đang tải...
                 </td>
@@ -232,6 +255,15 @@ const ServiceBranchSection: React.FC<ServiceBranchSectionProps> = ({
                     )}
                   </td>
                   <td className="px-3 py-3 font-bold text-foreground">{service.ten_dich_vu}</td>
+                  <td
+                    className={clsx(
+                      'px-3 py-3 text-[12px] font-semibold max-w-[140px]',
+                      service.co_so?.trim() ? 'text-foreground' : 'text-amber-600 italic'
+                    )}
+                    title={formatCoSoDisplay(service.co_so)}
+                  >
+                    {formatCoSoDisplay(service.co_so)}
+                  </td>
                   {showGiaNhap && (
                     <td className="px-3 py-3 text-right text-muted-foreground">{formatCurrency(service.gia_nhap)}</td>
                   )}
@@ -273,7 +305,7 @@ const ServiceBranchSection: React.FC<ServiceBranchSectionProps> = ({
               ))
             ) : (
               <tr>
-                <td colSpan={showGiaNhap ? 6 : 5} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={showGiaNhap ? 7 : 6} className="px-4 py-8 text-center text-muted-foreground">
                   Không có dịch vụ tại {branchShortLabel(branch)}.
                 </td>
               </tr>
@@ -314,10 +346,9 @@ const ServiceManagementPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [pageSize, setPageSize] = useState(20);
-  const [branchPages, setBranchPages] = useState<Record<string, number>>({
-    'Cơ sở Bắc Giang': 1,
-    'Cơ sở Bắc Ninh': 1
-  });
+  const [branchPages, setBranchPages] = useState<Record<string, number>>(() =>
+    Object.fromEntries(BRANCH_OPTIONS.map((b) => [b, 1]))
+  );
   const [branchData, setBranchData] = useState<Record<string, BranchData>>({});
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -369,10 +400,7 @@ const ServiceManagementPage: React.FC = () => {
   }, [loadData]);
 
   const resetAllBranchPages = () => {
-    setBranchPages({
-      'Cơ sở Bắc Giang': 1,
-      'Cơ sở Bắc Ninh': 1
-    });
+    setBranchPages(Object.fromEntries(BRANCH_OPTIONS.map((b) => [b, 1])));
   };
 
   const handleBranchPageChange = (branch: string, page: number) => {
@@ -673,7 +701,7 @@ const ServiceManagementPage: React.FC = () => {
         <div
           className={clsx(
             'grid gap-4 lg:gap-5',
-            visibleBranches.length > 1 ? 'grid-cols-1 xl:grid-cols-2' : 'grid-cols-1'
+            visibleBranches.length > 1 ? 'grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3' : 'grid-cols-1'
           )}
         >
           {visibleBranches.map((branch) => (

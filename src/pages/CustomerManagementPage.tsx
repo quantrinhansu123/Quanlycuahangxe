@@ -155,7 +155,15 @@ const CustomerManagementPage: React.FC = () => {
       setLatestKmMap(kmMap);
       setCustomerStats(statsMap);
     } catch (error) {
-      console.error('Error loading customer stats:', error);
+      const msg =
+        error && typeof error === 'object' && 'message' in error
+          ? String((error as { message?: string }).message)
+          : '';
+      if (msg.toLowerCase().includes('failed to fetch')) {
+        console.warn('Không tải được thống kê đơn hàng (mạng/Supabase). Danh sách khách vẫn hiển thị.');
+      } else {
+        console.error('Error loading customer stats:', error);
+      }
     }
   }, []);
 

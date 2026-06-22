@@ -2,7 +2,7 @@ import { Check, ChevronDown, Search, X } from "lucide-react"
 import * as React from "react"
 import { createPortal } from "react-dom"
 
-import { cn } from "../../lib/utils"
+import { cn, normalizeForCompare } from "../../lib/utils"
 
 interface Option {
   value: string
@@ -54,25 +54,31 @@ export const SearchableSelect = React.memo(function SearchableSelect({
     });
   }, [options]);
 
+  const matchOption = React.useCallback((o: Option, q: string) => {
+    const targetStr =
+      o.searchKey != null
+        ? normalizeForCompare(o.searchKey)
+        : typeof o.label === 'string'
+          ? normalizeForCompare(o.label)
+          : '';
+    return Boolean(q) && targetStr.includes(q);
+  }, []);
+
   const filteredOptions = React.useMemo(() => {
     if (!search) return uniqueOptions.slice(0, MAX_VISIBLE_ITEMS);
-    const q = search.toLowerCase();
-    const matched = uniqueOptions.filter(o => {
-      const targetStr = o.searchKey ? o.searchKey.toLowerCase() : (typeof o.label === 'string' ? o.label.toLowerCase() : '');
-      return targetStr.includes(q);
-    });
+    const q = normalizeForCompare(search);
+    if (!q) return uniqueOptions.slice(0, MAX_VISIBLE_ITEMS);
+    const matched = uniqueOptions.filter((o) => matchOption(o, q));
     return matched.slice(0, MAX_VISIBLE_ITEMS);
-  }, [uniqueOptions, search]);
+  }, [uniqueOptions, search, matchOption]);
 
   const remainingCount = React.useMemo(() => {
     if (!search) return Math.max(0, uniqueOptions.length - MAX_VISIBLE_ITEMS);
-    const q = search.toLowerCase();
-    const totalMatched = uniqueOptions.filter(o => {
-      const targetStr = o.searchKey ? o.searchKey.toLowerCase() : (typeof o.label === 'string' ? o.label.toLowerCase() : '');
-      return targetStr.includes(q);
-    }).length;
+    const q = normalizeForCompare(search);
+    if (!q) return Math.max(0, uniqueOptions.length - MAX_VISIBLE_ITEMS);
+    const totalMatched = uniqueOptions.filter((o) => matchOption(o, q)).length;
     return Math.max(0, totalMatched - MAX_VISIBLE_ITEMS);
-  }, [uniqueOptions, search]);
+  }, [uniqueOptions, search, matchOption]);
 
   const [isMobile, setIsMobile] = React.useState(false);
 

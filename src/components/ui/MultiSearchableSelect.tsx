@@ -2,12 +2,13 @@ import { Check, ChevronDown, Search, X } from "lucide-react"
 import * as React from "react"
 import { createPortal } from "react-dom"
 
-import { cn } from "../../lib/utils"
+import { cn, normalizeForCompare } from "../../lib/utils"
 
 interface Option {
   value: string
   label: string
   price?: string
+  searchKey?: string
 }
 
 interface MultiSearchableSelectProps {
@@ -48,8 +49,9 @@ export const MultiSearchableSelect = React.memo(function MultiSearchableSelect({
       return true;
     });
     if (!search) return unique.slice(0, MAX_VISIBLE_ITEMS);
-    const q = search.toLowerCase();
-    return unique.filter(o => o.label.toLowerCase().includes(q));
+    const q = normalizeForCompare(search);
+    if (!q) return unique.slice(0, MAX_VISIBLE_ITEMS);
+    return unique.filter((o) => normalizeForCompare(o.searchKey ?? o.label).includes(q));
   }, [options, search]);
 
   const remainingCount = React.useMemo(() => {

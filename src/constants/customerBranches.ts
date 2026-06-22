@@ -1,22 +1,26 @@
+import { normalizeForCompare } from '../lib/utils';
+
 export const CUSTOMER_BRANCH_OPTIONS = ['Cơ sở Bắc Giang', 'Cơ sở Bắc Ninh'] as const;
 
 export function normalizeBranchLabel(raw: string): string {
-  const v = raw.trim().toLowerCase();
-  if (v.includes('bắc giang') || v.includes('bac giang')) return 'Cơ sở Bắc Giang';
-  if (v.includes('bắc ninh') || v.includes('bac ninh')) return 'Cơ sở Bắc Ninh';
-  const exact = CUSTOMER_BRANCH_OPTIONS.find((b) => b.toLowerCase() === v);
-  return exact ?? raw.trim();
+  const v = normalizeForCompare(raw);
+  if (!v) return '';
+  if (v.includes('bac giang')) return 'Cơ sở Bắc Giang';
+  if (v.includes('bac ninh')) return 'Cơ sở Bắc Ninh';
+  if (v.includes('chinh')) return 'Cơ sở chính';
+  const exact = CUSTOMER_BRANCH_OPTIONS.find((b) => normalizeForCompare(b) === v);
+  return exact ?? raw.trim().replace(/\s+/g, ' ');
 }
 
-/** Dịch vụ khớp cơ sở đơn hàng (theo cột co_so hoặc hậu tố tên dịch vụ). */
+/** Dịch vụ khớp cơ sở đơn hàng — chỉ theo cột co_so trong DB. */
 export function matchesServiceBranch(serviceCoSo: string | null | undefined, branch: string): boolean {
-  const b = normalizeBranchLabel(branch).toLowerCase();
-  const s = (serviceCoSo || '').trim().toLowerCase();
-  if (!b) return false;
-  if (!s) return true;
+  const b = normalizeForCompare(normalizeBranchLabel(branch));
+  const s = normalizeForCompare(normalizeBranchLabel(String(serviceCoSo || '')));
+  if (!b || !s) return false;
+  if (s.includes('chinh')) return true;
   if (s === b) return true;
-  if (b.includes('bắc giang') && s.includes('bắc giang')) return true;
-  if (b.includes('bắc ninh') && s.includes('bắc ninh')) return true;
+  if (b.includes('bac giang') && s.includes('bac giang')) return true;
+  if (b.includes('bac ninh') && s.includes('bac ninh')) return true;
   return false;
 }
 
