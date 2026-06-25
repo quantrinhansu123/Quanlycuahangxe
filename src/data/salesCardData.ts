@@ -87,6 +87,7 @@ function salesCardMatchesSearch(
 
 /** Tìm id / mã khách hàng theo tên, SĐT, BSX (dùng cho tìm phiếu bán hàng). */
 async function findCustomerIdsForSalesSearch(term: string): Promise<string[]> {
+  const CUSTOMER_SALES_SEARCH_FETCH_BATCH = 1000;
   const raw = term.trim();
   if (!raw) return [];
 
@@ -107,20 +108,26 @@ async function findCustomerIdsForSalesSearch(term: string): Promise<string[]> {
 
   const ids = new Set<string>();
   if (orConditions.length > 0) {
-    const { data: matched } = await supabase
-      .from('khach_hang')
-      .select('id, ma_khach_hang, ho_va_ten, so_dien_thoai, bien_so_xe')
-      .or(orConditions.join(','))
-      .limit(500);
+    let offset = 0;
+    for (;;) {
+      const { data: matched } = await supabase
+        .from('khach_hang')
+        .select('id, ma_khach_hang, ho_va_ten, so_dien_thoai, bien_so_xe')
+        .or(orConditions.join(','))
+        .range(offset, offset + CUSTOMER_SALES_SEARCH_FETCH_BATCH - 1);
 
-    for (const c of matched || []) {
-      if (!customerRowMatchesSearch(c, raw)) continue;
-      if (c.id) ids.add(String(c.id));
-      if (c.ma_khach_hang) ids.add(String(c.ma_khach_hang));
+      const batch = matched || [];
+      for (const c of batch) {
+        if (!customerRowMatchesSearch(c, raw)) continue;
+        if (c.id) ids.add(String(c.id));
+        if (c.ma_khach_hang) ids.add(String(c.ma_khach_hang));
+      }
+      if (batch.length < CUSTOMER_SALES_SEARCH_FETCH_BATCH) break;
+      offset += CUSTOMER_SALES_SEARCH_FETCH_BATCH;
     }
   }
 
-  return [...ids].slice(0, 100);
+  return [...ids];
 }
 
 type ServiceLookupRow = {
@@ -614,11 +621,12 @@ async function fetchFilteredSalesCardsList(
   staffId?: string,
   branch?: string
 ): Promise<{ allCards: SalesCard[]; totalCount: number }> {
-  let baseQuery = supabase.from('the_ban_hang').select('*', { count: 'exact' });
+  const SALES_EXPORT_FETCH_BATCH = 1000;
 
   let searchCustomerIdSet = new Set<string>();
   let searchServiceIdSet = new Set<string>();
   const trimmedSearch = searchQuery?.trim() || '';
+  const orConditions: string[] = [];
 
   if (trimmedSearch) {
     const customerIds = await findCustomerIdsForSalesSearch(trimmedSearch);
@@ -632,7 +640,6 @@ async function fetchFilteredSalesCardsList(
     const serviceIds = (matchedServices || []).map((s) => s.id);
     searchServiceIdSet = new Set(serviceIds);
 
-    const orConditions: string[] = [];
     if (customerIds.length > 0) {
       orConditions.push(`khach_hang_id.in.(${customerIds.map((c) => `"${c}"`).join(',')})`);
     }
@@ -647,44 +654,65 @@ async function fetchFilteredSalesCardsList(
     for (const phone of phoneLookupVariants(trimmedSearch)) {
       orConditions.push(`so_dien_thoai.ilike.%${escapeIlike(phone)}%`);
     }
-
-    if (orConditions.length > 0) {
-      baseQuery = baseQuery.or(orConditions.join(','));
-    }
   }
 
-  if (startDate) baseQuery = baseQuery.gte('ngay', startDate);
-  if (endDate) baseQuery = baseQuery.lte('ngay', endDate);
-  if (staffId) baseQuery = baseQuery.ilike('nhan_vien_id', `%${staffId}%`);
+  const buildBaseQuery = () => {
+    let query = supabase.from('the_ban_hang').select('*', { count: 'exact' });
+    if (orConditions.length > 0) {
+      query = query.or(orConditions.join(','));
+    }
+    if (startDate) query = query.gte('ngay', startDate);
+    if (endDate) query = query.lte('ngay', endDate);
+    if (staffId) query = query.ilike('nhan_vien_id', `%${staffId}%`);
+    return query;
+  };
 
   let branchCustomerSet: Set<string> | null = null;
   if (branch) {
     const branchNameOnly = branch.replace('Cơ sở ', '');
-    const { data: matchedCustomers } = await supabase
-      .from('khach_hang')
-      .select('id, ma_khach_hang')
-      .or(`dia_chi_hien_tai.eq."${branch}",dia_chi_hien_tai.eq."${branchNameOnly}"`)
-      .limit(10000);
-
     branchCustomerSet = new Set<string>();
-    (matchedCustomers || []).forEach((c) => {
-      if (c.id) branchCustomerSet!.add(c.id.toLowerCase());
-      if (c.ma_khach_hang) branchCustomerSet!.add(c.ma_khach_hang.toLowerCase());
-    });
+    let customerOffset = 0;
+    for (;;) {
+      const { data: matchedCustomers, error: branchError } = await supabase
+        .from('khach_hang')
+        .select('id, ma_khach_hang')
+        .or(`dia_chi_hien_tai.eq."${branch}",dia_chi_hien_tai.eq."${branchNameOnly}"`)
+        .range(customerOffset, customerOffset + SALES_EXPORT_FETCH_BATCH - 1);
+
+      if (branchError) throw branchError;
+      const customerBatch = matchedCustomers || [];
+      customerBatch.forEach((c) => {
+        if (c.id) branchCustomerSet!.add(c.id.toLowerCase());
+        if (c.ma_khach_hang) branchCustomerSet!.add(c.ma_khach_hang.toLowerCase());
+      });
+      if (customerBatch.length < SALES_EXPORT_FETCH_BATCH) break;
+      customerOffset += SALES_EXPORT_FETCH_BATCH;
+    }
   }
 
-  const { data: allMatchingCards, count, error } = await baseQuery
-    .order('created_at', { ascending: false })
-    .order('ngay', { ascending: false })
-    .order('gio', { ascending: false })
-    .limit(10000);
+  let totalCount = 0;
+  const allCardsRaw: SalesCard[] = [];
+  let offset = 0;
 
-  if (error) {
-    if (error.code === 'PGRST103') return { allCards: [], totalCount: count || 0 };
-    throw error;
+  for (;;) {
+    const { data: cardBatch, count, error } = await buildBaseQuery()
+      .order('created_at', { ascending: false })
+      .order('ngay', { ascending: false })
+      .order('gio', { ascending: false })
+      .range(offset, offset + SALES_EXPORT_FETCH_BATCH - 1);
+
+    if (error) {
+      if (error.code === 'PGRST103') return { allCards: [], totalCount: count || 0 };
+      throw error;
+    }
+    if (offset === 0) totalCount = count || 0;
+    const batch = (cardBatch as SalesCard[]) || [];
+    allCardsRaw.push(...batch);
+    if (batch.length < SALES_EXPORT_FETCH_BATCH) break;
+    offset += SALES_EXPORT_FETCH_BATCH;
   }
 
-  let allCards = (allMatchingCards as SalesCard[]) || [];
+  let allCards = allCardsRaw;
   if (trimmedSearch) {
     allCards = allCards.filter((c) =>
       salesCardMatchesSearch(c, trimmedSearch, searchCustomerIdSet, searchServiceIdSet)
@@ -699,7 +727,7 @@ async function fetchFilteredSalesCardsList(
 
   return {
     allCards,
-    totalCount: branchCustomerSet ? allCards.length : (count || 0),
+    totalCount: branchCustomerSet ? allCards.length : totalCount,
   };
 }
 

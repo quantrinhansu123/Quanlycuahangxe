@@ -71,6 +71,7 @@ function escapeIlike(s: string): string {
 
 const CUSTOMER_SEARCH_SELECT =
   'id, ma_khach_hang, ho_va_ten, so_dien_thoai, bien_so_xe';
+const CUSTOMER_SEARCH_FETCH_BATCH = 1000;
 
 async function resolveCustomerSearchKeys(term: string): Promise<string[]> {
   const raw = term.trim();
@@ -85,16 +86,29 @@ async function resolveCustomerSearchKeys(term: string): Promise<string[]> {
 
   const orConditions = buildCustomerSearchOrConditions(raw);
   if (orConditions.length > 0) {
-    const { data, error } = await supabase
-      .from('khach_hang')
-      .select(CUSTOMER_SEARCH_SELECT)
-      .or(orConditions.join(','))
-      .limit(5000);
+    let offset = 0;
+    let orFailed = false;
+    for (;;) {
+      const { data, error } = await supabase
+        .from('khach_hang')
+        .select(CUSTOMER_SEARCH_SELECT)
+        .or(orConditions.join(','))
+        .range(offset, offset + CUSTOMER_SEARCH_FETCH_BATCH - 1);
 
-    if (error) {
-      console.error('Customer search .or() failed, fallback per-field:', error.message);
-    } else {
-      mergeRows(data as CustomerSearchRow[]);
+      if (error) {
+        console.error('Customer search .or() failed, fallback per-field:', error.message);
+        orFailed = true;
+        break;
+      }
+
+      const batch = (data as CustomerSearchRow[]) || [];
+      mergeRows(batch);
+      if (batch.length < CUSTOMER_SEARCH_FETCH_BATCH) break;
+      offset += CUSTOMER_SEARCH_FETCH_BATCH;
+    }
+
+    if (orFailed) {
+      rowMap.clear();
     }
   }
 
@@ -103,12 +117,18 @@ async function resolveCustomerSearchKeys(term: string): Promise<string[]> {
     const fields = ['bien_so_xe', 'so_dien_thoai', 'ho_va_ten', 'ma_khach_hang'] as const;
     await Promise.all(
       fields.map(async (field) => {
-        const { data } = await supabase
-          .from('khach_hang')
-          .select(CUSTOMER_SEARCH_SELECT)
-          .ilike(field, pattern)
-          .limit(1000);
-        mergeRows(data as CustomerSearchRow[]);
+        let offset = 0;
+        for (;;) {
+          const { data } = await supabase
+            .from('khach_hang')
+            .select(CUSTOMER_SEARCH_SELECT)
+            .ilike(field, pattern)
+            .range(offset, offset + CUSTOMER_SEARCH_FETCH_BATCH - 1);
+          const batch = (data as CustomerSearchRow[]) || [];
+          mergeRows(batch);
+          if (batch.length < CUSTOMER_SEARCH_FETCH_BATCH) break;
+          offset += CUSTOMER_SEARCH_FETCH_BATCH;
+        }
       })
     );
   }
@@ -305,6 +325,7 @@ export const getCustomersForExport = async (
   cycles?: number[],
   branchScope?: string
 ): Promise<KhachHang[]> => {
+  const EXPORT_FETCH_BATCH = 1000;
   const rawSearch = searchQuery?.trim();
   const searchIds = rawSearch ? await resolveCustomerSearchKeys(rawSearch) : null;
   if (rawSearch && searchIds && searchIds.length === 0) {
@@ -336,14 +357,27 @@ export const getCustomersForExport = async (
     return query;
   };
 
-  const res = await runCustomerListQuery(() => buildBase(), (q) => q.limit(10000));
+  const allRows: KhachHang[] = [];
+  let offset = 0;
 
-  if (res.error) {
-    console.error('Error fetching customers for export:', res.error);
-    throw res.error;
+  for (;;) {
+    const res = await runCustomerListQuery(
+      () => buildBase(),
+      (q) => q.range(offset, offset + EXPORT_FETCH_BATCH - 1)
+    );
+
+    if (res.error) {
+      console.error('Error fetching customers for export:', res.error);
+      throw res.error;
+    }
+
+    const batch = (res.data as KhachHang[]) || [];
+    allRows.push(...batch);
+    if (batch.length < EXPORT_FETCH_BATCH) break;
+    offset += EXPORT_FETCH_BATCH;
   }
 
-  return (res.data as KhachHang[]) || [];
+  return allRows;
 };
 
 export const upsertCustomer = async (customer: Partial<KhachHang>): Promise<KhachHang> => {
