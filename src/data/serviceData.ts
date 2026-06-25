@@ -50,24 +50,27 @@ export function isMainServiceBranch(coSo: string | null | undefined): boolean {
   return true;
 }
 
-type ServiceQuery = ReturnType<typeof supabase.from>;
+type ServiceBranchFilterQuery = {
+  or: (filters: string) => ServiceBranchFilterQuery;
+  in: (column: string, values: readonly string[]) => ServiceBranchFilterQuery;
+};
 
-function applyServiceBranchFilter(query: ServiceQuery, branches: string[]): ServiceQuery {
+function applyServiceBranchFilter<T extends ServiceBranchFilterQuery>(query: T, branches: string[]): T {
   if (!branches.length) return query;
 
   const branch = branches[0];
   if (branches.length === 1 && branch === SERVICE_BRANCH_MAIN) {
     return query.or(
       'co_so.is.null,co_so.eq.,co_so.ilike.%chính%,co_so.ilike.%chinh%,co_so.not.in.("Cơ sở Bắc Giang","Cơ sở Bắc Ninh")'
-    );
+    ) as T;
   }
   if (branches.length === 1 && branch === SERVICE_BRANCH_BG) {
-    return query.or('co_so.ilike.%bắc giang%,co_so.ilike.%bac giang%,co_so.eq.Cơ sở Bắc Giang');
+    return query.or('co_so.ilike.%bắc giang%,co_so.ilike.%bac giang%,co_so.eq.Cơ sở Bắc Giang') as T;
   }
   if (branches.length === 1 && branch === SERVICE_BRANCH_BN) {
-    return query.or('co_so.ilike.%bắc ninh%,co_so.ilike.%bac ninh%,co_so.eq.Cơ sở Bắc Ninh');
+    return query.or('co_so.ilike.%bắc ninh%,co_so.ilike.%bac ninh%,co_so.eq.Cơ sở Bắc Ninh') as T;
   }
-  return query.in('co_so', branches);
+  return query.in('co_so', branches) as T;
 }
 
 const SERVICE_FETCH_BATCH = 1000;

@@ -884,6 +884,7 @@ const CustomerManagementPage: React.FC = () => {
                         stats={resolveCustomerStats(customer, customerStats) || { totalRevenue: 0, visitCount: 0 }}
                         displayKm={displayCustomerKm(customer, latestKmMap, customerStats)}
                         canManageCustomers={canManageCustomers}
+                        isTechnician={isTechnician}
                         isAdmin={isAdmin}
                       />
 
@@ -947,8 +948,9 @@ const CustomerTableRow: React.FC<{
   stats: { totalRevenue: number; visitCount: number; latestSoKm?: number };
   displayKm: number;
   canManageCustomers: boolean;
+  isTechnician: boolean;
   isAdmin: boolean;
-}> = React.memo(({ customer, visibleColumns, onEdit, onDelete, onOpenDetails, stats, displayKm, canManageCustomers, isAdmin }) => {
+}> = React.memo(({ customer, visibleColumns, onEdit, onDelete, onOpenDetails, stats, displayKm, canManageCustomers, isTechnician, isAdmin }) => {
   const formatDate = (dateStr: string | undefined) => formatDateVi(dateStr);
 
   return (

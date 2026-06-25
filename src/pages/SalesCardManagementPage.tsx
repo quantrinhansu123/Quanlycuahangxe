@@ -264,8 +264,6 @@ const SalesCardManagementPage: React.FC = () => {
       return true;
     });
   }, [salesCards]);
-  const serviceLookup = useMemo(() => buildServiceNameLookup(services), [services]);
-
   const groupedSales = useMemo(() => {
     const getSortTime = (card: SalesCard) => {
       const createdAt = card.created_at ? Date.parse(card.created_at) : NaN;
