@@ -62,7 +62,7 @@ function displayCustomerKm(
 const CustomerManagementPage: React.FC = () => {
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const { isAdmin, nhanVien, canManageCustomers, hasViewAccess } = useAuth();
+  const { isAdmin, isTechnician, nhanVien, canManageCustomers, hasViewAccess } = useAuth();
   const canCreateOrder = isAdmin || hasViewAccess('don-hang') || hasViewAccess('ban-hang');
   const [customers, setCustomers] = useState<KhachHang[]>([]);
   const [loading, setLoading] = useState(true);
@@ -273,9 +273,13 @@ const CustomerManagementPage: React.FC = () => {
       showToast('Bạn không có quyền thêm hoặc sửa khách hàng.', 'error');
       return;
     }
+    if (customer && isTechnician) {
+      showToast('Kỹ thuật viên không được phép sửa khách hàng.', 'error');
+      return;
+    }
     setEditingCustomer(customer || null);
     setIsModalOpen(true);
-  }, [canManageCustomers, showToast]);
+  }, [canManageCustomers, isTechnician, showToast]);
 
   const handleCloseModal = useCallback(() => {
     setIsModalOpen(false);
@@ -791,7 +795,7 @@ const CustomerManagementPage: React.FC = () => {
                                 <span className="text-[10px] font-bold">Lên đơn</span>
                               </button>
                               )}
-                              {canManageCustomers && (
+                              {canManageCustomers && !isTechnician && (
                               <button
                                 type="button"
                                 onClick={() => handleOpenModal(customer)}
@@ -1017,7 +1021,7 @@ const CustomerTableRow: React.FC<{
             <button type="button" onClick={() => onOpenDetails(customer)} className="p-2 text-blue-500 hover:bg-blue-50 rounded transition-colors" title="Chi tiết / lịch sử">
               <History size={18} />
             </button>
-            {canManageCustomers && (
+            {canManageCustomers && !isTechnician && (
               <button type="button" onClick={() => onEdit(customer)} className="p-2 text-primary hover:bg-primary/5 rounded transition-colors" title="Sửa">
                 <Edit2 size={18} />
               </button>

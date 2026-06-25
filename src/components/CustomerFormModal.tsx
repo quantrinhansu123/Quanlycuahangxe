@@ -60,6 +60,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
   const { showToast } = useToast();
 
   const [duplicateWarning, setDuplicateWarning] = useState<KhachHang | null>(null);
+  const staffBranch = resolveStaffBranch(nhanVien?.co_so);
 
   const formatDateForInput = (dateStr: string | undefined) => {
     if (!dateStr) return '';
@@ -84,7 +85,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
         setFormData({
           ho_va_ten: '',
           so_dien_thoai: '',
-          dia_chi_hien_tai: resolveStaffBranch(nhanVien?.co_so),
+          dia_chi_hien_tai: staffBranch,
           anh: '',
           ngay_dang_ky: new Date().toISOString().split('T')[0],
           bien_so_xe: '',
@@ -92,7 +93,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
         });
       }
     }
-  }, [isOpen, customer, nhanVien?.co_so]);
+  }, [isOpen, customer, staffBranch]);
 
   // Duplication Plate Check logic
   useEffect(() => {
@@ -203,6 +204,10 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
       }
 
       const dataToSave = { ...formData };
+      if (!customer && !dataToSave.dia_chi_hien_tai && staffBranch) {
+        // Bảo đảm thêm mới luôn có "cơ sở" theo nhân sự đang đăng nhập.
+        dataToSave.dia_chi_hien_tai = staffBranch;
+      }
       if (!dataToSave.ma_khach_hang) delete dataToSave.ma_khach_hang;
       if (!dataToSave.anh) delete dataToSave.anh;
       if (!dataToSave.id) delete dataToSave.id;

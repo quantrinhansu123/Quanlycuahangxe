@@ -118,11 +118,11 @@ function upsertCustomerInList(prev: KhachHang[], customer: KhachHang): KhachHang
 }
 
 const SalesCardManagementPage: React.FC = () => {
-  const { nhanVien, isAdmin, canManageOrders } = useAuth();
+  const { nhanVien, isAdmin, isTechnician, canManageOrders } = useAuth();
   const isQuanLy = isQuanLyViTri(nhanVien?.vi_tri);
   const canEditSalesCard = useCallback(
-    (card: SalesCard) => (isAdmin || isQuanLy) || (canManageOrders && !card.thu_chi),
-    [isAdmin, isQuanLy, canManageOrders]
+    (card: SalesCard) => (isAdmin || isQuanLy) || (!isTechnician && canManageOrders && !card.thu_chi),
+    [isAdmin, isQuanLy, isTechnician, canManageOrders]
   );
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -619,6 +619,12 @@ const SalesCardManagementPage: React.FC = () => {
       } else {
         showToast('Bạn không có quyền lập đơn hàng.', 'error');
       }
+      return;
+    }
+
+    if (card && isTechnician) {
+      showToast('Kỹ thuật viên không được phép sửa phiếu bán hàng.', 'error');
+      handleViewCard(card);
       return;
     }
 

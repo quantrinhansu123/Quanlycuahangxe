@@ -52,9 +52,9 @@ interface AuthContextType {
   isTechnician: boolean;
   /** false = kỹ thuật viên: không sửa chấm công / module khác (khách hàng & đơn hàng dùng canManage*) */
   canModifyData: boolean;
-  /** Thêm / sửa khách hàng (admin + kỹ thuật viên) */
+  /** Thêm khách hàng (admin + quản lý + kỹ thuật viên). Sửa/xóa bị chặn theo trang + RLS. */
   canManageCustomers: boolean;
-  /** Thêm / sửa phiếu bán hàng (admin + kỹ thuật viên) */
+  /** Thêm phiếu bán hàng (admin + quản lý + kỹ thuật viên). Sửa/xóa bị chặn theo trang + RLS. */
   canManageOrders: boolean;
   isLoading: boolean;
   hasViewAccess: (viewKey: ViewPermissionKey) => boolean;
