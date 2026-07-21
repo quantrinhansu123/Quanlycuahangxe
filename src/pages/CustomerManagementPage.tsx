@@ -62,7 +62,7 @@ function displayCustomerKm(
 const CustomerManagementPage: React.FC = () => {
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const { isAdmin, isTechnician, nhanVien, canManageCustomers, hasViewAccess } = useAuth();
+  const { isAdmin, isTechnician, nhanVien, canManageCustomers, hasViewAccess, canViewRevenue, canUseDataFilters } = useAuth();
   const canCreateOrder = isAdmin || hasViewAccess('don-hang') || hasViewAccess('ban-hang');
   const [customers, setCustomers] = useState<KhachHang[]>([]);
   const [loading, setLoading] = useState(true);
@@ -129,6 +129,16 @@ const CustomerManagementPage: React.FC = () => {
     );
   }, []);
 
+  const effectiveVisibleColumns = useMemo(
+    () => (canViewRevenue ? visibleColumns : visibleColumns.filter((c) => c !== 'total_revenue')),
+    [visibleColumns, canViewRevenue]
+  );
+
+  const selectableColumns = useMemo(
+    () => (canViewRevenue ? allColumns : allColumns.filter((c) => c.id !== 'total_revenue')),
+    [canViewRevenue]
+  );
+
   const loadCustomerStats = useCallback(async (rows: KhachHang[]) => {
     if (rows.length === 0) {
       setLatestKmMap({});
@@ -177,7 +187,7 @@ const CustomerManagementPage: React.FC = () => {
         currentPage,
         pageSize,
         debouncedSearch,
-        selectedDepts,
+        canUseDataFilters ? selectedDepts : [],
         [],
         undefined
       );
@@ -566,10 +576,10 @@ const CustomerManagementPage: React.FC = () => {
                 <div className="absolute top-full right-0 mt-2 w-64 bg-card border border-border rounded-xl shadow-2xl z-[200] p-3 animate-in fade-in zoom-in-95 duration-200">
                   <div className="flex items-center justify-between mb-2 pb-2 border-b border-border">
                     <span className="font-bold text-[14px]">Hiển thị cột</span>
-                    <button type="button" onClick={() => setVisibleColumns(allColumns.map(c => c.id))} className="text-[10px] text-primary hover:underline">Hiện tất cả</button>
+                    <button type="button" onClick={() => setVisibleColumns(selectableColumns.map(c => c.id))} className="text-[10px] text-primary hover:underline">Hiện tất cả</button>
                   </div>
                   <div className="space-y-1 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
-                    {allColumns.map((col) => (
+                    {selectableColumns.map((col) => (
                       <label key={col.id} className="flex items-center gap-3 p-2 hover:bg-muted rounded-lg cursor-pointer transition-colors group">
                         <input
                           type="checkbox"
@@ -584,6 +594,7 @@ const CustomerManagementPage: React.FC = () => {
                 </div>
               )}
 
+            {canViewRevenue && canUseDataFilters && (
             <button
               type="button"
               onClick={handleExportFilteredExcel}
@@ -594,6 +605,7 @@ const CustomerManagementPage: React.FC = () => {
               {exportingExcel ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
               <span className="hidden sm:inline">{exportingExcel ? 'Đang xuất...' : 'Xuất Excel'}</span>
             </button>
+            )}
 
             <button
               type="button"
@@ -619,6 +631,7 @@ const CustomerManagementPage: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center justify-between gap-2 flex-wrap px-2 sm:px-3 py-1.5 sm:py-2 border-t border-border/40 bg-muted/20 min-w-0">
+            {canUseDataFilters && (
             <div className="relative z-[200] shrink-0 min-w-0">
               <button
                 type="button"
@@ -656,6 +669,7 @@ const CustomerManagementPage: React.FC = () => {
                 </div>
               )}
             </div>
+            )}
             <div className="flex items-center gap-1.5 sm:gap-2 ml-auto shrink-0">
               <span className="text-[11px] sm:text-[13px] font-semibold text-foreground whitespace-nowrap">Số khách hàng</span>
               <span className="text-base sm:text-xl font-black tabular-nums text-primary">
@@ -764,7 +778,8 @@ const CustomerManagementPage: React.FC = () => {
                               )}
                             </div>
 
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className={clsx('grid gap-2', canViewRevenue ? 'grid-cols-2' : 'grid-cols-1')}>
+                              {canViewRevenue && (
                               <div className="flex items-center gap-1 min-w-0 text-[11px] font-bold text-foreground bg-muted/40 px-2 py-1 rounded-lg">
                                 <ShoppingCart size={13} className="shrink-0" />
                                 <span className="truncate tabular-nums">{
@@ -773,6 +788,7 @@ const CustomerManagementPage: React.FC = () => {
                                   )
                                 }</span>
                               </div>
+                              )}
                               <div className="flex items-center gap-1 justify-end min-w-0 text-[11px] font-bold text-foreground bg-muted/40 px-2 py-1 rounded-lg">
                                 <History size={13} className="shrink-0" />
                                 <span className="whitespace-nowrap tabular-nums">Ghé: {
@@ -838,25 +854,25 @@ const CustomerManagementPage: React.FC = () => {
               <thead>
                 <tr className="bg-muted border-b border-border text-foreground text-[13px] font-bold uppercase tracking-tight">
                   <th className="px-4 py-3 w-8 text-center"><input className="rounded border-border text-primary size-4" type="checkbox" /></th>
-                  {visibleColumns.includes('ma_khach_hang') && <th className="px-4 py-3 font-semibold">Mã KH</th>}
-                  {visibleColumns.includes('anh') && <th className="px-4 py-3 font-semibold text-center">Ảnh</th>}
-                  {visibleColumns.includes('ho_va_ten') && <th className="px-4 py-3 font-semibold">Họ và tên</th>}
-                  {visibleColumns.includes('so_dien_thoai') && <th className="px-4 py-3 font-semibold">SĐT</th>}
-                  {visibleColumns.includes('dia_chi_hien_tai') && <th className="px-4 py-3 font-semibold">Địa chỉ lưu trú hiện tại</th>}
-                  {visibleColumns.includes('bien_so_xe') && <th className="px-4 py-3 font-semibold">Biển số Xe</th>}
-                  {visibleColumns.includes('total_revenue') && <th className="px-4 py-3 font-semibold text-right">Tổng doanh số</th>}
-                  {visibleColumns.includes('visit_count') && <th className="px-4 py-3 font-semibold text-center">Lần ghé</th>}
-                  {visibleColumns.includes('ngay_dang_ky') && <th className="px-4 py-3 font-semibold">Ngày đăng ký</th>}
+                  {effectiveVisibleColumns.includes('ma_khach_hang') && <th className="px-4 py-3 font-semibold">Mã KH</th>}
+                  {effectiveVisibleColumns.includes('anh') && <th className="px-4 py-3 font-semibold text-center">Ảnh</th>}
+                  {effectiveVisibleColumns.includes('ho_va_ten') && <th className="px-4 py-3 font-semibold">Họ và tên</th>}
+                  {effectiveVisibleColumns.includes('so_dien_thoai') && <th className="px-4 py-3 font-semibold">SĐT</th>}
+                  {effectiveVisibleColumns.includes('dia_chi_hien_tai') && <th className="px-4 py-3 font-semibold">Địa chỉ lưu trú hiện tại</th>}
+                  {effectiveVisibleColumns.includes('bien_so_xe') && <th className="px-4 py-3 font-semibold">Biển số Xe</th>}
+                  {effectiveVisibleColumns.includes('total_revenue') && <th className="px-4 py-3 font-semibold text-right">Tổng doanh số</th>}
+                  {effectiveVisibleColumns.includes('visit_count') && <th className="px-4 py-3 font-semibold text-center">Lần ghé</th>}
+                  {effectiveVisibleColumns.includes('ngay_dang_ky') && <th className="px-4 py-3 font-semibold">Ngày đăng ký</th>}
 
 
-                  {visibleColumns.includes('so_km') && <th className="px-4 py-3 font-semibold text-right">Số Km</th>}
-                  {visibleColumns.includes('actions') && <th className="px-4 py-3 text-center font-semibold">Thao tác</th>}
+                  {effectiveVisibleColumns.includes('so_km') && <th className="px-4 py-3 font-semibold text-right">Số Km</th>}
+                  {effectiveVisibleColumns.includes('actions') && <th className="px-4 py-3 text-center font-semibold">Thao tác</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-[14px]">
                 {loading ? (
                   Array.from({ length: pageSize }).map((_, i) => (
-                    <SkeletonRow key={i} visibleColumns={visibleColumns} />
+                    <SkeletonRow key={i} visibleColumns={effectiveVisibleColumns} />
                   ))
                 ) : groupedCustomers.map(group => (
                   <React.Fragment key={group.key}>
@@ -877,7 +893,7 @@ const CustomerManagementPage: React.FC = () => {
                       <CustomerTableRow
                         key={customer.id}
                         customer={customer}
-                        visibleColumns={visibleColumns}
+                        visibleColumns={effectiveVisibleColumns}
                         onEdit={handleOpenModal}
                         onDelete={handleDelete}
                         onOpenDetails={handleOpenDetails}
@@ -932,6 +948,7 @@ const CustomerManagementPage: React.FC = () => {
         isOpen={isDetailsOpen}
         onClose={handleCloseDetails}
         customer={selectedCustomer}
+        canViewRevenue={canViewRevenue}
       />
 
     </div>

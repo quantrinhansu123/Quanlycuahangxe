@@ -44,7 +44,8 @@ import {
   findServiceForOrderDetailLine,
   getNextSalesCardCode, 
   getSalesCardsForExport,
-  getSalesCardsPaginated, 
+  getSalesCardsPaginated,
+  getSalesCardsSummaryTotals,
   looksLikeOpaqueServiceCode,
   normalizeSalesCards,
   resolveServiceDisplayName,
@@ -118,7 +119,7 @@ function upsertCustomerInList(prev: KhachHang[], customer: KhachHang): KhachHang
 }
 
 const SalesCardManagementPage: React.FC = () => {
-  const { nhanVien, isAdmin, isTechnician, canManageOrders } = useAuth();
+  const { nhanVien, isAdmin, isTechnician, canManageOrders, canViewRevenue, canUseDataFilters } = useAuth();
   const isQuanLy = isQuanLyViTri(nhanVien?.vi_tri);
   const canEditSalesCard = useCallback(
     (card: SalesCard) => (isAdmin || isQuanLy) || (!isTechnician && canManageOrders && !card.thu_chi),
@@ -203,22 +204,46 @@ const SalesCardManagementPage: React.FC = () => {
   const loadSalesCards = useCallback(async () => {
     try {
       setLoading(true);
+      const staffFilter = isAdmin && selectedStaff ? selectedStaff : undefined;
+      const branchFilter = isAdmin && selectedBranch ? selectedBranch : undefined;
+      const dateStart = canUseDataFilters ? (startDate || undefined) : undefined;
+      const dateEnd = canUseDataFilters ? (endDate || undefined) : undefined;
+      const search = canUseDataFilters ? debouncedSearch : '';
+
       const cardsResult = await getSalesCardsPaginated(
         currentPage,
         pageSize,
-        debouncedSearch,
-        startDate || undefined,
-        endDate || undefined,
-        isAdmin && selectedStaff ? selectedStaff : undefined,
-        isAdmin && selectedBranch ? selectedBranch : undefined
+        search,
+        dateStart,
+        dateEnd,
+        staffFilter,
+        branchFilter
       );
 
       setSalesCards(cardsResult.data);
       setTotalCount(cardsResult.totalCount);
-      setTotalAmount(cardsResult.totalAmount);
-      setTotalCustomers(cardsResult.totalCustomers || 0);
-      setNewCustomersCount(cardsResult.newCustomersCount || 0);
-      setReturningCustomersCount(cardsResult.returningCustomersCount || 0);
+
+      if (canViewRevenue) {
+        void getSalesCardsSummaryTotals(
+          search,
+          dateStart,
+          dateEnd,
+          staffFilter,
+          branchFilter
+        )
+          .then((summary) => {
+            setTotalAmount(summary.totalAmount);
+            setTotalCustomers(summary.totalCustomers || 0);
+            setNewCustomersCount(summary.newCustomersCount || 0);
+            setReturningCustomersCount(summary.returningCustomersCount || 0);
+          })
+          .catch((err) => console.error('Error loading sales summary:', err));
+      } else {
+        setTotalAmount(0);
+        setTotalCustomers(0);
+        setNewCustomersCount(0);
+        setReturningCustomersCount(0);
+      }
 
       // Fetch first sale dates in background to avoid blocking main list rendering
       const uniqueNames = [...new Set(
@@ -239,7 +264,7 @@ const SalesCardManagementPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, pageSize, debouncedSearch, startDate, endDate, selectedStaff, selectedBranch, isAdmin, showToast]);
+  }, [currentPage, pageSize, debouncedSearch, startDate, endDate, selectedStaff, selectedBranch, isAdmin, canViewRevenue, canUseDataFilters, showToast]);
 
   const loadData = useCallback(async () => {
     loadReferenceData(); // Non-blocking background load for dropdowns
@@ -251,9 +276,9 @@ const SalesCardManagementPage: React.FC = () => {
   }, [loadData]);
 
   useEffect(() => {
-    // Luồng chạy ngầm để chuẩn hóa mã trống
+    if (!isAdmin) return;
     normalizeSalesCards().catch(err => console.error("Error normalizing sales cards:", err));
-  }, []);
+  }, [isAdmin]);
 
   // Loại bỏ phiếu trùng id (tránh cảnh báo React key trùng).
   const displayItems = useMemo(() => {
@@ -338,6 +363,8 @@ const SalesCardManagementPage: React.FC = () => {
       return new Date(b.date).getTime() - new Date(a.date).getTime();
     });
   }, [displayItems]);
+
+  const salesTableColCount = canViewRevenue ? 12 : 11;
 
   const [isSyncingServiceNames, setIsSyncingServiceNames] = useState(false);
 
@@ -1465,7 +1492,8 @@ const SalesCardManagementPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Filter Bar — một dòng, cuộn ngang trên mobile */}
+        {/* Filter Bar — kỹ thuật viên không dùng bộ lọc */}
+        {canUseDataFilters && (
         <div className="bg-card p-2 sm:p-3 rounded-xl border border-border shadow-sm font-sans overflow-x-auto">
           <div className="flex flex-nowrap items-center justify-end gap-2 sm:gap-3 min-w-max">
             {isAdmin && (
@@ -1579,9 +1607,10 @@ const SalesCardManagementPage: React.FC = () => {
             </button>
           </div>
         </div>
+        )}
 
-        {/* Summary Bar - Tổng đơn & Tổng tiền */}
-        {!loading && displayItems.length > 0 && (
+        {/* Summary Bar - Tổng đơn & Tổng tiền (ẩn với kỹ thuật viên) */}
+        {canViewRevenue && !loading && displayItems.length > 0 && (
           <div className="flex items-center gap-2 sm:gap-3 flex-nowrap overflow-x-auto pb-1">
             <div className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-primary/5 border border-primary/20 flex items-center gap-2 shrink-0 whitespace-nowrap">
               <span className="text-[10px] sm:text-[11px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Tổng đơn:</span>
@@ -1628,9 +1657,11 @@ const SalesCardManagementPage: React.FC = () => {
                       📄 {group.items.length} đơn
                     </span>
                     <span className="opacity-30">|</span>
+                    {canViewRevenue && (
                     <span className="text-emerald-600 font-black text-[13px] whitespace-nowrap">
                       {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(group.totalAmount)}
                     </span>
+                    )}
                   </div>
                 </div>
 
@@ -1656,6 +1687,7 @@ const SalesCardManagementPage: React.FC = () => {
                               </div>
                             )}
                           </div>
+                          {canViewRevenue && (
                           <div className="text-right shrink-0">
                             <div className="text-primary font-black text-[16px] leading-none whitespace-nowrap">
                               {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalAmount)}
@@ -1666,6 +1698,12 @@ const SalesCardManagementPage: React.FC = () => {
                               </div>
                             )}
                           </div>
+                          )}
+                          {!canViewRevenue && Number(card.so_km) > 0 && (
+                            <div className="text-right shrink-0 text-[10px] font-bold text-muted-foreground tabular-nums">
+                              {Number(card.so_km).toLocaleString('vi-VN')} km
+                            </div>
+                          )}
                         </div>
 
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground font-bold pt-1 border-t border-border/30">
@@ -1711,7 +1749,7 @@ const SalesCardManagementPage: React.FC = () => {
           )}
 
           {/* Mobile Summary Row */}
-          {!loading && displayItems.length > 0 && (
+          {canViewRevenue && !loading && displayItems.length > 0 && (
             <div className="bg-primary/5 p-4 rounded-xl border border-primary/20 mt-2 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground text-[12px] font-bold uppercase tracking-widest font-sans">Tổng khách lọc:</span>
@@ -1745,7 +1783,7 @@ const SalesCardManagementPage: React.FC = () => {
                   <th className="px-4 py-4 font-bold w-[190px]">Địa chỉ</th>
                   <th className="px-4 py-4 font-bold w-[180px]">Phụ trách</th>
                   <th className="px-4 py-4 font-bold w-[300px]">Dịch vụ sử dụng</th>
-                  <th className="px-4 py-4 font-bold text-right w-[130px]">Tổng tiền</th>
+                  {canViewRevenue && <th className="px-4 py-4 font-bold text-right w-[130px]">Tổng tiền</th>}
                   <th className="px-4 py-4 font-bold text-center w-[130px]">Thanh toán</th>
                   <th className="px-4 py-4 font-bold text-right w-[110px]">Số Km</th>
                   <th className="px-4 py-4 font-bold w-[180px]">Ghi chú</th>
@@ -1755,7 +1793,7 @@ const SalesCardManagementPage: React.FC = () => {
               <tbody className="text-[14px]">
                 {loading ? (
                   <tr>
-                    <td colSpan={12} className="px-4 py-12 text-center text-muted-foreground">
+                    <td colSpan={salesTableColCount} className="px-4 py-12 text-center text-muted-foreground">
                       <Loader2 className="animate-spin inline-block mr-2" size={20} />
                       Đang tải dữ liệu phiếu bán hàng...
                     </td>
@@ -1765,7 +1803,7 @@ const SalesCardManagementPage: React.FC = () => {
                     <React.Fragment key={group.date}>
                       {/* Group Header Row */}
                       <tr className="bg-slate-50">
-                        <td colSpan={12} className="px-4 py-3 border-y border-slate-200">
+                        <td colSpan={salesTableColCount} className="px-4 py-3 border-y border-slate-200">
                           <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
                             <span className="inline-flex items-center gap-2 text-[13px] font-black text-primary bg-blue-50 px-3 py-1.5 rounded-full border border-blue-200">
                               <Calendar size={14} />
@@ -1787,9 +1825,11 @@ const SalesCardManagementPage: React.FC = () => {
                                 <ReceiptText size={14} className="text-slate-400" />
                                 <strong className="text-slate-800">{group.items.length}</strong> đơn
                               </span>
+                              {canViewRevenue && (
                               <span className="text-emerald-600 font-black text-[14px]">
                                 {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(group.totalAmount)}
                               </span>
+                              )}
                             </div>
                           </div>
                         </td>
@@ -1845,11 +1885,13 @@ const SalesCardManagementPage: React.FC = () => {
                         )}
                       </div>
                     </td>
+                    {canViewRevenue && (
                     <td className="px-4 py-4 text-right font-black text-primary border-b border-slate-100 align-top whitespace-nowrap">
                       {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
                         ((card as any).the_ban_hang_ct || []).reduce((sum: number, ct: any) => sum + (ct.thanh_tien || (ct.gia_ban * (ct.so_luong || 1))), 0)
                       )}
                     </td>
+                    )}
                     <td className="px-4 py-4 text-center border-b border-slate-100 align-top">
                       {card.thu_chi ? (
                         <span className="inline-flex min-w-[86px] justify-center px-2.5 py-1.5 rounded-md bg-emerald-50 text-emerald-700 font-black text-[11px] whitespace-nowrap border border-emerald-200" title="Đã thu tiền">
@@ -1895,12 +1937,12 @@ const SalesCardManagementPage: React.FC = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={12} className="px-4 py-12 text-center text-muted-foreground italic border-b border-dashed border-border">
+                    <td colSpan={salesTableColCount} className="px-4 py-12 text-center text-muted-foreground italic border-b border-dashed border-border">
                       Chưa có phiếu bán hàng nào được lập.
                     </td>
                   </tr>
                 )}
-                {!loading && groupedSales.length > 0 && (
+                {canViewRevenue && !loading && groupedSales.length > 0 && (
                   <tr className="bg-primary/5 font-black border-t-2 border-primary/20">
                     <td colSpan={6} className="px-4 py-5 text-right">
                       <div className="flex flex-col items-end">

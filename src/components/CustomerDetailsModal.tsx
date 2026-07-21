@@ -27,12 +27,14 @@ interface CustomerDetailsModalProps {
    isOpen: boolean;
    onClose: () => void;
    customer: KhachHang | null;
+   canViewRevenue?: boolean;
 }
 
 const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
    isOpen,
    onClose,
-   customer
+   customer,
+   canViewRevenue = true,
 }) => {
    const [startDateStr, setStartDateStr] = useState(() => {
       const end = new Date();
@@ -113,7 +115,10 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
       msg += `🚗 Xe: ${customer.bien_so_xe} — KM: ${(latestOrderKm ?? customer.so_km ?? 0).toLocaleString()} Km\n`;
       msg += `-------------------------\n`;
       msg += `📊 Thống kê (${start} - ${end}):\n`;
-      msg += `- Tổng chi tiêu: ${formatCurrency(totalSpent)}\n`;
+      msg += `- Số lần ghé: ${history.length}\n`;
+      if (canViewRevenue) {
+        msg += `- Tổng chi tiêu: ${formatCurrency(totalSpent)}\n`;
+      }
       msg += `- Số lần ghé: ${history.length} lần\n`;
       msg += `-------------------------\n`;
       msg += `🛠️ Lịch sử dịch vụ:\n`;
@@ -170,8 +175,9 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
                </button>
             </div>
 
-            {/* Date Selector + stats: dòng 1 ngày, dòng 2 tổng chi / lần ghé (tránh chồng lên input) */}
+            {/* Date Selector + stats */}
             <div className="px-4 py-2.5 sm:px-8 sm:py-4 border-b border-border bg-card flex flex-col gap-3 sm:gap-3.5 w-full shadow-sm">
+               {canViewRevenue && (
                <div className="flex flex-wrap items-end gap-2 sm:gap-4 w-full min-w-0">
                   <div className="flex flex-col gap-0.5 min-w-0 flex-1 basis-[calc(50%-0.25rem)] sm:flex-none sm:basis-auto">
                      <span className="text-[9px] sm:text-[10px] font-black text-muted-foreground uppercase tracking-widest px-1">Từ ngày</span>
@@ -192,12 +198,15 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
                      />
                   </div>
                </div>
+               )}
 
                <div className="grid grid-cols-2 sm:flex sm:flex-row sm:justify-end sm:items-center gap-2 sm:gap-3 w-full min-w-0 pt-2 border-t border-border/40 sm:border-t-0 sm:pt-0">
+                  {canViewRevenue && (
                   <div className="px-2.5 py-2 sm:px-4 sm:py-2.5 rounded-xl sm:rounded-2xl bg-primary/5 border border-primary/20 flex flex-row flex-nowrap items-center justify-center sm:justify-end gap-1.5 sm:gap-2.5 min-w-0">
                      <span className="text-[8px] sm:text-[9px] font-black text-primary uppercase tracking-wide whitespace-nowrap shrink-0">Tổng chi tiêu</span>
                      <span className="text-[11px] sm:text-sm font-black text-primary tabular-nums whitespace-nowrap truncate">{formatCurrency(totalSpent)}</span>
                   </div>
+                  )}
                   <div className="px-2.5 py-2 sm:px-4 sm:py-2.5 rounded-xl sm:rounded-2xl bg-amber-500/5 border border-amber-500/20 flex flex-row flex-nowrap items-center justify-center sm:justify-end gap-1.5 sm:gap-2.5 min-w-0">
                      <span className="text-[8px] sm:text-[9px] font-black text-amber-600 uppercase tracking-wide whitespace-nowrap shrink-0">Số lần ghé</span>
                      <span className="text-[11px] sm:text-sm font-black text-amber-600 tabular-nums whitespace-nowrap">{history.length}</span>
@@ -322,23 +331,29 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
                                                 card.the_ban_hang_ct.map((ct: any, i: number) => (
                                                    <div key={i} className="flex items-center justify-between text-[11px] sm:text-[13px]">
                                                       <span className="font-bold text-foreground">📦 {ct.ten_dich_vu || ct.san_pham}</span>
-                                                      <span className="text-muted-foreground font-medium">SL: {ct.so_luong || 1} — {formatCurrency(ct.gia_ban)}</span>
+                                                      <span className="text-muted-foreground font-medium">
+                                                        SL: {ct.so_luong || 1}{canViewRevenue ? ` — ${formatCurrency(ct.gia_ban)}` : ''}
+                                                      </span>
                                                    </div>
                                                 ))
                                              ) : (
                                                 <div className="flex items-center justify-between text-[11px] sm:text-[13px]">
                                                    <span className="font-bold text-foreground">🛠️ {card.dich_vu?.ten_dich_vu || 'Dịch vụ lẻ'}</span>
-                                                   <span className="text-muted-foreground font-medium">{formatCurrency(card.dich_vu?.gia_ban || 0)}</span>
+                                                   <span className="text-muted-foreground font-medium">
+                                                     {canViewRevenue ? formatCurrency(card.dich_vu?.gia_ban || 0) : ''}
+                                                   </span>
                                                 </div>
                                              )}
                                           </div>
                                        </div>
 
                                        <div className="shrink-0 flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-between border-t sm:border-t-0 sm:border-l border-border pt-2 sm:pt-0 sm:pl-5 gap-2 sm:gap-3">
+                                          {canViewRevenue && (
                                           <div className="sm:text-right">
                                              <p className="text-[9px] sm:text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-0.5">Thanh toán</p>
                                              <p className="text-sm sm:text-lg font-black text-primary leading-none">{formatCurrency(cardTotal)}</p>
                                           </div>
+                                          )}
                                           <div className="sm:text-right">
                                              <p className="text-[9px] sm:text-[10px] font-black text-muted-foreground uppercase mb-0.5">Phụ trách</p>
                                              <div className="px-1.5 py-0.5 bg-accent rounded text-[10px] sm:text-[11px] font-bold text-accent-foreground border border-border inline-block">

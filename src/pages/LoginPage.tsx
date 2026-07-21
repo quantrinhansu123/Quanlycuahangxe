@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth, type NhanVien } from '../context/AuthContext';
 import { getLoginRedirectPath } from '../data/viewPermissions';
@@ -88,6 +88,13 @@ const LoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('reason') === 'account_deleted') {
+      setError('Tài khoản đã bị xóa hoặc vô hiệu hóa. Vui lòng liên hệ quản trị viên.');
+    }
+  }, []);
 
   if (!isLoading && session) {
     const fromPath = (routeLocation.state as { from?: { pathname?: string } } | null)?.from?.pathname;

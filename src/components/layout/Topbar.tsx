@@ -321,7 +321,8 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
 
       {/* Right side: Báo cáo, Clock, Notifications, User — shrink-0 + nền để luôn còn chỗ trên màn hẹp */}
       <div className="flex items-center gap-1.5 sm:gap-3 shrink-0 bg-card pl-1">
-        {/* Báo cáo (MainLayout = đã đăng nhập; không gói session vì state đôi khi lệch) */}
+        {/* Báo cáo — ẩn với kỹ thuật viên / không có quyền */}
+        {hasViewAccess('bao-cao') && (
         <button
           type="button"
           onClick={() => navigate('/bao-cao/san-pham')}
@@ -337,6 +338,7 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
           <BarChart2 size={20} className="shrink-0" strokeWidth={2.25} />
           <span className="hidden md:inline text-[11px] font-black leading-none">Báo cáo</span>
         </button>
+        )}
 
         {/* Clock & Date (Hidden on mobile) */}
         <div className="hidden md:flex items-center bg-card border border-border shadow-sm px-3 sm:px-4 py-1.5 rounded-full gap-2 sm:gap-3 text-[13px]">

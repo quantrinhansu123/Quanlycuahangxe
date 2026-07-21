@@ -2,10 +2,12 @@ import React from 'react';
 import { ArrowLeft, BarChart2, Home, Bell } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { clsx } from 'clsx';
+import { useAuth } from '../../context/AuthContext';
 
 const MobileBottomNav: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { hasViewAccess } = useAuth();
 
   const isHome = location.pathname === '/';
   const isBaoCao = location.pathname.startsWith('/bao-cao');
@@ -21,6 +23,7 @@ const MobileBottomNav: React.FC = () => {
         <ArrowLeft size={22} />
       </button>
 
+      {hasViewAccess('bao-cao') && (
       <button
         type="button"
         onClick={() => navigate('/bao-cao/san-pham')}
@@ -35,6 +38,7 @@ const MobileBottomNav: React.FC = () => {
         <BarChart2 size={22} strokeWidth={2.25} className="shrink-0" />
         <span className="text-[9px] font-bold leading-none">Báo cáo</span>
       </button>
+      )}
 
       <button
         type="button"

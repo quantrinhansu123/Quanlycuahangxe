@@ -8,6 +8,8 @@ import {
   formatAttendanceSaveError,
   getAttendancePaginated,
   getNextAttendanceId,
+  getStaffAttendanceNameVariants,
+  resolveStaffNameForUser,
   upsertAttendanceRecord,
   type AttendanceRecord
 } from '../data/attendanceData';
@@ -50,9 +52,9 @@ const AddAttendancePage: React.FC = () => {
 
         const todayStr = new Date().toISOString().split('T')[0];
 
-        // Smart match current user against DB personnel
-        const matchedUser = personnelData.find(p => p.ho_ten?.toLowerCase() === nhanVien?.ho_ten?.toLowerCase());
-        const fallbackName = matchedUser?.ho_ten || nhanVien?.ho_ten || 'Tài khoản đăng nhập';
+        const staffName = resolveStaffNameForUser(nhanVien, personnelData);
+        const staffNames = getStaffAttendanceNameVariants(nhanVien, personnelData);
+        const fallbackName = staffName || nhanVien?.ho_ten || 'Tài khoản đăng nhập';
 
         const autoId = await getNextAttendanceId();
 
@@ -67,8 +69,7 @@ const AddAttendancePage: React.FC = () => {
         });
 
         // Check if there is already a record for today
-        const { data } = await getAttendancePaginated(1, 1, undefined, '', {
-          nhan_su: fallbackName,
+        const { data } = await getAttendancePaginated(1, 1, staffNames, '', {
           startDate: todayStr,
           endDate: todayStr
         });
@@ -83,8 +84,7 @@ const AddAttendancePage: React.FC = () => {
         const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
         const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
 
-        const { data: monthData } = await getAttendancePaginated(1, 100, undefined, '', {
-          nhan_su: fallbackName,
+        const { data: monthData } = await getAttendancePaginated(1, 100, staffNames, '', {
           startDate: monthStart,
           endDate: monthEnd
         });

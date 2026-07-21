@@ -7,6 +7,7 @@ import {
   VIEW_PERMISSION_STORAGE_KEY,
   type ViewPermissionKey,
 } from '../data/viewPermissions';
+import { fetchNhanVienById } from '../data/personnelData';
 import {
   clearStoredAuth,
   getStoredDemoRole,
@@ -56,6 +57,10 @@ interface AuthContextType {
   canManageCustomers: boolean;
   /** Thêm phiếu bán hàng (admin + quản lý + kỹ thuật viên). Sửa/xóa bị chặn theo trang + RLS. */
   canManageOrders: boolean;
+  /** Xem doanh thu, tổng tiền, báo cáo tài chính — kỹ thuật viên: false */
+  canViewRevenue: boolean;
+  /** Dùng bộ lọc ngày/tháng/chi nhánh trên trang bán hàng & khách hàng */
+  canUseDataFilters: boolean;
   isLoading: boolean;
   hasViewAccess: (viewKey: ViewPermissionKey) => boolean;
   persistLogin: (nhanVien: NhanVien) => void;
@@ -71,6 +76,8 @@ const AuthContext = createContext<AuthContextType>({
   canModifyData: true,
   canManageCustomers: false,
   canManageOrders: false,
+  canViewRevenue: true,
+  canUseDataFilters: true,
   isLoading: true,
   hasViewAccess: () => true,
   persistLogin: () => {},
@@ -144,17 +151,80 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 
   useEffect(() => {
-    const demoRole = getStoredDemoRole();
-    const stored = getStoredNhanVien();
+    let cancelled = false;
 
-    if (stored) {
-      applyNhanVien(stored);
-    } else if (demoRole) {
-      applyNhanVien(buildDemoNhanVien(demoRole));
-    }
+    const bootstrap = async () => {
+      const demoRole = getStoredDemoRole();
+      const stored = getStoredNhanVien();
 
-    setIsLoading(false);
+      if (stored) {
+        if (stored.id === 'demo-nv-uuid' || demoRole) {
+          applyNhanVien(stored);
+        } else {
+          const fresh = await fetchNhanVienById(stored.id);
+          if (cancelled) return;
+          if (!fresh) {
+            clearStoredAuth();
+            setSession(null);
+            setSupabaseUser(null);
+            setNhanVien(null);
+          } else {
+            setStoredNhanVien(fresh);
+            applyNhanVien(fresh);
+          }
+        }
+      } else if (demoRole) {
+        applyNhanVien(buildDemoNhanVien(demoRole));
+      }
+
+      if (!cancelled) setIsLoading(false);
+    };
+
+    void bootstrap();
+    return () => {
+      cancelled = true;
+    };
   }, [applyNhanVien]);
+
+  /** Định kỳ kiểm tra tài khoản còn tồn tại (sau khi admin xóa nhân sự). */
+  useEffect(() => {
+    if (!nhanVien?.id || nhanVien.id === 'demo-nv-uuid') return;
+
+    let validating = false;
+    const validateSession = async () => {
+      if (validating || !nhanVien?.id) return;
+      validating = true;
+      try {
+        const fresh = await fetchNhanVienById(nhanVien.id);
+        if (!fresh) {
+          clearStoredAuth();
+          setSession(null);
+          setSupabaseUser(null);
+          setNhanVien(null);
+          window.location.assign('/login?reason=account_deleted');
+          return;
+        }
+        if (
+          fresh.ho_ten !== nhanVien.ho_ten ||
+          fresh.vi_tri !== nhanVien.vi_tri ||
+          fresh.co_so !== nhanVien.co_so
+        ) {
+          setStoredNhanVien(fresh);
+          applyNhanVien(fresh);
+        }
+      } finally {
+        validating = false;
+      }
+    };
+
+    const onFocus = () => void validateSession();
+    const interval = window.setInterval(() => void validateSession(), 3 * 60_000);
+    window.addEventListener('focus', onFocus);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [nhanVien?.id, nhanVien?.ho_ten, nhanVien?.vi_tri, nhanVien?.co_so, applyNhanVien]);
 
   useEffect(() => {
     const refresh = () => setPermVersion((v) => v + 1);
@@ -183,6 +253,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const canModifyData = !isTechnician;
   const canManageCustomers = isAdmin || isTechnician || isQuanLy;
   const canManageOrders = isAdmin || isTechnician || isQuanLy;
+  const canViewRevenue = !isTechnician;
+  const canUseDataFilters = !isTechnician;
 
   const hasViewAccess = useCallback(
     (viewKey: ViewPermissionKey): boolean =>
@@ -201,6 +273,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         canModifyData,
         canManageCustomers,
         canManageOrders,
+        canViewRevenue,
+        canUseDataFilters,
         isLoading,
         hasViewAccess,
         persistLogin,

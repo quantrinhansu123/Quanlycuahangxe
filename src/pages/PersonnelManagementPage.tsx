@@ -61,7 +61,7 @@ function parseImportLuong(v: unknown): number | null {
 const BRANCH_OPTIONS = ['Cơ sở Bắc Giang', 'Cơ sở Bắc Ninh'] as const;
 
 const PersonnelManagementPage: React.FC = () => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, nhanVien, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const branchOptions = [...BRANCH_OPTIONS];
@@ -352,6 +352,10 @@ const PersonnelManagementPage: React.FC = () => {
     if (window.confirm('Bạn có chắc chắn muốn xóa nhân viên này?')) {
       try {
         await deletePersonnel(id);
+        if (nhanVien?.id === id) {
+          await signOut();
+          return;
+        }
         await loadData();
       } catch (error) {
         alert('Lỗi: Không thể xóa nhân viên.');

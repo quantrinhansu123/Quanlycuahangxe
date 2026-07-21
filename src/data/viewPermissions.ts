@@ -195,12 +195,24 @@ export function expandsViewAccess(
   return false;
 }
 
+/** Màn hình tài chính / báo cáo — kỹ thuật viên không được truy cập dù admin cấp quyền. */
+const TECHNICIAN_BLOCKED_VIEWS: ViewPermissionKey[] = [
+  'bao-cao',
+  'thu-chi',
+  'so-quy',
+  'tien-luong',
+  'tien-luong-cau-hinh',
+];
+
 export function canAccessView(
   viTri: string | null | undefined,
   viewKey: ViewPermissionKey,
   isAdmin: boolean,
   coSo?: string | null
 ): boolean {
+  if (isTechnicianViTri(viTri) && TECHNICIAN_BLOCKED_VIEWS.includes(viewKey)) {
+    return false;
+  }
   if (viewKey === 'dashboard') return true;
   if (viewKey === 'khach-hang' || viewKey === 'don-hang') return true;
   if (isAdmin) return true;

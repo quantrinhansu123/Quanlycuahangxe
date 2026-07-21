@@ -31,7 +31,9 @@ import {
   formatAttendanceSaveError,
   getAttendancePaginated,
   getAttendanceRecords,
+  getStaffAttendanceNameVariants,
   resolveStaffNameForUser,
+  staffNamesMatch,
   upsertAttendanceRecord
 } from '../data/attendanceData';
 import { getPersonnel, type NhanSu } from '../data/personnelData';
@@ -124,11 +126,17 @@ const AttendanceManagementPage: React.FC = () => {
     try {
       if (showLoading) setLoading(true);
       const personnelData = await getPersonnel();
-      const selfStaffName = resolveStaffNameForUser(nhanVien, personnelData);
-      const staffScope = restrictToSelf ? selfStaffName : isAdmin ? undefined : selfStaffName;
-      const staffFilter = restrictToSelf ? selfStaffName : selectedStaff || undefined;
+      const selfStaffNames = getStaffAttendanceNameVariants(nhanVien, personnelData);
+      const staffScope = restrictToSelf
+        ? selfStaffNames
+        : isAdmin
+          ? undefined
+          : selfStaffNames;
+      const staffFilter = restrictToSelf
+        ? undefined
+        : selectedStaff || undefined;
 
-      if (restrictToSelf && !selfStaffName) {
+      if (restrictToSelf && selfStaffNames.length === 0) {
         setRecords([]);
         setTotalCount(0);
         setPersonnel(personnelData);
@@ -168,8 +176,12 @@ const AttendanceManagementPage: React.FC = () => {
 
       const relevantPersonnel = personnelData.filter((p) => {
         if (restrictToSelf) {
-          if (!selfStaffName) return false;
-          return p.ho_ten.trim().toLowerCase() === selfStaffName.trim().toLowerCase();
+          if (selfStaffNames.length === 0) return false;
+          return (
+            selfStaffNames.some((n) => staffNamesMatch(p.ho_ten, n)) ||
+            (p.id_nhan_su != null &&
+              selfStaffNames.some((n) => staffNamesMatch(p.id_nhan_su, n)))
+          );
         }
         if (selectedStaff && selectedStaff !== p.ho_ten) return false;
         if (debouncedSearch && !p.ho_ten.toLowerCase().includes(debouncedSearch.toLowerCase())) {
@@ -179,11 +191,14 @@ const AttendanceManagementPage: React.FC = () => {
       });
 
       datesToProcess.forEach(date => {
-         const attendedStaffNames = new Set(
-           attendanceResult.data.filter(r => r.ngay === date).map(r => r.nhan_su)
-         );
+         const dayRecords = attendanceResult.data.filter(r => r.ngay === date);
 
-         const absentees = relevantPersonnel.filter(p => !attendedStaffNames.has(p.ho_ten));
+         const absentees = relevantPersonnel.filter(p =>
+           !dayRecords.some(r =>
+             staffNamesMatch(r.nhan_su, p.ho_ten) ||
+             (p.id_nhan_su != null && staffNamesMatch(r.nhan_su, p.id_nhan_su))
+           )
+         );
 
          const fakeAbsentRecords: AttendanceRecord[] = absentees.map(p => ({
            id: `fake-absent-${date}-${p.id}`,

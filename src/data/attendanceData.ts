@@ -2,18 +2,110 @@ import type { PostgrestError } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import type { NhanSu } from './personnelData';
 
+/** Chuẩn hóa tên nhân sự để so khớp (trim + lowercase). */
+export function normalizeStaffName(name: string | null | undefined): string {
+  return (name ?? '').trim().toLowerCase();
+}
+
+/** Hai tên nhân sự có cùng một người (không phân biệt hoa thường, khoảng trắng đầu/cuối). */
+export function staffNamesMatch(
+  a: string | null | undefined,
+  b: string | null | undefined
+): boolean {
+  return normalizeStaffName(a) === normalizeStaffName(b);
+}
+
+/** Tìm hồ sơ nhân sự khớp tài khoản đăng nhập (uuid, mã NV, hoặc họ tên). */
+export function findPersonnelForUser(
+  nhanVien:
+    | { id?: string; ho_ten: string; id_nhan_su?: string | null }
+    | null
+    | undefined,
+  personnel: NhanSu[]
+): NhanSu | undefined {
+  if (!nhanVien) return undefined;
+  return personnel.find(
+    (p) =>
+      (nhanVien.id && p.id === nhanVien.id) ||
+      (nhanVien.id_nhan_su && p.id_nhan_su === nhanVien.id_nhan_su) ||
+      staffNamesMatch(p.ho_ten, nhanVien.ho_ten)
+  );
+}
+
 /** Tên `nhan_su` trên bảng chấm công khớp nhân viên đăng nhập. */
 export function resolveStaffNameForUser(
-  nhanVien: { ho_ten: string; id_nhan_su?: string | null } | null | undefined,
+  nhanVien:
+    | { id?: string; ho_ten: string; id_nhan_su?: string | null }
+    | null
+    | undefined,
   personnel: NhanSu[]
 ): string | undefined {
   if (!nhanVien) return undefined;
-  const me = personnel.find(
-    (p) =>
-      (nhanVien.id_nhan_su && p.id_nhan_su === nhanVien.id_nhan_su) ||
-      p.ho_ten.trim().toLowerCase() === nhanVien.ho_ten.trim().toLowerCase()
-  );
+  const me = findPersonnelForUser(nhanVien, personnel);
   return me?.ho_ten ?? nhanVien.ho_ten;
+}
+
+/**
+ * Mọi giá trị `nhan_su` có thể xuất hiện trên bản ghi chấm công của nhân viên
+ * (họ tên trên hồ sơ, họ tên đăng nhập, mã nhân sự).
+ */
+export function getStaffAttendanceNameVariants(
+  nhanVien:
+    | { id?: string; ho_ten: string; id_nhan_su?: string | null }
+    | null
+    | undefined,
+  personnel: NhanSu[]
+): string[] {
+  if (!nhanVien) return [];
+  const me = findPersonnelForUser(nhanVien, personnel);
+  const names = new Set<string>();
+  const add = (v: string | null | undefined) => {
+    const t = v?.trim();
+    if (t) names.add(t);
+  };
+  add(nhanVien.ho_ten);
+  add(me?.ho_ten);
+  add(nhanVien.id_nhan_su);
+  add(me?.id_nhan_su);
+  return Array.from(names);
+}
+
+/** Bản ghi chấm công thuộc về nhân viên đăng nhập. */
+export function attendanceRecordBelongsToUser(
+  recordNhanSu: string,
+  nhanVien:
+    | { id?: string; ho_ten: string; id_nhan_su?: string | null }
+    | null
+    | undefined,
+  personnel: NhanSu[]
+): boolean {
+  const variants = getStaffAttendanceNameVariants(nhanVien, personnel);
+  return variants.some((v) => staffNamesMatch(recordNhanSu, v));
+}
+
+function escapePostgrestFilterValue(value: string): string {
+  if (/[,()"\\]/.test(value) || /\s/.test(value)) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
+
+type StaffNameFilter = string | string[] | undefined;
+
+function applyStaffNameFilter<T extends { ilike: (col: string, val: string) => T; or: (filters: string) => T }>(
+  query: T,
+  staffNames: StaffNameFilter
+): T {
+  if (!staffNames) return query;
+  const names = [
+    ...new Set((Array.isArray(staffNames) ? staffNames : [staffNames]).filter(Boolean)),
+  ];
+  if (names.length === 0) return query;
+  if (names.length === 1) return query.ilike('nhan_su', names[0]);
+  const orClause = names
+    .map((n) => `nhan_su.ilike.${escapePostgrestFilterValue(n)}`)
+    .join(',');
+  return query.or(orClause);
 }
 
 function isPostgrestError(e: unknown): e is PostgrestError {
@@ -142,16 +234,16 @@ export async function getChamCongTrongKhoang(
   return (data as ChamCongBuaDongNhap[]) || [];
 }
 
-export const getAttendanceRecords = async (staffName?: string): Promise<AttendanceRecord[]> => {
+export const getAttendanceRecords = async (
+  staffName?: StaffNameFilter
+): Promise<AttendanceRecord[]> => {
   let query = supabase
     .from('cham_cong')
     .select('*')
     .order('ngay', { ascending: false })
     .order('created_at', { ascending: false });
 
-  if (staffName) {
-    query = query.ilike('nhan_su', staffName);
-  }
+  query = applyStaffNameFilter(query, staffName);
 
   const { data, error } = await query;
 
@@ -235,7 +327,7 @@ export const deleteAttendanceRecord = async (id: string): Promise<void> => {
 };
 
 export interface AttendanceFilters {
-  nhan_su?: string;
+  nhan_su?: StaffNameFilter;
   ngay?: string;
   startDate?: string;
   endDate?: string;
@@ -244,7 +336,7 @@ export interface AttendanceFilters {
 export const getAttendancePaginated = async (
   page: number,
   pageSize: number,
-  staffName?: string,
+  staffName?: StaffNameFilter,
   searchQuery?: string,
   filters?: AttendanceFilters
 ): Promise<{ data: AttendanceRecord[], totalCount: number }> => {
@@ -255,10 +347,8 @@ export const getAttendancePaginated = async (
     .from('cham_cong')
     .select('*', { count: 'exact' });
 
-  // RBAC: chỉ bản ghi của một nhân sự (so khớp không phân biệt hoa thường)
-  if (staffName) {
-    query = query.ilike('nhan_su', staffName);
-  }
+  // RBAC: chỉ bản ghi của một nhân sự (họ tên / mã NV, không phân biệt hoa thường)
+  query = applyStaffNameFilter(query, staffName);
 
   if (searchQuery && !staffName) {
     query = query.or(`nhan_su.ilike.%${searchQuery}%,vi_tri.ilike.%${searchQuery}%`);
@@ -266,9 +356,7 @@ export const getAttendancePaginated = async (
     query = query.ilike('vi_tri', `%${searchQuery}%`);
   }
 
-  if (filters?.nhan_su) {
-    query = query.ilike('nhan_su', filters.nhan_su);
-  }
+  query = applyStaffNameFilter(query, filters?.nhan_su);
 
   if (filters?.ngay) {
     query = query.eq('ngay', filters.ngay);

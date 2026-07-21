@@ -114,6 +114,40 @@ export const bulkUpsertPersonnel = async (personnel: Partial<NhanSu>[]): Promise
   }
 };
 
+/** Kiểm tra tài khoản nhân sự còn tồn tại (dùng xác thực phiên đăng nhập). */
+export const fetchNhanVienById = async (id: string): Promise<{
+  id: string;
+  id_nhan_su: string | null;
+  ho_ten: string;
+  vi_tri: string;
+  co_so: string;
+  email: string | null;
+  sdt: string | null;
+  auth_user_id: string | null;
+} | null> => {
+  const { data, error } = await supabase
+    .from('nhan_su')
+    .select('id, id_nhan_su, ho_ten, vi_tri, co_so, email, sdt, auth_user_id')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error) {
+    console.error('fetchNhanVienById:', error);
+    return null;
+  }
+  if (!data) return null;
+  return {
+    id: data.id,
+    id_nhan_su: data.id_nhan_su ?? null,
+    ho_ten: data.ho_ten,
+    vi_tri: data.vi_tri,
+    co_so: data.co_so,
+    email: data.email ?? null,
+    sdt: data.sdt ?? null,
+    auth_user_id: data.auth_user_id ?? null,
+  };
+};
+
 export const deletePersonnel = async (id: string): Promise<void> => {
   const { error } = await supabase
     .from('nhan_su')
