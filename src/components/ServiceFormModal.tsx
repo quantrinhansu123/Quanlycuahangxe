@@ -14,6 +14,8 @@ interface ServiceFormModalProps {
   branchOptions: string[];
   isReadOnly?: boolean;
   showGiaNhap?: boolean;
+  /** Chỉ admin xem/sửa hoa hồng */
+  showHoaHong?: boolean;
 }
 
 const ServiceFormModal: React.FC<ServiceFormModalProps> = React.memo(({
@@ -24,7 +26,8 @@ const ServiceFormModal: React.FC<ServiceFormModalProps> = React.memo(({
   onSubmit,
   branchOptions,
   isReadOnly,
-  showGiaNhap = true
+  showGiaNhap = true,
+  showHoaHong = true,
 }) => {
   const [formData, setFormData] = useState<Partial<DichVu>>(initialData);
   const [uploading, setUploading] = useState(false);
@@ -287,6 +290,7 @@ const ServiceFormModal: React.FC<ServiceFormModalProps> = React.memo(({
                 />
               </div>
 
+              {showHoaHong && (
               <div className="space-y-1.5 focus-within:ring-2 focus-within:ring-primary/20 rounded-xl transition-all">
                 <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider">Hoa hồng thợ (VNĐ)</label>
                 <input 
@@ -299,6 +303,7 @@ const ServiceFormModal: React.FC<ServiceFormModalProps> = React.memo(({
                   className={clsx("w-full px-4 py-2 bg-background border border-border rounded-xl outline-none focus:border-primary text-[14px] text-orange-600 font-bold", isReadOnly && "bg-muted cursor-not-allowed")} 
                 />
               </div>
+              )}
 
               <InputField label="Từ ngày" name="tu_ngay" type="date" value={formData.tu_ngay || ''} onChange={handleInputChange} icon={Calendar} tabIndex={6} disabled={isReadOnly} />
               <InputField label="Tới ngày" name="toi_ngay" type="date" value={formData.toi_ngay || ''} onChange={handleInputChange} icon={Calendar} tabIndex={7} disabled={isReadOnly} />

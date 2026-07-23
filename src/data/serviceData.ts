@@ -1,5 +1,6 @@
 import type { PostgrestError } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { invalidateServiceLookupCache } from './salesCardData';
 
 export function formatServiceSaveError(error: unknown): string {
   const e = error as PostgrestError & { status?: number };
@@ -99,6 +100,15 @@ export const getServices = async (): Promise<DichVu[]> => {
 };
 
 export const upsertService = async (service: Partial<DichVu>): Promise<DichVu> => {
+  try {
+    return await upsertServiceInternal(service);
+  } finally {
+    // Tên/giá dịch vụ đổi -> cache tra tên ở salesCardData phải nạp lại.
+    invalidateServiceLookupCache();
+  }
+};
+
+const upsertServiceInternal = async (service: Partial<DichVu>): Promise<DichVu> => {
   const cleanData = { ...service };
 
   if (cleanData.tu_ngay === '') cleanData.tu_ngay = null;
@@ -161,6 +171,7 @@ export const upsertService = async (service: Partial<DichVu>): Promise<DichVu> =
 };
 
 export const bulkUpsertServices = async (services: Partial<DichVu>[]): Promise<void> => {
+  invalidateServiceLookupCache();
   const toUpdate = services.filter(s => s.id);
   const toInsert = services.filter(s => !s.id);
 
@@ -185,6 +196,7 @@ export const bulkUpsertServices = async (services: Partial<DichVu>[]): Promise<v
 };
 
 export const deleteService = async (id: string): Promise<void> => {
+  invalidateServiceLookupCache();
   const { error } = await supabase
     .from('dich_vu')
     .delete()
@@ -217,6 +229,7 @@ export const uploadServiceImage = async (file: File): Promise<string> => {
 };
 
 export const deleteAllServices = async (): Promise<void> => {
+  invalidateServiceLookupCache();
   const { error } = await supabase
     .from('dich_vu')
     .delete()

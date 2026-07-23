@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   Calendar,
   Camera,
+  ChevronDown,
   Clock,
   Download,
   Edit2,
@@ -71,6 +72,12 @@ const AttendanceManagementPage: React.FC = () => {
   const [selectedStaff, setSelectedStaff] = useState<string>('');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
+  const [selectedMonth, setSelectedMonth] = useState<string>('');
+  const [summaryStats, setSummaryStats] = useState({
+    tongCong: 0,
+    tongPhutMuon: 0,
+    tongBuoiNghi: 0,
+  });
 
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -139,21 +146,35 @@ const AttendanceManagementPage: React.FC = () => {
       if (restrictToSelf && selfStaffNames.length === 0) {
         setRecords([]);
         setTotalCount(0);
+        setSummaryStats({ tongCong: 0, tongPhutMuon: 0, tongBuoiNghi: 0 });
         setPersonnel(personnelData);
         return;
       }
 
-      const attendanceResult = await getAttendancePaginated(
-        currentPage,
-        pageSize,
-        staffScope,
-        debouncedSearch,
-        {
-          nhan_su: staffFilter,
-          startDate,
-          endDate,
-        }
-      );
+      const [attendanceResult, allForSummary] = await Promise.all([
+        getAttendancePaginated(
+          currentPage,
+          pageSize,
+          staffScope,
+          debouncedSearch,
+          {
+            nhan_su: staffFilter,
+            startDate,
+            endDate,
+          }
+        ),
+        getAttendancePaginated(
+          1,
+          5000,
+          staffScope,
+          debouncedSearch,
+          {
+            nhan_su: staffFilter,
+            startDate,
+            endDate,
+          }
+        ),
+      ]);
 
       let finalRecords = [...attendanceResult.data];
       let totalCount = attendanceResult.totalCount;
@@ -188,6 +209,80 @@ const AttendanceManagementPage: React.FC = () => {
           return false;
         }
         return true;
+      });
+
+      // —— Tổng hợp theo bộ lọc ——
+      const summaryRows = allForSummary.data;
+      const workDayKeys = new Set<string>();
+      let tongPhutMuon = 0;
+
+      const byPersonDay: Record<string, AttendanceRecord[]> = {};
+      for (const r of summaryRows) {
+        if (!r.ngay || !r.nhan_su) continue;
+        const key = `${r.ngay}|||${r.nhan_su.trim().toLowerCase()}`;
+        if (!byPersonDay[key]) byPersonDay[key] = [];
+        byPersonDay[key].push(r);
+      }
+
+      const personPresentOnDate = (date: string, p: NhanSu) =>
+        Object.entries(byPersonDay).some(([key, rows]) => {
+          if (!key.startsWith(`${date}|||`)) return false;
+          const name = key.slice(date.length + 3);
+          const nameMatch =
+            staffNamesMatch(name, p.ho_ten) ||
+            (p.id_nhan_su != null && staffNamesMatch(name, p.id_nhan_su));
+          if (!nameMatch) return false;
+          return rows.some(
+            (r) =>
+              (r.checkin && String(r.checkin).trim()) ||
+              (r.checkout && String(r.checkout).trim())
+          );
+        });
+
+      Object.entries(byPersonDay).forEach(([, dayRows]) => {
+        let dayLateMinutes = 0;
+        dayRows.forEach((r) => {
+          const st = calculateAttendanceStatus(r.checkin, r.checkout);
+          if (st.isLate) dayLateMinutes = Math.max(dayLateMinutes, st.lateMinutes);
+        });
+        if (dayLateMinutes > 0) tongPhutMuon += dayLateMinutes;
+      });
+
+      Object.entries(byPersonDay).forEach(([key, dayRows]) => {
+        if (dayRows.some((r) => r.checkin && String(r.checkin).trim())) {
+          workDayKeys.add(key);
+        }
+      });
+
+      let datesForAbsent: string[] = [];
+      if (startDate && endDate) {
+        const cursor = new Date(`${startDate}T12:00:00`);
+        const end = new Date(`${endDate}T12:00:00`);
+        while (cursor <= end) {
+          const y = cursor.getFullYear();
+          const m = String(cursor.getMonth() + 1).padStart(2, '0');
+          const d = String(cursor.getDate()).padStart(2, '0');
+          datesForAbsent.push(`${y}-${m}-${d}`);
+          cursor.setDate(cursor.getDate() + 1);
+        }
+      } else {
+        datesForAbsent = Array.from(new Set(summaryRows.map((r) => r.ngay).filter(Boolean)));
+        if (!datesForAbsent.includes(todayString) && (!startDate || startDate <= todayString)) {
+          datesForAbsent.push(todayString);
+        }
+      }
+
+      let tongBuoiNghi = 0;
+      for (const date of datesForAbsent) {
+        for (const p of relevantPersonnel) {
+          if (!personPresentOnDate(date, p)) tongBuoiNghi += 1;
+        }
+      }
+
+      setSummaryStats({
+        tongCong: workDayKeys.size,
+        tongPhutMuon,
+        tongBuoiNghi,
       });
 
       datesToProcess.forEach(date => {
@@ -634,6 +729,33 @@ const AttendanceManagementPage: React.FC = () => {
 
   const selfDisplayName = resolveStaffNameForUser(nhanVien, personnel);
 
+  const toLocalIsoDate = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const handleMonthChange = (monthStr: string) => {
+    setSelectedMonth(monthStr);
+    setCurrentPage(1);
+    if (!monthStr) {
+      setStartDate('');
+      setEndDate('');
+      return;
+    }
+    const [year, month] = monthStr.split('-').map(Number);
+    setStartDate(toLocalIsoDate(new Date(year, month - 1, 1)));
+    setEndDate(toLocalIsoDate(new Date(year, month, 0)));
+  };
+
+  const clearDateFilters = () => {
+    setStartDate('');
+    setEndDate('');
+    setSelectedMonth('');
+    setCurrentPage(1);
+  };
+
   return (
     <div className="w-full flex-1 animate-in fade-in slide-in-from-bottom-4 duration-500 text-muted-foreground font-sans">
       <div className="space-y-4">
@@ -686,14 +808,37 @@ const AttendanceManagementPage: React.FC = () => {
               </select>
             )}
 
+            <div className="relative shrink-0">
+              <select
+                value={selectedMonth}
+                onChange={(e) => handleMonthChange(e.target.value)}
+                className="appearance-none min-w-[7.5rem] pl-2.5 pr-7 py-1.5 border border-border rounded text-[13px] bg-card outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+                title="Chọn nhanh theo tháng"
+              >
+                <option value="">Tháng...</option>
+                {Array.from({ length: 12 }, (_, i) => {
+                  const d = new Date();
+                  d.setMonth(d.getMonth() - i);
+                  const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                  return (
+                    <option key={val} value={val}>
+                      Tháng {d.getMonth() + 1}/{d.getFullYear()}
+                    </option>
+                  );
+                })}
+              </select>
+              <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 size-3.5 pointer-events-none text-muted-foreground" />
+            </div>
+
             <DateInputVi
               title="Từ ngày"
               value={startDate}
               onChange={(iso) => {
                 setStartDate(iso);
+                setSelectedMonth('');
                 setCurrentPage(1);
               }}
-              className="px-3 py-1.5 border border-border rounded text-[13px] bg-card outline-none focus:ring-1 focus:ring-primary w-[110px]"
+              className="px-3 py-1.5 border border-border rounded text-[13px] bg-card outline-none focus:ring-1 focus:ring-primary w-[130px]"
             />
             <span className="text-muted-foreground text-[12px]">-</span>
             <DateInputVi
@@ -701,19 +846,18 @@ const AttendanceManagementPage: React.FC = () => {
               value={endDate}
               onChange={(iso) => {
                 setEndDate(iso);
+                setSelectedMonth('');
                 setCurrentPage(1);
               }}
-              className="px-3 py-1.5 border border-border rounded text-[13px] bg-card outline-none focus:ring-1 focus:ring-primary w-[110px]"
+              className="px-3 py-1.5 border border-border rounded text-[13px] bg-card outline-none focus:ring-1 focus:ring-primary w-[130px]"
             />
 
-            {(searchQuery !== '' || selectedStaff !== '' || startDate !== '' || endDate !== '') && (
+            {(searchQuery !== '' || selectedStaff !== '' || startDate !== '' || endDate !== '' || selectedMonth !== '') && (
               <button
                 onClick={() => {
                   setSearchQuery('');
                   setSelectedStaff('');
-                  setStartDate('');
-                  setEndDate('');
-                  setCurrentPage(1);
+                  clearDateFilters();
                 }}
                 className="text-[12px] text-destructive hover:underline font-medium ml-2"
               >
@@ -794,6 +938,40 @@ const AttendanceManagementPage: React.FC = () => {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+
+        {/* Ô tổng hợp theo bộ lọc */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
+          <div className="px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl bg-primary/5 border border-primary/20 flex items-center justify-between gap-2">
+            <span className="text-[10px] sm:text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+              Tổng công
+            </span>
+            <span className="text-base sm:text-lg font-black text-primary tabular-nums">
+              {loading ? '…' : summaryStats.tongCong}
+              <span className="text-[11px] font-bold text-muted-foreground ml-1">công</span>
+            </span>
+          </div>
+          <div className="px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl bg-amber-500/5 border border-amber-500/20 flex items-center justify-between gap-2">
+            <span className="text-[10px] sm:text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+              Tổng giờ đi muộn
+            </span>
+            <span className="text-base sm:text-lg font-black text-amber-600 tabular-nums">
+              {loading
+                ? '…'
+                : summaryStats.tongPhutMuon > 0
+                  ? formatMinutesToHours(summaryStats.tongPhutMuon)
+                  : '0p'}
+            </span>
+          </div>
+          <div className="px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl bg-rose-500/5 border border-rose-500/20 flex items-center justify-between gap-2">
+            <span className="text-[10px] sm:text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+              Tổng buổi nghỉ
+            </span>
+            <span className="text-base sm:text-lg font-black text-rose-600 tabular-nums">
+              {loading ? '…' : summaryStats.tongBuoiNghi}
+              <span className="text-[11px] font-bold text-muted-foreground ml-1">buổi</span>
+            </span>
           </div>
         </div>
 

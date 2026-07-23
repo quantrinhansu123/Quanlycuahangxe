@@ -142,6 +142,7 @@ const SalesCardManagementPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [totalCount, setTotalCount] = useState(0);
+  const [summaryRefreshKey, setSummaryRefreshKey] = useState(0);
   const [totalAmount, setTotalAmount] = useState(0);
   const [totalCustomers, setTotalCustomers] = useState(0);
   const [newCustomersCount, setNewCustomersCount] = useState(0);
@@ -223,28 +224,6 @@ const SalesCardManagementPage: React.FC = () => {
       setSalesCards(cardsResult.data);
       setTotalCount(cardsResult.totalCount);
 
-      if (canViewRevenue) {
-        void getSalesCardsSummaryTotals(
-          search,
-          dateStart,
-          dateEnd,
-          staffFilter,
-          branchFilter
-        )
-          .then((summary) => {
-            setTotalAmount(summary.totalAmount);
-            setTotalCustomers(summary.totalCustomers || 0);
-            setNewCustomersCount(summary.newCustomersCount || 0);
-            setReturningCustomersCount(summary.returningCustomersCount || 0);
-          })
-          .catch((err) => console.error('Error loading sales summary:', err));
-      } else {
-        setTotalAmount(0);
-        setTotalCustomers(0);
-        setNewCustomersCount(0);
-        setReturningCustomersCount(0);
-      }
-
       // Fetch first sale dates in background to avoid blocking main list rendering
       const uniqueNames = [...new Set(
         cardsResult.data
@@ -264,7 +243,13 @@ const SalesCardManagementPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, pageSize, debouncedSearch, startDate, endDate, selectedStaff, selectedBranch, isAdmin, canViewRevenue, canUseDataFilters, showToast]);
+  }, [currentPage, pageSize, debouncedSearch, startDate, endDate, selectedStaff, selectedBranch, isAdmin, canUseDataFilters, showToast]);
+
+  /** Tải lại danh sách + tính lại thẻ tổng hợp sau khi dữ liệu bị thay đổi. */
+  const reloadAfterMutation = useCallback(async () => {
+    setSummaryRefreshKey((k) => k + 1);
+    await loadSalesCards();
+  }, [loadSalesCards]);
 
   const loadData = useCallback(async () => {
     loadReferenceData(); // Non-blocking background load for dropdowns
@@ -275,9 +260,69 @@ const SalesCardManagementPage: React.FC = () => {
     loadData();
   }, [loadData]);
 
+  /**
+   * Thẻ tổng hợp phụ thuộc bộ lọc, KHÔNG phụ thuộc số trang — tách riêng để lật trang
+   * không phải tính lại toàn bộ doanh thu.
+   */
+  const [summaryLoading, setSummaryLoading] = useState(false);
+
+  useEffect(() => {
+    if (!canViewRevenue) {
+      setTotalAmount(0);
+      setTotalCustomers(0);
+      setNewCustomersCount(0);
+      setReturningCustomersCount(0);
+      return;
+    }
+
+    let cancelled = false;
+    setSummaryLoading(true);
+
+    const staffFilter = isAdmin && selectedStaff ? selectedStaff : undefined;
+    const branchFilter = isAdmin && selectedBranch ? selectedBranch : undefined;
+
+    getSalesCardsSummaryTotals(
+      canUseDataFilters ? debouncedSearch : '',
+      canUseDataFilters ? (startDate || undefined) : undefined,
+      canUseDataFilters ? (endDate || undefined) : undefined,
+      staffFilter,
+      branchFilter
+    )
+      .then((summary) => {
+        if (cancelled) return;
+        setTotalAmount(summary.totalAmount);
+        setTotalCustomers(summary.totalCustomers || 0);
+        setNewCustomersCount(summary.newCustomersCount || 0);
+        setReturningCustomersCount(summary.returningCustomersCount || 0);
+      })
+      .catch((err) => {
+        if (!cancelled) console.error('Error loading sales summary:', err);
+      })
+      .finally(() => {
+        if (!cancelled) setSummaryLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedSearch, startDate, endDate, selectedStaff, selectedBranch, isAdmin, canViewRevenue, canUseDataFilters, summaryRefreshKey]);
+
+  /**
+   * Vá dữ liệu cũ thiếu id_bh: việc bảo trì, không phải dữ liệu hiển thị.
+   * Hoãn tới lúc trình duyệt rảnh để không tranh kết nối với lượt tải danh sách.
+   */
   useEffect(() => {
     if (!isAdmin) return;
-    normalizeSalesCards().catch(err => console.error("Error normalizing sales cards:", err));
+    const run = () => {
+      normalizeSalesCards().catch(err => console.error("Error normalizing sales cards:", err));
+    };
+    const idle = window.requestIdleCallback;
+    if (typeof idle === 'function') {
+      const handle = idle(run, { timeout: 10000 });
+      return () => window.cancelIdleCallback?.(handle);
+    }
+    const timer = setTimeout(run, 3000);
+    return () => clearTimeout(timer);
   }, [isAdmin]);
 
   // Loại bỏ phiếu trùng id (tránh cảnh báo React key trùng).
@@ -365,6 +410,11 @@ const SalesCardManagementPage: React.FC = () => {
   }, [displayItems]);
 
   const salesTableColCount = canViewRevenue ? 12 : 11;
+
+  // Danh sách phiếu hiện ngay, thẻ tổng hợp chạy nền — báo cho người dùng biết đang tính.
+  const summarySpinner = summaryLoading
+    ? <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground shrink-0" />
+    : null;
 
   const [isSyncingServiceNames, setIsSyncingServiceNames] = useState(false);
 
@@ -481,7 +531,7 @@ const SalesCardManagementPage: React.FC = () => {
           'success'
         );
       }
-      await loadSalesCards();
+      await reloadAfterMutation();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Không xác định';
       console.error('[SyncServiceNames] Lỗi:', err);
@@ -969,9 +1019,11 @@ const SalesCardManagementPage: React.FC = () => {
       handleCloseModal();
       showToast('Lập phiếu bán hàng thành công!', 'success');
       if (!editingCard && currentPage !== 1) {
+        // Về trang 1 tự kéo lại danh sách; thẻ tổng hợp phải bump riêng vì không theo trang.
+        setSummaryRefreshKey((k) => k + 1);
         setCurrentPage(1);
       } else {
-        void loadSalesCards();
+        void reloadAfterMutation();
       }
     } catch (error: any) {
       console.error('Save sales card failed:', {
@@ -1030,7 +1082,7 @@ const SalesCardManagementPage: React.FC = () => {
 
       showToast(`Đã thu tiền thành công: ${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalAmount)}`, 'success');
       handleCloseModal();
-      void loadSalesCards();
+      void reloadAfterMutation();
     } catch (error) {
       console.error(error);
       showToast('Lỗi: Không thể thực hiện thu tiền.', 'error');
@@ -1260,7 +1312,7 @@ const SalesCardManagementPage: React.FC = () => {
         if (formattedData.length > 0) {
           setLoading(true);
           await bulkUpsertSalesCards(formattedData);
-          await loadSalesCards();
+          await reloadAfterMutation();
           alert(`🚀 THÀNH CÔNG: Đã nhập ${formattedData.length} phiếu bán hàng.`);
         } else {
           alert(`❌ Không tìm thấy dữ liệu hợp lệ trong file Excel.`);
@@ -1288,7 +1340,7 @@ const SalesCardManagementPage: React.FC = () => {
           deleteTransactionByOrderId(id),
           deleteInventoryExportsByOrderId(id, orderCode),
         ]);
-        await loadSalesCards();
+        await reloadAfterMutation();
       } catch (error) {
         alert('Lỗi: Không thể xóa phiếu.');
       }
@@ -1622,12 +1674,14 @@ const SalesCardManagementPage: React.FC = () => {
               <span className="text-[9px] sm:text-[10px] font-bold text-muted-foreground opacity-80">
                 (🆕{newCustomersCount} mới | 🔄{returningCustomersCount} cũ)
               </span>
+              {summarySpinner}
             </div>
             <div className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-emerald-500/5 border border-emerald-500/20 flex items-center gap-2 shrink-0 whitespace-nowrap">
               <span className="text-[10px] sm:text-[11px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Tổng tiền:</span>
               <span className="text-sm sm:text-base font-black text-emerald-600">
                 {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalAmount)}
               </span>
+              {summarySpinner}
             </div>
           </div>
         )}
@@ -1762,8 +1816,9 @@ const SalesCardManagementPage: React.FC = () => {
               </div>
               <div className="flex items-center justify-between pt-2 border-t border-primary/10">
                 <span className="text-muted-foreground text-[12px] font-bold uppercase tracking-widest font-sans">Tổng doanh số lọc:</span>
-                <span className="text-primary font-black text-lg">
+                <span className="text-primary font-black text-lg flex items-center gap-2">
                   {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalAmount)}
+                  {summarySpinner}
                 </span>
               </div>
             </div>
@@ -1959,7 +2014,10 @@ const SalesCardManagementPage: React.FC = () => {
                       Tổng doanh số toàn bộ (kết quả lọc):
                     </td>
                     <td colSpan={3} className="px-4 py-5 text-right text-primary text-xl">
-                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalAmount)}
+                      <span className="inline-flex items-center gap-2">
+                        {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalAmount)}
+                        {summarySpinner}
+                      </span>
                     </td>
                   </tr>
                 )}

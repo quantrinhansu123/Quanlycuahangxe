@@ -276,7 +276,39 @@ export function findServiceForOrderDetailLine(
   return undefined;
 }
 
+/**
+ * Cache bảng dịch vụ dùng cho tra tên: enrich mỗi trang gọi 2 lần (attachDetails +
+ * attachService), mỗi lần kéo toàn bộ dich_vu. Cache + gộp request đang bay để chỉ
+ * còn 1 lượt tải cho mỗi phiên xem danh sách.
+ */
+const SERVICE_LOOKUP_TTL_MS = 60_000;
+let serviceLookupCache: { rows: ServiceLookupRow[]; at: number } | null = null;
+let serviceLookupInFlight: Promise<ServiceLookupRow[]> | null = null;
+
+/** Xoá cache tra tên dịch vụ (gọi sau khi thêm/sửa dịch vụ). */
+export function invalidateServiceLookupCache() {
+  serviceLookupCache = null;
+  serviceLookupInFlight = null;
+}
+
 async function fetchAllServicesForLookup(): Promise<ServiceLookupRow[]> {
+  if (serviceLookupCache && Date.now() - serviceLookupCache.at < SERVICE_LOOKUP_TTL_MS) {
+    return serviceLookupCache.rows;
+  }
+  if (serviceLookupInFlight) return serviceLookupInFlight;
+
+  serviceLookupInFlight = fetchAllServicesForLookupUncached()
+    .then((rows) => {
+      if (rows.length > 0) serviceLookupCache = { rows, at: Date.now() };
+      return rows;
+    })
+    .finally(() => {
+      serviceLookupInFlight = null;
+    });
+  return serviceLookupInFlight;
+}
+
+async function fetchAllServicesForLookupUncached(): Promise<ServiceLookupRow[]> {
   const all: ServiceLookupRow[] = [];
   let offset = 0;
   const pageSize = 1000;
@@ -614,14 +646,19 @@ export const getSalesCards = async (staffId?: string): Promise<SalesCard[]> => {
   return cards;
 };
 
+/** Bộ cột tối thiểu đủ để tính thẻ tổng hợp — tránh kéo cả bản ghi khi quét toàn bảng. */
+const SUMMARY_CARD_COLUMNS = 'id, id_bh, ngay, gio, created_at, ten_khach_hang, khach_hang_id, dich_vu_id';
+
 async function fetchFilteredSalesCardsList(
   searchQuery?: string,
   startDate?: string,
   endDate?: string,
   staffId?: string,
-  branch?: string
+  branch?: string,
+  selectColumns?: string
 ): Promise<{ allCards: SalesCard[]; totalCount: number }> {
   const SALES_EXPORT_FETCH_BATCH = 1000;
+  const columns = selectColumns || '*';
 
   let searchCustomerIdSet = new Set<string>();
   let searchServiceIdSet = new Set<string>();
@@ -657,7 +694,7 @@ async function fetchFilteredSalesCardsList(
   }
 
   const buildBaseQuery = () => {
-    let query = supabase.from('the_ban_hang').select('*', { count: 'exact' });
+    let query = supabase.from('the_ban_hang').select(columns, { count: 'exact' });
     if (orConditions.length > 0) {
       query = query.or(orConditions.join(','));
     }
@@ -690,26 +727,39 @@ async function fetchFilteredSalesCardsList(
     }
   }
 
-  let totalCount = 0;
-  const allCardsRaw: SalesCard[] = [];
-  let offset = 0;
-
-  for (;;) {
-    const { data: cardBatch, count, error } = await buildBaseQuery()
+  const fetchBatch = (offset: number) =>
+    buildBaseQuery()
       .order('created_at', { ascending: false })
       .order('ngay', { ascending: false })
       .order('gio', { ascending: false })
       .range(offset, offset + SALES_EXPORT_FETCH_BATCH - 1);
 
-    if (error) {
-      if (error.code === 'PGRST103') return { allCards: [], totalCount: count || 0 };
-      throw error;
+  // Lô đầu trả về tổng số dòng, nhờ đó các lô còn lại bắn song song thay vì nối đuôi nhau.
+  const { data: firstBatch, count, error: firstError } = await fetchBatch(0);
+  if (firstError) {
+    if (firstError.code === 'PGRST103') return { allCards: [], totalCount: count || 0 };
+    throw firstError;
+  }
+
+  const totalCount = count || 0;
+  const allCardsRaw: SalesCard[] = ((firstBatch as unknown) as SalesCard[]) || [];
+
+  if (allCardsRaw.length === SALES_EXPORT_FETCH_BATCH && totalCount > SALES_EXPORT_FETCH_BATCH) {
+    const offsets: number[] = [];
+    for (let o = SALES_EXPORT_FETCH_BATCH; o < totalCount; o += SALES_EXPORT_FETCH_BATCH) {
+      offsets.push(o);
     }
-    if (offset === 0) totalCount = count || 0;
-    const batch = (cardBatch as SalesCard[]) || [];
-    allCardsRaw.push(...batch);
-    if (batch.length < SALES_EXPORT_FETCH_BATCH) break;
-    offset += SALES_EXPORT_FETCH_BATCH;
+    const batches = await Promise.all(
+      offsets.map(async (o) => {
+        const { data, error } = await fetchBatch(o);
+        if (error) {
+          if (error.code === 'PGRST103') return [] as SalesCard[];
+          throw error;
+        }
+        return ((data as unknown) as SalesCard[]) || [];
+      })
+    );
+    batches.forEach((b) => allCardsRaw.push(...b));
   }
 
   let allCards = allCardsRaw;
@@ -798,6 +848,58 @@ export const getSalesCardsPaginated = async (
   return { data: pagedCards, totalCount };
 };
 
+export type SalesSummaryTotals = {
+  totalCount: number;
+  totalAmount: number;
+  totalCustomers: number;
+  newCustomersCount: number;
+  returningCustomersCount: number;
+};
+
+/** Cờ tắt RPC sau lần đầu phát hiện DB chưa cài hàm, tránh gọi hỏng lặp lại mỗi lần lọc. */
+let salesSummaryRpcAvailable = true;
+
+/**
+ * Gọi hàm tổng hợp phía DB (1 request). Trả về null khi chưa cài migration
+ * 20260722_sales_summary_rpc.sql để phía gọi tự quay về cách tính ở client.
+ */
+async function fetchSalesSummaryViaRpc(
+  startDate?: string,
+  endDate?: string,
+  staffId?: string
+): Promise<SalesSummaryTotals | null> {
+  if (!salesSummaryRpcAvailable) return null;
+
+  const { data, error } = await supabase.rpc('sales_summary_totals', {
+    p_start: startDate || null,
+    p_end: endDate || null,
+    p_staff: staffId || null,
+  });
+
+  if (error) {
+    // 42883 / PGRST202: hàm chưa tồn tại -> khỏi thử lại trong phiên này.
+    const code = (error.code || '').toLowerCase();
+    const msg = (error.message || '').toLowerCase();
+    if (code === '42883' || code === 'pgrst202' || msg.includes('could not find the function')) {
+      salesSummaryRpcAvailable = false;
+      return null;
+    }
+    console.error('sales_summary_totals RPC lỗi, dùng cách tính ở client:', error);
+    return null;
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) return null;
+
+  return {
+    totalCount: Number(row.total_count) || 0,
+    totalAmount: Number(row.total_amount) || 0,
+    totalCustomers: Number(row.total_customers) || 0,
+    newCustomersCount: Number(row.new_customers) || 0,
+    returningCustomersCount: Number(row.returning_customers) || 0,
+  };
+}
+
 /** Tổng tiền / khách — tải nền, không chặn danh sách phiếu. */
 export async function getSalesCardsSummaryTotals(
   searchQuery?: string,
@@ -805,19 +907,22 @@ export async function getSalesCardsSummaryTotals(
   endDate?: string,
   staffId?: string,
   branch?: string
-): Promise<{
-  totalCount: number;
-  totalAmount: number;
-  totalCustomers: number;
-  newCustomersCount: number;
-  returningCustomersCount: number;
-}> {
+): Promise<SalesSummaryTotals> {
+  // Bộ lọc tìm kiếm / cơ sở phải khớp theo logic client (biến thể tên tiếng Việt, số điện
+  // thoại, mã KH...) nên chỉ đường mặc định mới dùng được RPC.
+  if (!searchQuery?.trim() && !branch) {
+    const viaRpc = await fetchSalesSummaryViaRpc(startDate, endDate, staffId);
+    if (viaRpc) return viaRpc;
+  }
+
   const { allCards, totalCount } = await fetchFilteredSalesCardsList(
     searchQuery,
     startDate,
     endDate,
     staffId,
-    branch
+    branch,
+    // Khi có từ khoá, lọc phải chạy trên bản ghi đầy đủ nên không rút gọn cột được.
+    searchQuery?.trim() ? undefined : SUMMARY_CARD_COLUMNS
   );
   const grandTotals = await computeSalesGrandTotals(allCards, startDate);
   return { totalCount, ...grandTotals };

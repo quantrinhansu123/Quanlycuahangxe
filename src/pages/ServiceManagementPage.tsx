@@ -79,6 +79,8 @@ type ServiceBranchSectionProps = {
   canManageServices: boolean;
   canDeleteServices: boolean;
   showGiaNhap: boolean;
+  /** Chỉ admin xem được hoa hồng */
+  showHoaHong: boolean;
   onPageChange: (page: number) => void;
   onPageSizeChange: (size: number) => void;
   onAdd: (branch: string) => void;
@@ -96,6 +98,7 @@ const ServiceBranchSection: React.FC<ServiceBranchSectionProps> = ({
   canManageServices,
   canDeleteServices,
   showGiaNhap,
+  showHoaHong,
   onPageChange,
   onPageSizeChange,
   onAdd,
@@ -228,14 +231,19 @@ const ServiceBranchSection: React.FC<ServiceBranchSectionProps> = ({
                 <th className="px-3 py-2.5 font-semibold text-right">Giá nhập</th>
               )}
               <th className="px-3 py-2.5 font-semibold text-right">Giá bán</th>
-              <th className="px-3 py-2.5 font-semibold text-right">Hoa hồng</th>
+              {showHoaHong && (
+                <th className="px-3 py-2.5 font-semibold text-right">Hoa hồng</th>
+              )}
               <th className="px-3 py-2.5 text-center font-semibold">Tác vụ</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border/60 text-[12px]">
             {loading ? (
               <tr>
-                <td colSpan={showGiaNhap ? 7 : 6} className="px-4 py-10 text-center text-muted-foreground">
+                <td
+                  colSpan={4 + (showGiaNhap ? 1 : 0) + (showHoaHong ? 1 : 0) + 1}
+                  className="px-4 py-10 text-center text-muted-foreground"
+                >
                   <Loader2 className="animate-spin inline-block mr-2" size={18} />
                   Đang tải...
                 </td>
@@ -268,7 +276,9 @@ const ServiceBranchSection: React.FC<ServiceBranchSectionProps> = ({
                     <td className="px-3 py-3 text-right text-muted-foreground">{formatCurrency(service.gia_nhap)}</td>
                   )}
                   <td className="px-3 py-3 text-right font-black text-primary">{formatCurrency(service.gia_ban)}</td>
-                  <td className="px-3 py-3 text-right text-orange-600 font-bold">{formatCurrency(service.hoa_hong)}</td>
+                  {showHoaHong && (
+                    <td className="px-3 py-3 text-right text-orange-600 font-bold">{formatCurrency(service.hoa_hong)}</td>
+                  )}
                   <td className="px-3 py-3 text-center">
                     <div className="flex items-center justify-center gap-1">
                       <button
@@ -305,7 +315,10 @@ const ServiceBranchSection: React.FC<ServiceBranchSectionProps> = ({
               ))
             ) : (
               <tr>
-                <td colSpan={showGiaNhap ? 7 : 6} className="px-4 py-8 text-center text-muted-foreground">
+                <td
+                  colSpan={4 + (showGiaNhap ? 1 : 0) + (showHoaHong ? 1 : 0) + 1}
+                  className="px-4 py-8 text-center text-muted-foreground"
+                >
                   Không có dịch vụ tại {branchShortLabel(branch)}.
                 </td>
               </tr>
@@ -332,6 +345,7 @@ const ServiceManagementPage: React.FC = () => {
   const { isAdmin, nhanVien, isTechnician, hasViewAccess } = useAuth();
   const canManageServices = (isAdmin || hasViewAccess('dich-vu')) && !isTechnician;
   const showGiaNhap = !isTechnician;
+  const showHoaHong = isAdmin;
 
   const visibleBranches = useMemo(() => {
     if (isAdmin) return [...BRANCH_OPTIONS];
@@ -715,6 +729,7 @@ const ServiceManagementPage: React.FC = () => {
               canManageServices={canManageServices}
               canDeleteServices={isAdmin}
               showGiaNhap={showGiaNhap}
+              showHoaHong={showHoaHong}
               onPageChange={(page) => handleBranchPageChange(branch, page)}
               onPageSizeChange={handlePageSizeChange}
               onAdd={(b) => handleOpenModal(undefined, b)}
@@ -735,6 +750,7 @@ const ServiceManagementPage: React.FC = () => {
         branchOptions={[...BRANCH_OPTIONS]}
         isReadOnly={isReadOnlyModal}
         showGiaNhap={showGiaNhap}
+        showHoaHong={showHoaHong}
       />
     </div>
   );
