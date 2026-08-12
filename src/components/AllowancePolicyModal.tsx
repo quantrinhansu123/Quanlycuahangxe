@@ -29,8 +29,9 @@ const AllowancePolicyModal: React.FC<AllowancePolicyModalProps> = ({
   const [selectedComponentId, setSelectedComponentId] = useState('');
   const [policyName, setPolicyName] = useState('');
   const [positionEntries, setPositionEntries] = useState<{ id?: string, vi_tri: string, dinh_muc: string, gia_tri: number }[]>([
-    { vi_tri: 'Tất cả vị trí', dinh_muc: '', gia_tri: 0 }
+    { vi_tri: 'Tất cả vị trí trong đơn vị', dinh_muc: '', gia_tri: 0 }
   ]);
+  const [errors, setErrors] = useState<{ component?: boolean; policyName?: boolean; entries?: boolean }>({});
 
   useEffect(() => {
     if (isOpen) {
@@ -45,7 +46,8 @@ const AllowancePolicyModal: React.FC<AllowancePolicyModalProps> = ({
         setSelectedCoSo('Cơ sở Bắc Ninh');
         setSelectedComponentId('');
         setPolicyName('');
-        setPositionEntries([{ vi_tri: 'Tất cả vị trí', dinh_muc: '', gia_tri: 0 }]);
+        setPositionEntries([{ vi_tri: 'Tất cả vị trí trong đơn vị', dinh_muc: '', gia_tri: 0 }]);
+        setErrors({});
       }
     }
   }, [isOpen, initialData]);
@@ -53,7 +55,10 @@ const AllowancePolicyModal: React.FC<AllowancePolicyModalProps> = ({
   const fetchComponents = async () => {
     try {
       const data = await getSalaryComponents();
-      setComponents(data.filter(c => c.loai === 'thu_nhap'));
+      const allowanceComponents = data.filter(
+        c => c.loai === 'thu_nhap' && (c.ma?.startsWith('PC_') || c.ten.toLowerCase().includes('phụ cấp'))
+      );
+      setComponents(allowanceComponents.length > 0 ? allowanceComponents : data.filter(c => c.loai === 'thu_nhap'));
     } catch (error) {
       console.error('Error fetching components:', error);
     } finally {
@@ -72,20 +77,37 @@ const AllowancePolicyModal: React.FC<AllowancePolicyModalProps> = ({
   };
 
   const handleSave = async () => {
-    if (!selectedComponentId || !policyName) {
-      alert('Vui lòng nhập tên chính sách và chọn khoản phụ cấp');
+    const trimmedName = policyName.trim();
+    const validEntries = positionEntries.filter(entry => entry.vi_tri && entry.gia_tri > 0);
+    const newErrors: { component?: boolean; policyName?: boolean; entries?: boolean } = {};
+
+    if (!selectedComponentId) newErrors.component = true;
+    if (!trimmedName) newErrors.policyName = true;
+    if (validEntries.length === 0) newErrors.entries = true;
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      const messages: string[] = [];
+      if (newErrors.component) messages.push('chọn khoản phụ cấp');
+      if (newErrors.policyName) messages.push('nhập tên chính sách');
+      if (newErrors.entries) messages.push('nhập ít nhất một vị trí với số tiền lớn hơn 0');
+      alert(`Vui lòng ${messages.join(', ')}.`);
+
+      const firstErrorId = newErrors.component ? 'allowance-component' : newErrors.policyName ? 'policy-name' : 'position-entries';
+      document.getElementById(firstErrorId)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
 
+    setErrors({});
+
     try {
       setSaving(true);
-      for (const entry of positionEntries) {
-        if (!entry.vi_tri) continue;
+      for (const entry of validEntries) {
         await upsertAllowancePolicy({
           id: entry.id, // Include ID if editing
           co_so: selectedCoSo,
           thanh_phan_luong_id: selectedComponentId,
-          ten_chinh_sach: policyName,
+          ten_chinh_sach: trimmedName,
           vi_tri: entry.vi_tri,
           dinh_muc: entry.dinh_muc,
           gia_tri: entry.gia_tri
@@ -146,14 +168,19 @@ const AllowancePolicyModal: React.FC<AllowancePolicyModalProps> = ({
                   </select>
                 </div>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2" id="allowance-component">
                 <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest ml-1">Khoản phụ cấp *</label>
                 <div className="relative">
                   <Wallet className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                   <select
-                    className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-primary/20 appearance-none transition-all"
+                    className={`w-full pl-12 pr-4 py-3.5 bg-slate-50 border rounded-2xl font-bold text-sm outline-none focus:ring-2 appearance-none transition-all ${
+                      errors.component ? 'border-rose-400 ring-2 ring-rose-200' : 'border-slate-200 focus:ring-primary/20'
+                    }`}
                     value={selectedComponentId}
-                    onChange={(e) => setSelectedComponentId(e.target.value)}
+                    onChange={(e) => {
+                      setSelectedComponentId(e.target.value);
+                      if (e.target.value) setErrors(prev => ({ ...prev, component: false }));
+                    }}
                   >
                     <option value="">Chọn khoản phụ cấp...</option>
                     {components.map(c => (
@@ -162,25 +189,33 @@ const AllowancePolicyModal: React.FC<AllowancePolicyModalProps> = ({
                   </select>
                 </div>
               </div>
-              <div className="space-y-2 md:col-span-2">
+              <div className="space-y-2 md:col-span-2" id="policy-name">
                 <label className="text-[10px] font-black text-slate-700 uppercase tracking-widest ml-1">Tên chính sách *</label>
                 <input
                   type="text"
-                  className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all placeholder:text-slate-300"
+                  className={`w-full px-5 py-3.5 bg-slate-50 border rounded-2xl font-bold text-sm outline-none focus:ring-2 transition-all placeholder:text-slate-300 ${
+                    errors.policyName ? 'border-rose-400 ring-2 ring-rose-200' : 'border-slate-200 focus:ring-primary/20'
+                  }`}
                   placeholder="VD: Chính sách phụ cấp ăn trưa nhân viên kỹ thuật"
                   value={policyName}
-                  onChange={(e) => setPolicyName(e.target.value)}
+                  onChange={(e) => {
+                    setPolicyName(e.target.value);
+                    if (e.target.value.trim()) setErrors(prev => ({ ...prev, policyName: false }));
+                  }}
                 />
               </div>
             </div>
           </div>
 
           {/* Position values */}
-          <div className="space-y-6">
+          <div className="space-y-6" id="position-entries">
             <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
               <Briefcase size={14} className="text-primary" />
               Giá trị phụ cấp theo vị trí
             </h3>
+            {errors.entries && (
+              <p className="text-xs font-bold text-rose-500">Vui lòng nhập ít nhất một vị trí với số tiền lớn hơn 0.</p>
+            )}
             <div className="space-y-4">
               {/* Header cho các cột (Chỉ hiện trên desktop) */}
               <div className="hidden md:grid grid-cols-12 gap-3 px-2">

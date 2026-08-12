@@ -11,6 +11,8 @@ export const ATTENDANCE_SALARY = {
   GIA_MOT_BUA_AN: 30_000,
   PHU_CAP_CHUYEN_CAN: 200_000,
   PHU_CAP_XANG_DT: 100_000,
+  /** Phụ cấp trọ ngoài mặc định (có thể ghi đè từng dòng). */
+  PHU_CAP_TRO_NGOAI_MAC_DINH: 0,
   /** Phụ cấp thâm niên tháng: mỗi tháng làm việc (đến hết kỳ) × mức này, trần tối đa. */
   PHU_CAP_THAM_NHIEN_MOI_THANG: 50_000,
   PHU_CAP_THAM_NHIEN_TOI_DA: 600_000,
@@ -33,10 +35,14 @@ export interface BangLuongChamCongInput {
   /** Lương cơ bản tháng (VNĐ) */
   luongCoBan: number;
   soNgayCong: number;
+  /** Ngày công bổ sung (làm thêm, cộng thêm vào chấm công khi tính lương theo công). */
+  soNgayCongThem: number;
   soNgayLamTaiQuan: number;
   soNgayKhongLamTaiQuan: number;
   /** Số ngày có tăng ca (thêm 1 bữa ăn / ngày) */
   soNgayTangCaAn: number;
+  /** Phụ cấp trọ ngoài (VNĐ/tháng). */
+  phuCapTroNgoai: number;
   soGioTangCa: number;
   tongDoanhThu: number;
   phanTramHoaHong: number;
@@ -51,10 +57,13 @@ export interface BangLuongChamCongKetQua {
   luongNgay: number;
   luongGio: number;
   soBuaAn: number;
+  soBuaAnTangCa: number;
   tienAn: number;
+  tienAnTangCa: number;
   phuCapChuyenCan: number;
   phuCapXangDienThoai: number;
   phuCapThamNien: number;
+  phuCapTroNgoai: number;
   tangThemVaoLcbTheoNam: number;
   thangLamViec: number;
   gioTangCaApDung: number;
@@ -62,7 +71,11 @@ export interface BangLuongChamCongKetQua {
   hoaHong: number;
   /** % hoa hồng dùng để tính (theo kỳ hoặc từ dòng) */
   phanTramHoaHongApDung: number;
-  /** Ngày công dùng để tính lương (từ chấm công khi truyền options). */
+  /** Ngày công từ chấm công (không gồm ngày bổ sung). */
+  soNgayCongTuCham: number;
+  /** Ngày công bổ sung nhập tay. */
+  soNgayCongThem: number;
+  /** Ngày công dùng để tính lương = chấm công + bổ sung. */
   soNgayCongDung: number;
   /** lương ngày × số ngày công */
   tienTheoCong: number;
@@ -167,9 +180,19 @@ export function demSoBuaAnTheoDongCham(
   nhanSuId: string | null | undefined,
   idNhanSu: string | null | undefined = undefined
 ): number {
+  return demSoBuaAnTachTheoDongCham(cacDong, hoTen, nhanSuId, idNhanSu).tong;
+}
+
+/** Tách số bữa ăn thường và bữa ăn tăng ca từ chấm công. */
+export function demSoBuaAnTachTheoDongCham(
+  cacDong: DongChamBuaNhap[],
+  hoTen: string,
+  nhanSuId: string | null | undefined,
+  idNhanSu: string | null | undefined = undefined
+): { soBuaCoBan: number; soBuaTangCa: number; tong: number } {
   const hTen = chuanHoaCham(hoTen);
   const thu = cacDong.filter((d) => dongThuocNhanVien(d, hTen, nhanSuId, idNhanSu));
-  if (thu.length === 0) return 0;
+  if (thu.length === 0) return { soBuaCoBan: 0, soBuaTangCa: 0, tong: 0 };
   const theoNgay = new Map<string, DongChamBuaNhap[]>();
   for (const d of thu) {
     if (!d.ngay) continue;
@@ -178,7 +201,8 @@ export function demSoBuaAnTheoDongCham(
     theoNgay.set(d.ngay, list);
   }
   const G0 = MOC_TANG_CA_TINH_TU;
-  let soBua = 0;
+  let soBuaCoBan = 0;
+  let soBuaTangCa = 0;
   for (const [, dongsCuaMNgay] of theoNgay) {
     const coVao = dongsCuaMNgay.filter((d) => d.checkin && String(d.checkin).trim() !== '');
     if (coVao.length === 0) continue;
@@ -192,9 +216,10 @@ export function demSoBuaAnTheoDongCham(
     })
       ? 1
       : 0;
-    soBua += buaGoc + buaTang;
+    soBuaCoBan += buaGoc;
+    soBuaTangCa += buaTang;
   }
-  return soBua;
+  return { soBuaCoBan, soBuaTangCa, tong: soBuaCoBan + soBuaTangCa };
 }
 
 /**
@@ -261,6 +286,7 @@ export function tinhMotDong(
   options?: {
     phanTramHoaHongTheoKy?: number;
     soBuaAnTheoChamCon?: number;
+    soBuaAnTangCaTheoChamCon?: number;
     soNgayCongTheoChamCon?: number;
     /** Ghi đè cột Tăng ca (giờ) khi đã tổng hợp từ bảng chấm công. */
     soGioTangCaTheoChamCon?: number;
@@ -274,15 +300,23 @@ export function tinhMotDong(
   const luongNgay = lcbHieuLuc / D;
   const luongGio = lcbHieuLuc / D / H;
 
-  const soBuaAn =
-    options?.soBuaAnTheoChamCon === undefined
-      ? row.soNgayLamTaiQuan * 2 +
-        row.soNgayKhongLamTaiQuan * 1 +
-        (row.soNgayTangCaAn || 0)
-      : Math.max(0, options.soBuaAnTheoChamCon);
-  const tienAn = soBuaAn * ATTENDANCE_SALARY.GIA_MOT_BUA_AN;
+  let soBuaCoBan = 0;
+  let soBuaTangCa = 0;
+  if (options?.soBuaAnTheoChamCon === undefined) {
+    soBuaCoBan =
+      row.soNgayLamTaiQuan * ATTENDANCE_SALARY.BUA_MOT_NGAY_TAI_CO +
+      row.soNgayKhongLamTaiQuan * ATTENDANCE_SALARY.BUA_MOT_NGAY_NGOAI;
+    soBuaTangCa = row.soNgayTangCaAn || 0;
+  } else {
+    soBuaCoBan = Math.max(0, options.soBuaAnTheoChamCon);
+    soBuaTangCa = Math.max(0, options.soBuaAnTangCaTheoChamCon ?? 0);
+  }
+  const soBuaAn = soBuaCoBan + soBuaTangCa;
+  const tienAn = soBuaCoBan * ATTENDANCE_SALARY.GIA_MOT_BUA_AN;
+  const tienAnTangCa = soBuaTangCa * ATTENDANCE_SALARY.GIA_MOT_BUA_AN;
 
   const phuCapThamNien = phuCapThamNienTheoThang(thangLam);
+  const phuCapTroNgoai = Math.max(0, row.phuCapTroNgoai ?? ATTENDANCE_SALARY.PHU_CAP_TRO_NGOAI_MAC_DINH);
 
   const gioTangCaNguon =
     options?.soGioTangCaTheoChamCon !== undefined
@@ -299,10 +333,12 @@ export function tinhMotDong(
     gioTangCaApDung = row.loai === 'thoi_vu' ? 0 : gioTangCaApDung;
   }
 
-  const congApDung =
+  const congTuCham =
     options?.soNgayCongTheoChamCon !== undefined
       ? Math.max(0, options.soNgayCongTheoChamCon)
       : Math.max(0, row.soNgayCong);
+  const congThem = Math.max(0, row.soNgayCongThem ?? 0);
+  const congApDung = congTuCham + congThem;
   const luongTheoCong = luongNgay * congApDung;
   const phanTramHoaHongApDung =
     options?.phanTramHoaHongTheoKy != null
@@ -313,9 +349,11 @@ export function tinhMotDong(
   const tongCong =
     luongTheoCong +
     tienAn +
+    tienAnTangCa +
     ATTENDANCE_SALARY.PHU_CAP_CHUYEN_CAN +
     ATTENDANCE_SALARY.PHU_CAP_XANG_DT +
     phuCapThamNien +
+    phuCapTroNgoai +
     luongTangCa +
     hoaHong +
     Math.max(0, row.thuongKhac) -
@@ -338,16 +376,21 @@ export function tinhMotDong(
     luongNgay,
     luongGio,
     soBuaAn,
+    soBuaAnTangCa: soBuaTangCa,
     tienAn,
+    tienAnTangCa,
     phuCapChuyenCan: ATTENDANCE_SALARY.PHU_CAP_CHUYEN_CAN,
     phuCapXangDienThoai: ATTENDANCE_SALARY.PHU_CAP_XANG_DT,
     phuCapThamNien,
+    phuCapTroNgoai,
     tangThemVaoLcbTheoNam: tangLcb,
     thangLamViec: thangLam,
     gioTangCaApDung,
     luongTangCa,
     hoaHong,
     phanTramHoaHongApDung,
+    soNgayCongTuCham: congTuCham,
+    soNgayCongThem: congThem,
     soNgayCongDung: congApDung,
     tienTheoCong: luongTheoCong,
     tongCong,

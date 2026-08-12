@@ -8,11 +8,10 @@ import {
   type PayrollRevenueOrderRow,
 } from '../data/reportData';
 import { removeVietnameseTones } from '../lib/utils';
-import { formatDateVi } from '../utils/datetimeFormat';
 import { GIO_RA_CHUAN_LABEL } from '../utils/timekeeping';
 import {
   demGioTangCaTheoDongCham,
-  demSoBuaAnTheoDongCham,
+  demSoBuaAnTachTheoDongCham,
   demSoNgayCongTheoDongCham,
   type BangLuongChamCongInput,
   type LoaiNhanVien,
@@ -122,9 +121,11 @@ function emptyRow(): BangLuongChamCongInput {
     loai: 'chinh_thuc',
     luongCoBan: 0,
     soNgayCong: 0,
+    soNgayCongThem: 0,
     soNgayLamTaiQuan: 0,
     soNgayKhongLamTaiQuan: 0,
     soNgayTangCaAn: 0,
+    phuCapTroNgoai: 0,
     soGioTangCa: 0,
     tongDoanhThu: 0,
     phanTramHoaHong: 0,
@@ -167,7 +168,7 @@ function loadSheet(
 
 type NumKey = keyof Pick<
   BangLuongChamCongInput,
-  'luongCoBan' | 'soGioTangCa' | 'tongDoanhThu'
+  'luongCoBan' | 'soGioTangCa' | 'tongDoanhThu' | 'soNgayCongThem'
 >;
 
 /** Các năm trong Kỳ; luôn gộp `namDangChon` để select không bị trống khi nằm ngoài dải mặc định. */
@@ -305,7 +306,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
         const nhanMeta = nhanTheoChuanTen.get(chuanHoaTenSoSanh(r.hoTen));
         const nhanId = nhanMeta?.id;
         const idNhanSu = nhanMeta?.idNhanSu ?? undefined;
-        const b = demSoBuaAnTheoDongCham(chamDong, r.hoTen, nhanId, idNhanSu);
+        const b = demSoBuaAnTachTheoDongCham(chamDong, r.hoTen, nhanId, idNhanSu);
         const c = demSoNgayCongTheoDongCham(chamDong, r.hoTen, nhanId, idNhanSu);
         const gTcTuCham =
           chamDong.length > 0
@@ -316,7 +317,8 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
           gTcTuCham,
           kq: tinhMotDong(r, nam, thang, {
             phanTramHoaHongTheoKy: phanTramHoaHongKy,
-            soBuaAnTheoChamCon: b,
+            soBuaAnTheoChamCon: chamDong.length > 0 ? b.soBuaCoBan : undefined,
+            soBuaAnTangCaTheoChamCon: chamDong.length > 0 ? b.soBuaTangCa : undefined,
             soNgayCongTheoChamCon: c,
             soGioTangCaTheoChamCon: gTcTuCham,
           }),
@@ -341,7 +343,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
   );
 
   const setTien = useCallback(
-    (id: string, key: 'luongCoBan' | 'tongDoanhThu', raw: string) => {
+    (id: string, key: 'luongCoBan' | 'tongDoanhThu' | 'phuCapTroNgoai', raw: string) => {
       updateRow(id, { [key]: parseTienNhap(raw) } as Partial<BangLuongChamCongInput>);
     },
     [updateRow]
@@ -567,30 +569,26 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                 {thCell('Họ tên', 'Tên nhân viên')}
                 {thCell(
                   'Doanh số tháng',
-                  'Tổng thành tiền chi tiết đơn trong tháng kỳ (fallback tong_tien); ghép theo Họ tên; nhiều NV trên đơn chia đều'
+                  'Tổng thành tiền đơn trong tháng kỳ — dùng tính hoa hồng'
                 )}
                 {thCell('Loại', 'Chính thức / thời vụ')}
-                {thCell('LCB', 'Lương cơ bản (tháng)')}
+                {thCell('Lương', 'Lương cơ bản tháng (LCB hiệu lực = LCB + cộng thâm niên vào LCB)')}
                 {thCell(
-                  'Thâm niên',
-                  'Số tháng làm việc đến hết tháng kỳ đang chọn, từ ngày bắt đầu làm trên dòng (ưu tiên Ngày vào làm trong Nhân sự khi khớp tên). Dùng để cộng vào LCB và phụ cấp thâm niên.'
+                  'Ngày công',
+                  '28 ngày = 1 tháng lương. Số công từ chấm công + ô « + » nhập thêm ngày làm thêm. Tiền = (LCB ÷ 28) × tổng ngày công.'
                 )}
-                {thCell('Công', 'Số ngày có bản ghi chấm công (có check-in) trong tháng đang chọn')}
+                {thCell('Chuyên cần', 'Phụ cấp chuyên cần')}
                 {thCell(
-                  'Lương theo công',
-                  'Lương theo công = lương ngày × số công. Lương ngày = (LCB + cộng thâm niên vào LCB) ÷ 28 (bảng 28/8), không phải LCB tháng × công thô'
+                  'Tăng ca',
+                  `Tiền tăng ca = giờ tăng ca × lương giờ × ${1.5} (tối đa 25h/tháng, chỉ nhân viên chính thức)`
                 )}
-                {thCell('Tăng ca', 'Số giờ tăng ca')}
-                {thCell('Bữa', 'Số bữa ăn theo bảng chấm công tháng')}
-                {thCell('Ăn', 'Tiền ăn = số bữa × giá 1 bữa (từ chấm công)')}
-                {thCell('Phụ cấp chuyên cần', 'Mức phụ cấp chuyên cần trong bảng lương')}
-                {thCell('Phụ cấp xăng và điện thoại', 'Phụ cấp xăng xe và điện thoại')}
-                {thCell(
-                  'Phụ cấp thâm niên tháng',
-                  '50.000đ × số tháng làm việc đến hết kỳ (cột Thâm niên), tối đa 600.000đ'
-                )}
-                {thCell('Tiền hoa hồng tháng', 'Doanh số tháng × phần trăm hoa hồng tháng (ô % HH ở trên)')}
-                {thCell('Tổng', 'Tổng cộng')}
+                {thCell('Xăng xe điện thoại', 'Phụ cấp xăng xe và điện thoại')}
+                {thCell('Thâm niên', '50.000đ × số tháng làm việc, tối đa 600.000đ')}
+                {thCell('Trọ ngoài', 'Phụ cấp trọ ngoài (nhập theo từng nhân viên)')}
+                {thCell('Tiền ăn', 'Số bữa ăn thường × 30.000đ (từ chấm công)')}
+                {thCell('Tiền ăn tăng ca', 'Bữa ăn bổ sung khi checkout sau 19:40 × 30.000đ')}
+                {thCell('Tiền % hoa hồng', 'Doanh số tháng × % hoa hồng (ô HH ở trên)')}
+                {thCell('Tổng lương', 'Tổng các khoản thu nhập')}
                 {thCell('Ghi chú', 'Cảnh báo')}
                 <th className="sticky top-0 right-0 z-[2] bg-muted/80 backdrop-blur border-b border-l border-border px-2 py-3 text-center text-xs sm:text-sm font-semibold text-muted-foreground whitespace-nowrap w-14">
                   Xóa
@@ -670,62 +668,101 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                         )}
                         title={
                           khopNhanSu
-                            ? 'Lương cơ bản lấy từ Nhân sự (cột Lương cơ bản); sửa tại trang Nhân sự.'
+                            ? 'Lương cơ bản lấy từ Nhân sự; sửa tại trang Nhân sự.'
                             : 'Nhập LCB thủ công khi chưa có hồ sơ nhân sự trùng tên'
                         }
                         readOnly={khopNhanSu}
                         value={formatTienNhap(input.luongCoBan)}
                         onChange={(e) => setTien(input.id, 'luongCoBan', e.target.value)}
                       />
+                      {kq.tangThemVaoLcbTheoNam > 0 && (
+                        <div
+                          className="text-[10px] text-muted-foreground text-right mt-0.5"
+                          title="LCB hiệu lực sau cộng thâm niên"
+                        >
+                          HL: {formatVnd(kq.lcbHieuLuc)}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-2 py-1.5 min-w-[9rem]">
+                      <div className="flex items-center justify-center gap-1">
+                        <span
+                          className="tabular-nums font-medium text-sm"
+                          title="Ngày công từ chấm công"
+                        >
+                          {kq.soNgayCongTuCham}
+                        </span>
+                        <span className="text-muted-foreground text-xs">+</span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          className="w-10 min-h-8 text-sm bg-transparent border border-border/60 rounded-md px-1 py-1 text-center font-mono"
+                          title="Thêm số ngày làm thêm (cộng vào ngày công)"
+                          value={String(input.soNgayCongThem ?? 0)}
+                          onChange={(e) => setNum(input.id, 'soNgayCongThem', e.target.value)}
+                        />
+                      </div>
+                      <div
+                        className="text-right font-mono text-sm mt-1 whitespace-nowrap"
+                        title={`(${formatVnd(kq.lcbHieuLuc)} ÷ 28) × ${kq.soNgayCongDung} ngày`}
+                      >
+                        {formatVnd(kq.tienTheoCong)}
+                      </div>
+                    </td>
+                    <td className="px-2.5 py-2.5 text-right font-mono whitespace-nowrap text-sm">
+                      {formatVnd(kq.phuCapChuyenCan)}
                     </td>
                     <td
-                      className="px-2.5 py-2.5 text-center tabular-nums text-muted-foreground whitespace-nowrap w-12 text-sm"
+                      className="px-2.5 py-2.5 text-right font-mono whitespace-nowrap text-sm"
                       title={
-                        input.ngayBatDauLam
-                          ? `Số tháng làm việc đến hết ${String(thang).padStart(2, '0')}/${nam}. Mốc: ${formatDateVi(input.ngayBatDauLam)}`
-                          : 'Chưa có ngày bắt đầu làm — khớp Nhân sự (Ngày vào làm) hoặc bổ sung trong dữ liệu'
+                        gTcTuCham !== undefined
+                          ? `${kq.gioTangCaApDung}h tăng ca (từ chấm công, sau ${GIO_RA_CHUAN_LABEL})`
+                          : `${input.soGioTangCa}h tăng ca (nhập tay)`
                       }
                     >
-                      {(input.ngayBatDauLam || '').trim() ? kq.thangLamViec : '—'}
+                      {formatVnd(kq.luongTangCa)}
+                    </td>
+                    <td className="px-2.5 py-2.5 text-right font-mono whitespace-nowrap text-sm">
+                      {formatVnd(kq.phuCapXangDienThoai)}
                     </td>
                     <td
-                      className="px-2.5 py-2.5 text-center tabular-nums font-medium text-foreground text-sm"
-                      title="Số ngày có chấm công (cùng tháng/kỳ)"
+                      className="px-2.5 py-2.5 text-right font-mono whitespace-nowrap text-sm"
+                      title={
+                        input.ngayBatDauLam
+                          ? `${kq.thangLamViec} tháng làm việc đến hết ${String(thang).padStart(2, '0')}/${nam}`
+                          : 'Chưa có ngày vào làm'
+                      }
                     >
-                      {kq.soNgayCongDung}
-                    </td>
-                    <td className="px-2.5 py-2.5 text-right font-mono whitespace-nowrap text-sm" title="(LCB hiệu lực ÷ 28) × công">
-                      {formatVnd(kq.tienTheoCong)}
+                      {formatVnd(kq.phuCapThamNien)}
                     </td>
                     <td className="px-2 py-1.5">
                       <input
                         type="text"
                         inputMode="numeric"
-                        className="w-[4.5rem] min-h-10 text-sm bg-transparent border border-border/60 rounded-md px-2 py-1.5 text-right font-mono"
-                        title={
-                          gTcTuCham !== undefined
-                            ? `Giờ tăng ca từ chấm công (sau ${GIO_RA_CHUAN_LABEL}; mỗi ngày giờ ra muộn nhất; khớp tên / mã NV)`
-                            : 'Nhập giờ tăng ca thủ công khi chưa có dữ liệu chấm công tháng'
-                        }
-                        readOnly={gTcTuCham !== undefined}
-                        value={String(gTcTuCham !== undefined ? gTcTuCham : input.soGioTangCa)}
-                        onChange={(e) => setNum(input.id, 'soGioTangCa', e.target.value)}
+                        className="w-28 min-w-0 min-h-10 text-sm bg-transparent border border-border/60 rounded-md px-2 py-1.5 text-right font-mono"
+                        title="Phụ cấp trọ ngoài"
+                        value={formatTienNhap(input.phuCapTroNgoai ?? 0)}
+                        onChange={(e) => setTien(input.id, 'phuCapTroNgoai', e.target.value)}
                       />
                     </td>
-                    <td className="px-2.5 py-2.5 text-center tabular-nums text-muted-foreground text-sm">
-                      {kq.soBuaAn}
+                    <td
+                      className="px-2.5 py-2.5 text-right font-mono whitespace-nowrap text-sm"
+                      title={`${kq.soBuaAn - kq.soBuaAnTangCa} bữa × 30.000đ`}
+                    >
+                      {formatVnd(kq.tienAn)}
                     </td>
-                    <td className="px-2.5 py-2.5 text-right font-mono whitespace-nowrap text-sm">{formatVnd(kq.tienAn)}</td>
-                    <td className="px-2.5 py-2.5 text-right font-mono whitespace-nowrap text-sm">
-                      {formatVnd(kq.phuCapChuyenCan)}
+                    <td
+                      className="px-2.5 py-2.5 text-right font-mono whitespace-nowrap text-sm"
+                      title={`${kq.soBuaAnTangCa} bữa tăng ca × 30.000đ`}
+                    >
+                      {formatVnd(kq.tienAnTangCa)}
                     </td>
-                    <td className="px-2.5 py-2.5 text-right font-mono whitespace-nowrap text-sm">
-                      {formatVnd(kq.phuCapXangDienThoai)}
+                    <td
+                      className="px-2.5 py-2.5 text-right font-mono whitespace-nowrap text-sm"
+                      title={`${kq.phanTramHoaHongApDung}% × ${formatVnd(input.tongDoanhThu)}`}
+                    >
+                      {formatVnd(kq.hoaHong)}
                     </td>
-                    <td className="px-2.5 py-2.5 text-right font-mono whitespace-nowrap text-sm">
-                      {formatVnd(kq.phuCapThamNien)}
-                    </td>
-                    <td className="px-2.5 py-2.5 text-right font-mono whitespace-nowrap text-sm">{formatVnd(kq.hoaHong)}</td>
                     <td className="px-2.5 py-2.5 text-right font-bold text-primary whitespace-nowrap text-sm">
                       {formatVnd(kq.tongCong)}
                     </td>

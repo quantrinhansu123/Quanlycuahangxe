@@ -316,7 +316,10 @@ const AllowancePolicyPage: React.FC = () => {
 
       <AllowancePolicyModal 
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingPolicy(null);
+        }}
         onSuccess={fetchData}
         initialData={editingPolicy}
       />
