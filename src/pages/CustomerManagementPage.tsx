@@ -948,7 +948,7 @@ const CustomerManagementPage: React.FC = () => {
         isOpen={isDetailsOpen}
         onClose={handleCloseDetails}
         customer={selectedCustomer}
-        canViewRevenue={canViewRevenue}
+        canViewRevenue={true}
       />
 
     </div>
