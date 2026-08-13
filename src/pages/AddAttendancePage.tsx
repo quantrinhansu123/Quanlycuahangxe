@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import {
   formatAttendanceSaveError,
+  createAttendanceRecord,
   getAttendancePaginated,
   getNextAttendanceId,
   getStaffAttendanceNameVariants,
@@ -13,7 +14,7 @@ import {
   upsertAttendanceRecord,
   type AttendanceRecord
 } from '../data/attendanceData';
-import { formatTime24h, formatDateVi } from '../utils/datetimeFormat';
+import { formatDateVi, formatLocalIsoDate, formatTime24h } from '../utils/datetimeFormat';
 import DateInputVi from '../components/ui/DateInputVi';
 import {
   getPersonnel,
@@ -42,6 +43,7 @@ const AddAttendancePage: React.FC = () => {
   const [monthlyRecords, setMonthlyRecords] = useState<AttendanceRecord[]>([]);
   const [locationLoading, setLocationLoading] = useState(false);
   const watchIdRef = useRef<number | null>(null);
+  const submittingRef = useRef(false);
 
   useEffect(() => {
     const initData = async () => {
@@ -50,7 +52,7 @@ const AddAttendancePage: React.FC = () => {
         const personnelData = await getPersonnel();
         setPersonnel(personnelData);
 
-        const todayStr = new Date().toISOString().split('T')[0];
+        const todayStr = formatLocalIsoDate();
 
         const staffName = resolveStaffNameForUser(nhanVien, personnelData);
         const staffNames = getStaffAttendanceNameVariants(nhanVien, personnelData);
@@ -81,8 +83,8 @@ const AddAttendancePage: React.FC = () => {
 
         // Load monthly records for stats
         const now = new Date();
-        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-        const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+        const monthStart = formatLocalIsoDate(new Date(now.getFullYear(), now.getMonth(), 1));
+        const monthEnd = formatLocalIsoDate(new Date(now.getFullYear(), now.getMonth() + 1, 0));
 
         const { data: monthData } = await getAttendancePaginated(1, 100, staffNames, '', {
           startDate: monthStart,
@@ -164,33 +166,38 @@ const AddAttendancePage: React.FC = () => {
   };
 
   const handleQuickSubmit = async (type: 'checkin' | 'checkout') => {
+    if (submittingRef.current) return;
+
+    const hasCheckin = Boolean(formData.checkin);
+    const hasCheckout = Boolean(formData.checkout);
+    if (type === 'checkin' && hasCheckin && !hasCheckout) {
+      showToast('Bạn đã chấm giờ vào. Hãy chấm giờ ra trước khi bắt đầu lượt mới.', 'warning');
+      return;
+    }
+    if (type === 'checkout' && hasCheckout) {
+      showToast('Bạn đã chấm giờ ra cho lượt hiện tại.', 'warning');
+      return;
+    }
+
+    submittingRef.current = true;
     setSubmitting(true);
     const now = formatTime24h(new Date(), false);
 
-    // Check if this type already has a value (duplicate press)
-    const existingValue = type === 'checkin' ? formData.checkin : formData.checkout;
-    const isDuplicate = !!existingValue;
-
     try {
-      if (isDuplicate) {
-        // Create a NEW record in DB (separate row) to preserve both presses
-        const newId = await getNextAttendanceId();
-        const newRecord: Partial<AttendanceRecord> = {
-          id_cham_cong: newId,
-          nhan_su: formData.nhan_su,
-          ngay: formData.ngay,
-          checkin: type === 'checkin' ? now : null,
-          checkout: type === 'checkout' ? now : null,
+      if (type === 'checkin' && hasCheckin && hasCheckout) {
+        // Lượt làm mới chỉ bắt đầu sau khi lượt trước đã có đủ giờ vào/ra.
+        const savedRecord = await createAttendanceRecord({
+          nhan_su: formData.nhan_su || '',
+          ngay: formData.ngay || formatLocalIsoDate(),
+          checkin: now,
+          checkout: null,
           vi_tri: formData.vi_tri || null,
           anh: formData.anh || null,
-        };
+        });
 
-        const savedRecord = await upsertAttendanceRecord(newRecord);
-
-        // Update local stats list
+        setFormData(savedRecord);
         setMonthlyRecords(prev => [savedRecord, ...prev]);
-
-        showToast(`Bấm ${type === 'checkin' ? 'giờ vào' : 'giờ ra'} mới thành công`, 'warning');
+        showToast('Bắt đầu lượt làm mới thành công', 'success');
       } else {
         // First press: update the current record
         const updatedData = { ...formData, [type]: now };
@@ -217,6 +224,7 @@ const AddAttendancePage: React.FC = () => {
     } catch (error: unknown) {
       showToast(`Không thể lưu chấm công: ${formatAttendanceSaveError(error)}`, 'error');
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   };

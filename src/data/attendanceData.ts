@@ -385,3 +385,37 @@ export const getAttendancePaginated = async (
     totalCount: count || 0
   };
 };
+
+/**
+ * Tải đủ bản ghi theo bộ lọc. Dùng khi cần tổng hợp theo người/ngày trước khi
+ * phân trang; tránh việc một người bị hiểu nhầm là vắng chỉ vì bản ghi nằm ở trang sau.
+ */
+export const getAllAttendanceRecords = async (
+  staffName?: StaffNameFilter,
+  searchQuery?: string,
+  filters?: AttendanceFilters
+): Promise<AttendanceRecord[]> => {
+  const chunkSize = 500;
+  const allRows: AttendanceRecord[] = [];
+
+  for (let page = 1; ; page += 1) {
+    const result = await getAttendancePaginated(
+      page,
+      chunkSize,
+      staffName,
+      searchQuery,
+      filters
+    );
+    allRows.push(...result.data);
+
+    if (
+      result.data.length === 0 ||
+      result.totalCount === 0 ||
+      allRows.length >= result.totalCount
+    ) {
+      break;
+    }
+  }
+
+  return allRows;
+};

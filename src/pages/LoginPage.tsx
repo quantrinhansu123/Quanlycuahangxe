@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, type NhanVien } from '../context/AuthContext';
 import { getLoginRedirectPath } from '../data/viewPermissions';
 import { supabase } from '../lib/supabase';
 
@@ -81,7 +81,7 @@ const callPhoneLoginRpc = async (phone: string, password: string): Promise<{
 };
 
 const LoginPage: React.FC = () => {
-  const { session, isLoading, nhanVien, isAdmin } = useAuth();
+  const { session, isLoading, nhanVien, isAdmin, persistLogin } = useAuth();
   const routeLocation = useLocation();
   const navigate = useNavigate();
   const [phone, setPhone] = useState('');
