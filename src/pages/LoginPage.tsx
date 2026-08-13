@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth, type NhanVien } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 import { getLoginRedirectPath } from '../data/viewPermissions';
 import { supabase } from '../lib/supabase';
-import { AUTH_DEMO_ROLE_KEY } from '../lib/authStorage';
 
 interface PhoneLoginResult {
   id: string;
@@ -82,7 +81,7 @@ const callPhoneLoginRpc = async (phone: string, password: string): Promise<{
 };
 
 const LoginPage: React.FC = () => {
-  const { session, isLoading, nhanVien, isAdmin, persistLogin } = useAuth();
+  const { session, isLoading, nhanVien, isAdmin } = useAuth();
   const routeLocation = useLocation();
   const navigate = useNavigate();
   const [phone, setPhone] = useState('');
@@ -103,22 +102,6 @@ const LoginPage: React.FC = () => {
       fromPath ?? getLoginRedirectPath(nhanVien?.vi_tri, isAdmin, nhanVien?.co_so);
     return <Navigate to={redirectTo} replace />;
   }
-
-  const handleDemoLogin = (role: 'admin' | 'nhanvien') => {
-    localStorage.setItem(AUTH_DEMO_ROLE_KEY, role);
-    const demoNV: NhanVien = {
-      id: 'demo-nv-uuid',
-      id_nhan_su: 'DEMO-001',
-      ho_ten: role === 'admin' ? 'Demo Quản trị viên' : 'Demo Nhân viên',
-      vi_tri: role === 'admin' ? 'Chủ cửa hàng' : 'Kỹ thuật viên',
-      co_so: 'Cơ sở Bắc Ninh',
-      email: 'demo@example.com',
-      auth_user_id: 'demo-uuid',
-    };
-    persistLogin(demoNV);
-    const homePath = getLoginRedirectPath(demoNV.vi_tri, role === 'admin', demoNV.co_so);
-    navigate(homePath, { replace: true });
-  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -234,31 +217,6 @@ const LoginPage: React.FC = () => {
             >
               {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
             </button>
-
-            <div className="relative flex items-center gap-2 my-1">
-              <div className="flex-1 h-px bg-border" />
-              <span className="text-xs text-muted-foreground">hoặc thử demo</span>
-              <div className="flex-1 h-px bg-border" />
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => handleDemoLogin('admin')}
-                className="flex-1 py-2 rounded-xl border border-border text-sm font-medium
-                           hover:bg-muted transition-colors text-foreground"
-              >
-                Demo Admin
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDemoLogin('nhanvien')}
-                className="flex-1 py-2 rounded-xl border border-border text-sm font-medium
-                           hover:bg-muted transition-colors text-foreground"
-              >
-                Demo Nhân viên
-              </button>
-            </div>
           </form>
         </div>
 
