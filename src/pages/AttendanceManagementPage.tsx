@@ -30,7 +30,7 @@ import {
   createAttendanceRecord,
   deleteAttendanceRecord,
   formatAttendanceSaveError,
-  getAttendancePaginated,
+  getAllAttendanceRecords,
   getAttendanceRecords,
   getStaffAttendanceNameVariants,
   resolveStaffNameForUser,
@@ -38,7 +38,7 @@ import {
   upsertAttendanceRecord
 } from '../data/attendanceData';
 import { getPersonnel, type NhanSu } from '../data/personnelData';
-import { formatDateTime24h, formatDateVi } from '../utils/datetimeFormat';
+import { formatDateTime24h, formatDateVi, formatLocalIsoDate } from '../utils/datetimeFormat';
 import DateInputVi from '../components/ui/DateInputVi';
 import {
   calculateAttendanceStatus,
@@ -48,6 +48,28 @@ import {
   overtimeMinutesForDayShifts,
   parseTimeStringToMinutes,
 } from '../utils/timekeeping';
+
+type DisplayAttendanceRecord = AttendanceRecord & { isMockAbsent?: boolean };
+
+interface DailyAttendanceStat {
+  present: number;
+  total: number;
+}
+
+const attendancePersonnelKey = (name: string, personnel: NhanSu[]): string => {
+  const matched = personnel.find(
+    (p) =>
+      staffNamesMatch(name, p.ho_ten) ||
+      (p.id_nhan_su != null && staffNamesMatch(name, p.id_nhan_su))
+  );
+  return matched ? `personnel:${matched.id}` : `name:${name.trim().toLowerCase()}`;
+};
+
+const hasAttendanceTime = (record: AttendanceRecord): boolean =>
+  Boolean(
+    (record.checkin && String(record.checkin).trim()) ||
+    (record.checkout && String(record.checkout).trim())
+  );
 
 const AttendanceManagementPage: React.FC = () => {
   const { nhanVien, isAdmin, canModifyData, isTechnician, hasViewAccess } = useAuth();
@@ -78,12 +100,15 @@ const AttendanceManagementPage: React.FC = () => {
     tongPhutMuon: 0,
     tongBuoiNghi: 0,
   });
+  const [dailyAttendanceStats, setDailyAttendanceStats] = useState<Record<string, DailyAttendanceStat>>({});
 
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isNewRecord, setIsNewRecord] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const savingRef = useRef(false);
   const [formData, setFormData] = useState<Partial<AttendanceRecord>>({});
   const [originalRecord, setOriginalRecord] = useState<AttendanceRecord | null>(null);
   const [showHistoryRecord, setShowHistoryRecord] = useState<AttendanceRecord | null>(null);
@@ -139,57 +164,47 @@ const AttendanceManagementPage: React.FC = () => {
         : isAdmin
           ? undefined
           : selfStaffNames;
+      const selectedPersonnel = selectedStaff
+        ? personnelData.find((p) => staffNamesMatch(p.ho_ten, selectedStaff))
+        : undefined;
       const staffFilter = restrictToSelf
         ? undefined
-        : selectedStaff || undefined;
+        : selectedStaff
+          ? [selectedStaff, selectedPersonnel?.id_nhan_su].filter(
+              (value): value is string => Boolean(value)
+            )
+          : undefined;
 
       if (restrictToSelf && selfStaffNames.length === 0) {
         setRecords([]);
         setTotalCount(0);
         setSummaryStats({ tongCong: 0, tongPhutMuon: 0, tongBuoiNghi: 0 });
+        setDailyAttendanceStats({});
         setPersonnel(personnelData);
         return;
       }
 
-      const [attendanceResult, allForSummary] = await Promise.all([
-        getAttendancePaginated(
-          currentPage,
-          pageSize,
-          staffScope,
-          debouncedSearch,
-          {
-            nhan_su: staffFilter,
-            startDate,
-            endDate,
-          }
-        ),
-        getAttendancePaginated(
-          1,
-          5000,
-          staffScope,
-          debouncedSearch,
-          {
-            nhan_su: staffFilter,
-            startDate,
-            endDate,
-          }
-        ),
-      ]);
+      // Tải đủ dữ liệu trước khi ghép Có mặt/Vắng. Nếu phân trang DB trước bước này,
+      // bản ghi mới sẽ chiếm chỗ và làm người ở cuối trang bị hiểu nhầm là vắng.
+      const summaryRows = await getAllAttendanceRecords(
+        staffScope,
+        debouncedSearch,
+        {
+          nhan_su: staffFilter,
+          startDate,
+          endDate,
+        }
+      );
 
-      let finalRecords = [...attendanceResult.data];
-      let totalCount = attendanceResult.totalCount;
-
-      // MOCK ABSENCE LOGIC: For every distinct date in the fetched data,
-      // inject 'Absent' records for personnel who did not check in.
       let datesToProcess: string[] = [];
-      if (attendanceResult.data.length > 0) {
-        datesToProcess = Array.from(new Set(attendanceResult.data.map(r => r.ngay).filter(Boolean)));
+      if (summaryRows.length > 0) {
+        datesToProcess = Array.from(new Set(summaryRows.map(r => r.ngay).filter(Boolean)));
       } else if (startDate && endDate && startDate === endDate) {
         datesToProcess = [startDate];
       }
 
-      const todayString = new Date().toISOString().split('T')[0];
-      if (currentPage === 1 && !endDate && !datesToProcess.includes(todayString)) {
+      const todayString = formatLocalIsoDate();
+      if (!endDate && !datesToProcess.includes(todayString)) {
          if (!startDate || startDate <= todayString) {
             datesToProcess.unshift(todayString);
          }
@@ -212,34 +227,24 @@ const AttendanceManagementPage: React.FC = () => {
       });
 
       // —— Tổng hợp theo bộ lọc ——
-      const summaryRows = allForSummary.data;
       const workDayKeys = new Set<string>();
       let tongPhutMuon = 0;
 
-      const byPersonDay: Record<string, AttendanceRecord[]> = {};
+      const byPersonDay = new Map<string, AttendanceRecord[]>();
       for (const r of summaryRows) {
         if (!r.ngay || !r.nhan_su) continue;
-        const key = `${r.ngay}|||${r.nhan_su.trim().toLowerCase()}`;
-        if (!byPersonDay[key]) byPersonDay[key] = [];
-        byPersonDay[key].push(r);
+        const key = `${r.ngay}|||${attendancePersonnelKey(r.nhan_su, personnelData)}`;
+        const rows = byPersonDay.get(key) || [];
+        rows.push(r);
+        byPersonDay.set(key, rows);
       }
 
+      const personDayKey = (date: string, p: NhanSu) =>
+        `${date}|||personnel:${p.id}`;
       const personPresentOnDate = (date: string, p: NhanSu) =>
-        Object.entries(byPersonDay).some(([key, rows]) => {
-          if (!key.startsWith(`${date}|||`)) return false;
-          const name = key.slice(date.length + 3);
-          const nameMatch =
-            staffNamesMatch(name, p.ho_ten) ||
-            (p.id_nhan_su != null && staffNamesMatch(name, p.id_nhan_su));
-          if (!nameMatch) return false;
-          return rows.some(
-            (r) =>
-              (r.checkin && String(r.checkin).trim()) ||
-              (r.checkout && String(r.checkout).trim())
-          );
-        });
+        (byPersonDay.get(personDayKey(date, p)) || []).some(hasAttendanceTime);
 
-      Object.entries(byPersonDay).forEach(([, dayRows]) => {
+      byPersonDay.forEach((dayRows) => {
         let dayLateMinutes = 0;
         dayRows.forEach((r) => {
           const st = calculateAttendanceStatus(r.checkin, r.checkout);
@@ -248,7 +253,7 @@ const AttendanceManagementPage: React.FC = () => {
         if (dayLateMinutes > 0) tongPhutMuon += dayLateMinutes;
       });
 
-      Object.entries(byPersonDay).forEach(([key, dayRows]) => {
+      byPersonDay.forEach((dayRows, key) => {
         if (dayRows.some((r) => r.checkin && String(r.checkin).trim())) {
           workDayKeys.add(key);
         }
@@ -285,17 +290,13 @@ const AttendanceManagementPage: React.FC = () => {
         tongBuoiNghi,
       });
 
+      const finalRecords: DisplayAttendanceRecord[] = [...summaryRows];
       datesToProcess.forEach(date => {
-         const dayRecords = attendanceResult.data.filter(r => r.ngay === date);
-
-         const absentees = relevantPersonnel.filter(p =>
-           !dayRecords.some(r =>
-             staffNamesMatch(r.nhan_su, p.ho_ten) ||
-             (p.id_nhan_su != null && staffNamesMatch(r.nhan_su, p.id_nhan_su))
-           )
+         const absentees = relevantPersonnel.filter(
+           (p) => !byPersonDay.has(personDayKey(date, p))
          );
 
-         const fakeAbsentRecords: AttendanceRecord[] = absentees.map(p => ({
+         const fakeAbsentRecords: DisplayAttendanceRecord[] = absentees.map(p => ({
            id: `fake-absent-${date}-${p.id}`,
            id_cham_cong: null,
            nhan_su: p.ho_ten,
@@ -305,14 +306,47 @@ const AttendanceManagementPage: React.FC = () => {
            anh: p.hinh_anh || null,
            vi_tri: null,
            isMockAbsent: true
-         } as AttendanceRecord & { isMockAbsent?: boolean }));
+         }));
 
-         finalRecords = [...finalRecords, ...fakeAbsentRecords];
+         finalRecords.push(...fakeAbsentRecords);
       });
 
-      setRecords(finalRecords);
-      setTotalCount(totalCount);
+      // Giữ vị trí của mỗi nhân sự ổn định: Vắng -> Có mặt không làm xáo trộn
+      // danh sách, còn nhiều lượt trong ngày vẫn nằm cạnh nhau.
+      finalRecords.sort((a, b) => {
+        const dateOrder = (b.ngay || '').localeCompare(a.ngay || '');
+        if (dateOrder !== 0) return dateOrder;
+        const personA = attendancePersonnelKey(a.nhan_su, personnelData);
+        const personB = attendancePersonnelKey(b.nhan_su, personnelData);
+        const personOrder = personA.localeCompare(personB, 'vi');
+        if (personOrder !== 0) return personOrder;
+        if (Boolean(a.isMockAbsent) !== Boolean(b.isMockAbsent)) return a.isMockAbsent ? 1 : -1;
+        return (a.created_at || '').localeCompare(b.created_at || '');
+      });
+
+      const nextDailyStats: Record<string, DailyAttendanceStat> = {};
+      for (const date of datesToProcess) {
+        const totalPeople = new Set<string>();
+        const presentPeople = new Set<string>();
+
+        relevantPersonnel.forEach((p) => totalPeople.add(`personnel:${p.id}`));
+        summaryRows.forEach((r) => {
+          if (r.ngay !== date || !r.nhan_su) return;
+          const key = attendancePersonnelKey(r.nhan_su, personnelData);
+          totalPeople.add(key);
+          if (hasAttendanceTime(r)) presentPeople.add(key);
+        });
+        nextDailyStats[date] = { present: presentPeople.size, total: totalPeople.size };
+      }
+
+      const totalPages = Math.max(1, Math.ceil(finalRecords.length / pageSize));
+      const safePage = Math.min(currentPage, totalPages);
+      const from = (safePage - 1) * pageSize;
+      setRecords(finalRecords.slice(from, from + pageSize));
+      setTotalCount(finalRecords.length);
+      setDailyAttendanceStats(nextDailyStats);
       setPersonnel(personnelData);
+      if (safePage !== currentPage) setCurrentPage(safePage);
     } catch (error) {
       console.error(error);
     } finally {
@@ -417,9 +451,10 @@ const AttendanceManagementPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canModifyData) {
-      return;
-    }
+    if (!canModifyData || savingRef.current) return;
+
+    savingRef.current = true;
+    setIsSaving(true);
     try {
       const updatedData = { ...formData };
 
@@ -485,6 +520,9 @@ const AttendanceManagementPage: React.FC = () => {
       handleCloseModal();
     } catch (error) {
       alert(`Lỗi: ${formatAttendanceSaveError(error)}`);
+    } finally {
+      savingRef.current = false;
+      setIsSaving(false);
     }
   };
 
@@ -567,7 +605,7 @@ const AttendanceManagementPage: React.FC = () => {
           if (val === undefined || val === null || val === '') return null;
           if (typeof val === 'number' && val > 40000) {
             const d = new Date(Math.round((val - 25569) * 86400 * 1000));
-            return d.toISOString().split('T')[0];
+            return formatLocalIsoDate(d);
           }
           const s = String(val).trim();
           return s || null;
@@ -582,7 +620,7 @@ const AttendanceManagementPage: React.FC = () => {
 
           // Fuzzy Mapping
           const nhan_su = String(norm["Nhân sự"] || norm["Họ tên Nhân viên"] || norm["Họ tên"] || '').trim();
-          const ngay = formatExcelDate(norm["Ngày"]) || new Date().toISOString().split('T')[0];
+          const ngay = formatExcelDate(norm["Ngày"]) || formatLocalIsoDate();
 
           // Skip if no personnel name
           if (!nhan_su || nhan_su === 'undefined' || nhan_su === '') {
@@ -729,13 +767,6 @@ const AttendanceManagementPage: React.FC = () => {
 
   const selfDisplayName = resolveStaffNameForUser(nhanVien, personnel);
 
-  const toLocalIsoDate = (d: Date) => {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-  };
-
   const handleMonthChange = (monthStr: string) => {
     setSelectedMonth(monthStr);
     setCurrentPage(1);
@@ -745,8 +776,8 @@ const AttendanceManagementPage: React.FC = () => {
       return;
     }
     const [year, month] = monthStr.split('-').map(Number);
-    setStartDate(toLocalIsoDate(new Date(year, month - 1, 1)));
-    setEndDate(toLocalIsoDate(new Date(year, month, 0)));
+    setStartDate(formatLocalIsoDate(new Date(year, month - 1, 1)));
+    setEndDate(formatLocalIsoDate(new Date(year, month, 0)));
   };
 
   const clearDateFilters = () => {
@@ -1014,7 +1045,9 @@ const AttendanceManagementPage: React.FC = () => {
                               {formatDateForDisplay(date)}
                            </div>
                            <span className="text-[11px] text-muted-foreground lowercase font-medium bg-white/50 px-2 py-0.5 rounded border border-border tracking-normal">
-                             Tổng: {dateRecords.length} nhân sự
+                             {dailyAttendanceStats[date]
+                               ? `Có mặt: ${dailyAttendanceStats[date].present}/${dailyAttendanceStats[date].total} nhân sự`
+                               : `Tổng: ${dateRecords.length} nhân sự`}
                            </span>
                          </div>
                        </td>
@@ -1185,7 +1218,9 @@ const AttendanceManagementPage: React.FC = () => {
                          {formatDateForDisplay(date)}
                        </div>
                        <span className="text-[10px] text-muted-foreground font-medium bg-background px-1.5 py-0.5 rounded border border-border lowercase tracking-normal">
-                         Tổng {dateRecords.length} NV
+                         {dailyAttendanceStats[date]
+                           ? `Có mặt ${dailyAttendanceStats[date].present}/${dailyAttendanceStats[date].total} NV`
+                           : `Tổng ${dateRecords.length} NV`}
                        </span>
                     </div>
                     <div className="divide-y divide-border/50">
@@ -1433,12 +1468,14 @@ const AttendanceManagementPage: React.FC = () => {
               </div>
 
                 <div className="mt-10 flex items-center justify-end gap-3 pt-6 border-t border-border">
-                  <button type="button" onClick={handleCloseModal} className="px-6 py-2.5 rounded-xl text-sm font-bold text-muted-foreground hover:bg-muted border border-border">Đóng lại</button>
+                  <button type="button" onClick={handleCloseModal} disabled={isSaving} className="px-6 py-2.5 rounded-xl text-sm font-bold text-muted-foreground hover:bg-muted border border-border disabled:opacity-50">Đóng lại</button>
                   <button
                     type="submit"
-                    className="flex items-center gap-2 px-8 py-2.5 rounded-xl text-sm font-bold text-white bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all active:scale-95"
+                    disabled={isSaving}
+                    className="flex items-center gap-2 px-8 py-2.5 rounded-xl text-sm font-bold text-white bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <Edit2 size={16} /> {isNewRecord ? 'Lưu bản ghi' : 'Lưu thay đổi'}
+                    {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Edit2 size={16} />}
+                    {isSaving ? 'Đang lưu...' : isNewRecord ? 'Lưu bản ghi' : 'Lưu thay đổi'}
                   </button>
                 </div>
             </form>

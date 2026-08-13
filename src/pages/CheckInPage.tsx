@@ -10,7 +10,7 @@ import type { NhanSu } from '../data/personnelData';
 import { upsertAttendanceRecord, getAttendanceRecords } from '../data/attendanceData';
 import type { AttendanceRecord } from '../data/attendanceData';
 import { clsx } from 'clsx';
-import { formatTime24h, formatDateVi } from '../utils/datetimeFormat';
+import { formatDateVi, formatLocalIsoDate, formatTime24h } from '../utils/datetimeFormat';
 
 const CheckInPage: React.FC = () => {
   const navigate = useNavigate();
@@ -62,7 +62,7 @@ const CheckInPage: React.FC = () => {
     
     try {
       setSubmitting(true);
-      const today = new Date().toISOString().split('T')[0];
+      const today = formatLocalIsoDate();
       const now = formatTime24h(new Date(), false);
       const locationStr = location ? `${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}` : 'Không có tọa độ';
 
@@ -94,12 +94,12 @@ const CheckInPage: React.FC = () => {
   };
 
   const getTodayStatus = (staffName: string) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = formatLocalIsoDate();
     return attendance.find((r: AttendanceRecord) => r.ngay === today && r.nhan_su === staffName);
   };
 
   const getMonthlyWorkedDays = (staffName: string) => {
-    const currentMonthPrefix = new Date().toISOString().substring(0, 7);
+    const currentMonthPrefix = formatLocalIsoDate().substring(0, 7);
     return attendance.filter((r: AttendanceRecord) => 
       r.nhan_su === staffName && 
       r.ngay.startsWith(currentMonthPrefix) && 
@@ -118,7 +118,7 @@ const CheckInPage: React.FC = () => {
           <div className="text-right">
             <h1 className="text-2xl font-bold text-foreground">Trạm Chấm Công</h1>
             <p className="text-muted-foreground text-sm flex items-center justify-end gap-1.5">
-              <Calendar size={14} /> {formatDateVi(new Date().toISOString().slice(0, 10))}
+              <Calendar size={14} /> {formatDateVi(formatLocalIsoDate())}
             </p>
           </div>
         </div>
