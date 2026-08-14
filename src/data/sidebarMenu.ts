@@ -8,7 +8,8 @@ import {
   Wrench,
   BarChart2,
   LineChart,
-  ShieldCheck
+  ShieldCheck,
+  Send
 } from 'lucide-react';
 import React from 'react';
 import type { ViewPermissionKey } from './viewPermissions';
@@ -68,6 +69,7 @@ export const sidebarMenu: SidebarItem[] = [
   },
   { icon: Wallet, label: 'Tiền lương', path: '/tien-luong', viewKey: 'tien-luong' }, // NV xem lương của mình, admin xem tất cả
   { icon: Box, label: 'Kho vận', path: '/kho-van', viewKey: 'kho-van' },
+  { icon: Send, label: 'Gửi ZNS hàng loạt', path: '/zns/gui-hang-loat', adminOnly: true, viewKey: 'zns-gui-hang-loat' },
   { icon: ShieldCheck, label: 'Cài đặt phân quyền', path: '/cai-dat/phan-quyen', adminOnly: true, viewKey: 'cai-dat-phan-quyen' },
 ];
 

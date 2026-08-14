@@ -29,6 +29,8 @@ const PermissionSettingsPage = lazy(() => import('./pages/PermissionSettingsPage
 const PersonnelManagementPage = lazy(() => import('./pages/PersonnelManagementPage'));
 const WarehouseStockListPage = lazy(() => import('./pages/WarehouseStockListPage'));
 const SparePartsListPage = lazy(() => import('./pages/SparePartsListPage'));
+const ZnsBulkSendPage = lazy(() => import('./pages/ZnsBulkSendPage'));
+const ZaloOauthCallbackPage = lazy(() => import('./pages/ZaloOauthCallbackPage'));
 
 
 function AppRoutes() {
@@ -116,6 +118,18 @@ function AppRoutes() {
                 </ProtectedRoute>
               }
             />
+
+            {/* Gửi ZNS hàng loạt — chỉ admin */}
+            <Route
+              path="/zns/gui-hang-loat"
+              element={
+                <ProtectedRoute adminOnly viewKey="zns-gui-hang-loat">
+                  <ZnsBulkSendPage />
+                </ProtectedRoute>
+              }
+            />
+            {/* Redirect từ Zalo sau khi cấp quyền OAuth — chỉ cần đăng nhập, tự kiểm tra admin bên trong */}
+            <Route path="/zalo/oauth-callback" element={<ZaloOauthCallbackPage />} />
 
             {/* Fallback route */}
             <Route path="*" element={<Navigate to="/" replace />} />

@@ -13,7 +13,8 @@ export type ViewPermissionKey =
   | 'kho-van'
   | 'tien-luong'
   | 'tien-luong-cau-hinh'
-  | 'cai-dat-phan-quyen';
+  | 'cai-dat-phan-quyen'
+  | 'zns-gui-hang-loat';
 
 export interface ViewPermissionOption {
   key: ViewPermissionKey;
@@ -36,6 +37,7 @@ export const VIEW_PERMISSION_OPTIONS: ViewPermissionOption[] = [
   { key: 'tien-luong', label: 'Tiền lương' },
   { key: 'tien-luong-cau-hinh', label: 'Tiền lương - Cấu hình' },
   { key: 'cai-dat-phan-quyen', label: 'Cài đặt phân quyền' },
+  { key: 'zns-gui-hang-loat', label: 'Gửi ZNS hàng loạt' },
 ];
 
 export const VIEW_PERMISSION_STORAGE_KEY = 'view_permissions_by_position';
