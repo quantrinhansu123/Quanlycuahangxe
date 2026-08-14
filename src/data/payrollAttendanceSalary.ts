@@ -223,8 +223,8 @@ export function demSoBuaAnTachTheoDongCham(
 }
 
 /**
- * Số **ngày công** trong tháng: các ngày (không trùng) có ít nhất một bản ghi có check-in,
- * khớp tên/ id như phần bữa ăn.
+ * Số **ngày công** trong tháng: các ngày (không trùng) có ít nhất một bản ghi
+ * có giờ vào, khớp tên/id như chỉ số "Tổng công" của bảng chấm công.
  */
 export function demSoNgayCongTheoDongCham(
   cacDong: DongChamBuaNhap[],

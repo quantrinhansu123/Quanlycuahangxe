@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { 
   Search, Settings2, Download, Send, BadgeDollarSign, 
   ChevronDown, Filter, Calendar, Building2, CheckCircle2, AlertCircle, Loader2,
-  Plus, ArrowLeft, MoreHorizontal, MessageSquare, User, Check
+  Plus, ArrowLeft, MoreHorizontal, MessageSquare, User, Check, RefreshCcw
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getPayrollBatch, updatePayrollStatus, bulkCreatePayrollItems, deletePayrollBatch } from '../data/payrollData';
@@ -14,6 +14,7 @@ import { clsx } from 'clsx';
 import { removeVietnameseTones } from '../lib/utils';
 import * as XLSX from 'xlsx';
 import { useAuth } from '../context/AuthContext';
+import { syncPayrollFromAttendance } from '../data/payrollAttendanceSyncData';
 
 
 
@@ -30,10 +31,11 @@ const PayrollPage: React.FC = () => {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showAddEmployee, setShowAddEmployee] = useState(false);
   const [isPaying, setIsPaying] = useState(false);
+  const [isSyncingAttendance, setIsSyncingAttendance] = useState(false);
   const [showColConfig, setShowColConfig] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<string[]>([
-    'selection', 'stt', 'ho_ten', 'don_vi', 'doanh_so', 'doanh_so_mt', 'ty_le', 'luong_ngay', 'luong_doanh_so', 'phu_cap', 'thuc_linh'
+    'selection', 'stt', 'ho_ten', 'don_vi', 'ngay_cong', 'doanh_so', 'doanh_so_mt', 'ty_le', 'luong_ngay', 'luong_lam_them', 'luong_doanh_so', 'phu_cap', 'thuc_linh'
   ]);
   const colConfigRef = useRef<HTMLDivElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
@@ -141,6 +143,56 @@ const PayrollPage: React.FC = () => {
     setTimeout(() => alert(`Đã gửi thành công ${count} phiếu lương!`), 1500);
   };
 
+  const handleSyncAttendance = async () => {
+    if (isLocked) {
+      alert('Bảng lương đã khóa nên không thể đồng bộ lại chấm công.');
+      return;
+    }
+
+    const scope = selectedCoSo === 'Tất cả cơ sở' ? 'tất cả cơ sở' : selectedCoSo;
+    if (
+      !window.confirm(
+        `Đồng bộ chấm công tháng ${selectedMonth}/${selectedYear} cho ${scope}?\n\n` +
+          'Hệ thống sẽ tính lại ngày công, lương ngày công và tiền tăng ca. Các dòng đã duyệt/đã chi trả sẽ được giữ nguyên.'
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setIsSyncingAttendance(true);
+      const result = await syncPayrollFromAttendance(
+        selectedMonth,
+        selectedYear,
+        selectedCoSo
+      );
+      await fetchData();
+
+      const messages = [
+        `Đã đồng bộ ${result.syncedCount} nhân sự từ ${result.attendanceRowCount} bản ghi chấm công.`,
+        `${result.staffWithAttendanceCount} nhân sự có ngày công trong kỳ.`,
+      ];
+      if (result.skippedLockedCount > 0) {
+        messages.push(`${result.skippedLockedCount} dòng đã khóa/chi trả được giữ nguyên.`);
+      }
+      if (result.missingBaseSalaryNames.length > 0) {
+        messages.push(
+          `${result.missingBaseSalaryNames.length} nhân sự chưa có lương cơ bản; ngày công đã đồng bộ nhưng tiền lương theo công vẫn bằng 0. Hãy cập nhật tại Nhân sự → Danh sách nhân viên.`
+        );
+      }
+      alert(messages.join('\n'));
+    } catch (error) {
+      console.error('Error syncing attendance into payroll:', error);
+      const detail =
+        typeof error === 'object' && error !== null && 'message' in error
+          ? String(error.message)
+          : 'Lỗi không xác định';
+      alert(`Không thể đồng bộ chấm công vào bảng lương.\nChi tiết: ${detail}`);
+    } finally {
+      setIsSyncingAttendance(false);
+    }
+  };
+
   const handlePayAll = async () => {
     const targetIds = selectedIds.length > 0 ? selectedIds : payrollData.filter(item => item.trang_thai !== 'Đã chi trả').map(item => item.id);
     
@@ -227,24 +279,40 @@ const PayrollPage: React.FC = () => {
     const labels: Record<string, string> = {
       ho_ten: 'Họ và tên',
       don_vi: 'Đơn vị',
+      ngay_cong: 'Ngày công thực tế',
       doanh_so: 'Doanh số',
       doanh_so_mt: 'Doanh số mục tiêu',
       ty_le: 'Tỷ lệ HT',
       luong_ngay: 'Lương ngày',
+      luong_lam_them: 'Lương tăng ca',
       luong_doanh_so: 'Lương doanh số',
+      phu_cap: 'Phụ cấp',
       thuc_linh: 'Thực lĩnh'
     };
 
     const rows = filteredData.map(item => {
-      const rowData: Record<string, any> = {};
+      const rowData: Record<string, string | number> = {};
+      const exportValues: Record<string, string | number> = {
+        doanh_so: item.doanh_so || 0,
+        doanh_so_mt: item.doanh_so_muc_tieu || 0,
+        ty_le: item.doanh_so_muc_tieu
+          ? (item.doanh_so / item.doanh_so_muc_tieu) * 100
+          : 0,
+        luong_ngay: item.luong_ngay_cong || 0,
+        luong_lam_them: item.luong_lam_them || 0,
+        luong_doanh_so: item.luong_doanh_so || 0,
+        phu_cap: item.tong_phu_cap || 0,
+      };
       visibleColumns
         .filter(col => col !== 'selection' && col !== 'stt')
         .forEach(col => {
           const label = labels[col] || col;
           if (col === 'ho_ten') rowData[label] = item.nhan_su?.ho_ten || '';
           else if (col === 'don_vi') rowData[label] = item.co_so;
+          else if (col === 'ngay_cong') rowData[label] = item.ngay_cong_thuc_te;
+          else if (col === 'luong_lam_them') rowData[label] = item.luong_lam_them;
           else if (col === 'thuc_linh') rowData[label] = item.thuc_linh;
-          else rowData[label] = (item as any)[col] || 0;
+          else rowData[label] = exportValues[col] ?? 0;
         });
       return rowData;
     });
@@ -346,6 +414,19 @@ const PayrollPage: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+          {isAdmin && (
+            <button
+              disabled={isSyncingAttendance || loading || isLocked}
+              onClick={handleSyncAttendance}
+              title={isLocked ? 'Bảng lương đã khóa' : 'Lấy ngày công và tăng ca từ dữ liệu chấm công'}
+              className="flex items-center gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 bg-teal-50 border border-teal-200 rounded-lg font-bold text-sm text-teal-700 hover:bg-teal-100 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <RefreshCcw size={18} className={isSyncingAttendance ? 'animate-spin' : ''} />
+              <span className="hidden sm:inline">
+                {isSyncingAttendance ? 'Đang đồng bộ...' : 'Đồng bộ chấm công'}
+              </span>
+            </button>
+          )}
           {isAdmin && (
             <button
               onClick={() => setShowAddEmployee(true)}
@@ -470,7 +551,7 @@ const PayrollPage: React.FC = () => {
                onChange={(e) => setSelectedCoSo(e.target.value)}
                className="w-full pl-10 pr-10 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-xs outline-none focus:ring-2 focus:ring-primary/20 appearance-none transition-all shadow-sm"
              >
-               <option>Tất cả đơn vị</option>
+               <option value="Tất cả cơ sở">Tất cả đơn vị</option>
                <option>Cơ sở Bắc Ninh</option>
                <option>Cơ sở Bắc Giang</option>
              </select>
@@ -511,11 +592,14 @@ const PayrollPage: React.FC = () => {
                     {[
                       { id: 'ho_ten', label: 'Họ và tên' },
                       { id: 'don_vi', label: 'Đơn vị công tác' },
+                      { id: 'ngay_cong', label: 'Ngày công thực tế' },
                       { id: 'doanh_so', label: 'Doanh số' },
                       { id: 'doanh_so_mt', label: 'Doanh số mục tiêu' },
                       { id: 'ty_le', label: 'Tỷ lệ HT' },
                       { id: 'luong_ngay', label: 'Lương ngày công' },
+                      { id: 'luong_lam_them', label: 'Lương tăng ca' },
                       { id: 'luong_doanh_so', label: 'Lương doanh số' },
+                      { id: 'phu_cap', label: 'Phụ cấp' },
                       { id: 'thuc_linh', label: 'Thực lĩnh' },
                     ].map(col => (
                       <label key={col.id} className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors group">
@@ -583,10 +667,12 @@ const PayrollPage: React.FC = () => {
                 )}
                 
                 {visibleColumns.includes('don_vi') && <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest">Đơn vị công tác</th>}
+                {visibleColumns.includes('ngay_cong') && <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-center text-teal-700">Ngày công</th>}
                 {visibleColumns.includes('doanh_so') && <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest text-right">Doanh số</th>}
                 {visibleColumns.includes('doanh_so_mt') && <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest text-right">D.Số Mục tiêu</th>}
                 {visibleColumns.includes('ty_le') && <th className="px-6 py-4 text-[10px] font-black text-slate-900 uppercase tracking-widest text-center">Tỷ lệ HT (%)</th>}
                 {visibleColumns.includes('luong_ngay') && <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-right text-slate-500">Lương Ngày công</th>}
+                {visibleColumns.includes('luong_lam_them') && <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-right text-teal-600">Lương tăng ca</th>}
                 {visibleColumns.includes('luong_doanh_so') && <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-right text-slate-500">Lương Doanh số</th>}
                 {visibleColumns.includes('phu_cap') && (
                   <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-right text-emerald-600">Phụ cấp (Chính sách)</th>
@@ -677,6 +763,11 @@ const PayrollPage: React.FC = () => {
                   )}
                   
                   {visibleColumns.includes('don_vi') && <td className="px-6 py-4 text-xs font-bold text-slate-600">{item.co_so}</td>}
+                  {visibleColumns.includes('ngay_cong') && (
+                    <td className="px-6 py-4 text-center text-xs font-black text-teal-700 whitespace-nowrap">
+                      {item.ngay_cong_thuc_te || 0}/{item.ngay_cong_chuan || 28}
+                    </td>
+                  )}
                   {visibleColumns.includes('doanh_so') && <td className="px-6 py-4 text-right text-xs font-black text-slate-900">{formatCurrency(item.doanh_so)}</td>}
                   {visibleColumns.includes('doanh_so_mt') && <td className="px-6 py-4 text-right text-xs font-black text-slate-400">{formatCurrency(item.doanh_so_muc_tieu)}</td>}
                   {visibleColumns.includes('ty_le') && (
@@ -692,6 +783,7 @@ const PayrollPage: React.FC = () => {
                     </td>
                   )}
                   {visibleColumns.includes('luong_ngay') && <td className="px-6 py-4 text-right text-xs font-black text-slate-700">{formatCurrency(item.luong_ngay_cong)}</td>}
+                  {visibleColumns.includes('luong_lam_them') && <td className="px-6 py-4 text-right text-xs font-black text-teal-600">{formatCurrency(item.luong_lam_them || 0)}</td>}
                   {visibleColumns.includes('luong_doanh_so') && <td className="px-6 py-4 text-right text-xs font-black text-slate-700">{formatCurrency(item.luong_doanh_so)}</td>}
                   {visibleColumns.includes('phu_cap') && (
                     <td className="px-6 py-4 text-right text-xs font-black text-emerald-600">
@@ -790,8 +882,16 @@ const PayrollPage: React.FC = () => {
                         <span className="font-bold text-slate-700">{formatCurrency(item.doanh_so)}</span>
                       </div>
                       <div className="flex justify-between">
+                        <span className="text-slate-400">Ngày công</span>
+                        <span className="font-bold text-teal-700">{item.ngay_cong_thuc_te || 0}/{item.ngay_cong_chuan || 28}</span>
+                      </div>
+                      <div className="flex justify-between">
                         <span className="text-slate-400">Lương ngày</span>
                         <span className="font-bold text-slate-700">{formatCurrency(item.luong_ngay_cong)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Tăng ca</span>
+                        <span className="font-bold text-teal-600">+{formatCurrency(item.luong_lam_them || 0)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-slate-400">Phụ cấp</span>

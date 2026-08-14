@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Calendar, Loader2, Plus, Table2, Trash2, TrendingUp, UserPlus } from 'lucide-react';
+import { BadgeDollarSign, Calendar, Loader2, Plus, Table2, Trash2, TrendingUp, UserPlus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { clsx } from 'clsx';
 import { getChamCongTrongKhoang } from '../data/attendanceData';
 import {
@@ -182,6 +183,7 @@ function danhSachNamKy(referenceYear: number, namDangChon: number): number[] {
 }
 
 const PayrollAttendanceSalaryPage: React.FC = () => {
+  const navigate = useNavigate();
   const now = new Date();
   const [nam, setNam] = useState(now.getFullYear());
   const [thang, setThang] = useState(now.getMonth() + 1);
@@ -351,7 +353,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
 
   const addRow = useCallback(() => {
     setRows((prev) => [...prev, emptyRow()]);
-  }, [nam, thang]);
+  }, []);
 
   const capNhatDoanhSoTuPhieuBan = useCallback(async () => {
     setRevenueLoading(true);
@@ -390,7 +392,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
     setQuickLoading(true);
     try {
       const list = await getPersonnel();
-      let newRows: BangLuongChamCongInput[] = list.map((p) => {
+      const newRows: BangLuongChamCongInput[] = list.map((p) => {
         const raw = p.luong_co_ban;
         const luongCoBan =
           raw != null && !Number.isNaN(Number(raw)) ? Number(raw) : 0;
@@ -527,6 +529,15 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
             </div>
           </div>
           <div className="flex flex-nowrap items-center gap-2 min-w-0 w-full sm:justify-end overflow-x-auto py-0.5 -mx-0.5 px-0.5">
+            <button
+              type="button"
+              onClick={() => navigate('/tien-luong/bang-luong')}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50 text-emerald-700 text-sm font-semibold px-3 py-2 hover:bg-emerald-100"
+              title="Mở bảng lương chính"
+            >
+              <BadgeDollarSign className="w-4 h-4" />
+              Bảng lương
+            </button>
             <button
               type="button"
               onClick={capNhatDoanhSoTuPhieuBan}

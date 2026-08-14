@@ -62,7 +62,7 @@ export const getPayrollBatch = async (thang: number, nam: number, coSo?: string)
     console.error('Error fetching payroll batch:', error);
     throw error;
   }
-  return data as any[];
+  return data as BangLuong[];
 };
 
 export const upsertPayrollItem = async (item: Partial<BangLuong>): Promise<BangLuong> => {
@@ -117,6 +117,35 @@ export const bulkCreatePayrollItems = async (items: Partial<BangLuong>[]): Promi
 
   if (error) {
     console.error('Error bulk creating payroll items:', error);
+    throw error;
+  }
+};
+
+/**
+ * Tạo mới hoặc cập nhật bảng lương theo khóa duy nhất nhân sự + tháng + năm.
+ * Dùng cho luồng đồng bộ chấm công để không sinh bản ghi trùng kỳ lương.
+ */
+export const bulkUpsertPayrollItems = async (items: Partial<BangLuong>[]): Promise<void> => {
+  if (items.length === 0) return;
+
+  // Không gửi `id`: trong cùng một batch có cả dòng cũ (có id) và dòng mới
+  // (DB phải tự sinh id). Nếu trộn hai dạng, PostgREST sẽ điền NULL cho id của
+  // dòng mới và vi phạm khóa chính. Khóa nghiệp vụ dưới đây đủ để update dòng cũ.
+  const payload = items.map((item) => {
+    const cleanItem = { ...item };
+    delete cleanItem.id;
+    return cleanItem;
+  });
+
+  const { error } = await supabase
+    .from('bang_luong')
+    .upsert(payload, {
+      onConflict: 'nhan_su_id,thang,nam',
+      defaultToNull: false,
+    });
+
+  if (error) {
+    console.error('Error syncing payroll items:', error);
     throw error;
   }
 };
