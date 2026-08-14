@@ -25,11 +25,24 @@ export interface BangLuong {
   thuc_linh: number;
   trang_thai: string;
   ghi_chu: string | null;
+  chi_tiet?: BangLuongChiTiet[];
+  ngay_cong_them?: number;
+  phu_cap_chuyen_can?: number;
+  phu_cap_xang_dien_thoai?: number;
+  phu_cap_tham_nien?: number;
+  phu_cap_tro_ngoai?: number;
+  tien_an?: number;
+  tien_an_tang_ca?: number;
+  hoa_hong?: number;
+  phan_tram_hoa_hong?: number;
+  so_gio_tang_ca?: number;
+  loai_nhan_vien?: number;
   nhan_su?: {
     id: string;
     ho_ten: string;
     vi_tri: string;
     hinh_anh: string | null;
+    ngay_vao_lam?: string | null;
   };
   created_at?: string;
   updated_at?: string;
@@ -38,17 +51,110 @@ export interface BangLuong {
 export interface BangLuongChiTiet {
   id: string;
   bang_luong_id: string;
-  thanh_phan_luong_id: string;
+  thanh_phan_luong_id: string | null;
   ten_thanh_phan: string;
   loai: string;
   gia_tri: number;
   ghi_chu: string | null;
 }
 
+export interface PayrollBreakdownValues {
+  ngay_cong_them: number;
+  phu_cap_chuyen_can: number;
+  phu_cap_xang_dien_thoai: number;
+  phu_cap_tham_nien: number;
+  phu_cap_tro_ngoai: number;
+  tien_an: number;
+  tien_an_tang_ca: number;
+  hoa_hong: number;
+  phan_tram_hoa_hong: number;
+  so_gio_tang_ca: number;
+  /** 1 = chính thức, 2 = thời vụ, 0 = dữ liệu cũ chưa xác định. */
+  loai_nhan_vien: number;
+}
+
+export const PAYROLL_DETAIL_CODES = {
+  ngay_cong_them: 'payroll:ngay_cong_them',
+  phu_cap_chuyen_can: 'payroll:chuyen_can',
+  phu_cap_xang_dien_thoai: 'payroll:xang_dien_thoai',
+  phu_cap_tham_nien: 'payroll:tham_nien',
+  phu_cap_tro_ngoai: 'payroll:tro_ngoai',
+  tien_an: 'payroll:tien_an',
+  tien_an_tang_ca: 'payroll:tien_an_tang_ca',
+  hoa_hong: 'payroll:hoa_hong',
+  phan_tram_hoa_hong: 'payroll:phan_tram_hoa_hong',
+  so_gio_tang_ca: 'payroll:gio_tang_ca',
+  loai_nhan_vien: 'payroll:loai_nhan_vien',
+} as const satisfies Record<keyof PayrollBreakdownValues, string>;
+
+const PAYROLL_DETAIL_DEFINITIONS: Array<{
+  key: keyof PayrollBreakdownValues;
+  name: string;
+  type: 'thu_nhap' | 'tham_so';
+}> = [
+  { key: 'ngay_cong_them', name: 'Ngày công thêm', type: 'tham_so' },
+  { key: 'phu_cap_chuyen_can', name: 'Chuyên cần', type: 'thu_nhap' },
+  { key: 'phu_cap_xang_dien_thoai', name: 'Xăng xe điện thoại', type: 'thu_nhap' },
+  { key: 'phu_cap_tham_nien', name: 'Thâm niên', type: 'thu_nhap' },
+  { key: 'phu_cap_tro_ngoai', name: 'Trọ ngoài', type: 'thu_nhap' },
+  { key: 'tien_an', name: 'Tiền ăn', type: 'thu_nhap' },
+  { key: 'tien_an_tang_ca', name: 'Tiền ăn tăng ca', type: 'thu_nhap' },
+  { key: 'hoa_hong', name: 'Tiền % hoa hồng', type: 'thu_nhap' },
+  { key: 'phan_tram_hoa_hong', name: '% hoa hồng', type: 'tham_so' },
+  { key: 'so_gio_tang_ca', name: 'Số giờ tăng ca', type: 'tham_so' },
+  { key: 'loai_nhan_vien', name: 'Loại nhân viên', type: 'tham_so' },
+];
+
+function numberValue(value: unknown): number {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+export function hasPayrollDetail(
+  item: Partial<BangLuong>,
+  key: keyof PayrollBreakdownValues
+): boolean {
+  return (item.chi_tiet ?? []).some(
+    (detail) => detail.ghi_chu === PAYROLL_DETAIL_CODES[key]
+  );
+}
+
+export function getPayrollBreakdown(item: Partial<BangLuong>): PayrollBreakdownValues {
+  const byCode = new Map(
+    (item.chi_tiet ?? []).map((detail) => [detail.ghi_chu ?? '', numberValue(detail.gia_tri)])
+  );
+  const value = (key: keyof PayrollBreakdownValues): number => {
+    const direct = item[key];
+    if (direct != null) return numberValue(direct);
+    return byCode.get(PAYROLL_DETAIL_CODES[key]) ?? 0;
+  };
+
+  return {
+    ngay_cong_them: value('ngay_cong_them'),
+    phu_cap_chuyen_can: value('phu_cap_chuyen_can'),
+    phu_cap_xang_dien_thoai: value('phu_cap_xang_dien_thoai'),
+    phu_cap_tham_nien: value('phu_cap_tham_nien'),
+    phu_cap_tro_ngoai: value('phu_cap_tro_ngoai'),
+    tien_an: value('tien_an'),
+    tien_an_tang_ca: value('tien_an_tang_ca'),
+    hoa_hong:
+      item.hoa_hong != null || hasPayrollDetail(item, 'hoa_hong')
+        ? value('hoa_hong')
+        : numberValue(item.luong_doanh_so),
+    phan_tram_hoa_hong: value('phan_tram_hoa_hong'),
+    so_gio_tang_ca: value('so_gio_tang_ca'),
+    loai_nhan_vien: value('loai_nhan_vien'),
+  };
+}
+
+function hydratePayrollBreakdown(item: BangLuong): BangLuong {
+  return { ...item, ...getPayrollBreakdown(item) };
+}
+
 export const getPayrollBatch = async (thang: number, nam: number, coSo?: string): Promise<BangLuong[]> => {
   let query = supabase
     .from('bang_luong')
-    .select('*, nhan_su:nhan_su_id(id, ho_ten, vi_tri, hinh_anh)');
+    .select('*, nhan_su:nhan_su_id(id, ho_ten, vi_tri, hinh_anh, ngay_vao_lam), chi_tiet:bang_luong_chi_tiet(*)');
     
   query = query.eq('thang', thang).eq('nam', nam);
   
@@ -62,7 +168,46 @@ export const getPayrollBatch = async (thang: number, nam: number, coSo?: string)
     console.error('Error fetching payroll batch:', error);
     throw error;
   }
-  return data as BangLuong[];
+  return (data as BangLuong[]).map(hydratePayrollBreakdown);
+};
+
+/**
+ * Thay các chi tiết lương do màn hình chấm công quản lý, nhưng giữ nguyên mọi
+ * dòng chi tiết khác do kế toán hoặc chính sách lương tạo.
+ */
+export const replacePayrollBreakdowns = async (
+  entries: Array<{ bang_luong_id: string; values: PayrollBreakdownValues }>
+): Promise<void> => {
+  if (entries.length === 0) return;
+
+  const payrollIds = Array.from(new Set(entries.map((entry) => entry.bang_luong_id)));
+  const managedCodes = Object.values(PAYROLL_DETAIL_CODES);
+  const { error: deleteError } = await supabase
+    .from('bang_luong_chi_tiet')
+    .delete()
+    .in('bang_luong_id', payrollIds)
+    .in('ghi_chu', managedCodes);
+
+  if (deleteError) {
+    console.error('Error clearing payroll breakdown:', deleteError);
+    throw deleteError;
+  }
+
+  const payload = entries.flatMap((entry) =>
+    PAYROLL_DETAIL_DEFINITIONS.map((definition) => ({
+      bang_luong_id: entry.bang_luong_id,
+      ten_thanh_phan: definition.name,
+      loai: definition.type,
+      gia_tri: numberValue(entry.values[definition.key]),
+      ghi_chu: PAYROLL_DETAIL_CODES[definition.key],
+    }))
+  );
+  const { error: insertError } = await supabase.from('bang_luong_chi_tiet').insert(payload);
+
+  if (insertError) {
+    console.error('Error saving payroll breakdown:', insertError);
+    throw insertError;
+  }
 };
 
 export const upsertPayrollItem = async (item: Partial<BangLuong>): Promise<BangLuong> => {

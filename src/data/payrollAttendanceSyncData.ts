@@ -1,21 +1,28 @@
-import { getAllowancePolicies } from './allowancePolicyData';
 import { getChamCongTrongKhoang } from './attendanceData';
 import {
   bulkUpsertPayrollItems,
   getPayrollBatch,
+  getPayrollBreakdown,
+  hasPayrollDetail,
+  replacePayrollBreakdowns,
   type BangLuong,
+  type PayrollBreakdownValues,
 } from './payrollData';
 import {
   ATTENDANCE_SALARY,
   demGioTangCaTheoDongCham,
+  demSoBuaAnTachTheoDongCham,
   demSoNgayCongTheoDongCham,
   tinhMotDong,
   type BangLuongChamCongInput,
   type DongChamBuaNhap,
 } from './payrollAttendanceSalary';
 import { getPersonnel } from './personnelData';
+import { loadPayrollRevenueData } from './reportData';
+import { removeVietnameseTones } from '../lib/utils';
 
 const LOCKED_PAYROLL_STATUSES = new Set(['Đã duyệt', 'Đã chi trả']);
+const DEFAULT_COMMISSION_PERCENT = 2.5;
 
 export interface PayrollAttendanceSyncResult {
   syncedCount: number;
@@ -23,6 +30,13 @@ export interface PayrollAttendanceSyncResult {
   attendanceRowCount: number;
   staffWithAttendanceCount: number;
   missingBaseSalaryNames: string[];
+}
+
+export interface PayrollAttendanceSyncOptions {
+  /** Các chỉnh sửa tay trên trang bảng lương chấm công, khớp theo họ tên. */
+  rows?: BangLuongChamCongInput[];
+  /** % hoa hồng áp dụng cho toàn bộ kỳ lương. */
+  phanTramHoaHongTheoKy?: number;
 }
 
 function monthRange(year: number, month: number): { start: string; end: string } {
@@ -43,24 +57,29 @@ function roundMoney(value: number): number {
   return Math.round(value);
 }
 
+function normalizePersonnelToken(value: string): string {
+  return removeVietnameseTones(value.trim().toLowerCase()).replace(/\s+/g, ' ');
+}
+
 /**
- * Đồng bộ công thực tế và tiền tăng ca vào bảng lương chính.
+ * Đồng bộ toàn bộ bảng lương từ chấm công, doanh số và các điều chỉnh nhập tay.
  * Những dòng đã duyệt/đã chi trả không bị thay đổi.
  */
 export async function syncPayrollFromAttendance(
   month: number,
   year: number,
-  branch?: string
+  branch?: string,
+  options?: PayrollAttendanceSyncOptions
 ): Promise<PayrollAttendanceSyncResult> {
   const { start, end } = monthRange(year, month);
   const branchFilter = branch && branch !== 'Tất cả cơ sở' ? branch : undefined;
 
-  const [attendanceRows, personnelRows, existingPayroll, allowancePolicies] =
+  const [attendanceRows, personnelRows, existingPayroll, revenueData] =
     await Promise.all([
       getChamCongTrongKhoang(start, end),
       getPersonnel(),
       getPayrollBatch(month, year, branchFilter),
-      getAllowancePolicies(branchFilter),
+      loadPayrollRevenueData(year, month),
     ]);
 
   const personnel = branchFilter
@@ -69,8 +88,14 @@ export async function syncPayrollFromAttendance(
   const existingByPersonnelId = new Map(
     existingPayroll.map((item) => [item.nhan_su_id, item])
   );
+  const overridesByName = new Map(
+    (options?.rows ?? [])
+      .filter((row) => row.hoTen.trim() !== '')
+      .map((row) => [normalizePersonnelToken(row.hoTen), row])
+  );
 
   const items: Partial<BangLuong>[] = [];
+  const breakdownByPersonnelId = new Map<string, PayrollBreakdownValues>();
   const missingBaseSalaryNames: string[] = [];
   let skippedLockedCount = 0;
   let staffWithAttendanceCount = 0;
@@ -85,6 +110,8 @@ export async function syncPayrollFromAttendance(
     const baseSalary = amount(person.luong_co_ban);
     if (baseSalary <= 0) missingBaseSalaryNames.push(person.ho_ten);
 
+    const existingBreakdown = getPayrollBreakdown(existing ?? {});
+    const override = overridesByName.get(normalizePersonnelToken(person.ho_ten));
     const actualWorkDays = demSoNgayCongTheoDongCham(
       attendanceRows as DongChamBuaNhap[],
       person.ho_ten,
@@ -97,45 +124,83 @@ export async function syncPayrollFromAttendance(
       person.id,
       person.id_nhan_su
     );
+    const mealCounts = demSoBuaAnTachTheoDongCham(
+      attendanceRows as DongChamBuaNhap[],
+      person.ho_ten,
+      person.id,
+      person.id_nhan_su
+    );
     if (actualWorkDays > 0) staffWithAttendanceCount += 1;
+
+    const extraWorkDays = Math.max(
+      0,
+      amount(override?.soNgayCongThem ?? existingBreakdown.ngay_cong_them)
+    );
+    const outsideHousingAllowance = Math.max(
+      0,
+      amount(override?.phuCapTroNgoai ?? existingBreakdown.phu_cap_tro_ngoai)
+    );
+    const commissionPercent = Math.min(
+      100,
+      Math.max(
+        0,
+        amount(
+          options?.phanTramHoaHongTheoKy ??
+            (existing && hasPayrollDetail(existing, 'phan_tram_hoa_hong')
+              ? existingBreakdown.phan_tram_hoa_hong
+              : DEFAULT_COMMISSION_PERCENT)
+        )
+      )
+    );
+    const employeeType =
+      override?.loai ??
+      (existingBreakdown.loai_nhan_vien === 2 ? 'thoi_vu' : 'chinh_thuc');
+    const revenueFromOrders =
+      revenueData.totals.get(normalizePersonnelToken(person.ho_ten)) ?? 0;
+    const monthlyRevenue = Math.max(
+      0,
+      amount(override?.tongDoanhThu ?? revenueFromOrders ?? existing?.doanh_so)
+    );
 
     const calculationInput: BangLuongChamCongInput = {
       id: person.id,
       hoTen: person.ho_ten,
-      loai: 'chinh_thuc',
+      loai: employeeType,
       luongCoBan: baseSalary,
       soNgayCong: actualWorkDays,
-      soNgayCongThem: 0,
+      soNgayCongThem: extraWorkDays,
       soNgayLamTaiQuan: 0,
       soNgayKhongLamTaiQuan: 0,
       soNgayTangCaAn: 0,
-      phuCapTroNgoai: 0,
+      phuCapTroNgoai: outsideHousingAllowance,
       soGioTangCa: overtimeHours,
-      tongDoanhThu: 0,
-      phanTramHoaHong: 0,
+      tongDoanhThu: monthlyRevenue,
+      phanTramHoaHong: commissionPercent,
       ngayBatDauLam: person.ngay_vao_lam?.slice(0, 10) ?? '',
       thuongKhac: 0,
       khoanTru: 0,
     };
     const attendanceSalary = tinhMotDong(calculationInput, year, month, {
+      phanTramHoaHongTheoKy: commissionPercent,
+      soBuaAnTheoChamCon: mealCounts.soBuaCoBan,
+      soBuaAnTangCaTheoChamCon: mealCounts.soBuaTangCa,
       soNgayCongTheoChamCon: actualWorkDays,
       soGioTangCaTheoChamCon: overtimeHours,
     });
 
-    const policyAllowance = allowancePolicies
-      .filter(
-        (policy) =>
-          policy.co_so === person.co_so &&
-          (policy.vi_tri === person.vi_tri || policy.vi_tri === 'Tất cả vị trí')
-      )
-      .reduce((sum, policy) => sum + amount(policy.gia_tri), 0);
-
     const salaryByAttendance = roundMoney(attendanceSalary.tienTheoCong);
     const overtimeSalary = roundMoney(attendanceSalary.luongTangCa);
-    const salesSalary = amount(existing?.luong_doanh_so);
-    const totalAllowance = roundMoney(policyAllowance);
+    const commissionSalary = roundMoney(attendanceSalary.hoaHong);
+    const totalAllowance = roundMoney(
+      attendanceSalary.phuCapChuyenCan +
+        attendanceSalary.phuCapXangDienThoai +
+        attendanceSalary.phuCapThamNien +
+        attendanceSalary.phuCapTroNgoai +
+        attendanceSalary.tienAn +
+        attendanceSalary.tienAnTangCa
+    );
     const totalIncome = roundMoney(
-      salaryByAttendance + overtimeSalary + salesSalary + totalAllowance
+      salaryByAttendance + overtimeSalary + commissionSalary + totalAllowance
     );
     const totalDeduction = roundMoney(
       amount(existing?.bhxh) +
@@ -153,11 +218,11 @@ export async function syncPayrollFromAttendance(
       co_so: person.co_so,
       ngay_cong_chuan: ATTENDANCE_SALARY.NGAY_LAM_TRONG_THANG,
       ngay_cong_thuc_te: actualWorkDays,
-      doanh_so: amount(existing?.doanh_so),
+      doanh_so: monthlyRevenue,
       doanh_so_muc_tieu: amount(existing?.doanh_so_muc_tieu),
       luong_co_ban: baseSalary,
       luong_ngay_cong: salaryByAttendance,
-      luong_doanh_so: salesSalary,
+      luong_doanh_so: commissionSalary,
       luong_lam_them: overtimeSalary,
       tong_phu_cap: totalAllowance,
       bhxh: amount(existing?.bhxh),
@@ -171,9 +236,30 @@ export async function syncPayrollFromAttendance(
       trang_thai: existing?.trang_thai ?? 'Chờ duyệt',
       ghi_chu: existing?.ghi_chu ?? null,
     });
+
+    breakdownByPersonnelId.set(person.id, {
+      ngay_cong_them: extraWorkDays,
+      phu_cap_chuyen_can: roundMoney(attendanceSalary.phuCapChuyenCan),
+      phu_cap_xang_dien_thoai: roundMoney(attendanceSalary.phuCapXangDienThoai),
+      phu_cap_tham_nien: roundMoney(attendanceSalary.phuCapThamNien),
+      phu_cap_tro_ngoai: roundMoney(attendanceSalary.phuCapTroNgoai),
+      tien_an: roundMoney(attendanceSalary.tienAn),
+      tien_an_tang_ca: roundMoney(attendanceSalary.tienAnTangCa),
+      hoa_hong: commissionSalary,
+      phan_tram_hoa_hong: commissionPercent,
+      so_gio_tang_ca: attendanceSalary.gioTangCaApDung,
+      loai_nhan_vien: employeeType === 'thoi_vu' ? 2 : 1,
+    });
   }
 
   await bulkUpsertPayrollItems(items);
+  const savedPayroll = await getPayrollBatch(month, year, branchFilter);
+  await replacePayrollBreakdowns(
+    savedPayroll.flatMap((item) => {
+      const values = breakdownByPersonnelId.get(item.nhan_su_id);
+      return values ? [{ bang_luong_id: item.id, values }] : [];
+    })
+  );
 
   return {
     syncedCount: items.length,

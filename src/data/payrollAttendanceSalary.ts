@@ -10,14 +10,13 @@ export const ATTENDANCE_SALARY = {
   GIO_MOT_NGAY: 8,
   GIA_MOT_BUA_AN: 30_000,
   PHU_CAP_CHUYEN_CAN: 200_000,
-  PHU_CAP_XANG_DT: 100_000,
+  /** Điện thoại 200.000đ + đi lại/xăng xe 300.000đ theo chính sách lương mẫu. */
+  PHU_CAP_XANG_DT: 500_000,
   /** Phụ cấp trọ ngoài mặc định (có thể ghi đè từng dòng). */
   PHU_CAP_TRO_NGOAI_MAC_DINH: 0,
   /** Phụ cấp thâm niên tháng: mỗi tháng làm việc (đến hết kỳ) × mức này, trần tối đa. */
   PHU_CAP_THAM_NHIEN_MOI_THANG: 50_000,
   PHU_CAP_THAM_NHIEN_TOI_DA: 600_000,
-  TANG_MOI_NAM_VAO_LCB: 100_000,
-  /** Năm thứ 2 trở đi: mỗi năm cộng vào LCB khi tính ngày/giờ */
   HE_SO_TANG_CA: 1.5,
   GIO_TANG_CA_TOI_DA_THANG: 25,
   /** @deprecated Dùng MOC_TANG_CA_TINH_TU (19:40) từ utils/timekeeping */
@@ -64,7 +63,6 @@ export interface BangLuongChamCongKetQua {
   phuCapXangDienThoai: number;
   phuCapThamNien: number;
   phuCapTroNgoai: number;
-  tangThemVaoLcbTheoNam: number;
   thangLamViec: number;
   gioTangCaApDung: number;
   luongTangCa: number;
@@ -110,22 +108,6 @@ export function soThangLamViec(ngayBatDauLam: string, nam: number, thang: number
   const end = endOfMonth(nam, thang);
   if (start > end) return 0;
   return (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
-}
-
-export function soNamDayDu(ngayBatDauLam: string, nam: number, thang: number): number {
-  if (!ngayBatDauLam) return 0;
-  const start = startOfDay(new Date(ngayBatDauLam));
-  const end = endOfMonth(nam, thang);
-  if (start > end) return 0;
-  let y = end.getFullYear() - start.getFullYear();
-  if (end.getMonth() < start.getMonth() || (end.getMonth() === start.getMonth() && end.getDate() < start.getDate())) y--;
-  return Math.max(0, y);
-}
-
-/** Từ đủ 12 tháng: mỗi 12 tháng cộng +100k vào LCB (12m→+100k, 24m→+200k, …) */
-function tangLcbTheoThamNienThangLam(thangLam: number): number {
-  if (thangLam < 12) return 0;
-  return Math.floor(thangLam / 12) * ATTENDANCE_SALARY.TANG_MOI_NAM_VAO_LCB;
 }
 
 function phuCapThamNienTheoThang(thangLam: number): number {
@@ -295,8 +277,8 @@ export function tinhMotDong(
   const D = ATTENDANCE_SALARY.NGAY_LAM_TRONG_THANG;
   const H = ATTENDANCE_SALARY.GIO_MOT_NGAY;
   const thangLam = soThangLamViec(row.ngayBatDauLam, nam, thang);
-  const tangLcb = tangLcbTheoThamNienThangLam(thangLam);
-  const lcbHieuLuc = row.luongCoBan + tangLcb;
+  // Thâm niên là một khoản riêng bên dưới; không cộng lần nữa vào LCB.
+  const lcbHieuLuc = Math.max(0, row.luongCoBan);
   const luongNgay = lcbHieuLuc / D;
   const luongGio = lcbHieuLuc / D / H;
 
@@ -340,6 +322,12 @@ export function tinhMotDong(
   const congThem = Math.max(0, row.soNgayCongThem ?? 0);
   const congApDung = congTuCham + congThem;
   const luongTheoCong = luongNgay * congApDung;
+  // Chỉ hưởng chuyên cần khi đủ 28 công trong kỳ. Ngày bổ sung được xem là
+  // điều chỉnh công hợp lệ nên cũng tham gia điều kiện này.
+  const phuCapChuyenCan =
+    congApDung >= ATTENDANCE_SALARY.NGAY_LAM_TRONG_THANG
+      ? ATTENDANCE_SALARY.PHU_CAP_CHUYEN_CAN
+      : 0;
   const phanTramHoaHongApDung =
     options?.phanTramHoaHongTheoKy != null
       ? Math.max(0, options.phanTramHoaHongTheoKy)
@@ -350,7 +338,7 @@ export function tinhMotDong(
     luongTheoCong +
     tienAn +
     tienAnTangCa +
-    ATTENDANCE_SALARY.PHU_CAP_CHUYEN_CAN +
+    phuCapChuyenCan +
     ATTENDANCE_SALARY.PHU_CAP_XANG_DT +
     phuCapThamNien +
     phuCapTroNgoai +
@@ -379,11 +367,10 @@ export function tinhMotDong(
     soBuaAnTangCa: soBuaTangCa,
     tienAn,
     tienAnTangCa,
-    phuCapChuyenCan: ATTENDANCE_SALARY.PHU_CAP_CHUYEN_CAN,
+    phuCapChuyenCan,
     phuCapXangDienThoai: ATTENDANCE_SALARY.PHU_CAP_XANG_DT,
     phuCapThamNien,
     phuCapTroNgoai,
-    tangThemVaoLcbTheoNam: tangLcb,
     thangLamViec: thangLam,
     gioTangCaApDung,
     luongTangCa,

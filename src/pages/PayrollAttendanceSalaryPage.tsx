@@ -24,6 +24,8 @@ import {
 } from '../data/payrollAttendanceSalary';
 import { getPersonnel, type NhanSu } from '../data/personnelData';
 import PersonnelRevenueOrdersModal from '../components/PersonnelRevenueOrdersModal';
+import { getPayrollBatch, getPayrollBreakdown, hasPayrollDetail, type BangLuong } from '../data/payrollData';
+import { syncPayrollFromAttendance } from '../data/payrollAttendanceSyncData';
 
 const LS_PREFIX = 'payrollChamCongLuongV2:';
 const LS_PREFIX_LEGACY = 'payrollChamCongLuongV1:';
@@ -136,6 +138,27 @@ function emptyRow(): BangLuongChamCongInput {
   };
 }
 
+function payrollBatchToInputRows(items: BangLuong[]): BangLuongChamCongInput[] {
+  return items.flatMap((item) => {
+    if (!item.nhan_su?.ho_ten) return [];
+    const detail = getPayrollBreakdown(item);
+    return [{
+      ...emptyRow(),
+      id: item.nhan_su_id,
+      hoTen: item.nhan_su.ho_ten,
+      loai: detail.loai_nhan_vien === 2 ? 'thoi_vu' : 'chinh_thuc',
+      luongCoBan: Number(item.luong_co_ban) || 0,
+      soNgayCong: Number(item.ngay_cong_thuc_te) || 0,
+      soNgayCongThem: detail.ngay_cong_them,
+      phuCapTroNgoai: detail.phu_cap_tro_ngoai,
+      soGioTangCa: detail.so_gio_tang_ca,
+      tongDoanhThu: Number(item.doanh_so) || 0,
+      phanTramHoaHong: detail.phan_tram_hoa_hong,
+      ngayBatDauLam: item.nhan_su.ngay_vao_lam?.slice(0, 10) ?? '',
+    }];
+  });
+}
+
 type StoredSheet = { v: 1; phanTramHoaHongKy: number; rows: BangLuongChamCongInput[] };
 
 function loadSheet(
@@ -194,6 +217,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
   const [rows, setRows] = useState<BangLuongChamCongInput[]>(initial.rows);
   const [quickLoading, setQuickLoading] = useState(false);
   const [revenueLoading, setRevenueLoading] = useState(false);
+  const [savingPayroll, setSavingPayroll] = useState(false);
   const [chamDong, setChamDong] = useState<DongChamBuaNhap[]>([]);
   const [nhanList, setNhanList] = useState<NhanSu[]>([]);
   const [revenueCache, setRevenueCache] = useState<PayrollRevenueData | null>(null);
@@ -224,8 +248,28 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
     (async () => {
       setRevenueLoading(true);
       const { start, end } = khoangNgayCuaThang(nam, thang);
+      let sourceRows = s.rows;
       try {
-        const { rows: merged, payrollData } = await gopDoanhSoTheoBaoCao(s.rows, nam, thang);
+        const savedPayroll = await getPayrollBatch(thang, nam);
+        if (cancelled || loadedKyRef.current !== periodKey) return;
+        const savedRows = payrollBatchToInputRows(savedPayroll);
+        if (savedRows.length > 0) {
+          sourceRows = savedRows;
+          const savedPercentItem = savedPayroll.find((item) =>
+            hasPayrollDetail(item, 'phan_tram_hoa_hong')
+          );
+          if (savedPercentItem) {
+            setPhanTramHoaHongKy(
+              getPayrollBreakdown(savedPercentItem).phan_tram_hoa_hong
+            );
+          }
+          setRows(savedRows);
+        }
+      } catch (e) {
+        console.error('Lấy bảng lương đã lưu thất bại:', e);
+      }
+      try {
+        const { rows: merged, payrollData } = await gopDoanhSoTheoBaoCao(sourceRows, nam, thang);
         if (cancelled || loadedKyRef.current !== periodKey) return;
         setRows(merged);
         setRevenueCache(payrollData);
@@ -427,6 +471,26 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
     });
   }, []);
 
+  const saveAndOpenPayroll = useCallback(async () => {
+    try {
+      setSavingPayroll(true);
+      await syncPayrollFromAttendance(thang, nam, undefined, {
+        rows,
+        phanTramHoaHongTheoKy: phanTramHoaHongKy,
+      });
+      navigate('/tien-luong/bang-luong');
+    } catch (e) {
+      console.error('Lưu bảng lương chấm công:', e);
+      const detail =
+        typeof e === 'object' && e !== null && 'message' in e
+          ? String(e.message)
+          : 'Lỗi không xác định';
+      window.alert(`Không thể lưu bảng lương.\nChi tiết: ${detail}`);
+    } finally {
+      setSavingPayroll(false);
+    }
+  }, [nam, navigate, phanTramHoaHongKy, rows, thang]);
+
   const moChiTietDon = useCallback(
     async (hoTen: string) => {
       const ten = hoTen.trim();
@@ -531,12 +595,13 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
           <div className="flex flex-nowrap items-center gap-2 min-w-0 w-full sm:justify-end overflow-x-auto py-0.5 -mx-0.5 px-0.5">
             <button
               type="button"
-              onClick={() => navigate('/tien-luong/bang-luong')}
+              onClick={saveAndOpenPayroll}
+              disabled={savingPayroll || revenueLoading || quickLoading}
               className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50 text-emerald-700 text-sm font-semibold px-3 py-2 hover:bg-emerald-100"
-              title="Mở bảng lương chính"
+              title="Lưu đầy đủ các khoản vào Supabase rồi mở bảng lương chính"
             >
-              <BadgeDollarSign className="w-4 h-4" />
-              Bảng lương
+              {savingPayroll ? <Loader2 className="w-4 h-4 animate-spin" /> : <BadgeDollarSign className="w-4 h-4" />}
+              {savingPayroll ? 'Đang lưu' : 'Lưu & mở bảng lương'}
             </button>
             <button
               type="button"
@@ -583,17 +648,17 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                   'Tổng thành tiền đơn trong tháng kỳ — dùng tính hoa hồng'
                 )}
                 {thCell('Loại', 'Chính thức / thời vụ')}
-                {thCell('Lương', 'Lương cơ bản tháng (LCB hiệu lực = LCB + cộng thâm niên vào LCB)')}
+                {thCell('Lương', 'Lương cơ bản tháng lấy từ hồ sơ nhân sự')}
                 {thCell(
                   'Ngày công',
                   '28 ngày = 1 tháng lương. Số công từ chấm công + ô « + » nhập thêm ngày làm thêm. Tiền = (LCB ÷ 28) × tổng ngày công.'
                 )}
-                {thCell('Chuyên cần', 'Phụ cấp chuyên cần')}
+                {thCell('Chuyên cần', 'Đủ 28 công trong kỳ được hưởng 200.000đ')}
                 {thCell(
                   'Tăng ca',
                   `Tiền tăng ca = giờ tăng ca × lương giờ × ${1.5} (tối đa 25h/tháng, chỉ nhân viên chính thức)`
                 )}
-                {thCell('Xăng xe điện thoại', 'Phụ cấp xăng xe và điện thoại')}
+                {thCell('Xăng xe điện thoại', 'Điện thoại 200.000đ + xăng xe/đi lại 300.000đ')}
                 {thCell('Thâm niên', '50.000đ × số tháng làm việc, tối đa 600.000đ')}
                 {thCell('Trọ ngoài', 'Phụ cấp trọ ngoài (nhập theo từng nhân viên)')}
                 {thCell('Tiền ăn', 'Số bữa ăn thường × 30.000đ (từ chấm công)')}
@@ -686,14 +751,6 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                         value={formatTienNhap(input.luongCoBan)}
                         onChange={(e) => setTien(input.id, 'luongCoBan', e.target.value)}
                       />
-                      {kq.tangThemVaoLcbTheoNam > 0 && (
-                        <div
-                          className="text-[10px] text-muted-foreground text-right mt-0.5"
-                          title="LCB hiệu lực sau cộng thâm niên"
-                        >
-                          HL: {formatVnd(kq.lcbHieuLuc)}
-                        </div>
-                      )}
                     </td>
                     <td className="px-2 py-1.5 min-w-[9rem]">
                       <div className="flex items-center justify-center gap-1">
