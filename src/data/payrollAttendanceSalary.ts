@@ -42,6 +42,16 @@ export interface BangLuongChamCongInput {
   soNgayTangCaAn: number;
   /** Phụ cấp trọ ngoài (VNĐ/tháng). */
   phuCapTroNgoai: number;
+  /** Điều chỉnh tiền chuyên cần; null/undefined = tính tự động. */
+  phuCapChuyenCan?: number | null;
+  /** Điều chỉnh xăng xe + điện thoại; null/undefined = mức mặc định. */
+  phuCapXangDienThoai?: number | null;
+  /** Điều chỉnh thâm niên; null/undefined = tính theo ngày vào làm. */
+  phuCapThamNien?: number | null;
+  /** Điều chỉnh tiền ăn; null/undefined = tính từ chấm công. */
+  tienAn?: number | null;
+  /** Điều chỉnh tiền ăn tăng ca; null/undefined = tính từ chấm công. */
+  tienAnTangCa?: number | null;
   soGioTangCa: number;
   tongDoanhThu: number;
   phanTramHoaHong: number;
@@ -294,10 +304,20 @@ export function tinhMotDong(
     soBuaTangCa = Math.max(0, options.soBuaAnTangCaTheoChamCon ?? 0);
   }
   const soBuaAn = soBuaCoBan + soBuaTangCa;
-  const tienAn = soBuaCoBan * ATTENDANCE_SALARY.GIA_MOT_BUA_AN;
-  const tienAnTangCa = soBuaTangCa * ATTENDANCE_SALARY.GIA_MOT_BUA_AN;
+  const tienAnMacDinh = soBuaCoBan * ATTENDANCE_SALARY.GIA_MOT_BUA_AN;
+  const tienAnTangCaMacDinh = soBuaTangCa * ATTENDANCE_SALARY.GIA_MOT_BUA_AN;
+  const tienAn =
+    row.tienAn == null ? tienAnMacDinh : Math.max(0, row.tienAn);
+  const tienAnTangCa =
+    row.tienAnTangCa == null
+      ? tienAnTangCaMacDinh
+      : Math.max(0, row.tienAnTangCa);
 
-  const phuCapThamNien = phuCapThamNienTheoThang(thangLam);
+  const phuCapThamNienMacDinh = phuCapThamNienTheoThang(thangLam);
+  const phuCapThamNien =
+    row.phuCapThamNien == null
+      ? phuCapThamNienMacDinh
+      : Math.max(0, row.phuCapThamNien);
   const phuCapTroNgoai = Math.max(0, row.phuCapTroNgoai ?? ATTENDANCE_SALARY.PHU_CAP_TRO_NGOAI_MAC_DINH);
 
   const gioTangCaNguon =
@@ -324,10 +344,18 @@ export function tinhMotDong(
   const luongTheoCong = luongNgay * congApDung;
   // Chỉ hưởng chuyên cần khi đủ 28 công trong kỳ. Ngày bổ sung được xem là
   // điều chỉnh công hợp lệ nên cũng tham gia điều kiện này.
-  const phuCapChuyenCan =
+  const phuCapChuyenCanMacDinh =
     congApDung >= ATTENDANCE_SALARY.NGAY_LAM_TRONG_THANG
       ? ATTENDANCE_SALARY.PHU_CAP_CHUYEN_CAN
       : 0;
+  const phuCapChuyenCan =
+    row.phuCapChuyenCan == null
+      ? phuCapChuyenCanMacDinh
+      : Math.max(0, row.phuCapChuyenCan);
+  const phuCapXangDienThoai =
+    row.phuCapXangDienThoai == null
+      ? ATTENDANCE_SALARY.PHU_CAP_XANG_DT
+      : Math.max(0, row.phuCapXangDienThoai);
   const phanTramHoaHongApDung =
     options?.phanTramHoaHongTheoKy != null
       ? Math.max(0, options.phanTramHoaHongTheoKy)
@@ -339,7 +367,7 @@ export function tinhMotDong(
     tienAn +
     tienAnTangCa +
     phuCapChuyenCan +
-    ATTENDANCE_SALARY.PHU_CAP_XANG_DT +
+    phuCapXangDienThoai +
     phuCapThamNien +
     phuCapTroNgoai +
     luongTangCa +
@@ -368,7 +396,7 @@ export function tinhMotDong(
     tienAn,
     tienAnTangCa,
     phuCapChuyenCan,
-    phuCapXangDienThoai: ATTENDANCE_SALARY.PHU_CAP_XANG_DT,
+    phuCapXangDienThoai,
     phuCapThamNien,
     phuCapTroNgoai,
     thangLamViec: thangLam,

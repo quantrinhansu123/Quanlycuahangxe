@@ -22,7 +22,7 @@ import { loadPayrollRevenueData } from './reportData';
 import { removeVietnameseTones } from '../lib/utils';
 
 const LOCKED_PAYROLL_STATUSES = new Set(['Đã duyệt', 'Đã chi trả']);
-const DEFAULT_COMMISSION_PERCENT = 2.5;
+const DEFAULT_COMMISSION_PERCENT = 2;
 
 export interface PayrollAttendanceSyncResult {
   syncedCount: number;
@@ -59,6 +59,25 @@ function roundMoney(value: number): number {
 
 function normalizePersonnelToken(value: string): string {
   return removeVietnameseTones(value.trim().toLowerCase()).replace(/\s+/g, ' ');
+}
+
+type MoneyOverrideKey =
+  | 'phuCapChuyenCan'
+  | 'phuCapXangDienThoai'
+  | 'phuCapThamNien'
+  | 'tienAn'
+  | 'tienAnTangCa';
+
+function resolveMoneyOverride(
+  row: BangLuongChamCongInput | undefined,
+  key: MoneyOverrideKey,
+  savedValue: number
+): number | null {
+  if (row && Object.prototype.hasOwnProperty.call(row, key)) {
+    const value = row[key];
+    return value == null ? null : Math.max(0, amount(value));
+  }
+  return savedValue >= 0 ? savedValue : null;
 }
 
 /**
@@ -140,6 +159,31 @@ export async function syncPayrollFromAttendance(
       0,
       amount(override?.phuCapTroNgoai ?? existingBreakdown.phu_cap_tro_ngoai)
     );
+    const attendanceAllowanceOverride = resolveMoneyOverride(
+      override,
+      'phuCapChuyenCan',
+      existingBreakdown.dieu_chinh_chuyen_can
+    );
+    const travelPhoneAllowanceOverride = resolveMoneyOverride(
+      override,
+      'phuCapXangDienThoai',
+      existingBreakdown.dieu_chinh_xang_dien_thoai
+    );
+    const seniorityAllowanceOverride = resolveMoneyOverride(
+      override,
+      'phuCapThamNien',
+      existingBreakdown.dieu_chinh_tham_nien
+    );
+    const mealAllowanceOverride = resolveMoneyOverride(
+      override,
+      'tienAn',
+      existingBreakdown.dieu_chinh_tien_an
+    );
+    const overtimeMealAllowanceOverride = resolveMoneyOverride(
+      override,
+      'tienAnTangCa',
+      existingBreakdown.dieu_chinh_tien_an_tang_ca
+    );
     const commissionPercent = Math.min(
       100,
       Math.max(
@@ -173,6 +217,11 @@ export async function syncPayrollFromAttendance(
       soNgayKhongLamTaiQuan: 0,
       soNgayTangCaAn: 0,
       phuCapTroNgoai: outsideHousingAllowance,
+      phuCapChuyenCan: attendanceAllowanceOverride,
+      phuCapXangDienThoai: travelPhoneAllowanceOverride,
+      phuCapThamNien: seniorityAllowanceOverride,
+      tienAn: mealAllowanceOverride,
+      tienAnTangCa: overtimeMealAllowanceOverride,
       soGioTangCa: overtimeHours,
       tongDoanhThu: monthlyRevenue,
       phanTramHoaHong: commissionPercent,
@@ -249,6 +298,11 @@ export async function syncPayrollFromAttendance(
       phan_tram_hoa_hong: commissionPercent,
       so_gio_tang_ca: attendanceSalary.gioTangCaApDung,
       loai_nhan_vien: employeeType === 'thoi_vu' ? 2 : 1,
+      dieu_chinh_chuyen_can: attendanceAllowanceOverride ?? -1,
+      dieu_chinh_xang_dien_thoai: travelPhoneAllowanceOverride ?? -1,
+      dieu_chinh_tham_nien: seniorityAllowanceOverride ?? -1,
+      dieu_chinh_tien_an: mealAllowanceOverride ?? -1,
+      dieu_chinh_tien_an_tang_ca: overtimeMealAllowanceOverride ?? -1,
     });
   }
 
