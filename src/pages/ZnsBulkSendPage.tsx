@@ -15,9 +15,12 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { getCustomersForSelect } from '../data/customerData';
+import { getLastServiceDateMap, getServices, type DichVu } from '../data/serviceData';
 import { normalizeVnPhoneDigits } from '../lib/phoneUtils';
-import { CUSTOMER_BRANCH_OPTIONS } from '../constants/customerBranches';
-import { removeVietnameseTones } from '../lib/utils';
+import { getCustomerLinkKeys } from '../lib/customerOrderLink';
+import { CUSTOMER_BRANCH_OPTIONS, matchesServiceBranch, resolveCustomerBranch } from '../constants/customerBranches';
+import { monthsSince, removeVietnameseTones } from '../lib/utils';
+import { SearchableSelect } from '../components/ui/SearchableSelect';
 import {
   chunkArray,
   createCampaign,
@@ -36,7 +39,14 @@ import {
   type ZnsLogEntry,
 } from '../data/znsData';
 
-type CustomerOption = { id: string; ho_va_ten: string; so_dien_thoai: string; bien_so_xe?: string; dia_chi_hien_tai?: string };
+type CustomerOption = {
+  id: string;
+  ma_khach_hang?: string;
+  ho_va_ten: string;
+  so_dien_thoai: string;
+  bien_so_xe?: string;
+  dia_chi_hien_tai?: string;
+};
 
 interface MappingRow {
   key: string;
@@ -72,6 +82,8 @@ const LOG_STATUS_BADGE: Record<string, { label: string; className: string }> = {
   bo_qua: { label: 'Bỏ qua', className: 'bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-400' },
 };
 
+const MONTHS_SINCE_OPTIONS = [1, 2, 3, 6, 12] as const;
+
 const ZALO_APP_ID = import.meta.env.VITE_ZALO_APP_ID as string | undefined;
 const ZALO_OAUTH_REDIRECT_URI = import.meta.env.VITE_ZALO_OAUTH_REDIRECT_URI as string | undefined;
 
@@ -104,6 +116,15 @@ const ZnsBulkSendPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [branchFilter, setBranchFilter] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Service + "months since last service" filter
+  const [services, setServices] = useState<DichVu[]>([]);
+  const [loadingServices, setLoadingServices] = useState(true);
+  const [serviceFilter, setServiceFilter] = useState(''); // comma-joined dich_vu.id sharing the same name
+  const [monthsSinceFilter, setMonthsSinceFilter] = useState<number | null>(null);
+  const [serviceLastDateMap, setServiceLastDateMap] = useState<Map<string, string>>(new Map());
+  const [serviceLastDateMapFor, setServiceLastDateMapFor] = useState('');
+  const [loadingServiceDates, setLoadingServiceDates] = useState(false);
 
   // Campaign form
   const [tenChienDich, setTenChienDich] = useState('');
@@ -165,16 +186,102 @@ const ZnsBulkSendPage: React.FC = () => {
         setLoadingCustomers(false);
       }
     })();
+    (async () => {
+      setLoadingServices(true);
+      try {
+        const rows = await getServices();
+        setServices(rows);
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : 'Không tải được danh sách dịch vụ', 'error');
+      } finally {
+        setLoadingServices(false);
+      }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleBranchFilterChange = (value: string) => {
+    setBranchFilter(value);
+    setServiceFilter('');
+    setMonthsSinceFilter(null);
+    setServiceLastDateMap(new Map());
+    setServiceLastDateMapFor('');
+    setLoadingServiceDates(false);
+  };
+
+  const handleServiceFilterChange = (value: string) => {
+    setServiceFilter(value);
+    setLoadingServiceDates(Boolean(value));
+    if (!value) {
+      setMonthsSinceFilter(null);
+      setServiceLastDateMap(new Map());
+      setServiceLastDateMapFor('');
+    }
+  };
+
+  const serviceOptions = useMemo(() => {
+    const scoped = branchFilter ? services.filter((s) => matchesServiceBranch(s.co_so, branchFilter)) : services;
+    const idsByName = new Map<string, string[]>();
+    for (const s of scoped) {
+      const name = s.ten_dich_vu?.trim();
+      if (!name) continue;
+      const ids = idsByName.get(name) || [];
+      ids.push(s.id);
+      idsByName.set(name, ids);
+    }
+    return Array.from(idsByName.entries())
+      .sort((a, b) => a[0].localeCompare(b[0], 'vi'))
+      .map(([name, ids]) => ({ value: ids.join(','), label: name, searchKey: name }));
+  }, [services, branchFilter]);
+
+  // Chọn dịch vụ -> tải ngày dùng gần nhất của từng khách cho dịch vụ đó, mới hiện bộ lọc "chưa dùng từ X tháng".
+  useEffect(() => {
+    if (!serviceFilter) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const ids = serviceFilter.split(',');
+        const selectedServices = services.filter((service) => ids.includes(service.id));
+        const serviceValues = selectedServices.flatMap((service) => [
+          service.id,
+          service.id_dich_vu || '',
+          service.ten_dich_vu,
+        ]);
+        const map = await getLastServiceDateMap(serviceValues);
+        if (!cancelled) {
+          setServiceLastDateMap(map);
+          setServiceLastDateMapFor(serviceFilter);
+        }
+      } catch (err) {
+        if (!cancelled) showToast(err instanceof Error ? err.message : 'Không tải được lịch sử dịch vụ', 'error');
+      } finally {
+        if (!cancelled) setLoadingServiceDates(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serviceFilter]);
 
   const filteredCustomers = useMemo(() => {
     const rawQuery = searchQuery.trim();
     const q = removeVietnameseTones(rawQuery);
     const isPhoneQuery = /^[\d\s()+.-]+$/.test(rawQuery) && /\d{3}/.test(rawQuery);
     const normalizedPhoneQuery = isPhoneQuery ? normalizeVnPhoneDigits(rawQuery) : '';
+    const applyServiceFilter =
+      serviceFilter !== '' && monthsSinceFilter !== null && serviceLastDateMapFor === serviceFilter;
     return customers.filter((c) => {
-      if (branchFilter && (c.dia_chi_hien_tai || '') !== branchFilter) return false;
+      if (branchFilter && resolveCustomerBranch(c.dia_chi_hien_tai) !== branchFilter) return false;
+      if (applyServiceFilter) {
+        const lastDate = getCustomerLinkKeys(c).reduce<string | undefined>((latest, key) => {
+          const candidate = serviceLastDateMap.get(key.trim().toLowerCase());
+          return candidate && (!latest || candidate > latest) ? candidate : latest;
+        }, undefined);
+        const months = lastDate ? monthsSince(lastDate) : null;
+        // Chưa từng dùng dịch vụ (months === null) -> tính là quá hạn, vẫn giữ trong danh sách.
+        if (months !== null && months < monthsSinceFilter) return false;
+      }
       if (!q) return true;
       const haystack = removeVietnameseTones(`${c.ho_va_ten} ${c.so_dien_thoai} ${c.bien_so_xe || ''}`);
       return (
@@ -182,7 +289,15 @@ const ZnsBulkSendPage: React.FC = () => {
         (normalizedPhoneQuery !== '' && normalizeVnPhoneDigits(c.so_dien_thoai).includes(normalizedPhoneQuery))
       );
     });
-  }, [customers, searchQuery, branchFilter]);
+  }, [
+    customers,
+    searchQuery,
+    branchFilter,
+    serviceFilter,
+    monthsSinceFilter,
+    serviceLastDateMap,
+    serviceLastDateMapFor,
+  ]);
 
   const selectableFilteredIds = useMemo(
     () => filteredCustomers.filter((c) => isValidVnMobile(c.so_dien_thoai)).map((c) => c.id),
@@ -534,29 +649,71 @@ const ZnsBulkSendPage: React.FC = () => {
             </span>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Tìm tên, SĐT, biển số..."
-              className="flex-1 min-w-[160px] px-3 py-2 rounded-xl border border-border bg-background text-sm"
-            />
-            <select
-              value={branchFilter}
-              onChange={(e) => setBranchFilter(e.target.value)}
-              className="px-3 py-2 rounded-xl border border-border bg-background text-sm"
-            >
-              <option value="">Tất cả cơ sở</option>
-              {CUSTOMER_BRANCH_OPTIONS.map((b) => (
-                <option key={b} value={b}>
-                  {b}
-                </option>
-              ))}
-            </select>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Tìm tên, SĐT, biển số..."
+            className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm"
+          />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <label className="text-[11px] font-normal text-muted-foreground uppercase tracking-wider">Cơ sở</label>
+              <SearchableSelect
+                options={[
+                  { value: '', label: 'Tất cả cơ sở' },
+                  ...CUSTOMER_BRANCH_OPTIONS.map((b) => ({ value: b, label: b })),
+                ]}
+                value={branchFilter}
+                onValueChange={handleBranchFilterChange}
+                placeholder="Tất cả cơ sở"
+                searchPlaceholder="Tìm cơ sở..."
+                className="font-normal"
+                optionClassName="font-normal"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] font-normal text-muted-foreground uppercase tracking-wider">Dịch vụ</label>
+              <SearchableSelect
+                options={[{ value: '', label: 'Tất cả dịch vụ' }, ...serviceOptions]}
+                value={serviceFilter}
+                onValueChange={handleServiceFilterChange}
+                placeholder={loadingServices ? 'Đang tải dịch vụ...' : 'Tất cả dịch vụ'}
+                searchPlaceholder="Tìm dịch vụ..."
+                disabled={loadingServices}
+                className="font-normal"
+                optionClassName="font-normal"
+              />
+            </div>
           </div>
 
-          <label className="flex items-center gap-2 text-sm font-medium text-foreground cursor-pointer">
+          {serviceFilter && (
+            <div className="space-y-1.5 rounded-xl border border-dashed border-border p-2.5">
+              <label className="text-[11px] font-normal text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                Chưa dùng dịch vụ này từ
+                {loadingServiceDates && <Loader2 size={12} className="animate-spin" />}
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {MONTHS_SINCE_OPTIONS.map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setMonthsSinceFilter((prev) => (prev === m ? null : m))}
+                    className={`text-xs px-2.5 py-1 rounded-full font-normal border transition-colors ${
+                      monthsSinceFilter === m
+                        ? 'bg-primary text-white border-primary'
+                        : 'bg-muted text-muted-foreground border-border hover:bg-muted/70'
+                    }`}
+                  >
+                    {m} tháng
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <label className="flex items-center gap-2 text-sm font-normal text-foreground cursor-pointer">
             <input type="checkbox" checked={allFilteredSelected} onChange={toggleSelectAllFiltered} className="rounded" />
             Chọn tất cả (đã lọc, {selectableFilteredIds.length} SĐT hợp lệ)
           </label>

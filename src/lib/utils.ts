@@ -37,3 +37,14 @@ export function formatLocalDateYYYYMMDD(d: Date): string {
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
 }
+
+/** Số tháng tròn đã trôi qua kể từ một ngày (null nếu ngày không hợp lệ). */
+export function monthsSince(dateStr: string | null | undefined): number | null {
+  if (!dateStr) return null;
+  const past = new Date(dateStr);
+  if (Number.isNaN(past.getTime())) return null;
+  const now = new Date();
+  let months = (now.getFullYear() - past.getFullYear()) * 12 + (now.getMonth() - past.getMonth());
+  if (now.getDate() < past.getDate()) months -= 1;
+  return Math.max(0, months);
+}

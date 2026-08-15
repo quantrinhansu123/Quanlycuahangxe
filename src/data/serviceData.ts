@@ -99,6 +99,119 @@ export const getServices = async (): Promise<DichVu[]> => {
   return all;
 };
 
+type ServiceUsageOrder = {
+  id: string;
+  id_bh: string | null;
+  khach_hang_id: string | null;
+  ngay: string;
+};
+
+const SERVICE_USAGE_QUERY_CHUNK = 50;
+const SERVICE_USAGE_PAGE_SIZE = 1000;
+
+function serviceUsageChunks<T>(rows: T[]): T[][] {
+  const result: T[][] = [];
+  for (let i = 0; i < rows.length; i += SERVICE_USAGE_QUERY_CHUNK) {
+    result.push(rows.slice(i, i + SERVICE_USAGE_QUERY_CHUNK));
+  }
+  return result;
+}
+
+/**
+ * Ngày gần nhất khách đã dùng một dịch vụ.
+ *
+ * Dữ liệu cũ có thể lưu UUID, mã hoặc tên dịch vụ; dữ liệu nhiều hạng mục lại
+ * nằm trong `the_ban_hang_ct.san_pham`. Vì vậy phải kiểm tra cả phiếu chính lẫn
+ * chi tiết phiếu, rồi trả map theo `khach_hang_id` (UUID hoặc mã khách hàng).
+ */
+export async function getLastServiceDateMap(serviceValues: string[]): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  const values = [...new Set(serviceValues.map((value) => value.trim()).filter(Boolean))];
+  if (values.length === 0) return map;
+
+  const orders = new Map<string, ServiceUsageOrder>();
+  const detailOrderRefs = new Set<string>();
+
+  for (const valueChunk of serviceUsageChunks(values)) {
+    for (let from = 0; ; from += SERVICE_USAGE_PAGE_SIZE) {
+      const { data, error } = await supabase
+        .from('the_ban_hang')
+        .select('id, id_bh, khach_hang_id, ngay')
+        .in('dich_vu_id', valueChunk)
+        .not('khach_hang_id', 'is', null)
+        .order('id', { ascending: true })
+        .range(from, from + SERVICE_USAGE_PAGE_SIZE - 1);
+
+      if (error) {
+        console.error('Error fetching service usage from sales cards:', error);
+        throw error;
+      }
+
+      const rows = (data as ServiceUsageOrder[]) || [];
+      rows.forEach((row) => orders.set(row.id, row));
+      if (rows.length < SERVICE_USAGE_PAGE_SIZE) break;
+    }
+
+    for (let from = 0; ; from += SERVICE_USAGE_PAGE_SIZE) {
+      const { data, error } = await supabase
+        .from('the_ban_hang_ct')
+        .select('id, id_don_hang')
+        .in('san_pham', valueChunk)
+        .not('id_don_hang', 'is', null)
+        .order('id', { ascending: true })
+        .range(from, from + SERVICE_USAGE_PAGE_SIZE - 1);
+
+      if (error) {
+        console.error('Error fetching service usage from sales card details:', error);
+        throw error;
+      }
+
+      const rows = (data as { id: string; id_don_hang: string | null }[]) || [];
+      rows.forEach((row) => {
+        const ref = row.id_don_hang?.trim();
+        if (ref) detailOrderRefs.add(ref);
+      });
+      if (rows.length < SERVICE_USAGE_PAGE_SIZE) break;
+    }
+  }
+
+  const refs = [...detailOrderRefs];
+  for (const refChunk of serviceUsageChunks(refs)) {
+    const uuidRefs = refChunk.filter((ref) => /^[0-9a-f-]{36}$/i.test(ref));
+    const byCodeResult = await supabase
+      .from('the_ban_hang')
+      .select('id, id_bh, khach_hang_id, ngay')
+      .in('id_bh', refChunk);
+    const byIdResult = uuidRefs.length > 0
+      ? await supabase
+        .from('the_ban_hang')
+        .select('id, id_bh, khach_hang_id, ngay')
+        .in('id', uuidRefs)
+      : { data: [] as ServiceUsageOrder[], error: null };
+
+    const { data: byCode, error: byCodeError } = byCodeResult;
+    const { data: byId, error: byIdError } = byIdResult;
+
+    if (byCodeError || byIdError) {
+      const error = byCodeError || byIdError;
+      console.error('Error resolving sales cards for service details:', error);
+      throw error;
+    }
+
+    [...((byCode as ServiceUsageOrder[]) || []), ...((byId as ServiceUsageOrder[]) || [])]
+      .forEach((row) => orders.set(row.id, row));
+  }
+
+  for (const order of orders.values()) {
+    if (!order.khach_hang_id || !order.ngay) continue;
+    const customerKey = order.khach_hang_id.trim().toLowerCase();
+    const previous = map.get(customerKey);
+    if (!previous || order.ngay > previous) map.set(customerKey, order.ngay);
+  }
+
+  return map;
+}
+
 export const upsertService = async (service: Partial<DichVu>): Promise<DichVu> => {
   try {
     return await upsertServiceInternal(service);

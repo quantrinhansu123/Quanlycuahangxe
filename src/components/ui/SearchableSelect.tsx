@@ -18,6 +18,7 @@ interface SearchableSelectProps {
   searchPlaceholder?: string
   emptyMessage?: string
   className?: string
+  optionClassName?: string
   disabled?: boolean
 }
 
@@ -31,6 +32,7 @@ export const SearchableSelect = React.memo(function SearchableSelect({
   searchPlaceholder = "Tìm kiếm...",
   emptyMessage = "Không có kết quả.",
   className,
+  optionClassName,
   disabled = false,
 }: SearchableSelectProps) {
   const [open, setOpen] = React.useState(false)
@@ -163,7 +165,8 @@ export const SearchableSelect = React.memo(function SearchableSelect({
                     }}
                     className={cn(
                       "flex items-center justify-between px-4 py-3 rounded-lg cursor-pointer text-[14px] font-bold transition-colors hover:bg-primary hover:text-white text-popover-foreground",
-                      value === option.value && "bg-primary text-white"
+                      value === option.value && "bg-primary text-white",
+                      optionClassName
                     )}
                   >
                     {option.label}
@@ -215,7 +218,8 @@ export const SearchableSelect = React.memo(function SearchableSelect({
                     }}
                     className={cn(
                       "flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-[13px] font-bold transition-colors hover:bg-primary hover:text-white text-popover-foreground",
-                      value === option.value && "bg-primary text-white"
+                      value === option.value && "bg-primary text-white",
+                      optionClassName
                     )}
                   >
                     {option.label}
