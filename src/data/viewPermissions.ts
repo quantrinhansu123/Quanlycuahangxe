@@ -310,6 +310,7 @@ export function resolveViewKeyByPath(path?: string): ViewPermissionKey | undefin
     return 'tien-luong-cau-hinh';
   }
   if (path.startsWith('/tien-luong')) return 'tien-luong';
+  if (path.startsWith('/zns/gui-hang-loat')) return 'zns-gui-hang-loat';
   return undefined;
 }
 
