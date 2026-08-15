@@ -1,5 +1,5 @@
 import { Calendar } from 'lucide-react';
-import React, { useEffect, useId, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { isoToDateViInput, parseDateViToIso } from '../../utils/datetimeFormat';
 
 type DateInputViProps = Omit<
@@ -25,8 +25,6 @@ const DateInputVi: React.FC<DateInputViProps> = ({
   ...rest
 }) => {
   const [text, setText] = useState(() => isoToDateViInput(value));
-  const nativeRef = useRef<HTMLInputElement>(null);
-  const pickerId = useId();
 
   useEffect(() => {
     setText(isoToDateViInput(value));
@@ -45,20 +43,6 @@ const DateInputVi: React.FC<DateInputViProps> = ({
       setText(isoToDateViInput(iso));
     } else {
       setText(isoToDateViInput(value));
-    }
-  };
-
-  const openNativePicker = () => {
-    const el = nativeRef.current;
-    if (!el || disabled) return;
-    try {
-      if (typeof el.showPicker === 'function') {
-        el.showPicker();
-      } else {
-        el.click();
-      }
-    } catch {
-      el.click();
     }
   };
 
@@ -107,7 +91,6 @@ const DateInputVi: React.FC<DateInputViProps> = ({
       <button
         type="button"
         disabled={disabled}
-        onClick={openNativePicker}
         className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 text-muted-foreground hover:text-primary disabled:opacity-50"
         title="Chọn trên lịch"
         aria-label="Chọn trên lịch"
@@ -116,8 +99,6 @@ const DateInputVi: React.FC<DateInputViProps> = ({
         <Calendar size={15} />
       </button>
       <input
-        id={pickerId}
-        ref={nativeRef}
         type="date"
         value={value || ''}
         disabled={disabled}
@@ -126,9 +107,12 @@ const DateInputVi: React.FC<DateInputViProps> = ({
           onChange(iso);
           setText(isoToDateViInput(iso));
         }}
-        className="sr-only absolute opacity-0 pointer-events-none w-0 h-0"
+        /* iOS Safari only opens its picker after a direct touch on a real date
+           input. Keep it over the calendar icon; programmatic clicks on a
+           hidden input are ignored there. */
+        className="absolute right-1 top-1/2 z-10 h-8 w-8 -translate-y-1/2 cursor-pointer opacity-0 disabled:cursor-not-allowed"
         tabIndex={-1}
-        aria-hidden
+        aria-label="Chọn ngày trên lịch"
       />
     </div>
   );
