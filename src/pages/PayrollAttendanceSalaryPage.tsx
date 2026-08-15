@@ -26,10 +26,11 @@ import { getPersonnel, type NhanSu } from '../data/personnelData';
 import PersonnelRevenueOrdersModal from '../components/PersonnelRevenueOrdersModal';
 import { getPayrollBatch, getPayrollBreakdown, hasPayrollDetail, type BangLuong } from '../data/payrollData';
 import { syncPayrollFromAttendance } from '../data/payrollAttendanceSyncData';
+import { useAuth } from '../context/AuthContext';
 
 const LS_PREFIX = 'payrollChamCongLuongV2:';
 const LS_PREFIX_LEGACY = 'payrollChamCongLuongV1:';
-const DEFAULT_PCT_HH = 2.5;
+const DEFAULT_PCT_HH = 2;
 
 function khoangNgayCuaThang(nam: number, thang: number): { start: string; end: string } {
   const sm = String(thang).padStart(2, '0');
@@ -129,6 +130,11 @@ function emptyRow(): BangLuongChamCongInput {
     soNgayKhongLamTaiQuan: 0,
     soNgayTangCaAn: 0,
     phuCapTroNgoai: 0,
+    phuCapChuyenCan: null,
+    phuCapXangDienThoai: null,
+    phuCapThamNien: null,
+    tienAn: null,
+    tienAnTangCa: null,
     soGioTangCa: 0,
     tongDoanhThu: 0,
     phanTramHoaHong: 0,
@@ -151,6 +157,24 @@ function payrollBatchToInputRows(items: BangLuong[]): BangLuongChamCongInput[] {
       soNgayCong: Number(item.ngay_cong_thuc_te) || 0,
       soNgayCongThem: detail.ngay_cong_them,
       phuCapTroNgoai: detail.phu_cap_tro_ngoai,
+      phuCapChuyenCan:
+        detail.dieu_chinh_chuyen_can >= 0
+          ? detail.dieu_chinh_chuyen_can
+          : null,
+      phuCapXangDienThoai:
+        detail.dieu_chinh_xang_dien_thoai >= 0
+          ? detail.dieu_chinh_xang_dien_thoai
+          : null,
+      phuCapThamNien:
+        detail.dieu_chinh_tham_nien >= 0
+          ? detail.dieu_chinh_tham_nien
+          : null,
+      tienAn:
+        detail.dieu_chinh_tien_an >= 0 ? detail.dieu_chinh_tien_an : null,
+      tienAnTangCa:
+        detail.dieu_chinh_tien_an_tang_ca >= 0
+          ? detail.dieu_chinh_tien_an_tang_ca
+          : null,
       soGioTangCa: detail.so_gio_tang_ca,
       tongDoanhThu: Number(item.doanh_so) || 0,
       phanTramHoaHong: detail.phan_tram_hoa_hong,
@@ -195,6 +219,11 @@ type NumKey = keyof Pick<
   'luongCoBan' | 'soGioTangCa' | 'tongDoanhThu' | 'soNgayCongThem'
 >;
 
+type OptionalMoneyKey = keyof Pick<
+  BangLuongChamCongInput,
+  'phuCapChuyenCan' | 'phuCapXangDienThoai' | 'phuCapThamNien' | 'tienAn' | 'tienAnTangCa'
+>;
+
 /** Các năm trong Kỳ; luôn gộp `namDangChon` để select không bị trống khi nằm ngoài dải mặc định. */
 function danhSachNamKy(referenceYear: number, namDangChon: number): number[] {
   const tu = referenceYear - 20;
@@ -207,6 +236,7 @@ function danhSachNamKy(referenceYear: number, namDangChon: number): number[] {
 
 const PayrollAttendanceSalaryPage: React.FC = () => {
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
   const now = new Date();
   const [nam, setNam] = useState(now.getFullYear());
   const [thang, setThang] = useState(now.getMonth() + 1);
@@ -239,6 +269,8 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
   useEffect(() => {
     const s = loadSheet(nam, thang);
     const periodKey = `${nam}-${thang}`;
+    // The selected period is external input; replace the editable sheet atomically.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPhanTramHoaHongKy(s.phanTramHoaHongKy);
     setRows(s.rows);
     setRevenueCache(null);
@@ -328,6 +360,8 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
   /** LCB và ngày bắt đầu làm: khi khớp hồ sơ Nhân sự lấy từ đó (LCB + ngày vào làm). */
   useEffect(() => {
     if (nhanTheoChuanTen.size === 0) return;
+    // Personnel arrives asynchronously and is the authoritative source for these fields.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setRows((prev) => {
       let changed = false;
       const next = prev.map((r) => {
@@ -375,9 +409,10 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
 
   const updateRow = useCallback(
     (id: string, patch: Partial<BangLuongChamCongInput>) => {
+      if (!isAdmin) return;
       setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
     },
-    []
+    [isAdmin]
   );
 
   const setNum = useCallback(
@@ -395,9 +430,20 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
     [updateRow]
   );
 
+  const setOptionalTien = useCallback(
+    (id: string, key: OptionalMoneyKey, raw: string) => {
+      const trimmed = raw.trim();
+      updateRow(id, {
+        [key]: trimmed === '' ? null : parseTienNhap(trimmed),
+      } as Partial<BangLuongChamCongInput>);
+    },
+    [updateRow]
+  );
+
   const addRow = useCallback(() => {
+    if (!isAdmin) return;
     setRows((prev) => [...prev, emptyRow()]);
-  }, []);
+  }, [isAdmin]);
 
   const capNhatDoanhSoTuPhieuBan = useCallback(async () => {
     setRevenueLoading(true);
@@ -421,6 +467,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
   }, [rows, nam, thang]);
 
   const taoNhanh = useCallback(async () => {
+    if (!isAdmin) return;
     const hasData = rows.some(
       (r) =>
         (r.hoTen || '').trim() !== '' ||
@@ -461,17 +508,22 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
     } finally {
       setQuickLoading(false);
     }
-  }, [rows, nam, thang]);
+  }, [isAdmin, rows, nam, thang]);
 
   const removeRow = useCallback((id: string) => {
+    if (!isAdmin) return;
     if (!window.confirm('Xóa dòng này khỏi bảng lương tháng đang chọn?')) return;
     setRows((prev) => {
       const next = prev.filter((r) => r.id !== id);
       return next.length > 0 ? next : [emptyRow()];
     });
-  }, []);
+  }, [isAdmin]);
 
   const saveAndOpenPayroll = useCallback(async () => {
+    if (!isAdmin) {
+      window.alert('Chỉ tài khoản admin được lưu hoặc chỉnh sửa bảng lương.');
+      return;
+    }
     try {
       setSavingPayroll(true);
       await syncPayrollFromAttendance(thang, nam, undefined, {
@@ -489,7 +541,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
     } finally {
       setSavingPayroll(false);
     }
-  }, [nam, navigate, phanTramHoaHongKy, rows, thang]);
+  }, [isAdmin, nam, navigate, phanTramHoaHongKy, rows, thang]);
 
   const moChiTietDon = useCallback(
     async (hoTen: string) => {
@@ -510,7 +562,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
         window.alert('Không tải được danh sách đơn hàng.');
       }
     },
-    [revenueCache, nam, thang, nhanTheoChuanTen]
+    [revenueCache, nam, thang, nhanTheoChuanTen, setOrdersModal]
   );
 
   const thCell = (short: string, full: string) => (
@@ -574,7 +626,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
             </div>
             <div
               className="flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-primary/5 border-primary/20 px-2 py-1"
-              title="% hoa hồng tháng (cùng kỳ), áp cả bảng"
+              title="% hoa hồng tổng của kỳ; đơn có nhiều người phụ trách sẽ chia đều doanh số trước khi tính"
             >
               <span className="text-xs text-muted-foreground">HH</span>
               <input
@@ -582,11 +634,12 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                 inputMode="decimal"
                 className="w-11 bg-background border border-border/60 rounded px-1 py-1 text-sm font-mono text-right"
                 value={String(phanTramHoaHongKy)}
+                disabled={!isAdmin}
                 onChange={(e) => {
                   const n = parseFloat(e.target.value.replace(/,/g, ''));
                   setPhanTramHoaHongKy(Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 0);
                 }}
-                title="% hoa hồng tháng (cùng kỳ đang chọn)"
+                title="% hoa hồng tổng; 1 người hưởng đủ, 2 người cùng làm thì chia đôi"
                 aria-label="% hoa hồng tháng"
               />
               <span className="text-sm font-medium">%</span>
@@ -596,9 +649,9 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
             <button
               type="button"
               onClick={saveAndOpenPayroll}
-              disabled={savingPayroll || revenueLoading || quickLoading}
+              disabled={!isAdmin || savingPayroll || revenueLoading || quickLoading}
               className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50 text-emerald-700 text-sm font-semibold px-3 py-2 hover:bg-emerald-100"
-              title="Lưu đầy đủ các khoản vào Supabase rồi mở bảng lương chính"
+              title={isAdmin ? 'Lưu đầy đủ các khoản vào Supabase rồi mở bảng lương chính' : 'Chỉ admin được lưu bảng lương'}
             >
               {savingPayroll ? <Loader2 className="w-4 h-4 animate-spin" /> : <BadgeDollarSign className="w-4 h-4" />}
               {savingPayroll ? 'Đang lưu' : 'Lưu & mở bảng lương'}
@@ -613,23 +666,27 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
               {revenueLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <TrendingUp className="w-4 h-4" />}
               Doanh số
             </button>
-            <button
-              type="button"
-              onClick={taoNhanh}
-              disabled={quickLoading || revenueLoading}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-background text-sm font-medium px-3 py-2 hover:bg-muted/50 disabled:opacity-50"
-            >
-              {quickLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
-              Tạo nhanh
-            </button>
-            <button
-              type="button"
-              onClick={addRow}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium px-3 py-2 hover:opacity-90 disabled:opacity-50"
-            >
-              <Plus className="w-4 h-4" />
-              Thêm dòng
-            </button>
+            {isAdmin && (
+              <>
+                <button
+                  type="button"
+                  onClick={taoNhanh}
+                  disabled={quickLoading || revenueLoading}
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-background text-sm font-medium px-3 py-2 hover:bg-muted/50 disabled:opacity-50"
+                >
+                  {quickLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+                  Tạo nhanh
+                </button>
+                <button
+                  type="button"
+                  onClick={addRow}
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium px-3 py-2 hover:opacity-90 disabled:opacity-50"
+                >
+                  <Plus className="w-4 h-4" />
+                  Thêm dòng
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -645,7 +702,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                 {thCell('Họ tên', 'Tên nhân viên')}
                 {thCell(
                   'Doanh số tháng',
-                  'Tổng thành tiền đơn trong tháng kỳ — dùng tính hoa hồng'
+                  'Doanh số đã chia đều theo số người cùng phụ trách đơn — dùng tính hoa hồng'
                 )}
                 {thCell('Loại', 'Chính thức / thời vụ')}
                 {thCell('Lương', 'Lương cơ bản tháng lấy từ hồ sơ nhân sự')}
@@ -663,12 +720,14 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                 {thCell('Trọ ngoài', 'Phụ cấp trọ ngoài (nhập theo từng nhân viên)')}
                 {thCell('Tiền ăn', 'Số bữa ăn thường × 30.000đ (từ chấm công)')}
                 {thCell('Tiền ăn tăng ca', 'Bữa ăn bổ sung khi checkout sau 19:40 × 30.000đ')}
-                {thCell('Tiền % hoa hồng', 'Doanh số tháng × % hoa hồng (ô HH ở trên)')}
+                {thCell('Tiền % hoa hồng', 'Doanh số đã chia đều × % hoa hồng tổng (1 người: đủ %, 2 người: mỗi người một nửa)')}
                 {thCell('Tổng lương', 'Tổng các khoản thu nhập')}
                 {thCell('Ghi chú', 'Cảnh báo')}
-                <th className="sticky top-0 right-0 z-[2] bg-muted/80 backdrop-blur border-b border-l border-border px-2 py-3 text-center text-xs sm:text-sm font-semibold text-muted-foreground whitespace-nowrap w-14">
-                  Xóa
-                </th>
+                {isAdmin && (
+                  <th className="sticky top-0 right-0 z-[2] bg-muted/80 backdrop-blur border-b border-l border-border px-2 py-3 text-center text-xs sm:text-sm font-semibold text-muted-foreground whitespace-nowrap w-14">
+                    Xóa
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -692,7 +751,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                             input.hoTen.trim() &&
                             'cursor-pointer text-primary font-medium hover:bg-primary/5 hover:border-primary/30'
                         )}
-                        readOnly={!isEditingName}
+                        readOnly={!isAdmin || !isEditingName}
                         title={
                           isEditingName
                             ? 'Nhập họ tên'
@@ -705,12 +764,14 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                         onClick={() => {
                           if (isEditingName) return;
                           if (!input.hoTen.trim()) {
-                            setEditingNameId(input.id);
+                            if (isAdmin) setEditingNameId(input.id);
                             return;
                           }
                           void moChiTietDon(input.hoTen);
                         }}
-                        onDoubleClick={() => setEditingNameId(input.id)}
+                        onDoubleClick={() => {
+                          if (isAdmin) setEditingNameId(input.id);
+                        }}
                         onBlur={() => setEditingNameId(null)}
                       />
                     </td>
@@ -720,6 +781,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                         inputMode="numeric"
                         className="w-32 min-w-0 min-h-10 text-sm bg-transparent border border-primary/30 rounded-md px-2 py-1.5 text-right font-mono"
                         title="Tổng tong_tien đơn trong kỳ (theo Họ tên). Bấm « Doanh số » để lấy từ hệ thống."
+                        readOnly={!isAdmin}
                         value={formatTienNhap(input.tongDoanhThu)}
                         onChange={(e) => setTien(input.id, 'tongDoanhThu', e.target.value)}
                       />
@@ -728,6 +790,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                       <select
                         className="w-[7.5rem] min-h-10 text-sm bg-background border border-border/60 rounded-md px-1.5 py-1.5"
                         value={input.loai}
+                        disabled={!isAdmin}
                         onChange={(e) => updateRow(input.id, { loai: e.target.value as LoaiNhanVien })}
                       >
                         <option value="chinh_thuc">Chính thức</option>
@@ -747,7 +810,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                             ? 'Lương cơ bản lấy từ Nhân sự; sửa tại trang Nhân sự.'
                             : 'Nhập LCB thủ công khi chưa có hồ sơ nhân sự trùng tên'
                         }
-                        readOnly={khopNhanSu}
+                        readOnly={khopNhanSu || !isAdmin}
                         value={formatTienNhap(input.luongCoBan)}
                         onChange={(e) => setTien(input.id, 'luongCoBan', e.target.value)}
                       />
@@ -766,6 +829,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                           inputMode="numeric"
                           className="w-10 min-h-8 text-sm bg-transparent border border-border/60 rounded-md px-1 py-1 text-center font-mono"
                           title="Thêm số ngày làm thêm (cộng vào ngày công)"
+                          readOnly={!isAdmin}
                           value={String(input.soNgayCongThem ?? 0)}
                           onChange={(e) => setNum(input.id, 'soNgayCongThem', e.target.value)}
                         />
@@ -778,7 +842,18 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-2.5 py-2.5 text-right font-mono whitespace-nowrap text-sm">
-                      {formatVnd(kq.phuCapChuyenCan)}
+                      {isAdmin ? (
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          className="w-28 min-h-9 bg-transparent border border-border/60 rounded-md px-2 py-1.5 text-right font-mono"
+                          title="Admin có thể sửa; xóa hết giá trị để quay về mức tự động theo 28 công"
+                          value={formatTienNhap(input.phuCapChuyenCan ?? kq.phuCapChuyenCan)}
+                          onChange={(e) => setOptionalTien(input.id, 'phuCapChuyenCan', e.target.value)}
+                        />
+                      ) : (
+                        formatVnd(kq.phuCapChuyenCan)
+                      )}
                     </td>
                     <td
                       className="px-2.5 py-2.5 text-right font-mono whitespace-nowrap text-sm"
@@ -791,7 +866,18 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                       {formatVnd(kq.luongTangCa)}
                     </td>
                     <td className="px-2.5 py-2.5 text-right font-mono whitespace-nowrap text-sm">
-                      {formatVnd(kq.phuCapXangDienThoai)}
+                      {isAdmin ? (
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          className="w-28 min-h-9 bg-transparent border border-border/60 rounded-md px-2 py-1.5 text-right font-mono"
+                          title="Admin có thể sửa; xóa hết giá trị để quay về 500.000đ mặc định"
+                          value={formatTienNhap(input.phuCapXangDienThoai ?? kq.phuCapXangDienThoai)}
+                          onChange={(e) => setOptionalTien(input.id, 'phuCapXangDienThoai', e.target.value)}
+                        />
+                      ) : (
+                        formatVnd(kq.phuCapXangDienThoai)
+                      )}
                     </td>
                     <td
                       className="px-2.5 py-2.5 text-right font-mono whitespace-nowrap text-sm"
@@ -801,7 +887,18 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                           : 'Chưa có ngày vào làm'
                       }
                     >
-                      {formatVnd(kq.phuCapThamNien)}
+                      {isAdmin ? (
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          className="w-28 min-h-9 bg-transparent border border-border/60 rounded-md px-2 py-1.5 text-right font-mono"
+                          title="Admin có thể sửa; xóa hết giá trị để tính lại theo ngày vào làm"
+                          value={formatTienNhap(input.phuCapThamNien ?? kq.phuCapThamNien)}
+                          onChange={(e) => setOptionalTien(input.id, 'phuCapThamNien', e.target.value)}
+                        />
+                      ) : (
+                        formatVnd(kq.phuCapThamNien)
+                      )}
                     </td>
                     <td className="px-2 py-1.5">
                       <input
@@ -809,6 +906,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                         inputMode="numeric"
                         className="w-28 min-w-0 min-h-10 text-sm bg-transparent border border-border/60 rounded-md px-2 py-1.5 text-right font-mono"
                         title="Phụ cấp trọ ngoài"
+                        readOnly={!isAdmin}
                         value={formatTienNhap(input.phuCapTroNgoai ?? 0)}
                         onChange={(e) => setTien(input.id, 'phuCapTroNgoai', e.target.value)}
                       />
@@ -817,13 +915,35 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                       className="px-2.5 py-2.5 text-right font-mono whitespace-nowrap text-sm"
                       title={`${kq.soBuaAn - kq.soBuaAnTangCa} bữa × 30.000đ`}
                     >
-                      {formatVnd(kq.tienAn)}
+                      {isAdmin ? (
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          className="w-28 min-h-9 bg-transparent border border-border/60 rounded-md px-2 py-1.5 text-right font-mono"
+                          title="Admin có thể sửa; xóa hết giá trị để tính lại theo chấm công"
+                          value={formatTienNhap(input.tienAn ?? kq.tienAn)}
+                          onChange={(e) => setOptionalTien(input.id, 'tienAn', e.target.value)}
+                        />
+                      ) : (
+                        formatVnd(kq.tienAn)
+                      )}
                     </td>
                     <td
                       className="px-2.5 py-2.5 text-right font-mono whitespace-nowrap text-sm"
                       title={`${kq.soBuaAnTangCa} bữa tăng ca × 30.000đ`}
                     >
-                      {formatVnd(kq.tienAnTangCa)}
+                      {isAdmin ? (
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          className="w-28 min-h-9 bg-transparent border border-border/60 rounded-md px-2 py-1.5 text-right font-mono"
+                          title="Admin có thể sửa; xóa hết giá trị để tính lại theo chấm công"
+                          value={formatTienNhap(input.tienAnTangCa ?? kq.tienAnTangCa)}
+                          onChange={(e) => setOptionalTien(input.id, 'tienAnTangCa', e.target.value)}
+                        />
+                      ) : (
+                        formatVnd(kq.tienAnTangCa)
+                      )}
                     </td>
                     <td
                       className="px-2.5 py-2.5 text-right font-mono whitespace-nowrap text-sm"
@@ -837,18 +957,20 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                     <td className="px-2.5 py-2.5 text-xs sm:text-sm text-amber-600 dark:text-amber-500 max-w-[200px]">
                       {kq.ghiChu}
                     </td>
-                    <td className="sticky right-0 z-[1] bg-card/95 border-l border-border px-1 py-1.5 text-center">
-                      <button
-                        type="button"
-                        onClick={() => removeRow(input.id)}
-                        className="inline-flex items-center justify-center gap-1 p-2 rounded-md text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/20"
-                        title="Xóa dòng"
-                        aria-label="Xóa dòng"
-                      >
-                        <Trash2 className="w-4 h-4 shrink-0" />
-                        <span className="sr-only sm:not-sr-only sm:text-xs sm:font-semibold">Xóa</span>
-                      </button>
-                    </td>
+                    {isAdmin && (
+                      <td className="sticky right-0 z-[1] bg-card/95 border-l border-border px-1 py-1.5 text-center">
+                        <button
+                          type="button"
+                          onClick={() => removeRow(input.id)}
+                          className="inline-flex items-center justify-center gap-1 p-2 rounded-md text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/20"
+                          title="Xóa dòng"
+                          aria-label="Xóa dòng"
+                        >
+                          <Trash2 className="w-4 h-4 shrink-0" />
+                          <span className="sr-only sm:not-sr-only sm:text-xs sm:font-semibold">Xóa</span>
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 );
               })}

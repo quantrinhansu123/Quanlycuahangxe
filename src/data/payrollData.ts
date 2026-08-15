@@ -37,6 +37,11 @@ export interface BangLuong {
   phan_tram_hoa_hong?: number;
   so_gio_tang_ca?: number;
   loai_nhan_vien?: number;
+  dieu_chinh_chuyen_can?: number;
+  dieu_chinh_xang_dien_thoai?: number;
+  dieu_chinh_tham_nien?: number;
+  dieu_chinh_tien_an?: number;
+  dieu_chinh_tien_an_tang_ca?: number;
   nhan_su?: {
     id: string;
     ho_ten: string;
@@ -71,6 +76,12 @@ export interface PayrollBreakdownValues {
   so_gio_tang_ca: number;
   /** 1 = chính thức, 2 = thời vụ, 0 = dữ liệu cũ chưa xác định. */
   loai_nhan_vien: number;
+  /** -1 = tự động; từ 0 trở lên = số tiền admin điều chỉnh. */
+  dieu_chinh_chuyen_can: number;
+  dieu_chinh_xang_dien_thoai: number;
+  dieu_chinh_tham_nien: number;
+  dieu_chinh_tien_an: number;
+  dieu_chinh_tien_an_tang_ca: number;
 }
 
 export const PAYROLL_DETAIL_CODES = {
@@ -85,6 +96,11 @@ export const PAYROLL_DETAIL_CODES = {
   phan_tram_hoa_hong: 'payroll:phan_tram_hoa_hong',
   so_gio_tang_ca: 'payroll:gio_tang_ca',
   loai_nhan_vien: 'payroll:loai_nhan_vien',
+  dieu_chinh_chuyen_can: 'payroll:dieu_chinh_chuyen_can',
+  dieu_chinh_xang_dien_thoai: 'payroll:dieu_chinh_xang_dien_thoai',
+  dieu_chinh_tham_nien: 'payroll:dieu_chinh_tham_nien',
+  dieu_chinh_tien_an: 'payroll:dieu_chinh_tien_an',
+  dieu_chinh_tien_an_tang_ca: 'payroll:dieu_chinh_tien_an_tang_ca',
 } as const satisfies Record<keyof PayrollBreakdownValues, string>;
 
 const PAYROLL_DETAIL_DEFINITIONS: Array<{
@@ -103,6 +119,11 @@ const PAYROLL_DETAIL_DEFINITIONS: Array<{
   { key: 'phan_tram_hoa_hong', name: '% hoa hồng', type: 'tham_so' },
   { key: 'so_gio_tang_ca', name: 'Số giờ tăng ca', type: 'tham_so' },
   { key: 'loai_nhan_vien', name: 'Loại nhân viên', type: 'tham_so' },
+  { key: 'dieu_chinh_chuyen_can', name: 'Điều chỉnh chuyên cần', type: 'tham_so' },
+  { key: 'dieu_chinh_xang_dien_thoai', name: 'Điều chỉnh xăng xe điện thoại', type: 'tham_so' },
+  { key: 'dieu_chinh_tham_nien', name: 'Điều chỉnh thâm niên', type: 'tham_so' },
+  { key: 'dieu_chinh_tien_an', name: 'Điều chỉnh tiền ăn', type: 'tham_so' },
+  { key: 'dieu_chinh_tien_an_tang_ca', name: 'Điều chỉnh tiền ăn tăng ca', type: 'tham_so' },
 ];
 
 function numberValue(value: unknown): number {
@@ -128,6 +149,13 @@ export function getPayrollBreakdown(item: Partial<BangLuong>): PayrollBreakdownV
     if (direct != null) return numberValue(direct);
     return byCode.get(PAYROLL_DETAIL_CODES[key]) ?? 0;
   };
+  const overrideValue = (key: keyof PayrollBreakdownValues): number => {
+    const direct = item[key];
+    if (direct != null) return numberValue(direct);
+    return byCode.has(PAYROLL_DETAIL_CODES[key])
+      ? byCode.get(PAYROLL_DETAIL_CODES[key]) ?? -1
+      : -1;
+  };
 
   return {
     ngay_cong_them: value('ngay_cong_them'),
@@ -144,6 +172,11 @@ export function getPayrollBreakdown(item: Partial<BangLuong>): PayrollBreakdownV
     phan_tram_hoa_hong: value('phan_tram_hoa_hong'),
     so_gio_tang_ca: value('so_gio_tang_ca'),
     loai_nhan_vien: value('loai_nhan_vien'),
+    dieu_chinh_chuyen_can: overrideValue('dieu_chinh_chuyen_can'),
+    dieu_chinh_xang_dien_thoai: overrideValue('dieu_chinh_xang_dien_thoai'),
+    dieu_chinh_tham_nien: overrideValue('dieu_chinh_tham_nien'),
+    dieu_chinh_tien_an: overrideValue('dieu_chinh_tien_an'),
+    dieu_chinh_tien_an_tang_ca: overrideValue('dieu_chinh_tien_an_tang_ca'),
   };
 }
 
