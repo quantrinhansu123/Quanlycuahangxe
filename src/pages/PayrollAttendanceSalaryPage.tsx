@@ -32,6 +32,11 @@ const LS_PREFIX = 'payrollChamCongLuongV2:';
 const LS_PREFIX_LEGACY = 'payrollChamCongLuongV1:';
 const DEFAULT_PCT_HH = 2;
 
+function normalizeCommissionPercent(value: unknown, fallback = DEFAULT_PCT_HH): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.min(100, Math.max(0, parsed)) : fallback;
+}
+
 function khoangNgayCuaThang(nam: number, thang: number): { start: string; end: string } {
   const sm = String(thang).padStart(2, '0');
   const last = new Date(nam, thang, 0).getDate();
@@ -118,7 +123,7 @@ function newId(): string {
   return `r-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-function emptyRow(): BangLuongChamCongInput {
+function emptyRow(phanTramHoaHong = DEFAULT_PCT_HH): BangLuongChamCongInput {
   return {
     id: newId(),
     hoTen: '',
@@ -137,7 +142,7 @@ function emptyRow(): BangLuongChamCongInput {
     tienAnTangCa: null,
     soGioTangCa: 0,
     tongDoanhThu: 0,
-    phanTramHoaHong: 0,
+    phanTramHoaHong: normalizeCommissionPercent(phanTramHoaHong),
     ngayBatDauLam: '',
     thuongKhac: 0,
     khoanTru: 0,
@@ -177,13 +182,32 @@ function payrollBatchToInputRows(items: BangLuong[]): BangLuongChamCongInput[] {
           : null,
       soGioTangCa: detail.so_gio_tang_ca,
       tongDoanhThu: Number(item.doanh_so) || 0,
-      phanTramHoaHong: detail.phan_tram_hoa_hong,
+      phanTramHoaHong: hasPayrollDetail(item, 'phan_tram_hoa_hong')
+        ? normalizeCommissionPercent(detail.phan_tram_hoa_hong)
+        : DEFAULT_PCT_HH,
       ngayBatDauLam: item.nhan_su.ngay_vao_lam?.slice(0, 10) ?? '',
     }];
   });
 }
 
-type StoredSheet = { v: 1; phanTramHoaHongKy: number; rows: BangLuongChamCongInput[] };
+type StoredSheet = {
+  v: 1 | 2;
+  phanTramHoaHongKy: number;
+  rows: BangLuongChamCongInput[];
+};
+
+function normalizeStoredRows(
+  rows: BangLuongChamCongInput[],
+  defaultPercent: number,
+  useDefaultForAll: boolean
+): BangLuongChamCongInput[] {
+  return rows.map((row) => ({
+    ...row,
+    phanTramHoaHong: useDefaultForAll
+      ? defaultPercent
+      : normalizeCommissionPercent(row.phanTramHoaHong, defaultPercent),
+  }));
+}
 
 function loadSheet(
   y: number,
@@ -199,13 +223,27 @@ function loadSheet(
     }
     const parsed = JSON.parse(raw) as unknown;
     if (Array.isArray(parsed) && parsed.length > 0) {
-      return { phanTramHoaHongKy: DEFAULT_PCT_HH, rows: parsed as BangLuongChamCongInput[] };
+      return {
+        phanTramHoaHongKy: DEFAULT_PCT_HH,
+        rows: normalizeStoredRows(
+          parsed as BangLuongChamCongInput[],
+          DEFAULT_PCT_HH,
+          true
+        ),
+      };
     }
     const sheet = parsed as Partial<StoredSheet>;
-    if (sheet && sheet.v === 1 && Array.isArray(sheet.rows) && sheet.rows.length > 0) {
+    if (
+      sheet &&
+      (sheet.v === 1 || sheet.v === 2) &&
+      Array.isArray(sheet.rows) &&
+      sheet.rows.length > 0
+    ) {
+      const defaultPercent = normalizeCommissionPercent(sheet.phanTramHoaHongKy);
       return {
-        phanTramHoaHongKy: typeof sheet.phanTramHoaHongKy === 'number' ? sheet.phanTramHoaHongKy : DEFAULT_PCT_HH,
-        rows: sheet.rows,
+        phanTramHoaHongKy: defaultPercent,
+        // Bản v1 chỉ có một mức HH chung; chuyển mức đó vào từng dòng khi nâng cấp.
+        rows: normalizeStoredRows(sheet.rows, defaultPercent, sheet.v === 1),
       };
     }
   } catch {
@@ -330,7 +368,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
   useEffect(() => {
     if (loadedKyRef.current !== `${nam}-${thang}`) return;
     try {
-      const data: StoredSheet = { v: 1, phanTramHoaHongKy, rows };
+      const data: StoredSheet = { v: 2, phanTramHoaHongKy, rows };
       localStorage.setItem(`${LS_PREFIX}${nam}-${thang}`, JSON.stringify(data));
     } catch {
       // ignore quota
@@ -396,7 +434,6 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
           input: r,
           gTcTuCham,
           kq: tinhMotDong(r, nam, thang, {
-            phanTramHoaHongTheoKy: phanTramHoaHongKy,
             soBuaAnTheoChamCon: chamDong.length > 0 ? b.soBuaCoBan : undefined,
             soBuaAnTangCaTheoChamCon: chamDong.length > 0 ? b.soBuaTangCa : undefined,
             soNgayCongTheoChamCon: c,
@@ -404,7 +441,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
           }),
         };
       }),
-    [rows, nam, thang, phanTramHoaHongKy, chamDong, nhanTheoChuanTen]
+    [rows, nam, thang, chamDong, nhanTheoChuanTen]
   );
 
   const updateRow = useCallback(
@@ -440,10 +477,33 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
     [updateRow]
   );
 
+  const setCommissionPercent = useCallback(
+    (id: string, raw: string) => {
+      const normalized = raw.replace(',', '.').trim();
+      updateRow(id, {
+        phanTramHoaHong: normalizeCommissionPercent(normalized === '' ? 0 : normalized, 0),
+      });
+    },
+    [updateRow]
+  );
+
+  const applyDefaultCommissionToAll = useCallback(() => {
+    if (!isAdmin) return;
+    const percent = normalizeCommissionPercent(phanTramHoaHongKy);
+    if (
+      !window.confirm(
+        `Áp dụng mức hoa hồng ${percent}% cho toàn bộ nhân viên trong bảng hiện tại?`
+      )
+    ) {
+      return;
+    }
+    setRows((prev) => prev.map((row) => ({ ...row, phanTramHoaHong: percent })));
+  }, [isAdmin, phanTramHoaHongKy]);
+
   const addRow = useCallback(() => {
     if (!isAdmin) return;
-    setRows((prev) => [...prev, emptyRow()]);
-  }, [isAdmin]);
+    setRows((prev) => [...prev, emptyRow(phanTramHoaHongKy)]);
+  }, [isAdmin, phanTramHoaHongKy]);
 
   const capNhatDoanhSoTuPhieuBan = useCallback(async () => {
     setRevenueLoading(true);
@@ -488,7 +548,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
         const luongCoBan =
           raw != null && !Number.isNaN(Number(raw)) ? Number(raw) : 0;
         return {
-          ...emptyRow(),
+          ...emptyRow(phanTramHoaHongKy),
           id: newId(),
           hoTen: p.ho_ten,
           luongCoBan,
@@ -508,16 +568,16 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
     } finally {
       setQuickLoading(false);
     }
-  }, [isAdmin, rows, nam, thang]);
+  }, [isAdmin, rows, nam, thang, phanTramHoaHongKy]);
 
   const removeRow = useCallback((id: string) => {
     if (!isAdmin) return;
     if (!window.confirm('Xóa dòng này khỏi bảng lương tháng đang chọn?')) return;
     setRows((prev) => {
       const next = prev.filter((r) => r.id !== id);
-      return next.length > 0 ? next : [emptyRow()];
+      return next.length > 0 ? next : [emptyRow(phanTramHoaHongKy)];
     });
-  }, [isAdmin]);
+  }, [isAdmin, phanTramHoaHongKy]);
 
   const saveAndOpenPayroll = useCallback(async () => {
     if (!isAdmin) {
@@ -526,10 +586,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
     }
     try {
       setSavingPayroll(true);
-      await syncPayrollFromAttendance(thang, nam, undefined, {
-        rows,
-        phanTramHoaHongTheoKy: phanTramHoaHongKy,
-      });
+      await syncPayrollFromAttendance(thang, nam, undefined, { rows });
       navigate('/tien-luong/bang-luong');
     } catch (e) {
       console.error('Lưu bảng lương chấm công:', e);
@@ -541,7 +598,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
     } finally {
       setSavingPayroll(false);
     }
-  }, [isAdmin, nam, navigate, phanTramHoaHongKy, rows, thang]);
+  }, [isAdmin, nam, navigate, rows, thang]);
 
   const moChiTietDon = useCallback(
     async (hoTen: string) => {
@@ -626,9 +683,9 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
             </div>
             <div
               className="flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-primary/5 border-primary/20 px-2 py-1"
-              title="% hoa hồng tổng của kỳ; đơn có nhiều người phụ trách sẽ chia đều doanh số trước khi tính"
+              title="Mức hoa hồng mặc định cho dòng mới; bấm Áp dụng để gán cho toàn bộ nhân viên"
             >
-              <span className="text-xs text-muted-foreground">HH</span>
+              <span className="text-xs text-muted-foreground whitespace-nowrap">HH mặc định</span>
               <input
                 type="text"
                 inputMode="decimal"
@@ -636,13 +693,24 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                 value={String(phanTramHoaHongKy)}
                 disabled={!isAdmin}
                 onChange={(e) => {
-                  const n = parseFloat(e.target.value.replace(/,/g, ''));
-                  setPhanTramHoaHongKy(Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 0);
+                  setPhanTramHoaHongKy(
+                    normalizeCommissionPercent(e.target.value.replace(',', '.'), 0)
+                  );
                 }}
-                title="% hoa hồng tổng; 1 người hưởng đủ, 2 người cùng làm thì chia đôi"
-                aria-label="% hoa hồng tháng"
+                title="Mức mặc định; không tự ghi đè tỷ lệ riêng cho đến khi bấm Áp dụng"
+                aria-label="% hoa hồng mặc định"
               />
               <span className="text-sm font-medium">%</span>
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={applyDefaultCommissionToAll}
+                  className="rounded border border-primary/30 bg-background px-2 py-1 text-xs font-semibold text-primary hover:bg-primary/10"
+                  title="Gán mức mặc định này cho tất cả nhân viên trong bảng"
+                >
+                  Áp dụng
+                </button>
+              )}
             </div>
           </div>
           <div className="flex flex-nowrap items-center gap-2 min-w-0 w-full sm:justify-end overflow-x-auto py-0.5 -mx-0.5 px-0.5">
@@ -720,7 +788,8 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                 {thCell('Trọ ngoài', 'Phụ cấp trọ ngoài (nhập theo từng nhân viên)')}
                 {thCell('Tiền ăn', 'Số bữa ăn thường × 30.000đ (từ chấm công)')}
                 {thCell('Tiền ăn tăng ca', 'Bữa ăn bổ sung khi checkout sau 19:40 × 30.000đ')}
-                {thCell('Tiền % hoa hồng', 'Doanh số đã chia đều × % hoa hồng tổng (1 người: đủ %, 2 người: mỗi người một nửa)')}
+                {thCell('% HH', 'Tỷ lệ hoa hồng riêng của từng nhân viên; chỉ admin được sửa')}
+                {thCell('Tiền hoa hồng', 'Doanh số đã phân bổ cho nhân viên × tỷ lệ hoa hồng riêng')}
                 {thCell('Tổng lương', 'Tổng các khoản thu nhập')}
                 {thCell('Ghi chú', 'Cảnh báo')}
                 {isAdmin && (
@@ -943,6 +1012,26 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                         />
                       ) : (
                         formatVnd(kq.tienAnTangCa)
+                      )}
+                    </td>
+                    <td
+                      className="px-2.5 py-2.5 text-right font-mono whitespace-nowrap text-sm"
+                      title="Tỷ lệ hoa hồng riêng của nhân viên"
+                    >
+                      {isAdmin ? (
+                        <div className="flex items-center justify-end gap-1">
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            className="w-16 min-h-9 bg-transparent border border-primary/30 rounded-md px-2 py-1.5 text-right font-mono"
+                            value={String(input.phanTramHoaHong)}
+                            onChange={(e) => setCommissionPercent(input.id, e.target.value)}
+                            aria-label={`% hoa hồng của ${input.hoTen || `dòng ${i + 1}`}`}
+                          />
+                          <span>%</span>
+                        </div>
+                      ) : (
+                        `${kq.phanTramHoaHongApDung}%`
                       )}
                     </td>
                     <td

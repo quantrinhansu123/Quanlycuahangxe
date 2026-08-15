@@ -35,7 +35,7 @@ export interface PayrollAttendanceSyncResult {
 export interface PayrollAttendanceSyncOptions {
   /** Các chỉnh sửa tay trên trang bảng lương chấm công, khớp theo họ tên. */
   rows?: BangLuongChamCongInput[];
-  /** % hoa hồng áp dụng cho toàn bộ kỳ lương. */
+  /** Mức mặc định cũ; chỉ dùng khi dòng không có % riêng và chưa từng được lưu. */
   phanTramHoaHongTheoKy?: number;
 }
 
@@ -184,15 +184,21 @@ export async function syncPayrollFromAttendance(
       'tienAnTangCa',
       existingBreakdown.dieu_chinh_tien_an_tang_ca
     );
+    const rowHasCommissionPercent =
+      override != null &&
+      Object.prototype.hasOwnProperty.call(override, 'phanTramHoaHong') &&
+      override.phanTramHoaHong != null;
     const commissionPercent = Math.min(
       100,
       Math.max(
         0,
         amount(
-          options?.phanTramHoaHongTheoKy ??
-            (existing && hasPayrollDetail(existing, 'phan_tram_hoa_hong')
-              ? existingBreakdown.phan_tram_hoa_hong
-              : DEFAULT_COMMISSION_PERCENT)
+          rowHasCommissionPercent
+            ? override?.phanTramHoaHong
+            : options?.phanTramHoaHongTheoKy ??
+                (existing && hasPayrollDetail(existing, 'phan_tram_hoa_hong')
+                  ? existingBreakdown.phan_tram_hoa_hong
+                  : DEFAULT_COMMISSION_PERCENT)
         )
       )
     );
