@@ -118,14 +118,14 @@ function serviceUsageChunks<T>(rows: T[]): T[][] {
 }
 
 /**
- * Ngày gần nhất khách đã dùng một dịch vụ.
+ * Các ngày khách đã dùng một trong những dịch vụ được chọn.
  *
  * Dữ liệu cũ có thể lưu UUID, mã hoặc tên dịch vụ; dữ liệu nhiều hạng mục lại
  * nằm trong `the_ban_hang_ct.san_pham`. Vì vậy phải kiểm tra cả phiếu chính lẫn
  * chi tiết phiếu, rồi trả map theo `khach_hang_id` (UUID hoặc mã khách hàng).
  */
-export async function getLastServiceDateMap(serviceValues: string[]): Promise<Map<string, string>> {
-  const map = new Map<string, string>();
+export async function getServiceUsageDatesMap(serviceValues: string[]): Promise<Map<string, string[]>> {
+  const map = new Map<string, string[]>();
   const values = [...new Set(serviceValues.map((value) => value.trim()).filter(Boolean))];
   if (values.length === 0) return map;
 
@@ -205,9 +205,12 @@ export async function getLastServiceDateMap(serviceValues: string[]): Promise<Ma
   for (const order of orders.values()) {
     if (!order.khach_hang_id || !order.ngay) continue;
     const customerKey = order.khach_hang_id.trim().toLowerCase();
-    const previous = map.get(customerKey);
-    if (!previous || order.ngay > previous) map.set(customerKey, order.ngay);
+    const dates = map.get(customerKey) || [];
+    if (!dates.includes(order.ngay)) dates.push(order.ngay);
+    map.set(customerKey, dates);
   }
+
+  map.forEach((dates) => dates.sort());
 
   return map;
 }

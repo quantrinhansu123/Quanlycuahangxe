@@ -15,12 +15,13 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { getCustomersForSelect } from '../data/customerData';
-import { getLastServiceDateMap, getServices, type DichVu } from '../data/serviceData';
+import { getServiceUsageDatesMap, getServices, type DichVu } from '../data/serviceData';
 import { normalizeVnPhoneDigits } from '../lib/phoneUtils';
 import { getCustomerLinkKeys } from '../lib/customerOrderLink';
 import { CUSTOMER_BRANCH_OPTIONS, matchesServiceBranch, resolveCustomerBranch } from '../constants/customerBranches';
-import { monthsSince, removeVietnameseTones } from '../lib/utils';
+import { removeVietnameseTones } from '../lib/utils';
 import { SearchableSelect } from '../components/ui/SearchableSelect';
+import DateInputVi from '../components/ui/DateInputVi';
 import {
   chunkArray,
   createCampaign,
@@ -82,8 +83,6 @@ const LOG_STATUS_BADGE: Record<string, { label: string; className: string }> = {
   bo_qua: { label: 'Bỏ qua', className: 'bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-400' },
 };
 
-const MONTHS_SINCE_OPTIONS = [1, 2, 3, 6, 12] as const;
-
 const ZALO_APP_ID = import.meta.env.VITE_ZALO_APP_ID as string | undefined;
 const ZALO_OAUTH_REDIRECT_URI = import.meta.env.VITE_ZALO_OAUTH_REDIRECT_URI as string | undefined;
 
@@ -120,10 +119,11 @@ const ZnsBulkSendPage: React.FC = () => {
   // Service + "months since last service" filter
   const [services, setServices] = useState<DichVu[]>([]);
   const [loadingServices, setLoadingServices] = useState(true);
-  const [serviceFilter, setServiceFilter] = useState(''); // comma-joined dich_vu.id sharing the same name
-  const [monthsSinceFilter, setMonthsSinceFilter] = useState<number | null>(null);
-  const [serviceLastDateMap, setServiceLastDateMap] = useState<Map<string, string>>(new Map());
-  const [serviceLastDateMapFor, setServiceLastDateMapFor] = useState('');
+  const [serviceFilters, setServiceFilters] = useState<string[]>([]); // mỗi phần tử có thể chứa nhiều ID cùng tên dịch vụ
+  const [serviceFromDate, setServiceFromDate] = useState('');
+  const [serviceToDate, setServiceToDate] = useState('');
+  const [serviceUsageDatesMap, setServiceUsageDatesMap] = useState<Map<string, string[]>>(new Map());
+  const [serviceUsageDatesMapFor, setServiceUsageDatesMapFor] = useState('');
   const [loadingServiceDates, setLoadingServiceDates] = useState(false);
 
   // Campaign form
@@ -202,20 +202,22 @@ const ZnsBulkSendPage: React.FC = () => {
 
   const handleBranchFilterChange = (value: string) => {
     setBranchFilter(value);
-    setServiceFilter('');
-    setMonthsSinceFilter(null);
-    setServiceLastDateMap(new Map());
-    setServiceLastDateMapFor('');
+    setServiceFilters([]);
+    setServiceFromDate('');
+    setServiceToDate('');
+    setServiceUsageDatesMap(new Map());
+    setServiceUsageDatesMapFor('');
     setLoadingServiceDates(false);
   };
 
-  const handleServiceFilterChange = (value: string) => {
-    setServiceFilter(value);
-    setLoadingServiceDates(Boolean(value));
-    if (!value) {
-      setMonthsSinceFilter(null);
-      setServiceLastDateMap(new Map());
-      setServiceLastDateMapFor('');
+  const handleServiceFiltersChange = (values: string[]) => {
+    setServiceFilters(values);
+    setLoadingServiceDates(values.length > 0);
+    if (values.length === 0) {
+      setServiceFromDate('');
+      setServiceToDate('');
+      setServiceUsageDatesMap(new Map());
+      setServiceUsageDatesMapFor('');
     }
   };
 
@@ -234,23 +236,28 @@ const ZnsBulkSendPage: React.FC = () => {
       .map(([name, ids]) => ({ value: ids.join(','), label: name, searchKey: name }));
   }, [services, branchFilter]);
 
-  // Chọn dịch vụ -> tải ngày dùng gần nhất của từng khách cho dịch vụ đó, mới hiện bộ lọc "chưa dùng từ X tháng".
+  const serviceFilterKey = useMemo(
+    () => [...serviceFilters].sort().join('|'),
+    [serviceFilters]
+  );
+
+  // Chọn các dịch vụ -> tải toàn bộ ngày sử dụng để lọc chính xác theo khoảng ngày tùy chọn.
   useEffect(() => {
-    if (!serviceFilter) return;
+    if (!serviceFilterKey) return;
     let cancelled = false;
     (async () => {
       try {
-        const ids = serviceFilter.split(',');
+        const ids = serviceFilters.flatMap((value) => value.split(','));
         const selectedServices = services.filter((service) => ids.includes(service.id));
         const serviceValues = selectedServices.flatMap((service) => [
           service.id,
           service.id_dich_vu || '',
           service.ten_dich_vu,
         ]);
-        const map = await getLastServiceDateMap(serviceValues);
+        const map = await getServiceUsageDatesMap(serviceValues);
         if (!cancelled) {
-          setServiceLastDateMap(map);
-          setServiceLastDateMapFor(serviceFilter);
+          setServiceUsageDatesMap(map);
+          setServiceUsageDatesMapFor(serviceFilterKey);
         }
       } catch (err) {
         if (!cancelled) showToast(err instanceof Error ? err.message : 'Không tải được lịch sử dịch vụ', 'error');
@@ -262,25 +269,28 @@ const ZnsBulkSendPage: React.FC = () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serviceFilter]);
+  }, [serviceFilterKey]);
 
   const filteredCustomers = useMemo(() => {
     const rawQuery = searchQuery.trim();
     const q = removeVietnameseTones(rawQuery);
     const isPhoneQuery = /^[\d\s()+.-]+$/.test(rawQuery) && /\d{3}/.test(rawQuery);
     const normalizedPhoneQuery = isPhoneQuery ? normalizeVnPhoneDigits(rawQuery) : '';
+    const validServiceDateRange =
+      serviceFromDate !== '' && serviceToDate !== '' && serviceFromDate <= serviceToDate;
     const applyServiceFilter =
-      serviceFilter !== '' && monthsSinceFilter !== null && serviceLastDateMapFor === serviceFilter;
+      serviceFilters.length > 0 &&
+      validServiceDateRange &&
+      serviceUsageDatesMapFor === serviceFilterKey;
     return customers.filter((c) => {
       if (branchFilter && resolveCustomerBranch(c.dia_chi_hien_tai) !== branchFilter) return false;
       if (applyServiceFilter) {
-        const lastDate = getCustomerLinkKeys(c).reduce<string | undefined>((latest, key) => {
-          const candidate = serviceLastDateMap.get(key.trim().toLowerCase());
-          return candidate && (!latest || candidate > latest) ? candidate : latest;
-        }, undefined);
-        const months = lastDate ? monthsSince(lastDate) : null;
-        // Chưa từng dùng dịch vụ (months === null) -> tính là quá hạn, vẫn giữ trong danh sách.
-        if (months !== null && months < monthsSinceFilter) return false;
+        const usedSelectedServiceInRange = getCustomerLinkKeys(c).some((key) =>
+          (serviceUsageDatesMap.get(key.trim().toLowerCase()) || []).some(
+            (date) => date >= serviceFromDate && date <= serviceToDate
+          )
+        );
+        if (usedSelectedServiceInRange) return false;
       }
       if (!q) return true;
       const haystack = removeVietnameseTones(`${c.ho_va_ten} ${c.so_dien_thoai} ${c.bien_so_xe || ''}`);
@@ -293,10 +303,12 @@ const ZnsBulkSendPage: React.FC = () => {
     customers,
     searchQuery,
     branchFilter,
-    serviceFilter,
-    monthsSinceFilter,
-    serviceLastDateMap,
-    serviceLastDateMapFor,
+    serviceFilters,
+    serviceFilterKey,
+    serviceFromDate,
+    serviceToDate,
+    serviceUsageDatesMap,
+    serviceUsageDatesMapFor,
   ]);
 
   const selectableFilteredIds = useMemo(
@@ -676,9 +688,10 @@ const ZnsBulkSendPage: React.FC = () => {
             <div className="space-y-1">
               <label className="text-[11px] font-normal text-muted-foreground uppercase tracking-wider">Dịch vụ</label>
               <SearchableSelect
-                options={[{ value: '', label: 'Tất cả dịch vụ' }, ...serviceOptions]}
-                value={serviceFilter}
-                onValueChange={handleServiceFilterChange}
+                options={serviceOptions}
+                multiple
+                values={serviceFilters}
+                onValuesChange={handleServiceFiltersChange}
                 placeholder={loadingServices ? 'Đang tải dịch vụ...' : 'Tất cả dịch vụ'}
                 searchPlaceholder="Tìm dịch vụ..."
                 disabled={loadingServices}
@@ -688,28 +701,35 @@ const ZnsBulkSendPage: React.FC = () => {
             </div>
           </div>
 
-          {serviceFilter && (
-            <div className="space-y-1.5 rounded-xl border border-dashed border-border p-2.5">
+          {serviceFilters.length > 0 && (
+            <div className="space-y-2 rounded-xl border border-dashed border-border p-2.5">
               <label className="text-[11px] font-normal text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                Chưa dùng dịch vụ này từ
+                Chưa dùng các dịch vụ đã chọn trong khoảng
                 {loadingServiceDates && <Loader2 size={12} className="animate-spin" />}
               </label>
-              <div className="flex flex-wrap gap-1.5">
-                {MONTHS_SINCE_OPTIONS.map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => setMonthsSinceFilter((prev) => (prev === m ? null : m))}
-                    className={`text-xs px-2.5 py-1 rounded-full font-normal border transition-colors ${
-                      monthsSinceFilter === m
-                        ? 'bg-primary text-white border-primary'
-                        : 'bg-muted text-muted-foreground border-border hover:bg-muted/70'
-                    }`}
-                  >
-                    {m} tháng
-                  </button>
-                ))}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <label className="text-xs font-normal text-muted-foreground">Từ ngày</label>
+                  <DateInputVi
+                    value={serviceFromDate}
+                    onChange={setServiceFromDate}
+                    aria-label="Từ ngày chưa dùng dịch vụ"
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm font-normal"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-normal text-muted-foreground">Đến ngày</label>
+                  <DateInputVi
+                    value={serviceToDate}
+                    onChange={setServiceToDate}
+                    aria-label="Đến ngày chưa dùng dịch vụ"
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm font-normal"
+                  />
+                </div>
               </div>
+              {serviceFromDate && serviceToDate && serviceFromDate > serviceToDate && (
+                <p className="text-xs text-red-500">Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc.</p>
+              )}
             </div>
           )}
 

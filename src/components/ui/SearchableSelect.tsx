@@ -13,7 +13,10 @@ interface Option {
 interface SearchableSelectProps {
   options: Option[]
   value?: string
-  onValueChange: (value: string) => void
+  onValueChange?: (value: string) => void
+  multiple?: boolean
+  values?: string[]
+  onValuesChange?: (values: string[]) => void
   placeholder?: string
   searchPlaceholder?: string
   emptyMessage?: string
@@ -28,6 +31,9 @@ export const SearchableSelect = React.memo(function SearchableSelect({
   options,
   value,
   onValueChange,
+  multiple = false,
+  values = [],
+  onValuesChange,
   placeholder = "Chọn...",
   searchPlaceholder = "Tìm kiếm...",
   emptyMessage = "Không có kết quả.",
@@ -45,6 +51,26 @@ export const SearchableSelect = React.memo(function SearchableSelect({
     () => options.find((option) => option.value === value),
     [options, value]
   )
+  const selectedValueSet = React.useMemo(() => new Set(values), [values])
+  const hasSelection = multiple ? values.length > 0 : Boolean(value)
+  const selectedLabel = React.useMemo(() => {
+    if (!multiple) return selectedOption?.label
+    if (values.length === 1) return options.find((option) => option.value === values[0])?.label
+    if (values.length > 1) return `${values.length} dịch vụ đã chọn`
+    return undefined
+  }, [multiple, options, selectedOption?.label, values])
+
+  const chooseOption = React.useCallback((optionValue: string) => {
+    if (multiple) {
+      const next = selectedValueSet.has(optionValue)
+        ? values.filter((item) => item !== optionValue)
+        : [...values, optionValue]
+      onValuesChange?.(next)
+      return
+    }
+    onValueChange?.(optionValue)
+    setOpen(false)
+  }, [multiple, onValueChange, onValuesChange, selectedValueSet, values])
 
   // Filter + limit items for performance (dedupe value trước khi render)
   const uniqueOptions = React.useMemo(() => {
@@ -159,18 +185,24 @@ export const SearchableSelect = React.memo(function SearchableSelect({
                 {filteredOptions.map((option, optionIdx) => (
                   <div
                     key={`${option.value}-${optionIdx}`}
-                    onClick={() => {
-                      onValueChange(option.value)
-                      setOpen(false)
-                    }}
+                    onClick={() => chooseOption(option.value)}
                     className={cn(
                       "flex items-center justify-between px-4 py-3 rounded-lg cursor-pointer text-[14px] font-bold transition-colors hover:bg-primary hover:text-white text-popover-foreground",
-                      value === option.value && "bg-primary text-white",
+                      !multiple && value === option.value && "bg-primary text-white",
                       optionClassName
                     )}
                   >
                     {option.label}
-                    {value === option.value && (
+                    {multiple ? (
+                      <input
+                        type="checkbox"
+                        checked={selectedValueSet.has(option.value)}
+                        readOnly
+                        tabIndex={-1}
+                        className="h-5 w-5 shrink-0 rounded border-border accent-primary pointer-events-none"
+                        aria-label={`Chọn ${typeof option.label === 'string' ? option.label : 'mục này'}`}
+                      />
+                    ) : value === option.value && (
                       <Check className="h-4 w-4 text-white" />
                     )}
                   </div>
@@ -212,18 +244,24 @@ export const SearchableSelect = React.memo(function SearchableSelect({
                 {filteredOptions.map((option, optionIdx) => (
                   <div
                     key={`${option.value}-${optionIdx}`}
-                    onClick={() => {
-                      onValueChange(option.value)
-                      setOpen(false)
-                    }}
+                    onClick={() => chooseOption(option.value)}
                     className={cn(
                       "flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-[13px] font-bold transition-colors hover:bg-primary hover:text-white text-popover-foreground",
-                      value === option.value && "bg-primary text-white",
+                      !multiple && value === option.value && "bg-primary text-white",
                       optionClassName
                     )}
                   >
                     {option.label}
-                    {value === option.value && (
+                    {multiple ? (
+                      <input
+                        type="checkbox"
+                        checked={selectedValueSet.has(option.value)}
+                        readOnly
+                        tabIndex={-1}
+                        className="h-5 w-5 shrink-0 rounded border-border accent-primary pointer-events-none"
+                        aria-label={`Chọn ${typeof option.label === 'string' ? option.label : 'mục này'}`}
+                      />
+                    ) : value === option.value && (
                       <Check className="h-4 w-4 text-white" />
                     )}
                   </div>
@@ -251,21 +289,22 @@ export const SearchableSelect = React.memo(function SearchableSelect({
         className={cn(
           "flex w-full items-center justify-between px-4 py-2.5 bg-background border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary/20 text-[14px] font-bold transition-all",
           open && "ring-2 ring-primary/20 border-primary/50",
-          !selectedOption && "text-muted-foreground/60",
+          !hasSelection && "text-muted-foreground/60",
           className
         )}
       >
         <span className="truncate">
-          {selectedOption ? selectedOption.label : placeholder}
+          {selectedLabel || placeholder}
         </span>
         <div className="flex items-center gap-1.5 ml-2">
-          {value && !disabled && (
+          {hasSelection && !disabled && (
             <X
               size={14}
               className="text-muted-foreground/40 hover:text-red-500 transition-colors cursor-pointer"
               onClick={(e) => {
                 e.stopPropagation()
-                onValueChange("")
+                if (multiple) onValuesChange?.([])
+                else onValueChange?.("")
               }}
             />
           )}
