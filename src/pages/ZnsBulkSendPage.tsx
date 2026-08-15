@@ -79,6 +79,17 @@ function isValidVnMobile(phone: string): boolean {
   return /^0\d{9}$/.test(normalizeVnPhoneDigits(phone));
 }
 
+function dedupeCustomersByPhone(rows: CustomerOption[]): CustomerOption[] {
+  const seenPhones = new Set<string>();
+  return rows.filter((customer) => {
+    const phone = normalizeVnPhoneDigits(customer.so_dien_thoai);
+    if (!phone) return true;
+    if (seenPhones.has(phone)) return false;
+    seenPhones.add(phone);
+    return true;
+  });
+}
+
 const ZnsBulkSendPage: React.FC = () => {
   const { nhanVien } = useAuth();
   const { showToast } = useToast();
@@ -147,7 +158,7 @@ const ZnsBulkSendPage: React.FC = () => {
       setLoadingCustomers(true);
       try {
         const rows = await getCustomersForSelect();
-        setCustomers(rows);
+        setCustomers(dedupeCustomersByPhone(rows));
       } catch (err) {
         showToast(err instanceof Error ? err.message : 'Không tải được danh sách khách hàng', 'error');
       } finally {
@@ -158,12 +169,18 @@ const ZnsBulkSendPage: React.FC = () => {
   }, []);
 
   const filteredCustomers = useMemo(() => {
-    const q = removeVietnameseTones(searchQuery.trim());
+    const rawQuery = searchQuery.trim();
+    const q = removeVietnameseTones(rawQuery);
+    const isPhoneQuery = /^[\d\s()+.-]+$/.test(rawQuery) && /\d{3}/.test(rawQuery);
+    const normalizedPhoneQuery = isPhoneQuery ? normalizeVnPhoneDigits(rawQuery) : '';
     return customers.filter((c) => {
       if (branchFilter && (c.dia_chi_hien_tai || '') !== branchFilter) return false;
       if (!q) return true;
       const haystack = removeVietnameseTones(`${c.ho_va_ten} ${c.so_dien_thoai} ${c.bien_so_xe || ''}`);
-      return haystack.includes(q);
+      return (
+        haystack.includes(q) ||
+        (normalizedPhoneQuery !== '' && normalizeVnPhoneDigits(c.so_dien_thoai).includes(normalizedPhoneQuery))
+      );
     });
   }, [customers, searchQuery, branchFilter]);
 

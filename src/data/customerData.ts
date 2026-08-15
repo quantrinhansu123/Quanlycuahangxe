@@ -254,13 +254,27 @@ export const getCustomersForSelect = async (
     return query;
   };
 
-  const res = await runCustomerListQuery(() => buildBase(), (q) => q.limit(3000));
+  type CustomerSelectRow = Pick<KhachHang, 'id' | 'ho_va_ten' | 'so_dien_thoai' | 'bien_so_xe' | 'ma_khach_hang' | 'dia_chi_hien_tai'>;
+  const pageSize = 1000;
+  const rows: CustomerSelectRow[] = [];
 
-  if (res.error) {
-    console.error('Error fetching customers for select:', res.error);
-    throw res.error;
+  for (let from = 0; ; from += pageSize) {
+    const res = await runCustomerListQuery(
+      () => buildBase(),
+      (q) => q.range(from, from + pageSize - 1)
+    );
+
+    if (res.error) {
+      console.error('Error fetching customers for select:', res.error);
+      throw res.error;
+    }
+
+    const page = (res.data as CustomerSelectRow[]) || [];
+    rows.push(...page);
+    if (page.length < pageSize) break;
   }
-  return (res.data as Pick<KhachHang, 'id' | 'ho_va_ten' | 'so_dien_thoai' | 'bien_so_xe' | 'ma_khach_hang' | 'dia_chi_hien_tai'>[]) || [];
+
+  return rows;
 };
 
 export const getCustomersPaginated = async (
