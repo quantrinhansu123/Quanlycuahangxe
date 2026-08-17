@@ -206,7 +206,7 @@ export interface RatingItem {
 }
 
 /**
- * Gọi API "Lấy thông tin đánh giá của khách hàng" (POST rating/get) — dùng để đồng bộ thủ công/
+ * Gọi API "Lấy thông tin đánh giá của khách hàng" (GET rating/get) — dùng để tự động bù dữ liệu/
  * bù dữ liệu, bổ sung cho Webhook (vốn là kênh nhận đánh giá theo thời gian thực chính thức).
  * [VERIFY] endpoint/tham số chính xác theo tài liệu Zalo hiện hành — cần kiểm thử thật với
  * 1 template đánh giá dịch vụ đã có phản hồi trước khi dùng cho đồng bộ hàng loạt.
@@ -221,16 +221,15 @@ export async function getCustomerRatings(
 ): Promise<{ total: number; items: RatingItem[] } | { error: string }> {
   let resp: Response;
   try {
-    resp = await fetch("https://business.openapi.zalo.me/rating/get", {
-      method: "POST",
-      headers: { access_token: accessToken, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        template_id: templateId,
-        from_time: fromTimeMs,
-        to_time: toTimeMs,
-        offset,
-        limit,
-      }),
+    const url = new URL("https://business.openapi.zalo.me/rating/get");
+    url.searchParams.set("template_id", templateId);
+    url.searchParams.set("from_time", String(fromTimeMs));
+    url.searchParams.set("to_time", String(toTimeMs));
+    url.searchParams.set("offset", String(offset));
+    url.searchParams.set("limit", String(limit));
+    resp = await fetch(url, {
+      method: "GET",
+      headers: { access_token: accessToken },
     });
   } catch (err) {
     return { error: `Không thể kết nối tới Zalo: ${String(err)}` };

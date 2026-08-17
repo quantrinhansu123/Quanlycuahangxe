@@ -1,12 +1,13 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Loader2, MessageSquareText, RefreshCw, Star, Users } from 'lucide-react';
+import { SearchableSelect } from '../components/ui/SearchableSelect';
 import { useToast } from '../context/ToastContext';
-import { listCampaigns, type ZnsCampaign } from '../data/znsData';
+import { listZnsTemplates, type ZnsTemplateSummary } from '../data/znsData';
 import { listRatings, syncRatings, type ZnsRating } from '../data/znsRatingData';
 
 const SOURCE_BADGE: Record<ZnsRating['nguon'], { label: string; className: string }> = {
   webhook: { label: 'Zalo gửi tự động', className: 'bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400' },
-  dong_bo: { label: 'Đồng bộ thủ công', className: 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400' },
+  dong_bo: { label: 'Zalo API', className: 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400' },
 };
 
 function StarRow({ rate }: { rate: number | null }) {
@@ -25,8 +26,15 @@ function StarRow({ rate }: { rate: number | null }) {
 }
 
 function toDateInputValue(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
+
+const AUTO_REFRESH_INTERVAL_MS = 30_000;
+const AUTO_SYNC_INTERVAL_MS = 5 * 60_000;
+const AUTO_SYNC_RANGE_MS = 30 * 24 * 60 * 60_000;
 
 const ZnsRatingPage: React.FC = () => {
   const { showToast } = useToast();
@@ -34,71 +42,137 @@ const ZnsRatingPage: React.FC = () => {
   const [ratings, setRatings] = useState<ZnsRating[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [campaigns, setCampaigns] = useState<ZnsCampaign[]>([]);
-  const [syncCampaignId, setSyncCampaignId] = useState('');
+  const [templates, setTemplates] = useState<ZnsTemplateSummary[]>([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(true);
+  const approvedTemplatesRef = useRef<ZnsTemplateSummary[]>([]);
+  const [templateFilter, setTemplateFilter] = useState('');
   const [fromDate, setFromDate] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() - 30);
     return toDateInputValue(d);
   });
   const [toDate, setToDate] = useState(() => toDateInputValue(new Date()));
-  const [syncing, setSyncing] = useState(false);
 
   const [rateFilter, setRateFilter] = useState<'all' | number>('all');
 
-  const loadRatings = async () => {
-    setLoading(true);
+  const loadRatings = useCallback(async (notifyError = false) => {
     try {
       setRatings(await listRatings());
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Không tải được danh sách đánh giá', 'error');
-    } finally {
-      setLoading(false);
+      if (notifyError) {
+        showToast(err instanceof Error ? err.message : 'Không tải được danh sách đánh giá', 'error');
+      }
     }
-  };
+  }, [showToast]);
 
-  useEffect(() => {
-    void loadRatings();
-    listCampaigns()
-      .then(setCampaigns)
-      .catch(() => {});
-  }, []);
+  const syncApprovedTemplates = useCallback(async (templateRows: ZnsTemplateSummary[], notifyError = false) => {
+    if (templateRows.length === 0) return;
 
-  const filteredRatings = useMemo(() => {
-    if (rateFilter === 'all') return ratings;
-    return ratings.filter((r) => r.rate === rateFilter);
-  }, [ratings, rateFilter]);
-
-  const avgRate = useMemo(() => {
-    const rated = ratings.filter((r) => r.rate !== null);
-    if (rated.length === 0) return null;
-    return rated.reduce((sum, r) => sum + (r.rate ?? 0), 0) / rated.length;
-  }, [ratings]);
-
-  const handleSync = async () => {
-    const campaign = campaigns.find((c) => c.id === syncCampaignId);
-    if (!campaign) {
-      showToast('Chọn chiến dịch (mẫu) cần đồng bộ đánh giá', 'error');
-      return;
-    }
-    const fromMs = new Date(`${fromDate}T00:00:00`).getTime();
-    const toMs = new Date(`${toDate}T23:59:59`).getTime();
-    if (!Number.isFinite(fromMs) || !Number.isFinite(toMs) || fromMs >= toMs) {
-      showToast('Khoảng thời gian không hợp lệ', 'error');
-      return;
-    }
-
-    setSyncing(true);
+    const toMs = Date.now();
+    const fromMs = toMs - AUTO_SYNC_RANGE_MS;
     try {
-      const result = await syncRatings({ template_id: campaign.template_id, from_time: fromMs, to_time: toMs });
-      showToast(`Đã đồng bộ ${result.synced}/${result.total} đánh giá`, 'success');
+      await Promise.all(
+        templateRows.map((template) => syncRatings({
+          template_id: template.template_id,
+          from_time: fromMs,
+          to_time: toMs,
+        }))
+      );
       await loadRatings();
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Đồng bộ đánh giá thất bại', 'error');
-    } finally {
-      setSyncing(false);
+      if (notifyError) {
+        showToast(err instanceof Error ? err.message : 'Không tự động lấy được đánh giá từ Zalo', 'error');
+      }
     }
-  };
+  }, [loadRatings, showToast]);
+
+  useEffect(() => {
+    let cancelled = false;
+    listRatings()
+      .then((rows) => {
+        if (!cancelled) setRatings(rows);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          showToast(err instanceof Error ? err.message : 'Không tải được danh sách đánh giá', 'error');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    listZnsTemplates()
+      .then((rows) => {
+        if (cancelled) return;
+        const approvedById = new Map(rows.map((template) => [template.template_id, template]));
+        const approvedRows = [...approvedById.values()].sort((a, b) => a.template_name.localeCompare(b.template_name, 'vi'));
+        approvedTemplatesRef.current = approvedRows;
+        setTemplates(approvedRows);
+        void syncApprovedTemplates(approvedRows);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          showToast(err instanceof Error ? err.message : 'Không tải được danh sách mẫu ZNS đã duyệt', 'error');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingTemplates(false);
+      });
+
+    const timer = window.setInterval(() => void loadRatings(), AUTO_REFRESH_INTERVAL_MS);
+    const autoSyncTimer = window.setInterval(
+      () => void syncApprovedTemplates(approvedTemplatesRef.current),
+      AUTO_SYNC_INTERVAL_MS
+    );
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') void loadRatings();
+    };
+    window.addEventListener('focus', refreshWhenVisible);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+
+    return () => {
+      cancelled = true;
+      approvedTemplatesRef.current = [];
+      window.clearInterval(timer);
+      window.clearInterval(autoSyncTimer);
+      window.removeEventListener('focus', refreshWhenVisible);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
+  }, [loadRatings, showToast, syncApprovedTemplates]);
+
+  const templateOptions = useMemo(
+    () => templates.map((template) => ({
+      value: template.template_id,
+      label: `${template.template_name} (${template.template_id})`,
+      searchKey: `${template.template_name} ${template.template_id}`,
+    })),
+    [templates]
+  );
+
+  const ratingsInScope = useMemo(() => {
+    const fromMs = fromDate ? new Date(`${fromDate}T00:00:00`).getTime() : null;
+    const toMs = toDate ? new Date(`${toDate}T23:59:59.999`).getTime() : null;
+
+    return ratings.filter((rating) => {
+      if (templateFilter && rating.chien_dich?.template_id !== templateFilter) return false;
+
+      const ratingMs = rating.thoi_diem_danh_gia ? new Date(rating.thoi_diem_danh_gia).getTime() : null;
+      if (fromMs !== null && Number.isFinite(fromMs) && (ratingMs === null || ratingMs < fromMs)) return false;
+      if (toMs !== null && Number.isFinite(toMs) && (ratingMs === null || ratingMs > toMs)) return false;
+      return true;
+    });
+  }, [fromDate, ratings, templateFilter, toDate]);
+
+  const filteredRatings = useMemo(() => {
+    if (rateFilter === 'all') return ratingsInScope;
+    return ratingsInScope.filter((r) => r.rate === rateFilter);
+  }, [rateFilter, ratingsInScope]);
+
+  const avgRate = useMemo(() => {
+    const rated = ratingsInScope.filter((r) => r.rate !== null);
+    if (rated.length === 0) return null;
+    return rated.reduce((sum, r) => sum + (r.rate ?? 0), 0) / rated.length;
+  }, [ratingsInScope]);
 
   return (
     <div className="p-4 lg:p-6 space-y-5">
@@ -128,35 +202,33 @@ const ZnsRatingPage: React.FC = () => {
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Tổng số đánh giá</p>
-            <p className="text-lg font-bold text-foreground">{ratings.length}</p>
+            <p className="text-lg font-bold text-foreground">{ratingsInScope.length}</p>
           </div>
         </div>
       </div>
 
-      {/* Đồng bộ thủ công */}
+      {/* Bộ lọc */}
       <div className="bg-card border border-border rounded-2xl p-4 lg:p-6 space-y-3">
         <h2 className="font-bold text-foreground flex items-center gap-2">
-          <RefreshCw size={16} /> Đồng bộ đánh giá từ Zalo
+          <RefreshCw size={16} /> Lọc đánh giá Zalo
         </h2>
         <p className="text-xs text-muted-foreground">
-          Đánh giá mới sẽ tự động nhận qua Webhook khi khách hàng phản hồi. Dùng đồng bộ thủ công để lấy
-          lại dữ liệu cũ hoặc đối soát cho 1 mẫu (template) trong khoảng thời gian cụ thể.
+          Danh sách tự động nhận đánh giá mới từ Webhook Zalo và cập nhật định kỳ. Chọn mẫu ZNS đã duyệt
+          hoặc khoảng thời gian để lọc kết quả.
         </p>
         <div className="flex flex-wrap items-end gap-3">
           <div className="flex-1 min-w-[220px]">
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">Chiến dịch / mẫu ZNS</label>
-            <select
-              value={syncCampaignId}
-              onChange={(e) => setSyncCampaignId(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-border bg-background text-sm"
-            >
-              <option value="">-- Chọn chiến dịch --</option>
-              {campaigns.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.ten_chien_dich} ({c.template_id})
-                </option>
-              ))}
-            </select>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Chiến dịch / mẫu ZNS đã duyệt</label>
+            <SearchableSelect
+              options={templateOptions}
+              value={templateFilter}
+              onValueChange={setTemplateFilter}
+              placeholder={loadingTemplates ? 'Đang tải mẫu đã duyệt...' : 'Tất cả mẫu ZNS đã duyệt'}
+              searchPlaceholder="Tìm tên hoặc mã mẫu..."
+              emptyMessage="Không có mẫu ZNS đã duyệt."
+              disabled={loadingTemplates}
+              className="py-2 font-normal"
+            />
           </div>
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1 block">Từ ngày</label>
@@ -176,15 +248,13 @@ const ZnsRatingPage: React.FC = () => {
               className="px-3 py-2 rounded-xl border border-border bg-background text-sm"
             />
           </div>
-          <button
-            type="button"
-            onClick={() => void handleSync()}
-            disabled={syncing}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 disabled:opacity-50"
-          >
-            {syncing ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-            Đồng bộ
-          </button>
+          <div className="inline-flex items-center gap-2 px-3 py-2 text-xs font-medium text-green-700 dark:text-green-400">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
+            </span>
+            Tự động cập nhật
+          </div>
         </div>
       </div>
 
@@ -202,7 +272,7 @@ const ZnsRatingPage: React.FC = () => {
                 rateFilter === 'all' ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
               }`}
             >
-              Tất cả ({ratings.length})
+              Tất cả ({ratingsInScope.length})
             </button>
             {[5, 4, 3, 2, 1].map((n) => (
               <button
@@ -229,15 +299,17 @@ const ZnsRatingPage: React.FC = () => {
           <div className="divide-y divide-border">
             {filteredRatings.map((r) => {
               const source = SOURCE_BADGE[r.nguon];
+              const phone = r.gui_log?.so_dien_thoai || r.khach_hang?.so_dien_thoai || '';
+              const customerName = r.khach_hang?.ho_va_ten?.trim() || '';
               return (
                 <div key={r.id} className="py-3 space-y-1.5">
                   <div className="flex flex-wrap items-center gap-2">
                     <StarRow rate={r.rate} />
                     <span className="font-medium text-foreground">
-                      {r.khach_hang?.ho_va_ten || 'Khách hàng chưa xác định'}
+                      {customerName || phone || 'Không có số điện thoại trong log gửi'}
                     </span>
-                    {r.khach_hang?.so_dien_thoai && (
-                      <span className="text-xs font-mono text-muted-foreground">{r.khach_hang.so_dien_thoai}</span>
+                    {customerName && phone && (
+                      <span className="text-xs font-mono text-muted-foreground">{phone}</span>
                     )}
                     {r.chien_dich?.ten_chien_dich && (
                       <span className="text-xs text-muted-foreground">· {r.chien_dich.ten_chien_dich}</span>
