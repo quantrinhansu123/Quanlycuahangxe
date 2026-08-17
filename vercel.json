@@ -1,8 +1,8 @@
 {
   "rewrites": [
     {
-      "source": "/api/zns-webhook",
-      "destination": "https://crcqyaphmaxgkrhffevl.supabase.co/functions/v1/zns-webhook"
+      "source": "/api/:function*",
+      "destination": "https://crcqyaphmaxgkrhffevl.supabase.co/functions/v1/:function*"
     },
     {
       "source": "/(.*)",
