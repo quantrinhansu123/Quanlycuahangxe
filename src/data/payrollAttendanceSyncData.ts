@@ -5,6 +5,7 @@ import {
   getPayrollBreakdown,
   hasPayrollDetail,
   replacePayrollBreakdowns,
+  updatePayrollMealTotals,
   type BangLuong,
   type PayrollBreakdownValues,
 } from './payrollData';
@@ -39,8 +40,14 @@ export interface PayrollAttendanceSyncOptions {
   phanTramHoaHongTheoKy?: number;
   /** Đơn giá tiền ăn được chốt cho kỳ đang lưu. */
   donGiaTienAnTheoKy?: number;
+  /** Đơn giá tiền ăn tăng ca được chốt cho kỳ đang lưu. */
+  donGiaTienAnTangCaTheoKy?: number;
   /** Admin chủ động sửa lại đơn giá của chính kỳ đã lưu. */
   ghiDeDonGiaTienAnDaChot?: boolean;
+  /** Cho phép admin sửa riêng đơn giá tiền ăn của kỳ đã duyệt/đã chi trả. */
+  choPhepCapNhatTienAnKhiDaKhoa?: boolean;
+  /** Không tính lại các thành phần lương khác và không tạo thêm dòng lương mới. */
+  chiCapNhatTienAn?: boolean;
 }
 
 function monthRange(year: number, month: number): { start: string; end: string } {
@@ -118,6 +125,12 @@ export async function syncPayrollFromAttendance(
   );
 
   const items: Partial<BangLuong>[] = [];
+  const mealOnlyTotalUpdates: Array<{
+    id: string;
+    tong_phu_cap: number;
+    tong_thu_nhap: number;
+    thuc_linh: number;
+  }> = [];
   const breakdownByPersonnelId = new Map<string, PayrollBreakdownValues>();
   const missingBaseSalaryNames: string[] = [];
   let skippedLockedCount = 0;
@@ -125,7 +138,13 @@ export async function syncPayrollFromAttendance(
 
   for (const person of personnel) {
     const existing = existingByPersonnelId.get(person.id);
-    if (existing && LOCKED_PAYROLL_STATUSES.has(existing.trang_thai)) {
+    if (options?.chiCapNhatTienAn && !existing) continue;
+    const updateMealPriceOnly = Boolean(existing && options?.chiCapNhatTienAn);
+    if (
+      existing &&
+      LOCKED_PAYROLL_STATUSES.has(existing.trang_thai) &&
+      !options?.choPhepCapNhatTienAnKhiDaKhoa
+    ) {
       skippedLockedCount += 1;
       continue;
     }
@@ -194,9 +213,19 @@ export async function syncPayrollFromAttendance(
       'tienAnTangCa',
       existingBreakdown.dieu_chinh_tien_an_tang_ca
     );
+    if (options?.ghiDeDonGiaTienAnDaChot) {
+      // Khi admin đổi đơn giá của kỳ, luôn quay về công thức số bữa × đơn giá.
+      mealAllowanceOverride = null;
+      overtimeMealAllowanceOverride = null;
+    }
     // Bảng lương được lưu trước khi có snapshot số bữa/đơn giá chỉ có số tiền
     // thực tế. Giữ nguyên hai khoản này để thay đổi đơn giá mới không sửa kỳ cũ.
-    if (existing && !hasSavedMealSnapshot && !override) {
+    if (
+      existing &&
+      !hasSavedMealSnapshot &&
+      !override &&
+      !options?.ghiDeDonGiaTienAnDaChot
+    ) {
       mealAllowanceOverride = Math.max(0, existingBreakdown.tien_an);
       overtimeMealAllowanceOverride = Math.max(0, existingBreakdown.tien_an_tang_ca);
     }
@@ -217,6 +246,15 @@ export async function syncPayrollFromAttendance(
       hasSavedMealSnapshot && !options?.ghiDeDonGiaTienAnDaChot
         ? existingBreakdown.don_gia_tien_an
         : amount(options?.donGiaTienAnTheoKy ?? ATTENDANCE_SALARY.GIA_MOT_BUA_AN)
+    );
+    const hasSavedOvertimeMealPrice = Boolean(
+      existing && hasPayrollDetail(existing, 'don_gia_tien_an_tang_ca')
+    );
+    const overtimeMealUnitPrice = Math.max(
+      0,
+      hasSavedOvertimeMealPrice && !options?.ghiDeDonGiaTienAnDaChot
+        ? existingBreakdown.don_gia_tien_an_tang_ca
+        : amount(options?.donGiaTienAnTangCaTheoKy ?? mealUnitPrice)
     );
     const rowHasCommissionPercent =
       override != null &&
@@ -287,6 +325,7 @@ export async function syncPayrollFromAttendance(
       soNgayCongTheoChamCon: actualWorkDays,
       soGioTangCaTheoChamCon: overtimeHours,
       donGiaTienAnTheoKy: mealUnitPrice,
+      donGiaTienAnTangCaTheoKy: overtimeMealUnitPrice,
     });
 
     const salaryByAttendance = roundMoney(attendanceSalary.tienTheoCong);
@@ -311,34 +350,7 @@ export async function syncPayrollFromAttendance(
         amount(existing?.khau_tru_khac)
     );
 
-    items.push({
-      ...(existing?.id ? { id: existing.id } : {}),
-      nhan_su_id: person.id,
-      thang: month,
-      nam: year,
-      co_so: person.co_so,
-      ngay_cong_chuan: ATTENDANCE_SALARY.NGAY_LAM_TRONG_THANG,
-      ngay_cong_thuc_te: actualWorkDays,
-      doanh_so: monthlyRevenue,
-      doanh_so_muc_tieu: amount(existing?.doanh_so_muc_tieu),
-      luong_co_ban: baseSalary,
-      luong_ngay_cong: salaryByAttendance,
-      luong_doanh_so: commissionSalary,
-      luong_lam_them: overtimeSalary,
-      tong_phu_cap: totalAllowance,
-      bhxh: amount(existing?.bhxh),
-      bhyt: amount(existing?.bhyt),
-      bhtn: amount(existing?.bhtn),
-      thue_tncn: amount(existing?.thue_tncn),
-      khau_tru_khac: amount(existing?.khau_tru_khac),
-      tong_thu_nhap: totalIncome,
-      tong_khau_tru: totalDeduction,
-      thuc_linh: totalIncome - totalDeduction,
-      trang_thai: existing?.trang_thai ?? 'Chờ duyệt',
-      ghi_chu: monthlyBonusNote || null,
-    });
-
-    breakdownByPersonnelId.set(person.id, {
+    const nextBreakdown: PayrollBreakdownValues = {
       ngay_cong_them: extraWorkDays,
       phu_cap_chuyen_can: roundMoney(attendanceSalary.phuCapChuyenCan),
       phu_cap_xang_dien_thoai: roundMoney(attendanceSalary.phuCapXangDienThoai),
@@ -358,11 +370,65 @@ export async function syncPayrollFromAttendance(
       so_bua_an_thuong: attendanceSalary.soBuaAnThuong,
       so_bua_an_tang_ca: attendanceSalary.soBuaAnTangCa,
       don_gia_tien_an: roundMoney(attendanceSalary.donGiaTienAn),
+      don_gia_tien_an_tang_ca: roundMoney(attendanceSalary.donGiaTienAnTangCa),
       thuong_thang: roundMoney(monthlyBonus),
-    });
+    };
+
+    if (updateMealPriceOnly && existing) {
+      const oldMealTotal =
+        amount(existingBreakdown.tien_an) + amount(existingBreakdown.tien_an_tang_ca);
+      const newMealTotal = nextBreakdown.tien_an + nextBreakdown.tien_an_tang_ca;
+      const mealDelta = newMealTotal - oldMealTotal;
+      mealOnlyTotalUpdates.push({
+        id: existing.id,
+        tong_phu_cap: amount(existing.tong_phu_cap) + mealDelta,
+        tong_thu_nhap: amount(existing.tong_thu_nhap) + mealDelta,
+        thuc_linh: amount(existing.thuc_linh) + mealDelta,
+      });
+      breakdownByPersonnelId.set(person.id, {
+        ...existingBreakdown,
+        tien_an: nextBreakdown.tien_an,
+        tien_an_tang_ca: nextBreakdown.tien_an_tang_ca,
+        dieu_chinh_tien_an: nextBreakdown.dieu_chinh_tien_an,
+        dieu_chinh_tien_an_tang_ca: nextBreakdown.dieu_chinh_tien_an_tang_ca,
+        so_bua_an_thuong: nextBreakdown.so_bua_an_thuong,
+        so_bua_an_tang_ca: nextBreakdown.so_bua_an_tang_ca,
+        don_gia_tien_an: nextBreakdown.don_gia_tien_an,
+        don_gia_tien_an_tang_ca: nextBreakdown.don_gia_tien_an_tang_ca,
+      });
+    } else {
+      items.push({
+        ...(existing?.id ? { id: existing.id } : {}),
+        nhan_su_id: person.id,
+        thang: month,
+        nam: year,
+        co_so: person.co_so,
+        ngay_cong_chuan: ATTENDANCE_SALARY.NGAY_LAM_TRONG_THANG,
+        ngay_cong_thuc_te: actualWorkDays,
+        doanh_so: monthlyRevenue,
+        doanh_so_muc_tieu: amount(existing?.doanh_so_muc_tieu),
+        luong_co_ban: baseSalary,
+        luong_ngay_cong: salaryByAttendance,
+        luong_doanh_so: commissionSalary,
+        luong_lam_them: overtimeSalary,
+        tong_phu_cap: totalAllowance,
+        bhxh: amount(existing?.bhxh),
+        bhyt: amount(existing?.bhyt),
+        bhtn: amount(existing?.bhtn),
+        thue_tncn: amount(existing?.thue_tncn),
+        khau_tru_khac: amount(existing?.khau_tru_khac),
+        tong_thu_nhap: totalIncome,
+        tong_khau_tru: totalDeduction,
+        thuc_linh: totalIncome - totalDeduction,
+        trang_thai: existing?.trang_thai ?? 'Chờ duyệt',
+        ghi_chu: monthlyBonusNote || null,
+      });
+      breakdownByPersonnelId.set(person.id, nextBreakdown);
+    }
   }
 
   await bulkUpsertPayrollItems(items);
+  await updatePayrollMealTotals(mealOnlyTotalUpdates);
   const savedPayroll = await getPayrollBatch(month, year, branchFilter);
   await replacePayrollBreakdowns(
     savedPayroll.flatMap((item) => {
@@ -372,7 +438,7 @@ export async function syncPayrollFromAttendance(
   );
 
   return {
-    syncedCount: items.length,
+    syncedCount: items.length + mealOnlyTotalUpdates.length,
     skippedLockedCount,
     attendanceRowCount: attendanceRows.length,
     staffWithAttendanceCount,

@@ -186,7 +186,8 @@ INSERT INTO public.thong_so_luong (loai, co_so, gia_tri, mo_ta) VALUES
 ('ty_le_bhyt_nld', NULL, 1.5, 'Tỷ lệ BHYT người lao động (%)'),
 ('ty_le_bhtn_nld', NULL, 1, 'Tỷ lệ BHTN người lao động (%)'),
 ('thue_thu_viec', NULL, 10, 'Thuế suất nhân viên thử việc (%)'),
-('don_gia_tien_an', NULL, 35000, 'Đơn giá tiền ăn mặc định cho kỳ lương mới (VND/bữa)');
+('don_gia_tien_an', NULL, 35000, 'Đơn giá tiền ăn thường mặc định (VND/bữa)'),
+('don_gia_tien_an_tang_ca', NULL, 35000, 'Đơn giá tiền ăn tăng ca mặc định (VND/bữa)');
 
 -- SEED DATA: Thành phần lương mẫu
 INSERT INTO public.thanh_phan_luong (ten, ma, loai, tinh_chat, kieu_gia_tri, gia_tri, thu_tu, mo_ta) VALUES

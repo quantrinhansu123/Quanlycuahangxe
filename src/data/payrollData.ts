@@ -45,6 +45,7 @@ export interface BangLuong {
   so_bua_an_thuong?: number;
   so_bua_an_tang_ca?: number;
   don_gia_tien_an?: number;
+  don_gia_tien_an_tang_ca?: number;
   thuong_thang?: number;
   nhan_su?: {
     id: string;
@@ -91,6 +92,7 @@ export interface PayrollBreakdownValues {
   so_bua_an_tang_ca: number;
   /** Đơn giá được chốt tại thời điểm lưu kỳ lương. */
   don_gia_tien_an: number;
+  don_gia_tien_an_tang_ca: number;
   thuong_thang: number;
 }
 
@@ -114,6 +116,7 @@ export const PAYROLL_DETAIL_CODES = {
   so_bua_an_thuong: 'payroll:so_bua_an_thuong',
   so_bua_an_tang_ca: 'payroll:so_bua_an_tang_ca',
   don_gia_tien_an: 'payroll:don_gia_tien_an',
+  don_gia_tien_an_tang_ca: 'payroll:don_gia_tien_an_tang_ca',
   thuong_thang: 'payroll:thuong_thang',
 } as const satisfies Record<keyof PayrollBreakdownValues, string>;
 
@@ -141,6 +144,7 @@ const PAYROLL_DETAIL_DEFINITIONS: Array<{
   { key: 'so_bua_an_thuong', name: 'Số bữa ăn thường', type: 'tham_so' },
   { key: 'so_bua_an_tang_ca', name: 'Số bữa ăn tăng ca', type: 'tham_so' },
   { key: 'don_gia_tien_an', name: 'Đơn giá tiền ăn', type: 'tham_so' },
+  { key: 'don_gia_tien_an_tang_ca', name: 'Đơn giá tiền ăn tăng ca', type: 'tham_so' },
   { key: 'thuong_thang', name: 'Thưởng tháng', type: 'thu_nhap' },
 ];
 
@@ -198,6 +202,7 @@ export function getPayrollBreakdown(item: Partial<BangLuong>): PayrollBreakdownV
     so_bua_an_thuong: value('so_bua_an_thuong'),
     so_bua_an_tang_ca: value('so_bua_an_tang_ca'),
     don_gia_tien_an: value('don_gia_tien_an'),
+    don_gia_tien_an_tang_ca: value('don_gia_tien_an_tang_ca'),
     thuong_thang: value('thuong_thang'),
   };
 }
@@ -348,4 +353,24 @@ export const bulkUpsertPayrollItems = async (items: Partial<BangLuong>[]): Promi
     console.error('Error syncing payroll items:', error);
     throw error;
   }
+};
+
+/** Chỉ điều chỉnh các tổng tiền chịu ảnh hưởng bởi tiền ăn, không chạm trạng thái hay khoản lương khác. */
+export const updatePayrollMealTotals = async (
+  entries: Array<{
+    id: string;
+    tong_phu_cap: number;
+    tong_thu_nhap: number;
+    thuc_linh: number;
+  }>
+): Promise<void> => {
+  await Promise.all(
+    entries.map(async ({ id, ...values }) => {
+      const { error } = await supabase.from('bang_luong').update(values).eq('id', id);
+      if (error) {
+        console.error('Error updating payroll meal totals:', error);
+        throw error;
+      }
+    })
+  );
 };

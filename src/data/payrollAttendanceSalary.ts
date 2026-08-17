@@ -10,6 +10,8 @@ export const ATTENDANCE_SALARY = {
   GIO_MOT_NGAY: 8,
   /** Giá khởi tạo khi hệ thống chưa có cấu hình đơn giá tiền ăn. */
   GIA_MOT_BUA_AN: 35_000,
+  /** Giá khởi tạo cho một bữa ăn tăng ca. */
+  GIA_MOT_BUA_AN_TANG_CA: 35_000,
   PHU_CAP_CHUYEN_CAN: 200_000,
   /** Điện thoại 200.000đ + đi lại/xăng xe 300.000đ theo chính sách lương mẫu. */
   PHU_CAP_XANG_DT: 500_000,
@@ -76,6 +78,7 @@ export interface BangLuongChamCongKetQua {
   soBuaAnThuong: number;
   soBuaAnTangCa: number;
   donGiaTienAn: number;
+  donGiaTienAnTangCa: number;
   tienAn: number;
   tienAnTangCa: number;
   phuCapChuyenCan: number;
@@ -291,6 +294,8 @@ export function tinhMotDong(
     soNgayCongTheoChamCon?: number;
     /** Đơn giá được chốt riêng cho kỳ lương, không lấy lại cấu hình mới khi xem kỳ cũ. */
     donGiaTienAnTheoKy?: number;
+    /** Đơn giá bữa tăng ca được chốt riêng cho kỳ lương. */
+    donGiaTienAnTangCaTheoKy?: number;
     /** Ghi đè cột Tăng ca (giờ) khi đã tổng hợp từ bảng chấm công. */
     soGioTangCaTheoChamCon?: number;
   }
@@ -325,8 +330,14 @@ export function tinhMotDong(
     0,
     options?.donGiaTienAnTheoKy ?? ATTENDANCE_SALARY.GIA_MOT_BUA_AN
   );
+  const donGiaTienAnTangCa = Math.max(
+    0,
+    options?.donGiaTienAnTangCaTheoKy ??
+      options?.donGiaTienAnTheoKy ??
+      ATTENDANCE_SALARY.GIA_MOT_BUA_AN_TANG_CA
+  );
   const tienAnMacDinh = soBuaCoBan * donGiaTienAn;
-  const tienAnTangCaMacDinh = soBuaTangCa * donGiaTienAn;
+  const tienAnTangCaMacDinh = soBuaTangCa * donGiaTienAnTangCa;
   const tienAn =
     row.tienAn == null ? tienAnMacDinh : Math.max(0, row.tienAn);
   const tienAnTangCa =
@@ -416,6 +427,7 @@ export function tinhMotDong(
     soBuaAnThuong: soBuaCoBan,
     soBuaAnTangCa: soBuaTangCa,
     donGiaTienAn,
+    donGiaTienAnTangCa,
     tienAn,
     tienAnTangCa,
     phuCapChuyenCan,

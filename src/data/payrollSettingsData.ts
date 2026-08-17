@@ -1,7 +1,9 @@
 import { supabase } from '../lib/supabase';
 
 export const DEFAULT_MEAL_UNIT_PRICE = 35_000;
+export const DEFAULT_OVERTIME_MEAL_UNIT_PRICE = 35_000;
 export const MEAL_UNIT_PRICE_SETTING_TYPE = 'don_gia_tien_an';
+export const OVERTIME_MEAL_UNIT_PRICE_SETTING_TYPE = 'don_gia_tien_an_tang_ca';
 
 export interface ThongSoLuong {
   id: string;
@@ -44,12 +46,11 @@ export const upsertPayrollSetting = async (setting: Partial<ThongSoLuong>): Prom
   return data as ThongSoLuong;
 };
 
-/** Lấy đơn giá tiền ăn đang áp dụng cho các kỳ lương tạo mới. */
-export const getDefaultMealUnitPrice = async (): Promise<number> => {
+async function getMealUnitPriceSetting(type: string, fallback: number): Promise<number> {
   const { data, error } = await supabase
     .from('thong_so_luong')
     .select('*')
-    .eq('loai', MEAL_UNIT_PRICE_SETTING_TYPE)
+    .eq('loai', type)
     .is('co_so', null)
     .order('created_at')
     .limit(1);
@@ -59,19 +60,34 @@ export const getDefaultMealUnitPrice = async (): Promise<number> => {
     throw error;
   }
   const value = Number((data?.[0] as ThongSoLuong | undefined)?.gia_tri);
-  return Number.isFinite(value) && value >= 0 ? value : DEFAULT_MEAL_UNIT_PRICE;
-};
+  return Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
+/** Lấy đơn giá tiền ăn thường mặc định. */
+export const getDefaultMealUnitPrice = async (): Promise<number> =>
+  getMealUnitPriceSetting(MEAL_UNIT_PRICE_SETTING_TYPE, DEFAULT_MEAL_UNIT_PRICE);
+
+/** Lấy đơn giá tiền ăn tăng ca mặc định. */
+export const getDefaultOvertimeMealUnitPrice = async (): Promise<number> =>
+  getMealUnitPriceSetting(
+    OVERTIME_MEAL_UNIT_PRICE_SETTING_TYPE,
+    DEFAULT_OVERTIME_MEAL_UNIT_PRICE
+  );
 
 /**
  * Chỉnh đơn giá mặc định. Các kỳ cũ không đổi vì đơn giá thực tế được chốt
  * trong chi tiết của từng bảng lương khi lưu.
  */
-export const saveDefaultMealUnitPrice = async (value: number): Promise<ThongSoLuong> => {
+async function saveMealUnitPriceSetting(
+  type: string,
+  value: number,
+  description: string
+): Promise<ThongSoLuong> {
   const normalized = Math.max(0, Math.round(Number(value) || 0));
   const { data: existing, error: findError } = await supabase
     .from('thong_so_luong')
     .select('*')
-    .eq('loai', MEAL_UNIT_PRICE_SETTING_TYPE)
+    .eq('loai', type)
     .is('co_so', null)
     .order('created_at')
     .limit(1);
@@ -84,12 +100,28 @@ export const saveDefaultMealUnitPrice = async (value: number): Promise<ThongSoLu
   const current = existing?.[0] as ThongSoLuong | undefined;
   return upsertPayrollSetting({
     ...(current?.id ? { id: current.id } : {}),
-    loai: MEAL_UNIT_PRICE_SETTING_TYPE,
+    loai: type,
     co_so: null,
     gia_tri: normalized,
-    mo_ta: 'Đơn giá tiền ăn mặc định cho kỳ lương mới (VND/bữa)',
+    mo_ta: description,
   });
-};
+}
+
+export const saveDefaultMealUnitPrice = async (value: number): Promise<ThongSoLuong> =>
+  saveMealUnitPriceSetting(
+    MEAL_UNIT_PRICE_SETTING_TYPE,
+    value,
+    'Đơn giá tiền ăn thường mặc định (VND/bữa)'
+  );
+
+export const saveDefaultOvertimeMealUnitPrice = async (
+  value: number
+): Promise<ThongSoLuong> =>
+  saveMealUnitPriceSetting(
+    OVERTIME_MEAL_UNIT_PRICE_SETTING_TYPE,
+    value,
+    'Đơn giá tiền ăn tăng ca mặc định (VND/bữa)'
+  );
 
 export const getTaxBrackets = async (): Promise<BieuThueTNCN[]> => {
   const { data, error } = await supabase
