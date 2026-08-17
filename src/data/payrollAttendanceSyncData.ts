@@ -48,6 +48,11 @@ export interface PayrollAttendanceSyncOptions {
   choPhepCapNhatTienAnKhiDaKhoa?: boolean;
   /** Không tính lại các thành phần lương khác và không tạo thêm dòng lương mới. */
   chiCapNhatTienAn?: boolean;
+  /**
+   * Đối soát lại cả dòng đã duyệt/đã chi trả nhưng giữ nguyên trạng thái.
+   * Chỉ dùng cho thao tác thủ công có xác nhận của quản trị viên.
+   */
+  choPhepCapNhatBangLuongDaKhoa?: boolean;
 }
 
 function monthRange(year: number, month: number): { start: string; end: string } {
@@ -143,7 +148,8 @@ export async function syncPayrollFromAttendance(
     if (
       existing &&
       LOCKED_PAYROLL_STATUSES.has(existing.trang_thai) &&
-      !options?.choPhepCapNhatTienAnKhiDaKhoa
+      !options?.choPhepCapNhatTienAnKhiDaKhoa &&
+      !options?.choPhepCapNhatBangLuongDaKhoa
     ) {
       skippedLockedCount += 1;
       continue;

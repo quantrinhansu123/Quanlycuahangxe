@@ -2,7 +2,8 @@ import { useCallback, useState, useEffect, useRef } from 'react';
 import { 
   Search, Settings2, Download, Send, BadgeDollarSign, 
   ChevronDown, Filter, Calendar, Building2, CheckCircle2, AlertCircle, Loader2,
-  Plus, ArrowLeft, MoreHorizontal, MessageSquare, User, Check, RefreshCcw
+  Plus, ArrowLeft, MoreHorizontal, MessageSquare, User, Check, RefreshCcw,
+  FileSpreadsheet
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getPayrollBatch, updatePayrollStatus, bulkCreatePayrollItems, deletePayrollBatch } from '../data/payrollData';
@@ -15,6 +16,95 @@ import { removeVietnameseTones } from '../lib/utils';
 import * as XLSX from 'xlsx';
 import { useAuth } from '../context/AuthContext';
 import { syncPayrollFromAttendance } from '../data/payrollAttendanceSyncData';
+
+const payrollFileToken = (value: string): string =>
+  removeVietnameseTones(value)
+    .replace(/[^a-zA-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+
+const buildPayrollSlipWorksheet = (
+  item: BangLuong,
+  month: number,
+  year: number
+): XLSX.WorkSheet => {
+  const employeeName = item.nhan_su?.ho_ten || 'Nhân viên';
+  const attendanceDays = Number(item.ngay_cong_thuc_te) || 0;
+  const extraDays = Number(item.ngay_cong_them) || 0;
+  const totalDeduction =
+    Number(item.tong_khau_tru) ||
+    (Number(item.bhxh) || 0) +
+      (Number(item.bhyt) || 0) +
+      (Number(item.bhtn) || 0) +
+      (Number(item.thue_tncn) || 0) +
+      (Number(item.khau_tru_khac) || 0);
+
+  const rows: Array<Array<string | number>> = [
+    [`PHIẾU LƯƠNG THÁNG ${month}/${year}`, ''],
+    ['Họ và tên', employeeName],
+    ['Đơn vị', item.co_so],
+    ['Trạng thái', item.trang_thai],
+    ['', ''],
+    ['THÔNG TIN CHẤM CÔNG', 'GIÁ TRỊ'],
+    ['Ngày công từ chấm công', attendanceDays],
+    ['Ngày công bổ sung', extraDays],
+    ['Tổng ngày công', `${attendanceDays + extraDays}/${item.ngay_cong_chuan || 28}`],
+    ['Số giờ tăng ca', Number(item.so_gio_tang_ca) || 0],
+    ['Số bữa ăn thường', Number(item.so_bua_an_thuong) || 0],
+    ['Số bữa ăn tăng ca', Number(item.so_bua_an_tang_ca) || 0],
+    ['', ''],
+    ['CHI TIẾT THU NHẬP', 'SỐ TIỀN (VND)'],
+    ['Lương cơ bản', Number(item.luong_co_ban) || 0],
+    ['Lương theo ngày công', Number(item.luong_ngay_cong) || 0],
+    ['Lương tăng ca', Number(item.luong_lam_them) || 0],
+    ['Chuyên cần', Number(item.phu_cap_chuyen_can) || 0],
+    ['Xăng xe, điện thoại', Number(item.phu_cap_xang_dien_thoai) || 0],
+    ['Thâm niên', Number(item.phu_cap_tham_nien) || 0],
+    ['Trọ ngoài', Number(item.phu_cap_tro_ngoai) || 0],
+    ['Tiền ăn', Number(item.tien_an) || 0],
+    ['Tiền ăn tăng ca', Number(item.tien_an_tang_ca) || 0],
+    ['Hoa hồng/doanh số', Number(item.hoa_hong ?? item.luong_doanh_so) || 0],
+    ['Thưởng tháng', Number(item.thuong_thang) || 0],
+    ['Tổng phụ cấp', Number(item.tong_phu_cap) || 0],
+    ['TỔNG THU NHẬP', Number(item.tong_thu_nhap) || 0],
+    ['', ''],
+    ['CHI TIẾT KHẤU TRỪ', 'SỐ TIỀN (VND)'],
+    ['BHXH', Number(item.bhxh) || 0],
+    ['BHYT', Number(item.bhyt) || 0],
+    ['BHTN', Number(item.bhtn) || 0],
+    ['Thuế TNCN', Number(item.thue_tncn) || 0],
+    ['Khấu trừ khác', Number(item.khau_tru_khac) || 0],
+    ['TỔNG KHẤU TRỪ', totalDeduction],
+    ['', ''],
+    ['THỰC LĨNH', Number(item.thuc_linh) || 0],
+    ['Ghi chú', item.ghi_chu || ''],
+  ];
+
+  const worksheet = XLSX.utils.aoa_to_sheet(rows);
+  worksheet['!cols'] = [{ wch: 31 }, { wch: 28 }];
+  worksheet['!merges'] = [XLSX.utils.decode_range('A1:B1')];
+
+  // Các dòng tiền được giữ ở dạng số để kế toán có thể tiếp tục tính toán.
+  for (let row = 14; row <= 37; row += 1) {
+    const cell = worksheet[`B${row}`];
+    if (cell?.t === 'n') cell.z = '#,##0 "đ"';
+  }
+
+  return worksheet;
+};
+
+const exportPayrollSlip = (item: BangLuong, month: number, year: number): void => {
+  const employeeName = item.nhan_su?.ho_ten || 'Nhan_vien';
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(
+    workbook,
+    buildPayrollSlipWorksheet(item, month, year),
+    'Phieu luong'
+  );
+  XLSX.writeFile(
+    workbook,
+    `Phieu_luong_${payrollFileToken(employeeName) || 'Nhan_vien'}_${month}_${year}.xlsx`
+  );
+};
 
 
 
@@ -41,6 +131,7 @@ const PayrollPage: React.FC = () => {
   ]);
   const colConfigRef = useRef<HTMLDivElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
+  const lastAutomaticSyncKeyRef = useRef('');
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -74,8 +165,40 @@ const PayrollPage: React.FC = () => {
   }, [selectedCoSo, selectedMonth, selectedYear]);
 
   useEffect(() => {
-    void fetchData();
+    const timer = window.setTimeout(() => void fetchData(), 0);
+    return () => window.clearTimeout(timer);
   }, [fetchData]);
+
+  // Khi quản trị viên mở/chuyển kỳ lương, tự đối soát các dòng chưa khóa với
+  // chấm công. Nhờ đó ngày công và tăng ca không còn phụ thuộc vào việc nhớ bấm
+  // nút đồng bộ. Dòng đã duyệt/đã chi trả chỉ đổi khi admin chủ động xác nhận.
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    const syncKey = `${selectedYear}-${selectedMonth}-${selectedCoSo}`;
+    if (lastAutomaticSyncKeyRef.current === syncKey) return;
+    lastAutomaticSyncKeyRef.current = syncKey;
+
+    let cancelled = false;
+    const runAutomaticSync = async () => {
+      try {
+        setIsSyncingAttendance(true);
+        await syncPayrollFromAttendance(selectedMonth, selectedYear, selectedCoSo);
+        if (!cancelled) await fetchData();
+      } catch (error) {
+        // Vẫn để lần tải dữ liệu thường hoạt động; nút thủ công sẽ hiển thị lỗi
+        // chi tiết nếu quản trị viên cần xử lý cấu hình/database.
+        console.error('Automatic attendance/payroll sync failed:', error);
+      } finally {
+        if (!cancelled) setIsSyncingAttendance(false);
+      }
+    };
+
+    void runAutomaticSync();
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchData, isAdmin, selectedCoSo, selectedMonth, selectedYear]);
 
   const handleAddPersonnel = async (selected: NhanSu[]) => {
     try {
@@ -146,16 +269,17 @@ const PayrollPage: React.FC = () => {
   };
 
   const handleSyncAttendance = async () => {
-    if (isLocked) {
-      alert('Bảng lương đã khóa nên không thể đồng bộ lại chấm công.');
-      return;
-    }
-
     const scope = selectedCoSo === 'Tất cả cơ sở' ? 'tất cả cơ sở' : selectedCoSo;
+    const lockedCount = payrollData.filter(
+      (item) => item.trang_thai === 'Đã duyệt' || item.trang_thai === 'Đã chi trả'
+    ).length;
     if (
       !window.confirm(
         `Đồng bộ chấm công tháng ${selectedMonth}/${selectedYear} cho ${scope}?\n\n` +
-          'Hệ thống sẽ tính lại ngày công, chuyên cần, tăng ca, xăng xe điện thoại, thâm niên, tiền ăn và hoa hồng. Các dòng đã duyệt/đã chi trả sẽ được giữ nguyên.'
+          'Hệ thống sẽ tính lại ngày công, chuyên cần, tăng ca, xăng xe điện thoại, thâm niên, tiền ăn và hoa hồng.' +
+          (lockedCount > 0
+            ? `\n\nCó ${lockedCount} dòng đã duyệt/đã chi trả. Số liệu các dòng này cũng sẽ được đối soát lại, nhưng trạng thái vẫn được giữ nguyên.`
+            : '')
       )
     ) {
       return;
@@ -166,7 +290,8 @@ const PayrollPage: React.FC = () => {
       const result = await syncPayrollFromAttendance(
         selectedMonth,
         selectedYear,
-        selectedCoSo
+        selectedCoSo,
+        { choPhepCapNhatBangLuongDaKhoa: true }
       );
       await fetchData();
 
@@ -345,6 +470,21 @@ const PayrollPage: React.FC = () => {
     alert('Đã xuất file Excel thành công!');
   };
 
+  const handleExportSelectedPayrollSlip = () => {
+    if (selectedIds.length !== 1) {
+      alert('Vui lòng chọn đúng 1 nhân viên để xuất phiếu lương cá nhân.');
+      return;
+    }
+
+    const item = payrollData.find((payroll) => payroll.id === selectedIds[0]);
+    if (!item) {
+      alert('Không tìm thấy dữ liệu lương của nhân viên đã chọn.');
+      return;
+    }
+
+    exportPayrollSlip(item, selectedMonth, selectedYear);
+  };
+
   const handleAdvancedFilter = () => {
     alert('Tính năng lọc nâng cao (Theo bộ phận, cấp bậc, thời gian) đang được đồng bộ dữ liệu!');
   };
@@ -436,9 +576,9 @@ const PayrollPage: React.FC = () => {
         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
           {isAdmin && (
             <button
-              disabled={isSyncingAttendance || loading || isLocked}
+              disabled={isSyncingAttendance || loading}
               onClick={handleSyncAttendance}
-              title={isLocked ? 'Bảng lương đã khóa' : 'Lấy ngày công và tăng ca từ dữ liệu chấm công'}
+              title="Đối soát ngày công và tăng ca từ dữ liệu chấm công"
               className="flex items-center gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 bg-teal-50 border border-teal-200 rounded-lg font-bold text-sm text-teal-700 hover:bg-teal-100 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <RefreshCcw size={18} className={isSyncingAttendance ? 'animate-spin' : ''} />
@@ -460,6 +600,16 @@ const PayrollPage: React.FC = () => {
             <button onClick={handleImport} className="flex items-center gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 bg-white border border-slate-200 rounded-lg font-bold text-sm text-slate-600 hover:bg-slate-50 transition-all shadow-sm">
               <Download size={18} />
               <span className="hidden sm:inline">Nhập khẩu</span>
+            </button>
+          )}
+          {isAdmin && (
+            <button
+              onClick={handleExportSelectedPayrollSlip}
+              title="Chọn một nhân viên rồi xuất phiếu lương chi tiết"
+              className="hidden sm:flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-lg font-bold text-sm text-slate-600 hover:bg-slate-50 transition-all shadow-sm"
+            >
+              <FileSpreadsheet size={18} />
+              Xuất phiếu cá nhân
             </button>
           )}
           {isAdmin && (
@@ -590,6 +740,7 @@ const PayrollPage: React.FC = () => {
             </button>
             <button 
               onClick={handleExportExcel}
+              title="Xuất bảng lương tổng hợp đang hiển thị"
               className="p-2.5 bg-white border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 transition-all shadow-sm"
             >
               <Download size={18} />
@@ -850,26 +1001,36 @@ const PayrollPage: React.FC = () => {
                       "sticky right-0 border-l border-slate-200 px-8 py-4 text-right z-20 group-hover:bg-emerald-50/50 transition-colors",
                       selectedIds.includes(item.id) ? "bg-emerald-50/30" : "bg-white"
                     )}>
-                      <div className="flex flex-col items-end">
-                        <p className="text-sm font-black text-emerald-700">{formatCurrency(item.thuc_linh)}</p>
-                        <div className="flex items-center gap-1 mt-1">
-                          {item.trang_thai === 'Đã chi trả' ? (
-                            <>
-                              <span className="text-[10px] font-black text-emerald-500 uppercase">Đã trả</span>
-                              <CheckCircle2 size={10} className="text-emerald-500" />
-                            </>
-                          ) : item.trang_thai === 'Đã duyệt' ? (
-                            <>
-                              <span className="text-[10px] font-black text-blue-500 uppercase">Đã duyệt</span>
-                              <CheckCircle2 size={10} className="text-blue-500" />
-                            </>
-                          ) : (
-                            <>
-                              <span className="text-[10px] font-black text-amber-500 uppercase">Chờ duyệt</span>
-                              <AlertCircle size={10} className="text-amber-500" />
-                            </>
-                          )}
+                      <div className="flex items-center justify-end gap-3">
+                        <div className="flex flex-col items-end">
+                          <p className="text-sm font-black text-emerald-700">{formatCurrency(item.thuc_linh)}</p>
+                          <div className="flex items-center gap-1 mt-1">
+                            {item.trang_thai === 'Đã chi trả' ? (
+                              <>
+                                <span className="text-[10px] font-black text-emerald-500 uppercase">Đã trả</span>
+                                <CheckCircle2 size={10} className="text-emerald-500" />
+                              </>
+                            ) : item.trang_thai === 'Đã duyệt' ? (
+                              <>
+                                <span className="text-[10px] font-black text-blue-500 uppercase">Đã duyệt</span>
+                                <CheckCircle2 size={10} className="text-blue-500" />
+                              </>
+                            ) : (
+                              <>
+                                <span className="text-[10px] font-black text-amber-500 uppercase">Chờ duyệt</span>
+                                <AlertCircle size={10} className="text-amber-500" />
+                              </>
+                            )}
+                          </div>
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => exportPayrollSlip(item, selectedMonth, selectedYear)}
+                          title={`Xuất phiếu lương ${item.nhan_su?.ho_ten || ''}`}
+                          className="p-2 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
+                        >
+                          <FileSpreadsheet size={16} />
+                        </button>
                       </div>
                     </td>
                   )}
@@ -964,6 +1125,17 @@ const PayrollPage: React.FC = () => {
                       <span className="text-[11px] font-black text-slate-400 uppercase">Thực lĩnh</span>
                       <span className="text-[15px] font-black text-emerald-700">{formatCurrency(item.thuc_linh)}</span>
                     </div>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        exportPayrollSlip(item, selectedMonth, selectedYear);
+                      }}
+                      className="mt-3 w-full flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-black uppercase tracking-wide text-emerald-700"
+                    >
+                      <FileSpreadsheet size={15} />
+                      Xuất phiếu lương
+                    </button>
                   </div>
                 </div>
               ))}
