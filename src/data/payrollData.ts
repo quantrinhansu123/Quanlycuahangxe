@@ -42,6 +42,10 @@ export interface BangLuong {
   dieu_chinh_tham_nien?: number;
   dieu_chinh_tien_an?: number;
   dieu_chinh_tien_an_tang_ca?: number;
+  so_bua_an_thuong?: number;
+  so_bua_an_tang_ca?: number;
+  don_gia_tien_an?: number;
+  thuong_thang?: number;
   nhan_su?: {
     id: string;
     ho_ten: string;
@@ -82,6 +86,12 @@ export interface PayrollBreakdownValues {
   dieu_chinh_tham_nien: number;
   dieu_chinh_tien_an: number;
   dieu_chinh_tien_an_tang_ca: number;
+  /** Số bữa đã chốt của kỳ lương. */
+  so_bua_an_thuong: number;
+  so_bua_an_tang_ca: number;
+  /** Đơn giá được chốt tại thời điểm lưu kỳ lương. */
+  don_gia_tien_an: number;
+  thuong_thang: number;
 }
 
 export const PAYROLL_DETAIL_CODES = {
@@ -101,6 +111,10 @@ export const PAYROLL_DETAIL_CODES = {
   dieu_chinh_tham_nien: 'payroll:dieu_chinh_tham_nien',
   dieu_chinh_tien_an: 'payroll:dieu_chinh_tien_an',
   dieu_chinh_tien_an_tang_ca: 'payroll:dieu_chinh_tien_an_tang_ca',
+  so_bua_an_thuong: 'payroll:so_bua_an_thuong',
+  so_bua_an_tang_ca: 'payroll:so_bua_an_tang_ca',
+  don_gia_tien_an: 'payroll:don_gia_tien_an',
+  thuong_thang: 'payroll:thuong_thang',
 } as const satisfies Record<keyof PayrollBreakdownValues, string>;
 
 const PAYROLL_DETAIL_DEFINITIONS: Array<{
@@ -124,6 +138,10 @@ const PAYROLL_DETAIL_DEFINITIONS: Array<{
   { key: 'dieu_chinh_tham_nien', name: 'Điều chỉnh thâm niên', type: 'tham_so' },
   { key: 'dieu_chinh_tien_an', name: 'Điều chỉnh tiền ăn', type: 'tham_so' },
   { key: 'dieu_chinh_tien_an_tang_ca', name: 'Điều chỉnh tiền ăn tăng ca', type: 'tham_so' },
+  { key: 'so_bua_an_thuong', name: 'Số bữa ăn thường', type: 'tham_so' },
+  { key: 'so_bua_an_tang_ca', name: 'Số bữa ăn tăng ca', type: 'tham_so' },
+  { key: 'don_gia_tien_an', name: 'Đơn giá tiền ăn', type: 'tham_so' },
+  { key: 'thuong_thang', name: 'Thưởng tháng', type: 'thu_nhap' },
 ];
 
 function numberValue(value: unknown): number {
@@ -177,6 +195,10 @@ export function getPayrollBreakdown(item: Partial<BangLuong>): PayrollBreakdownV
     dieu_chinh_tham_nien: overrideValue('dieu_chinh_tham_nien'),
     dieu_chinh_tien_an: overrideValue('dieu_chinh_tien_an'),
     dieu_chinh_tien_an_tang_ca: overrideValue('dieu_chinh_tien_an_tang_ca'),
+    so_bua_an_thuong: value('so_bua_an_thuong'),
+    so_bua_an_tang_ca: value('so_bua_an_tang_ca'),
+    don_gia_tien_an: value('don_gia_tien_an'),
+    thuong_thang: value('thuong_thang'),
   };
 }
 

@@ -26,11 +26,17 @@ import { getPersonnel, type NhanSu } from '../data/personnelData';
 import PersonnelRevenueOrdersModal from '../components/PersonnelRevenueOrdersModal';
 import { getPayrollBatch, getPayrollBreakdown, hasPayrollDetail, type BangLuong } from '../data/payrollData';
 import { syncPayrollFromAttendance } from '../data/payrollAttendanceSyncData';
+import {
+  DEFAULT_MEAL_UNIT_PRICE,
+  getDefaultMealUnitPrice,
+  saveDefaultMealUnitPrice,
+} from '../data/payrollSettingsData';
 import { useAuth } from '../context/AuthContext';
 
 const LS_PREFIX = 'payrollChamCongLuongV2:';
 const LS_PREFIX_LEGACY = 'payrollChamCongLuongV1:';
 const DEFAULT_PCT_HH = 2;
+const LOCKED_PAYROLL_STATUSES = new Set(['Đã duyệt', 'Đã chi trả']);
 
 function normalizeCommissionPercent(value: unknown, fallback = DEFAULT_PCT_HH): number {
   const parsed = Number(value);
@@ -140,11 +146,14 @@ function emptyRow(phanTramHoaHong = DEFAULT_PCT_HH): BangLuongChamCongInput {
     phuCapThamNien: null,
     tienAn: null,
     tienAnTangCa: null,
+    soBuaAnThuong: null,
+    soBuaAnTangCa: null,
     soGioTangCa: 0,
     tongDoanhThu: 0,
     phanTramHoaHong: normalizeCommissionPercent(phanTramHoaHong),
     ngayBatDauLam: '',
     thuongKhac: 0,
+    ghiChuThuongThang: '',
     khoanTru: 0,
   };
 }
@@ -153,6 +162,10 @@ function payrollBatchToInputRows(items: BangLuong[]): BangLuongChamCongInput[] {
   return items.flatMap((item) => {
     if (!item.nhan_su?.ho_ten) return [];
     const detail = getPayrollBreakdown(item);
+    const hasMealSnapshot =
+      hasPayrollDetail(item, 'so_bua_an_thuong') &&
+      hasPayrollDetail(item, 'so_bua_an_tang_ca') &&
+      hasPayrollDetail(item, 'don_gia_tien_an');
     return [{
       ...emptyRow(),
       id: item.nhan_su_id,
@@ -175,24 +188,35 @@ function payrollBatchToInputRows(items: BangLuong[]): BangLuongChamCongInput[] {
           ? detail.dieu_chinh_tham_nien
           : null,
       tienAn:
-        detail.dieu_chinh_tien_an >= 0 ? detail.dieu_chinh_tien_an : null,
+        hasMealSnapshot
+          ? detail.dieu_chinh_tien_an >= 0
+            ? detail.dieu_chinh_tien_an
+            : null
+          : detail.tien_an,
       tienAnTangCa:
-        detail.dieu_chinh_tien_an_tang_ca >= 0
-          ? detail.dieu_chinh_tien_an_tang_ca
-          : null,
+        hasMealSnapshot
+          ? detail.dieu_chinh_tien_an_tang_ca >= 0
+            ? detail.dieu_chinh_tien_an_tang_ca
+            : null
+          : detail.tien_an_tang_ca,
+      soBuaAnThuong: hasMealSnapshot ? detail.so_bua_an_thuong : null,
+      soBuaAnTangCa: hasMealSnapshot ? detail.so_bua_an_tang_ca : null,
       soGioTangCa: detail.so_gio_tang_ca,
       tongDoanhThu: Number(item.doanh_so) || 0,
       phanTramHoaHong: hasPayrollDetail(item, 'phan_tram_hoa_hong')
         ? normalizeCommissionPercent(detail.phan_tram_hoa_hong)
         : DEFAULT_PCT_HH,
       ngayBatDauLam: item.nhan_su.ngay_vao_lam?.slice(0, 10) ?? '',
+      thuongKhac: detail.thuong_thang,
+      ghiChuThuongThang: item.ghi_chu ?? '',
     }];
   });
 }
 
 type StoredSheet = {
-  v: 1 | 2;
+  v: 1 | 2 | 3;
   phanTramHoaHongKy: number;
+  donGiaTienAnKy?: number;
   rows: BangLuongChamCongInput[];
 };
 
@@ -212,19 +236,31 @@ function normalizeStoredRows(
 function loadSheet(
   y: number,
   m: number
-): { phanTramHoaHongKy: number; rows: BangLuongChamCongInput[] } {
+): {
+  phanTramHoaHongKy: number;
+  donGiaTienAnKy: number;
+  coDonGiaTienAnDaLuu: boolean;
+  rows: BangLuongChamCongInput[];
+} {
   try {
     let raw = localStorage.getItem(`${LS_PREFIX}${y}-${m}`);
     if (!raw) {
       raw = localStorage.getItem(`${LS_PREFIX_LEGACY}${y}-${m}`);
     }
     if (!raw) {
-      return { phanTramHoaHongKy: DEFAULT_PCT_HH, rows: [emptyRow()] };
+      return {
+        phanTramHoaHongKy: DEFAULT_PCT_HH,
+        donGiaTienAnKy: DEFAULT_MEAL_UNIT_PRICE,
+        coDonGiaTienAnDaLuu: false,
+        rows: [emptyRow()],
+      };
     }
     const parsed = JSON.parse(raw) as unknown;
     if (Array.isArray(parsed) && parsed.length > 0) {
       return {
         phanTramHoaHongKy: DEFAULT_PCT_HH,
+        donGiaTienAnKy: DEFAULT_MEAL_UNIT_PRICE,
+        coDonGiaTienAnDaLuu: false,
         rows: normalizeStoredRows(
           parsed as BangLuongChamCongInput[],
           DEFAULT_PCT_HH,
@@ -235,13 +271,18 @@ function loadSheet(
     const sheet = parsed as Partial<StoredSheet>;
     if (
       sheet &&
-      (sheet.v === 1 || sheet.v === 2) &&
+      (sheet.v === 1 || sheet.v === 2 || sheet.v === 3) &&
       Array.isArray(sheet.rows) &&
       sheet.rows.length > 0
     ) {
       const defaultPercent = normalizeCommissionPercent(sheet.phanTramHoaHongKy);
       return {
         phanTramHoaHongKy: defaultPercent,
+        donGiaTienAnKy:
+          sheet.v === 3 && Number.isFinite(Number(sheet.donGiaTienAnKy))
+            ? Math.max(0, Number(sheet.donGiaTienAnKy))
+            : DEFAULT_MEAL_UNIT_PRICE,
+        coDonGiaTienAnDaLuu: sheet.v === 3,
         // Bản v1 chỉ có một mức HH chung; chuyển mức đó vào từng dòng khi nâng cấp.
         rows: normalizeStoredRows(sheet.rows, defaultPercent, sheet.v === 1),
       };
@@ -249,7 +290,12 @@ function loadSheet(
   } catch {
     // ignore
   }
-  return { phanTramHoaHongKy: DEFAULT_PCT_HH, rows: [emptyRow()] };
+  return {
+    phanTramHoaHongKy: DEFAULT_PCT_HH,
+    donGiaTienAnKy: DEFAULT_MEAL_UNIT_PRICE,
+    coDonGiaTienAnDaLuu: false,
+    rows: [emptyRow()],
+  };
 }
 
 type NumKey = keyof Pick<
@@ -282,6 +328,13 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
   const m0 = now.getMonth() + 1;
   const initial = loadSheet(y0, m0);
   const [phanTramHoaHongKy, setPhanTramHoaHongKy] = useState(initial.phanTramHoaHongKy);
+  const [donGiaTienAnKy, setDonGiaTienAnKy] = useState(initial.donGiaTienAnKy);
+  const [donGiaTienAnDaChot, setDonGiaTienAnDaChot] = useState(initial.donGiaTienAnKy);
+  const [donGiaTienAnMacDinh, setDonGiaTienAnMacDinh] = useState(DEFAULT_MEAL_UNIT_PRICE);
+  const [kyDaLuu, setKyDaLuu] = useState(false);
+  const [kyCoDongBiKhoa, setKyCoDongBiKhoa] = useState(false);
+  const [savingMealSetting, setSavingMealSetting] = useState(false);
+  const [savingPeriodMealPrice, setSavingPeriodMealPrice] = useState(false);
   const [rows, setRows] = useState<BangLuongChamCongInput[]>(initial.rows);
   const [quickLoading, setQuickLoading] = useState(false);
   const [revenueLoading, setRevenueLoading] = useState(false);
@@ -310,6 +363,10 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
     // The selected period is external input; replace the editable sheet atomically.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPhanTramHoaHongKy(s.phanTramHoaHongKy);
+    setDonGiaTienAnKy(s.donGiaTienAnKy);
+    setDonGiaTienAnDaChot(s.donGiaTienAnKy);
+    setKyDaLuu(false);
+    setKyCoDongBiKhoa(false);
     setRows(s.rows);
     setRevenueCache(null);
     loadedKyRef.current = periodKey;
@@ -319,9 +376,22 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
       setRevenueLoading(true);
       const { start, end } = khoangNgayCuaThang(nam, thang);
       let sourceRows = s.rows;
+      let defaultMealPrice = DEFAULT_MEAL_UNIT_PRICE;
+      try {
+        defaultMealPrice = await getDefaultMealUnitPrice();
+        if (cancelled || loadedKyRef.current !== periodKey) return;
+        setDonGiaTienAnMacDinh(defaultMealPrice);
+        if (!s.coDonGiaTienAnDaLuu) setDonGiaTienAnKy(defaultMealPrice);
+      } catch (e) {
+        console.error('Lấy đơn giá tiền ăn mặc định thất bại:', e);
+      }
       try {
         const savedPayroll = await getPayrollBatch(thang, nam);
         if (cancelled || loadedKyRef.current !== periodKey) return;
+        setKyDaLuu(savedPayroll.length > 0);
+        setKyCoDongBiKhoa(
+          savedPayroll.some((item) => LOCKED_PAYROLL_STATUSES.has(item.trang_thai))
+        );
         const savedRows = payrollBatchToInputRows(savedPayroll);
         if (savedRows.length > 0) {
           sourceRows = savedRows;
@@ -332,6 +402,22 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
             setPhanTramHoaHongKy(
               getPayrollBreakdown(savedPercentItem).phan_tram_hoa_hong
             );
+          }
+          const savedMealPriceItem = savedPayroll.find((item) =>
+            hasPayrollDetail(item, 'don_gia_tien_an')
+          );
+          if (savedMealPriceItem) {
+            const savedMealPrice = Math.max(
+              0,
+              getPayrollBreakdown(savedMealPriceItem).don_gia_tien_an
+            );
+            setDonGiaTienAnKy(savedMealPrice);
+            setDonGiaTienAnDaChot(savedMealPrice);
+          } else if (!s.coDonGiaTienAnDaLuu) {
+            // Dữ liệu cũ giữ nguyên số tiền ăn đã lưu trên từng dòng; mức này
+            // chỉ dùng để hiển thị cho kỳ chưa có snapshot đơn giá.
+            setDonGiaTienAnKy(defaultMealPrice);
+            setDonGiaTienAnDaChot(defaultMealPrice);
           }
           setRows(savedRows);
         }
@@ -368,12 +454,12 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
   useEffect(() => {
     if (loadedKyRef.current !== `${nam}-${thang}`) return;
     try {
-      const data: StoredSheet = { v: 2, phanTramHoaHongKy, rows };
+      const data: StoredSheet = { v: 3, phanTramHoaHongKy, donGiaTienAnKy, rows };
       localStorage.setItem(`${LS_PREFIX}${nam}-${thang}`, JSON.stringify(data));
     } catch {
       // ignore quota
     }
-  }, [rows, phanTramHoaHongKy, nam, thang]);
+  }, [rows, phanTramHoaHongKy, donGiaTienAnKy, nam, thang]);
 
   const nhanTheoChuanTen = useMemo(() => {
     const m = new Map<
@@ -438,10 +524,11 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
             soBuaAnTangCaTheoChamCon: chamDong.length > 0 ? b.soBuaTangCa : undefined,
             soNgayCongTheoChamCon: c,
             soGioTangCaTheoChamCon: gTcTuCham,
+            donGiaTienAnTheoKy: donGiaTienAnKy,
           }),
         };
       }),
-    [rows, nam, thang, chamDong, nhanTheoChuanTen]
+    [rows, nam, thang, chamDong, nhanTheoChuanTen, donGiaTienAnKy]
   );
 
   const updateRow = useCallback(
@@ -461,8 +548,24 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
   );
 
   const setTien = useCallback(
-    (id: string, key: 'luongCoBan' | 'tongDoanhThu' | 'phuCapTroNgoai', raw: string) => {
+    (
+      id: string,
+      key: 'luongCoBan' | 'tongDoanhThu' | 'phuCapTroNgoai' | 'thuongKhac',
+      raw: string
+    ) => {
       updateRow(id, { [key]: parseTienNhap(raw) } as Partial<BangLuongChamCongInput>);
+    },
+    [updateRow]
+  );
+
+  const setMealCount = useCallback(
+    (id: string, key: 'soBuaAnThuong' | 'soBuaAnTangCa', raw: string) => {
+      const trimmed = raw.trim();
+      const parsed = Number(trimmed.replace(/[^\d]/g, ''));
+      updateRow(id, {
+        [key]: trimmed === '' ? null : Math.max(0, Math.floor(Number.isFinite(parsed) ? parsed : 0)),
+        ...(key === 'soBuaAnThuong' ? { tienAn: null } : { tienAnTangCa: null }),
+      } as Partial<BangLuongChamCongInput>);
     },
     [updateRow]
   );
@@ -499,6 +602,82 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
     }
     setRows((prev) => prev.map((row) => ({ ...row, phanTramHoaHong: percent })));
   }, [isAdmin, phanTramHoaHongKy]);
+
+  const saveMealDefault = async () => {
+    if (!isAdmin) return;
+    const normalized = Math.max(0, Math.round(donGiaTienAnMacDinh));
+    try {
+      setSavingMealSetting(true);
+      const saved = await saveDefaultMealUnitPrice(normalized);
+      const savedValue = Math.max(0, Number(saved.gia_tri) || 0);
+      setDonGiaTienAnMacDinh(savedValue);
+      if (!kyDaLuu) {
+        setDonGiaTienAnKy(savedValue);
+        setDonGiaTienAnDaChot(savedValue);
+      }
+      window.alert(
+        kyDaLuu
+          ? `Đã lưu đơn giá mặc định ${formatVnd(savedValue)}/bữa. Kỳ ${thang}/${nam} đã có dữ liệu nên vẫn giữ đơn giá đã chốt.`
+          : `Đã lưu đơn giá mặc định ${formatVnd(savedValue)}/bữa và áp dụng cho kỳ ${thang}/${nam}.`
+      );
+    } catch (e) {
+      console.error('Lưu đơn giá tiền ăn mặc định:', e);
+      window.alert('Không thể lưu đơn giá tiền ăn mặc định. Vui lòng kiểm tra kết nối.');
+    } finally {
+      setSavingMealSetting(false);
+    }
+  };
+
+  const updateCurrentPeriodMealPrice = async () => {
+    if (!isAdmin || !kyDaLuu) return;
+    if (kyCoDongBiKhoa) {
+      window.alert(
+        `Kỳ ${thang}/${nam} có bảng lương đã duyệt hoặc đã chi trả nên không thể sửa đơn giá. Hãy chuyển kỳ về trạng thái chỉnh sửa trước.`
+      );
+      setDonGiaTienAnKy(donGiaTienAnDaChot);
+      return;
+    }
+    const normalized = Math.max(0, Math.round(donGiaTienAnKy));
+    if (normalized === donGiaTienAnDaChot) return;
+    if (
+      !window.confirm(
+        `Đổi đơn giá tiền ăn riêng kỳ ${thang}/${nam} từ ${formatVnd(donGiaTienAnDaChot)} thành ${formatVnd(normalized)}/bữa? Các kỳ khác và đơn giá mặc định sẽ không thay đổi.`
+      )
+    ) {
+      setDonGiaTienAnKy(donGiaTienAnDaChot);
+      return;
+    }
+
+    const rowsRecalculatedByCount = rows.map((row) => ({
+      ...row,
+      // Khi chủ động đổi đơn giá kỳ, bỏ số tiền kiểu dữ liệu cũ để quay về
+      // đúng công thức số bữa × đơn giá.
+      tienAn: null,
+      tienAnTangCa: null,
+    }));
+    try {
+      setSavingPeriodMealPrice(true);
+      const result = await syncPayrollFromAttendance(thang, nam, undefined, {
+        rows: rowsRecalculatedByCount,
+        donGiaTienAnTheoKy: normalized,
+        ghiDeDonGiaTienAnDaChot: true,
+      });
+      if (result.skippedLockedCount > 0) {
+        throw new Error('Kỳ lương vừa được khóa trong lúc cập nhật.');
+      }
+      setRows(rowsRecalculatedByCount);
+      setDonGiaTienAnDaChot(normalized);
+      window.alert(
+        `Đã cập nhật riêng đơn giá kỳ ${thang}/${nam} thành ${formatVnd(normalized)}/bữa.`
+      );
+    } catch (e) {
+      console.error('Cập nhật đơn giá tiền ăn của kỳ:', e);
+      setDonGiaTienAnKy(donGiaTienAnDaChot);
+      window.alert('Không thể cập nhật đơn giá kỳ này. Dữ liệu đã chốt trước đó được giữ nguyên.');
+    } finally {
+      setSavingPeriodMealPrice(false);
+    }
+  };
 
   const addRow = useCallback(() => {
     if (!isAdmin) return;
@@ -584,9 +763,16 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
       window.alert('Chỉ tài khoản admin được lưu hoặc chỉnh sửa bảng lương.');
       return;
     }
+    if (kyDaLuu && donGiaTienAnKy !== donGiaTienAnDaChot) {
+      window.alert('Đơn giá kỳ này đang thay đổi. Hãy bấm “Cập nhật kỳ” trước khi lưu bảng lương.');
+      return;
+    }
     try {
       setSavingPayroll(true);
-      await syncPayrollFromAttendance(thang, nam, undefined, { rows });
+      await syncPayrollFromAttendance(thang, nam, undefined, {
+        rows,
+        donGiaTienAnTheoKy: donGiaTienAnKy,
+      });
       navigate('/tien-luong/bang-luong');
     } catch (e) {
       console.error('Lưu bảng lương chấm công:', e);
@@ -598,7 +784,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
     } finally {
       setSavingPayroll(false);
     }
-  }, [isAdmin, nam, navigate, rows, thang]);
+  }, [donGiaTienAnDaChot, donGiaTienAnKy, isAdmin, kyDaLuu, nam, navigate, rows, thang]);
 
   const moChiTietDon = useCallback(
     async (hoTen: string) => {
@@ -640,7 +826,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
             Bảng lương chấm công
           </h1>
         </div>
-        <div className="flex flex-col gap-1.5 shrink-0 w-full min-w-0 sm:w-auto sm:max-w-[min(100%,42rem)] sm:ml-auto sm:items-end">
+        <div className="flex flex-col gap-1.5 shrink-0 w-full min-w-0 sm:w-auto sm:max-w-[min(100%,64rem)] sm:ml-auto sm:items-end">
           <div className="flex flex-nowrap items-center gap-1.5 min-w-0 w-full sm:justify-end overflow-x-auto py-0.5">
             <div
               className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-border bg-background px-2.5 py-1.5"
@@ -680,6 +866,74 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                   ))}
                 </select>
               </div>
+            </div>
+            <div
+              className="flex shrink-0 items-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50/70 px-2 py-1 dark:border-emerald-800 dark:bg-emerald-950/20"
+              title={
+                kyDaLuu
+                  ? `Đơn giá mặc định cho kỳ mới. Kỳ ${thang}/${nam} đang giữ mức đã chốt ${formatVnd(donGiaTienAnKy)}/bữa.`
+                  : `Lưu đơn giá này và áp dụng cho kỳ ${thang}/${nam}.`
+              }
+            >
+              <span className="text-xs text-muted-foreground whitespace-nowrap">Ăn mặc định</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                className="w-20 bg-background border border-border/60 rounded px-1.5 py-1 text-sm font-mono text-right"
+                value={formatTienNhap(donGiaTienAnMacDinh)}
+                disabled={!isAdmin || savingMealSetting}
+                onChange={(e) => setDonGiaTienAnMacDinh(parseTienNhap(e.target.value))}
+                aria-label="Đơn giá tiền ăn mặc định"
+              />
+              <span className="text-xs font-medium whitespace-nowrap">đ/bữa</span>
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={saveMealDefault}
+                  disabled={savingMealSetting}
+                  className="rounded border border-emerald-300 bg-background px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 dark:text-emerald-400"
+                >
+                  {savingMealSetting ? 'Đang lưu' : 'Lưu'}
+                </button>
+              )}
+            </div>
+            <div
+              className="flex shrink-0 items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50/70 px-2 py-1 dark:border-amber-800 dark:bg-amber-950/20"
+              title={
+                kyCoDongBiKhoa
+                  ? 'Kỳ có bảng lương đã duyệt/đã chi trả nên không được sửa.'
+                  : kyDaLuu
+                    ? `Sửa riêng đơn giá kỳ ${thang}/${nam}; không ảnh hưởng mức mặc định và kỳ khác.`
+                    : `Đơn giá sẽ được chốt khi lưu kỳ ${thang}/${nam}.`
+              }
+            >
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                Ăn kỳ {thang}/{nam}
+              </span>
+              <input
+                type="text"
+                inputMode="numeric"
+                className="w-20 bg-background border border-border/60 rounded px-1.5 py-1 text-sm font-mono text-right"
+                value={formatTienNhap(donGiaTienAnKy)}
+                disabled={!isAdmin || savingPeriodMealPrice || kyCoDongBiKhoa}
+                onChange={(e) => setDonGiaTienAnKy(parseTienNhap(e.target.value))}
+                aria-label={`Đơn giá tiền ăn kỳ ${thang}/${nam}`}
+              />
+              <span className="text-xs font-medium whitespace-nowrap">đ/bữa</span>
+              {isAdmin && kyDaLuu && (
+                <button
+                  type="button"
+                  onClick={updateCurrentPeriodMealPrice}
+                  disabled={
+                    savingPeriodMealPrice ||
+                    kyCoDongBiKhoa ||
+                    donGiaTienAnKy === donGiaTienAnDaChot
+                  }
+                  className="rounded border border-amber-300 bg-background px-2 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-100 disabled:opacity-50 dark:text-amber-400"
+                >
+                  {savingPeriodMealPrice ? 'Đang cập nhật' : kyCoDongBiKhoa ? 'Đã khóa' : 'Cập nhật kỳ'}
+                </button>
+              )}
             </div>
             <div
               className="flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-primary/5 border-primary/20 px-2 py-1"
@@ -786,8 +1040,16 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                 {thCell('Xăng xe điện thoại', 'Điện thoại 200.000đ + xăng xe/đi lại 300.000đ')}
                 {thCell('Thâm niên', '50.000đ × số tháng làm việc, tối đa 600.000đ')}
                 {thCell('Trọ ngoài', 'Phụ cấp trọ ngoài (nhập theo từng nhân viên)')}
-                {thCell('Tiền ăn', 'Số bữa ăn thường × 30.000đ (từ chấm công)')}
-                {thCell('Tiền ăn tăng ca', 'Bữa ăn bổ sung khi checkout sau 19:40 × 30.000đ')}
+                {thCell(
+                  'Tiền ăn',
+                  `Nhập số bữa ăn thường; tiền ăn = số bữa × ${formatVnd(donGiaTienAnKy)}`
+                )}
+                {thCell(
+                  'Tiền ăn tăng ca',
+                  `Nhập số bữa ăn tăng ca; tiền ăn = số bữa × ${formatVnd(donGiaTienAnKy)}`
+                )}
+                {thCell('Thưởng tháng', 'Khoản thưởng tùy ý của từng nhân viên trong kỳ')}
+                {thCell('Ghi chú thưởng', 'Nội dung ghi nhớ lý do hoặc chỉ tiêu thưởng')}
                 {thCell('% HH', 'Tỷ lệ hoa hồng riêng của từng nhân viên; chỉ admin được sửa')}
                 {thCell('Tiền hoa hồng', 'Doanh số đã phân bổ cho nhân viên × tỷ lệ hoa hồng riêng')}
                 {thCell('Tổng lương', 'Tổng các khoản thu nhập')}
@@ -981,38 +1243,78 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                       />
                     </td>
                     <td
-                      className="px-2.5 py-2.5 text-right font-mono whitespace-nowrap text-sm"
-                      title={`${kq.soBuaAn - kq.soBuaAnTangCa} bữa × 30.000đ`}
+                      className="px-2 py-1.5 text-right font-mono whitespace-nowrap text-sm"
+                      title={`${kq.soBuaAnThuong} bữa × ${formatVnd(kq.donGiaTienAn)}`}
                     >
                       {isAdmin ? (
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          className="w-28 min-h-9 bg-transparent border border-border/60 rounded-md px-2 py-1.5 text-right font-mono"
-                          title="Admin có thể sửa; xóa hết giá trị để tính lại theo chấm công"
-                          value={formatTienNhap(input.tienAn ?? kq.tienAn)}
-                          onChange={(e) => setOptionalTien(input.id, 'tienAn', e.target.value)}
-                        />
+                        <div className="flex min-w-[9rem] flex-col items-end gap-1">
+                          <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              className="w-14 min-h-8 bg-transparent border border-border/60 rounded-md px-1.5 py-1 text-right font-mono text-foreground"
+                              title="Nhập số bữa; xóa giá trị để lấy lại số bữa từ chấm công"
+                              value={String(input.soBuaAnThuong ?? kq.soBuaAnThuong)}
+                              onChange={(e) => setMealCount(input.id, 'soBuaAnThuong', e.target.value)}
+                            />
+                            bữa
+                          </label>
+                          <span className="font-semibold">{formatVnd(kq.tienAn)}</span>
+                        </div>
                       ) : (
-                        formatVnd(kq.tienAn)
+                        <div>
+                          <div className="text-xs text-muted-foreground">{kq.soBuaAnThuong} bữa</div>
+                          {formatVnd(kq.tienAn)}
+                        </div>
                       )}
                     </td>
                     <td
-                      className="px-2.5 py-2.5 text-right font-mono whitespace-nowrap text-sm"
-                      title={`${kq.soBuaAnTangCa} bữa tăng ca × 30.000đ`}
+                      className="px-2 py-1.5 text-right font-mono whitespace-nowrap text-sm"
+                      title={`${kq.soBuaAnTangCa} bữa tăng ca × ${formatVnd(kq.donGiaTienAn)}`}
                     >
                       {isAdmin ? (
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          className="w-28 min-h-9 bg-transparent border border-border/60 rounded-md px-2 py-1.5 text-right font-mono"
-                          title="Admin có thể sửa; xóa hết giá trị để tính lại theo chấm công"
-                          value={formatTienNhap(input.tienAnTangCa ?? kq.tienAnTangCa)}
-                          onChange={(e) => setOptionalTien(input.id, 'tienAnTangCa', e.target.value)}
-                        />
+                        <div className="flex min-w-[9rem] flex-col items-end gap-1">
+                          <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              className="w-14 min-h-8 bg-transparent border border-border/60 rounded-md px-1.5 py-1 text-right font-mono text-foreground"
+                              title="Nhập số bữa tăng ca; xóa giá trị để lấy lại từ chấm công"
+                              value={String(input.soBuaAnTangCa ?? kq.soBuaAnTangCa)}
+                              onChange={(e) => setMealCount(input.id, 'soBuaAnTangCa', e.target.value)}
+                            />
+                            bữa
+                          </label>
+                          <span className="font-semibold">{formatVnd(kq.tienAnTangCa)}</span>
+                        </div>
                       ) : (
-                        formatVnd(kq.tienAnTangCa)
+                        <div>
+                          <div className="text-xs text-muted-foreground">{kq.soBuaAnTangCa} bữa</div>
+                          {formatVnd(kq.tienAnTangCa)}
+                        </div>
                       )}
+                    </td>
+                    <td className="px-2 py-1.5">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        className="w-28 min-w-0 min-h-10 text-sm bg-transparent border border-border/60 rounded-md px-2 py-1.5 text-right font-mono"
+                        title="Thưởng tháng của nhân viên"
+                        readOnly={!isAdmin}
+                        value={formatTienNhap(input.thuongKhac ?? 0)}
+                        onChange={(e) => setTien(input.id, 'thuongKhac', e.target.value)}
+                      />
+                    </td>
+                    <td className="px-2 py-1.5">
+                      <input
+                        type="text"
+                        className="w-48 min-w-0 min-h-10 text-sm bg-transparent border border-border/60 rounded-md px-2 py-1.5"
+                        title="Ghi chú cho khoản thưởng tháng"
+                        placeholder="Ví dụ: Đạt chỉ tiêu tháng"
+                        readOnly={!isAdmin}
+                        value={input.ghiChuThuongThang ?? ''}
+                        onChange={(e) => updateRow(input.id, { ghiChuThuongThang: e.target.value })}
+                      />
                     </td>
                     <td
                       className="px-2.5 py-2.5 text-right font-mono whitespace-nowrap text-sm"
