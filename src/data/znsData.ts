@@ -189,6 +189,28 @@ export function buildIdempotencyKey(customerId: string | null | undefined, phone
   return customerId || `phone:${normalizeVnPhoneDigits(phone)}`;
 }
 
+/** ZBS yêu cầu tham số kiểu thời gian theo dạng dd/mm/yyyy (hoặc kèm giờ). */
+export function formatZbsDate(value: string | null | undefined): string {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+
+  // Ngày trong bảng the_ban_hang được lưu theo ISO (yyyy-mm-dd), đôi khi có cả thời gian.
+  const isoMatch = raw.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[T\s].*)?$/);
+  if (isoMatch) {
+    const [, year, month, day] = isoMatch;
+    return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
+  }
+
+  // Giữ nguyên ngày đã ở định dạng ZBS, đồng thời chuẩn hoá phần 0 đứng đầu nếu thiếu.
+  const zbsMatch = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (zbsMatch) {
+    const [, day, month, year] = zbsMatch;
+    return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
+  }
+
+  return raw;
+}
+
 /** Render field_mapping thành template_data cho 1 khách hàng cụ thể. */
 export async function renderTemplateDataForCustomer(
   customer: { id: string; ho_va_ten: string; so_dien_thoai: string },
@@ -215,7 +237,7 @@ export async function renderTemplateDataForCustomer(
         out[key] = lastOrderIdBh;
         break;
       case 'last_order.ngay':
-        out[key] = lastOrderNgay;
+        out[key] = formatZbsDate(lastOrderNgay);
         break;
       case 'static':
         out[key] = mapping.value || '';
