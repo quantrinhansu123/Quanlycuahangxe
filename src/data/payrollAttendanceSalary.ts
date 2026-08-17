@@ -32,6 +32,10 @@ export type LoaiNhanVien = 'chinh_thuc' | 'thoi_vu';
 
 export interface BangLuongChamCongInput {
   id: string;
+  /** Khóa nhân sự để không nhầm người khi hai cơ sở có nhân viên trùng tên. */
+  nhanSuId?: string;
+  /** Cơ sở dùng để nhóm bảng lương trên giao diện. */
+  coSo?: string;
   hoTen: string;
   loai: LoaiNhanVien;
   /** Lương cơ bản tháng (VNĐ) */

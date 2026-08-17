@@ -128,6 +128,11 @@ export async function syncPayrollFromAttendance(
       .filter((row) => row.hoTen.trim() !== '')
       .map((row) => [normalizePersonnelToken(row.hoTen), row])
   );
+  const overridesByPersonnelId = new Map(
+    (options?.rows ?? [])
+      .filter((row) => Boolean(row.nhanSuId))
+      .map((row) => [row.nhanSuId as string, row])
+  );
 
   const items: Partial<BangLuong>[] = [];
   const mealOnlyTotalUpdates: Array<{
@@ -155,11 +160,17 @@ export async function syncPayrollFromAttendance(
       continue;
     }
 
-    const baseSalary = amount(person.luong_co_ban);
-    if (baseSalary <= 0) missingBaseSalaryNames.push(person.ho_ten);
-
     const existingBreakdown = getPayrollBreakdown(existing ?? {});
-    const override = overridesByName.get(normalizePersonnelToken(person.ho_ten));
+    const override =
+      overridesByPersonnelId.get(person.id) ??
+      overridesByName.get(normalizePersonnelToken(person.ho_ten));
+    // Lương nhập ngay trên bảng là mức riêng của kỳ đang chọn. Nếu chưa nhập,
+    // giữ snapshot kỳ đã lưu; kỳ mới mới lấy mặc định từ hồ sơ nhân sự.
+    const baseSalary = Math.max(
+      0,
+      amount(override?.luongCoBan ?? existing?.luong_co_ban ?? person.luong_co_ban)
+    );
+    if (baseSalary <= 0) missingBaseSalaryNames.push(person.ho_ten);
     const hasSavedMealSnapshot = Boolean(
       existing &&
         hasPayrollDetail(existing, 'so_bua_an_thuong') &&
