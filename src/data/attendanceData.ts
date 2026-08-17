@@ -201,8 +201,8 @@ export interface AttendanceRecord {
     nguoi_sua: string;
     thay_doi: {
       truong: string;
-      gia_tri_cu: any;
-      gia_tri_moi: any;
+      gia_tri_cu: string | number | boolean | null;
+      gia_tri_moi: string | number | boolean | null;
     }[];
   }[];
 }
@@ -220,18 +220,33 @@ export async function getChamCongTrongKhoang(
   start: string,
   end: string
 ): Promise<ChamCongBuaDongNhap[]> {
-  const { data, error } = await supabase
-    .from('cham_cong')
-    .select('nhan_su, ngay, checkin, checkout, vi_tri')
-    .gte('ngay', start)
-    .lte('ngay', end)
-    .order('ngay', { ascending: true });
+  // Supabase/PostgREST mặc định chỉ trả tối đa 1.000 dòng. Một kỳ lương của
+  // nhiều cơ sở rất dễ vượt ngưỡng này, khiến các nhân viên nằm ở trang sau bị
+  // tính 0 công dù màn hình chấm công vẫn hiển thị đầy đủ.
+  const pageSize = 1000;
+  const rows: ChamCongBuaDongNhap[] = [];
 
-  if (error) {
-    console.error('getChamCongTrongKhoang:', error);
-    throw error;
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase
+      .from('cham_cong')
+      .select('nhan_su, ngay, checkin, checkout, vi_tri')
+      .gte('ngay', start)
+      .lte('ngay', end)
+      .order('ngay', { ascending: true })
+      .order('id', { ascending: true })
+      .range(offset, offset + pageSize - 1);
+
+    if (error) {
+      console.error('getChamCongTrongKhoang:', error);
+      throw error;
+    }
+
+    const page = (data as ChamCongBuaDongNhap[]) || [];
+    rows.push(...page);
+    if (page.length < pageSize) break;
   }
-  return (data as ChamCongBuaDongNhap[]) || [];
+
+  return rows;
 }
 
 export const getAttendanceRecords = async (
@@ -308,7 +323,11 @@ export const bulkUpsertAttendanceRecords = async (records: Partial<AttendanceRec
     if (error) { logPostgrestError('Error upserting attendance (bulk)', error); throw error; }
   }
   if (toInsert.length > 0) {
-    const cleanInserts = toInsert.map(({ id, ...rest }) => rest);
+    const cleanInserts = toInsert.map((record) => {
+      const cleanRecord = { ...record };
+      delete cleanRecord.id;
+      return cleanRecord;
+    });
     const { error } = await supabase.from('cham_cong').insert(cleanInserts);
     if (error) { logPostgrestError('Error inserting attendance (bulk)', error); throw error; }
   }

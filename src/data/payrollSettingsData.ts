@@ -1,5 +1,10 @@
 import { supabase } from '../lib/supabase';
 
+export const DEFAULT_MEAL_UNIT_PRICE = 35_000;
+export const DEFAULT_OVERTIME_MEAL_UNIT_PRICE = 35_000;
+export const MEAL_UNIT_PRICE_SETTING_TYPE = 'don_gia_tien_an';
+export const OVERTIME_MEAL_UNIT_PRICE_SETTING_TYPE = 'don_gia_tien_an_tang_ca';
+
 export interface ThongSoLuong {
   id: string;
   loai: string;
@@ -40,6 +45,83 @@ export const upsertPayrollSetting = async (setting: Partial<ThongSoLuong>): Prom
   if (error) { console.error('Error upserting payroll setting:', error); throw error; }
   return data as ThongSoLuong;
 };
+
+async function getMealUnitPriceSetting(type: string, fallback: number): Promise<number> {
+  const { data, error } = await supabase
+    .from('thong_so_luong')
+    .select('*')
+    .eq('loai', type)
+    .is('co_so', null)
+    .order('created_at')
+    .limit(1);
+
+  if (error) {
+    console.error('Error fetching default meal unit price:', error);
+    throw error;
+  }
+  const value = Number((data?.[0] as ThongSoLuong | undefined)?.gia_tri);
+  return Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
+/** Lấy đơn giá tiền ăn thường mặc định. */
+export const getDefaultMealUnitPrice = async (): Promise<number> =>
+  getMealUnitPriceSetting(MEAL_UNIT_PRICE_SETTING_TYPE, DEFAULT_MEAL_UNIT_PRICE);
+
+/** Lấy đơn giá tiền ăn tăng ca mặc định. */
+export const getDefaultOvertimeMealUnitPrice = async (): Promise<number> =>
+  getMealUnitPriceSetting(
+    OVERTIME_MEAL_UNIT_PRICE_SETTING_TYPE,
+    DEFAULT_OVERTIME_MEAL_UNIT_PRICE
+  );
+
+/**
+ * Chỉnh đơn giá mặc định. Các kỳ cũ không đổi vì đơn giá thực tế được chốt
+ * trong chi tiết của từng bảng lương khi lưu.
+ */
+async function saveMealUnitPriceSetting(
+  type: string,
+  value: number,
+  description: string
+): Promise<ThongSoLuong> {
+  const normalized = Math.max(0, Math.round(Number(value) || 0));
+  const { data: existing, error: findError } = await supabase
+    .from('thong_so_luong')
+    .select('*')
+    .eq('loai', type)
+    .is('co_so', null)
+    .order('created_at')
+    .limit(1);
+
+  if (findError) {
+    console.error('Error finding default meal unit price:', findError);
+    throw findError;
+  }
+
+  const current = existing?.[0] as ThongSoLuong | undefined;
+  return upsertPayrollSetting({
+    ...(current?.id ? { id: current.id } : {}),
+    loai: type,
+    co_so: null,
+    gia_tri: normalized,
+    mo_ta: description,
+  });
+}
+
+export const saveDefaultMealUnitPrice = async (value: number): Promise<ThongSoLuong> =>
+  saveMealUnitPriceSetting(
+    MEAL_UNIT_PRICE_SETTING_TYPE,
+    value,
+    'Đơn giá tiền ăn thường mặc định (VND/bữa)'
+  );
+
+export const saveDefaultOvertimeMealUnitPrice = async (
+  value: number
+): Promise<ThongSoLuong> =>
+  saveMealUnitPriceSetting(
+    OVERTIME_MEAL_UNIT_PRICE_SETTING_TYPE,
+    value,
+    'Đơn giá tiền ăn tăng ca mặc định (VND/bữa)'
+  );
 
 export const getTaxBrackets = async (): Promise<BieuThueTNCN[]> => {
   const { data, error } = await supabase

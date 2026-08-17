@@ -8,7 +8,10 @@ import { MOC_TANG_CA_TINH_TU, overtimeMinutesForDayShifts, parseTimeStringToMinu
 export const ATTENDANCE_SALARY = {
   NGAY_LAM_TRONG_THANG: 28,
   GIO_MOT_NGAY: 8,
-  GIA_MOT_BUA_AN: 30_000,
+  /** Giá khởi tạo khi hệ thống chưa có cấu hình đơn giá tiền ăn. */
+  GIA_MOT_BUA_AN: 35_000,
+  /** Giá khởi tạo cho một bữa ăn tăng ca. */
+  GIA_MOT_BUA_AN_TANG_CA: 35_000,
   PHU_CAP_CHUYEN_CAN: 200_000,
   /** Điện thoại 200.000đ + đi lại/xăng xe 300.000đ theo chính sách lương mẫu. */
   PHU_CAP_XANG_DT: 500_000,
@@ -29,6 +32,10 @@ export type LoaiNhanVien = 'chinh_thuc' | 'thoi_vu';
 
 export interface BangLuongChamCongInput {
   id: string;
+  /** Khóa nhân sự để không nhầm người khi hai cơ sở có nhân viên trùng tên. */
+  nhanSuId?: string;
+  /** Cơ sở dùng để nhóm bảng lương trên giao diện. */
+  coSo?: string;
   hoTen: string;
   loai: LoaiNhanVien;
   /** Lương cơ bản tháng (VNĐ) */
@@ -52,12 +59,18 @@ export interface BangLuongChamCongInput {
   tienAn?: number | null;
   /** Điều chỉnh tiền ăn tăng ca; null/undefined = tính từ chấm công. */
   tienAnTangCa?: number | null;
+  /** Số bữa ăn thường nhập tay; null/undefined = lấy từ chấm công. */
+  soBuaAnThuong?: number | null;
+  /** Số bữa ăn tăng ca nhập tay; null/undefined = lấy từ chấm công. */
+  soBuaAnTangCa?: number | null;
   soGioTangCa: number;
   tongDoanhThu: number;
   phanTramHoaHong: number;
   /** ISO yyyy-MM-dd */
   ngayBatDauLam: string;
   thuongKhac: number;
+  /** Nội dung ghi nhớ cho khoản thưởng tháng. */
+  ghiChuThuongThang?: string;
   khoanTru: number;
 }
 
@@ -66,7 +79,10 @@ export interface BangLuongChamCongKetQua {
   luongNgay: number;
   luongGio: number;
   soBuaAn: number;
+  soBuaAnThuong: number;
   soBuaAnTangCa: number;
+  donGiaTienAn: number;
+  donGiaTienAnTangCa: number;
   tienAn: number;
   tienAnTangCa: number;
   phuCapChuyenCan: number;
@@ -280,6 +296,10 @@ export function tinhMotDong(
     soBuaAnTheoChamCon?: number;
     soBuaAnTangCaTheoChamCon?: number;
     soNgayCongTheoChamCon?: number;
+    /** Đơn giá được chốt riêng cho kỳ lương, không lấy lại cấu hình mới khi xem kỳ cũ. */
+    donGiaTienAnTheoKy?: number;
+    /** Đơn giá bữa tăng ca được chốt riêng cho kỳ lương. */
+    donGiaTienAnTangCaTheoKy?: number;
     /** Ghi đè cột Tăng ca (giờ) khi đã tổng hợp từ bảng chấm công. */
     soGioTangCaTheoChamCon?: number;
   }
@@ -303,9 +323,25 @@ export function tinhMotDong(
     soBuaCoBan = Math.max(0, options.soBuaAnTheoChamCon);
     soBuaTangCa = Math.max(0, options.soBuaAnTangCaTheoChamCon ?? 0);
   }
+  if (row.soBuaAnThuong != null) {
+    soBuaCoBan = Math.max(0, Math.floor(row.soBuaAnThuong));
+  }
+  if (row.soBuaAnTangCa != null) {
+    soBuaTangCa = Math.max(0, Math.floor(row.soBuaAnTangCa));
+  }
   const soBuaAn = soBuaCoBan + soBuaTangCa;
-  const tienAnMacDinh = soBuaCoBan * ATTENDANCE_SALARY.GIA_MOT_BUA_AN;
-  const tienAnTangCaMacDinh = soBuaTangCa * ATTENDANCE_SALARY.GIA_MOT_BUA_AN;
+  const donGiaTienAn = Math.max(
+    0,
+    options?.donGiaTienAnTheoKy ?? ATTENDANCE_SALARY.GIA_MOT_BUA_AN
+  );
+  const donGiaTienAnTangCa = Math.max(
+    0,
+    options?.donGiaTienAnTangCaTheoKy ??
+      options?.donGiaTienAnTheoKy ??
+      ATTENDANCE_SALARY.GIA_MOT_BUA_AN_TANG_CA
+  );
+  const tienAnMacDinh = soBuaCoBan * donGiaTienAn;
+  const tienAnTangCaMacDinh = soBuaTangCa * donGiaTienAnTangCa;
   const tienAn =
     row.tienAn == null ? tienAnMacDinh : Math.max(0, row.tienAn);
   const tienAnTangCa =
@@ -392,7 +428,10 @@ export function tinhMotDong(
     luongNgay,
     luongGio,
     soBuaAn,
+    soBuaAnThuong: soBuaCoBan,
     soBuaAnTangCa: soBuaTangCa,
+    donGiaTienAn,
+    donGiaTienAnTangCa,
     tienAn,
     tienAnTangCa,
     phuCapChuyenCan,
