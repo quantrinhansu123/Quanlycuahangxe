@@ -14,7 +14,8 @@ export type ViewPermissionKey =
   | 'tien-luong'
   | 'tien-luong-cau-hinh'
   | 'cai-dat-phan-quyen'
-  | 'zns-gui-hang-loat';
+  | 'zns-gui-hang-loat'
+  | 'zns-danh-gia';
 
 export interface ViewPermissionOption {
   key: ViewPermissionKey;
@@ -38,6 +39,7 @@ export const VIEW_PERMISSION_OPTIONS: ViewPermissionOption[] = [
   { key: 'tien-luong-cau-hinh', label: 'Tiền lương - Cấu hình' },
   { key: 'cai-dat-phan-quyen', label: 'Cài đặt phân quyền' },
   { key: 'zns-gui-hang-loat', label: 'Gửi ZNS hàng loạt' },
+  { key: 'zns-danh-gia', label: 'Đánh giá dịch vụ qua Zalo' },
 ];
 
 export const VIEW_PERMISSION_STORAGE_KEY = 'view_permissions_by_position';
@@ -311,6 +313,7 @@ export function resolveViewKeyByPath(path?: string): ViewPermissionKey | undefin
   }
   if (path.startsWith('/tien-luong')) return 'tien-luong';
   if (path.startsWith('/zns/gui-hang-loat')) return 'zns-gui-hang-loat';
+  if (path.startsWith('/zns/danh-gia')) return 'zns-danh-gia';
   return undefined;
 }
 

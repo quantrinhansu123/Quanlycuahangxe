@@ -1,4 +1,4 @@
-import { BarChart2, BookOpen, Box, FileText, ShieldCheck, Users, Wallet, Wrench, BadgeDollarSign, Send } from 'lucide-react';
+import { BarChart2, BookOpen, Box, FileText, ShieldCheck, Users, Wallet, Wrench, BadgeDollarSign, Send, Star } from 'lucide-react';
 import React from 'react';
 import { useOutletContext } from 'react-router-dom';
 
@@ -75,6 +75,13 @@ const dashboardModules: ActionCardProps[] = [
     colorScheme: 'blue'
   },
   {
+    icon: Star,
+    title: 'Đánh giá dịch vụ qua Zalo',
+    description: 'Xem số sao và nhận xét khách hàng gửi qua ZNS đánh giá dịch vụ.',
+    href: '/zns/danh-gia',
+    colorScheme: 'amber'
+  },
+  {
     icon: ShieldCheck,
     title: 'Cài đặt phân quyền',
     description: 'Quyền theo vị trí: trang chủ, bán hàng, báo cáo…',
@@ -107,6 +114,7 @@ const Dashboard: React.FC = () => {
       dashboardModules.filter((module) => {
         if (module.href.startsWith('/cai-dat') && !isAdmin) return false;
         if (module.href === '/zns/gui-hang-loat' && !isAdmin) return false;
+        if (module.href === '/zns/danh-gia' && !isAdmin) return false;
 
         // "Bán hàng" parent card is visible if user has parent or any child permission.
         if (module.href === '/ban-hang') {

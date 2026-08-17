@@ -178,3 +178,80 @@ export async function sendZnsMessage(
     errorMessage: zaloErrorMessage(json?.error ?? resp.status, json?.message),
   };
 }
+
+/**
+ * Xác minh chữ ký Webhook Zalo: header X-ZEvent-Signature = sha256(appId + rawBody + timeStamp + OAsecretKey).
+ * [VERIFY] Tài liệu Zalo (Template Webhook) không nói rõ "OAsecretKey" có phải cùng giá trị với
+ * ZALO_APP_SECRET (secret của App, dùng cho OAuth) hay là một khoá riêng cấp cho OA — cần đối chiếu
+ * khi nhận webhook thật lần đầu. rawBody phải là chuỗi JSON gốc nhận được (trước khi JSON.parse).
+ */
+export async function computeZEventSignature(
+  appId: string,
+  rawBody: string,
+  timeStamp: string,
+  secretKey: string,
+): Promise<string> {
+  const data = appId + rawBody + timeStamp + secretKey;
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(data));
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+export interface RatingItem {
+  note: string;
+  rate: number;
+  submitDate: string;
+  msgId: string;
+  feedback: string[];
+  trackingId: string;
+}
+
+/**
+ * Gọi API "Lấy thông tin đánh giá của khách hàng" (POST rating/get) — dùng để đồng bộ thủ công/
+ * bù dữ liệu, bổ sung cho Webhook (vốn là kênh nhận đánh giá theo thời gian thực chính thức).
+ * [VERIFY] endpoint/tham số chính xác theo tài liệu Zalo hiện hành — cần kiểm thử thật với
+ * 1 template đánh giá dịch vụ đã có phản hồi trước khi dùng cho đồng bộ hàng loạt.
+ */
+export async function getCustomerRatings(
+  accessToken: string,
+  templateId: string,
+  fromTimeMs: number,
+  toTimeMs: number,
+  offset: number,
+  limit: number,
+): Promise<{ total: number; items: RatingItem[] } | { error: string }> {
+  let resp: Response;
+  try {
+    resp = await fetch("https://business.openapi.zalo.me/rating/get", {
+      method: "POST",
+      headers: { access_token: accessToken, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        template_id: templateId,
+        from_time: fromTimeMs,
+        to_time: toTimeMs,
+        offset,
+        limit,
+      }),
+    });
+  } catch (err) {
+    return { error: `Không thể kết nối tới Zalo: ${String(err)}` };
+  }
+
+  const json = await resp.json().catch(() => ({}));
+  if (!resp.ok || (json?.error !== undefined && Number(json.error) !== 0)) {
+    return { error: zaloErrorMessage(json?.error ?? resp.status, json?.message) };
+  }
+
+  const data = json?.data ?? {};
+  const rows = Array.isArray(data.data) ? data.data : [];
+  return {
+    total: Number(data.total ?? rows.length),
+    items: rows.map((r: Record<string, unknown>) => ({
+      note: String(r.note ?? ""),
+      rate: Number(r.rate ?? 0),
+      submitDate: String(r.submitDate ?? ""),
+      msgId: String(r.msgId ?? ""),
+      feedback: Array.isArray(r.feedback) ? r.feedback.map(String) : [],
+      trackingId: String(r.trackingId ?? ""),
+    })),
+  };
+}
