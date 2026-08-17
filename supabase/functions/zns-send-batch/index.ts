@@ -42,8 +42,56 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (campErr || !campaign) return jsonResponse({ error: "Không tìm thấy chiến dịch" }, 404);
 
+    // Tạo log trước khi gọi Zalo để luôn có dấu vết kể cả khi API ngoài bị treo/lỗi.
+    const initialLogs = recipients.map((recipient) => ({
+      chien_dich_id: campaign_id,
+      khach_hang_id: recipient.khach_hang_id ?? null,
+      so_dien_thoai: recipient.phone,
+      template_data: recipient.template_data,
+      idempotency_key: recipient.idempotency_key,
+      trang_thai: "cho_gui",
+      zalo_msg_id: null,
+      zalo_error_code: null,
+      loi: null,
+      gui_luc: null,
+    }));
+    const { error: initialLogError } = await supabaseAdmin
+      .from("zns_gui_log")
+      .upsert(initialLogs, {
+        onConflict: "chien_dich_id,idempotency_key",
+        ignoreDuplicates: true,
+      });
+    if (initialLogError) {
+      console.error("Không thể tạo log ZNS:", initialLogError);
+      return jsonResponse({ error: `Không thể tạo log gửi ZNS: ${initialLogError.message}` }, 500);
+    }
+
     const tokenResult = await getValidAccessToken(supabaseAdmin);
-    if ("error" in tokenResult) return jsonResponse({ error: tokenResult.error }, 502);
+    if ("error" in tokenResult) {
+      await supabaseAdmin
+        .from("zns_gui_log")
+        .update({
+          trang_thai: "that_bai",
+          zalo_error_code: "OA_TOKEN_ERROR",
+          loi: tokenResult.error,
+        })
+        .eq("chien_dich_id", campaign_id)
+        .eq("trang_thai", "cho_gui");
+      await supabaseAdmin.rpc("zns_bump_campaign_counters", {
+        p_campaign_id: campaign_id,
+        p_sent: 0,
+        p_failed: recipients.length,
+        p_skipped: 0,
+      });
+      return jsonResponse({
+        summary: { requested: recipients.length, sent: 0, failed: recipients.length, skipped: 0 },
+        results: recipients.map((recipient) => ({
+          idempotency_key: recipient.idempotency_key,
+          status: "that_bai",
+          error: tokenResult.error,
+        })),
+      });
+    }
 
     const results: Array<{ idempotency_key: string; status: string; error?: string }> = [];
     let sent = 0;

@@ -7,9 +7,9 @@ import {
   History,
   Link2,
   Loader2,
-  Plus,
+  Moon,
   Send,
-  Trash2,
+  Sun,
   Users,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -27,7 +27,9 @@ import {
   createCampaign,
   getCampaignLogs,
   getOaStatus,
+  getZnsTemplateDetail,
   listCampaigns,
+  listZnsTemplates,
   renderTemplateDataForCustomer,
   renderTemplateDataForCustomers,
   sendZnsBatch,
@@ -38,6 +40,8 @@ import {
   type ZnsFieldMappingEntry,
   type ZnsFieldSource,
   type ZnsLogEntry,
+  type ZnsTemplateDetail,
+  type ZnsTemplateSummary,
 } from '../data/znsData';
 
 type CustomerOption = {
@@ -57,16 +61,27 @@ interface MappingRow {
 
 const DEFAULT_MAPPING_ROWS: MappingRow[] = [
   { key: 'customer_name', source: 'ho_va_ten', value: '' },
-  { key: 'order_code', source: 'last_order.id_bh', value: '' },
   { key: 'order_date', source: 'last_order.ngay', value: '' },
 ];
 
-const SOURCE_LABELS: Record<ZnsFieldSource, string> = {
-  ho_va_ten: 'Tên khách hàng',
-  'last_order.id_bh': 'Mã đơn hàng gần nhất',
-  'last_order.ngay': 'Ngày đơn hàng gần nhất',
-  static: 'Giá trị cố định',
-};
+const ORDER_REVIEW_TEMPLATE = {
+  template_id: '623794',
+  template_name: 'Chăm sóc, thu thập ý kiến của KH sau khi mua hàng',
+  status: 1,
+} as const;
+
+const ORDER_REVIEW_LOGO_URL = 'https://stc-oa.zdn.vn/uploads/2026/08/17/77fdca07b05bea9143f72299b465976c.png';
+
+function mappingRowsForTemplate(detail: ZnsTemplateDetail | null): MappingRow[] {
+  if (!detail?.parameters?.length) return DEFAULT_MAPPING_ROWS;
+  return detail.parameters.map((parameter) => {
+    const key = parameter.name.replace(/[<>]/g, '').trim();
+    if (key === 'customer_name') return { key, source: 'ho_va_ten', value: '' };
+    if (key === 'order_date') return { key, source: 'last_order.ngay', value: '' };
+    if (key === 'order_code') return { key, source: 'last_order.id_bh', value: '' };
+    return { key, source: 'static', value: '' };
+  });
+}
 
 const STATUS_BADGE: Record<string, { label: string; className: string }> = {
   nhap: { label: 'Nháp', className: 'bg-muted text-muted-foreground' },
@@ -126,11 +141,15 @@ const ZnsBulkSendPage: React.FC = () => {
   const [serviceUsageDatesMapFor, setServiceUsageDatesMapFor] = useState('');
   const [loadingServiceDates, setLoadingServiceDates] = useState(false);
 
-  // Campaign form
-  const [tenChienDich, setTenChienDich] = useState('');
+  // Mẫu Zalo đã duyệt
+  const [templates, setTemplates] = useState<ZnsTemplateSummary[]>([ORDER_REVIEW_TEMPLATE]);
   const [templateId, setTemplateId] = useState('');
   const [templateTen, setTemplateTen] = useState('');
-  const [mappingRows, setMappingRows] = useState<MappingRow[]>(DEFAULT_MAPPING_ROWS);
+  const [templateDetail, setTemplateDetail] = useState<ZnsTemplateDetail | null>(null);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [templatePermissionError, setTemplatePermissionError] = useState('');
+  const [showTemplatePreview, setShowTemplatePreview] = useState(false);
+  const [darkTemplatePreview, setDarkTemplatePreview] = useState(false);
 
   // Preview
   const [previewData, setPreviewData] = useState<Record<string, string> | null>(null);
@@ -138,6 +157,7 @@ const ZnsBulkSendPage: React.FC = () => {
 
   // Sending
   const [isSending, setIsSending] = useState(false);
+  const [showSendConfirmation, setShowSendConfirmation] = useState(false);
   const [progress, setProgress] = useState({ done: 0, total: 0, sent: 0, failed: 0, skipped: 0 });
 
   // History
@@ -147,6 +167,7 @@ const ZnsBulkSendPage: React.FC = () => {
   const [campaignLogs, setCampaignLogs] = useState<ZnsLogEntry[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [logFilter, setLogFilter] = useState<'all' | 'that_bai'>('all');
+  const znsPermissionDenied = /(?:-120|does not have permission|quyền gửi ZBS\/ZNS)/i.test(templatePermissionError);
 
   const refreshOaStatus = async () => {
     setLoadingOaStatus(true);
@@ -166,7 +187,7 @@ const ZnsBulkSendPage: React.FC = () => {
       const rows = await listCampaigns();
       setCampaigns(rows);
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Không tải được lịch sử chiến dịch', 'error');
+      showToast(err instanceof Error ? err.message : 'Không tải được lịch sử gửi đánh giá', 'error');
     } finally {
       setLoadingCampaigns(false);
     }
@@ -179,7 +200,10 @@ const ZnsBulkSendPage: React.FC = () => {
       setLoadingCustomers(true);
       try {
         const rows = await getCustomersForSelect();
-        setCustomers(dedupeCustomersByPhone(rows));
+        // Giữ đủ bản ghi ở bước tải để bộ lọc cơ sở không làm mất khách hàng
+        // khi cùng một SĐT từng tồn tại ở nhiều cơ sở. Việc loại trùng được làm
+        // sau khi áp dụng toàn bộ điều kiện lọc bên dưới.
+        setCustomers(rows);
       } catch (err) {
         showToast(err instanceof Error ? err.message : 'Không tải được danh sách khách hàng', 'error');
       } finally {
@@ -200,14 +224,62 @@ const ZnsBulkSendPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (!oaStatus?.connected) return;
+    let cancelled = false;
+    (async () => {
+      setLoadingTemplates(true);
+      setTemplatePermissionError('');
+      try {
+        const rows = await listZnsTemplates();
+        const byId = new Map<string, ZnsTemplateSummary>([[ORDER_REVIEW_TEMPLATE.template_id, ORDER_REVIEW_TEMPLATE]]);
+        rows.forEach((row) => byId.set(row.template_id, row));
+        if (!cancelled) setTemplates([...byId.values()]);
+      } catch (err) {
+        if (!cancelled) {
+          setTemplatePermissionError(err instanceof Error ? err.message : 'Zalo không cho phép tải danh sách mẫu');
+        }
+      } finally {
+        if (!cancelled) setLoadingTemplates(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [oaStatus?.connected]);
+
+  const handleTemplateChange = async (value: string) => {
+    if (!value) {
+      setTemplateId('');
+      setTemplateTen('');
+      setTemplateDetail(null);
+      setPreviewData(null);
+      setShowTemplatePreview(false);
+      return;
+    }
+
+    const selected = templates.find((template) => template.template_id === value);
+    if (!selected) return;
+    setTemplateId(selected.template_id);
+    setTemplateTen(selected.template_name);
+    setTemplateDetail(null);
+    setPreviewData(null);
+    setShowTemplatePreview(false);
+    setLoadingTemplates(true);
+    try {
+      const detail = await getZnsTemplateDetail(selected.template_id);
+      setTemplateDetail(detail);
+      setTemplateTen(detail.template_name || selected.template_name);
+    } catch {
+      // Tên và ID từ danh sách vẫn đủ để gửi nếu API chi tiết tạm lỗi.
+    } finally {
+      setLoadingTemplates(false);
+    }
+  };
+
   const handleBranchFilterChange = (value: string) => {
     setBranchFilter(value);
-    setServiceFilters([]);
-    setServiceFromDate('');
-    setServiceToDate('');
-    setServiceUsageDatesMap(new Map());
-    setServiceUsageDatesMapFor('');
-    setLoadingServiceDates(false);
   };
 
   const handleServiceFiltersChange = (values: string[]) => {
@@ -223,8 +295,11 @@ const ZnsBulkSendPage: React.FC = () => {
 
   const serviceOptions = useMemo(() => {
     const scoped = branchFilter ? services.filter((s) => matchesServiceBranch(s.co_so, branchFilter)) : services;
+    const scopedNames = new Set(scoped.map((s) => s.ten_dich_vu?.trim()).filter(Boolean));
     const idsByName = new Map<string, string[]>();
-    for (const s of scoped) {
+    // Luôn gom ID theo tên trên toàn bộ cơ sở để value của một dịch vụ không
+    // thay đổi khi chọn/bỏ chọn cơ sở. Cơ sở chỉ quyết định tên nào được hiện.
+    for (const s of services) {
       const name = s.ten_dich_vu?.trim();
       if (!name) continue;
       const ids = idsByName.get(name) || [];
@@ -232,6 +307,7 @@ const ZnsBulkSendPage: React.FC = () => {
       idsByName.set(name, ids);
     }
     return Array.from(idsByName.entries())
+      .filter(([name]) => scopedNames.has(name))
       .sort((a, b) => a[0].localeCompare(b[0], 'vi'))
       .map(([name, ids]) => ({ value: ids.join(','), label: name, searchKey: name }));
   }, [services, branchFilter]);
@@ -241,7 +317,8 @@ const ZnsBulkSendPage: React.FC = () => {
     [serviceFilters]
   );
 
-  // Chọn các dịch vụ -> tải toàn bộ ngày sử dụng để lọc chính xác theo khoảng ngày tùy chọn.
+  // Chọn dịch vụ -> tải toàn bộ ngày sử dụng. Khi chưa chọn ngày, chỉ cần khách
+  // từng dùng dịch vụ; khi có ngày, ngày sử dụng phải nằm trong khoảng đã chọn.
   useEffect(() => {
     if (!serviceFilterKey) return;
     let cancelled = false;
@@ -276,21 +353,20 @@ const ZnsBulkSendPage: React.FC = () => {
     const q = removeVietnameseTones(rawQuery);
     const isPhoneQuery = /^[\d\s()+.-]+$/.test(rawQuery) && /\d{3}/.test(rawQuery);
     const normalizedPhoneQuery = isPhoneQuery ? normalizeVnPhoneDigits(rawQuery) : '';
-    const validServiceDateRange =
-      serviceFromDate !== '' && serviceToDate !== '' && serviceFromDate <= serviceToDate;
     const applyServiceFilter =
       serviceFilters.length > 0 &&
-      validServiceDateRange &&
       serviceUsageDatesMapFor === serviceFilterKey;
-    return customers.filter((c) => {
+    const matches = customers.filter((c) => {
       if (branchFilter && resolveCustomerBranch(c.dia_chi_hien_tai) !== branchFilter) return false;
       if (applyServiceFilter) {
         const usedSelectedServiceInRange = getCustomerLinkKeys(c).some((key) =>
           (serviceUsageDatesMap.get(key.trim().toLowerCase()) || []).some(
-            (date) => date >= serviceFromDate && date <= serviceToDate
+            (date) =>
+              (!serviceFromDate || date >= serviceFromDate) &&
+              (!serviceToDate || date <= serviceToDate)
           )
         );
-        if (usedSelectedServiceInRange) return false;
+        if (!usedSelectedServiceInRange) return false;
       }
       if (!q) return true;
       const haystack = removeVietnameseTones(`${c.ho_va_ten} ${c.so_dien_thoai} ${c.bien_so_xe || ''}`);
@@ -299,6 +375,7 @@ const ZnsBulkSendPage: React.FC = () => {
         (normalizedPhoneQuery !== '' && normalizeVnPhoneDigits(c.so_dien_thoai).includes(normalizedPhoneQuery))
       );
     });
+    return dedupeCustomersByPhone(matches);
   }, [
     customers,
     searchQuery,
@@ -347,7 +424,7 @@ const ZnsBulkSendPage: React.FC = () => {
 
   const buildFieldMapping = (): Record<string, ZnsFieldMappingEntry> => {
     const out: Record<string, ZnsFieldMappingEntry> = {};
-    for (const row of mappingRows) {
+    for (const row of mappingRowsForTemplate(templateDetail)) {
       const key = row.key.trim();
       if (!key) continue;
       out[key] = row.source === 'static' ? { source: 'static', value: row.value } : { source: row.source };
@@ -355,15 +432,15 @@ const ZnsBulkSendPage: React.FC = () => {
     return out;
   };
 
-  const addMappingRow = () => setMappingRows((prev) => [...prev, { key: '', source: 'ho_va_ten', value: '' }]);
-  const removeMappingRow = (idx: number) => setMappingRows((prev) => prev.filter((_, i) => i !== idx));
-  const updateMappingRow = (idx: number, patch: Partial<MappingRow>) =>
-    setMappingRows((prev) => prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
-
-  const handlePreview = async () => {
+  const handleTemplatePreview = async () => {
+    if (showTemplatePreview) {
+      setShowTemplatePreview(false);
+      return;
+    }
     const sample = selectedCustomers[0];
+    setShowTemplatePreview(true);
     if (!sample) {
-      showToast('Chọn ít nhất 1 khách hàng để xem trước', 'error');
+      setPreviewData({ customer_name: '<customer_name>', order_date: '<order_date>' });
       return;
     }
     setLoadingPreview(true);
@@ -387,10 +464,6 @@ const ZnsBulkSendPage: React.FC = () => {
   };
 
   const handleSend = async () => {
-    if (!tenChienDich.trim()) {
-      showToast('Nhập tên chiến dịch', 'error');
-      return;
-    }
     if (!templateId.trim()) {
       showToast('Nhập Template ID (lấy từ ZNS Template Library)', 'error');
       return;
@@ -409,8 +482,9 @@ const ZnsBulkSendPage: React.FC = () => {
     setProgress({ done: 0, total: selectedCustomers.length, sent: 0, failed: 0, skipped: 0 });
 
     try {
+      const tenChienDichTuDong = `${templateTen.trim() || `ZNS ${templateId.trim()}`} - ${new Date().toLocaleString('vi-VN')}`;
       const campaign = await createCampaign({
-        ten_chien_dich: tenChienDich.trim(),
+        ten_chien_dich: tenChienDichTuDong,
         template_id: templateId.trim(),
         template_ten: templateTen.trim() || undefined,
         field_mapping: fieldMapping,
@@ -424,6 +498,7 @@ const ZnsBulkSendPage: React.FC = () => {
       let totalSent = 0;
       let totalFailed = 0;
       let totalSkipped = 0;
+      let firstSendError = '';
 
       for (const chunk of chunks) {
         try {
@@ -431,9 +506,11 @@ const ZnsBulkSendPage: React.FC = () => {
           totalSent += result.summary.sent;
           totalFailed += result.summary.failed;
           totalSkipped += result.summary.skipped;
+          firstSendError ||= result.results.find((item) => item.error)?.error || '';
         } catch (err) {
           // Lỗi cả lô (vd mất mạng) — tính là thất bại toàn bộ lô, không chặn các lô sau.
           totalFailed += chunk.length;
+          firstSendError ||= err instanceof Error ? err.message : 'Không gọi được dịch vụ gửi ZNS';
           console.error('Gửi lô ZNS thất bại:', err);
         }
         setProgress((p) => ({
@@ -446,17 +523,46 @@ const ZnsBulkSendPage: React.FC = () => {
       }
 
       await updateCampaignStatus(campaign.id, totalFailed > 0 || totalSkipped > 0 ? 'hoan_thanh_co_loi' : 'hoan_thanh');
-      showToast(`Đã gửi xong: ${totalSent} thành công, ${totalFailed} thất bại, ${totalSkipped} bỏ qua`, totalFailed > 0 ? 'error' : 'success');
+      showToast(
+        totalFailed > 0
+          ? `Gửi thất bại: ${firstSendError || `${totalFailed} tin không gửi được`}`
+          : `Đã gửi xong: ${totalSent} thành công, ${totalSkipped} bỏ qua`,
+        totalFailed > 0 ? 'error' : 'success'
+      );
 
       setSelectedIds(new Set());
-      setTenChienDich('');
       setPreviewData(null);
       await refreshCampaigns();
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Gửi ZNS hàng loạt thất bại', 'error');
+      showToast(err instanceof Error ? err.message : 'Gửi đánh giá đơn hàng thất bại', 'error');
     } finally {
       setIsSending(false);
     }
+  };
+
+  const requestSendConfirmation = () => {
+    if (!templateId.trim()) {
+      showToast('Vui lòng chọn mẫu Zalo trước khi gửi', 'error');
+      return;
+    }
+    if (selectedCustomers.length === 0) {
+      showToast('Chọn ít nhất 1 khách hàng', 'error');
+      return;
+    }
+    if (!oaStatus?.connected) {
+      showToast('Chưa kết nối Zalo OA — bấm "Kết nối Zalo OA" trước khi gửi', 'error');
+      return;
+    }
+    if (znsPermissionDenied) {
+      showToast('Zalo chưa cấp quyền ZBS Template Message cho ứng dụng/OA. Hãy cấu hình quyền rồi bấm “Kết nối lại”.', 'error');
+      return;
+    }
+    setShowSendConfirmation(true);
+  };
+
+  const confirmSend = () => {
+    setShowSendConfirmation(false);
+    void handleSend();
   };
 
   const toggleCampaignExpand = async (campaignId: string) => {
@@ -471,7 +577,7 @@ const ZnsBulkSendPage: React.FC = () => {
       const logs = await getCampaignLogs(campaignId);
       setCampaignLogs(logs);
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Không tải được chi tiết chiến dịch', 'error');
+      showToast(err instanceof Error ? err.message : 'Không tải được chi tiết lần gửi', 'error');
     } finally {
       setLoadingLogs(false);
     }
@@ -485,9 +591,9 @@ const ZnsBulkSendPage: React.FC = () => {
   return (
     <div className="p-4 lg:p-6 space-y-5">
       <div>
-        <h1 className="text-xl font-bold text-foreground">Gửi ZNS hàng loạt</h1>
+        <h1 className="text-xl font-bold text-foreground">Gửi đánh giá đơn hàng</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Gửi tin nhắn ZNS (Zalo Notification Service) tới nhiều khách hàng cùng lúc qua Zalo Official Account.
+          Gửi mẫu đánh giá tới các khách hàng đã sử dụng dịch vụ qua Zalo Official Account.
         </p>
       </div>
 
@@ -529,123 +635,105 @@ const ZnsBulkSendPage: React.FC = () => {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
         {/* Campaign form */}
         <div className="bg-card border border-border rounded-2xl p-4 lg:p-6 space-y-4">
-          <h2 className="font-bold text-foreground">Thông tin chiến dịch</h2>
+          <h2 className="font-bold text-foreground">Mẫu gửi ZNS</h2>
 
           <div className="space-y-1.5">
-            <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Tên chiến dịch</label>
-            <input
-              type="text"
-              value={tenChienDich}
-              onChange={(e) => setTenChienDich(e.target.value)}
-              placeholder="Khảo sát sau mua hàng - T8/2026"
-              className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm"
+            <label className="text-[11px] font-normal text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+              Mẫu Zalo đã duyệt
+              {loadingTemplates && <Loader2 size={12} className="animate-spin" />}
+            </label>
+            <SearchableSelect
+              options={templates.map((template) => ({
+                value: template.template_id,
+                label: `${template.template_name} — ID ${template.template_id}`,
+                searchKey: `${template.template_name} ${template.template_id}`,
+              }))}
+              value={templateId}
+              onValueChange={(value) => void handleTemplateChange(value)}
+              placeholder="Chọn mẫu Zalo"
+              searchPlaceholder="Tìm tên hoặc Template ID..."
+              disabled={loadingTemplates}
+              className="font-normal"
+              optionClassName="font-normal"
             />
+            {templatePermissionError && (
+              <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
+                <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+                <span>{templatePermissionError}. Cần cấp quyền ZBS Template Message cho ứng dụng/OA rồi bấm “Kết nối lại”.</span>
+              </div>
+            )}
+            {templateId && (
+              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <CheckCircle2 size={14} className="text-green-600" />
+                <span>Template ID: <strong className="font-mono text-foreground">{templateId}</strong></span>
+                <span className="text-green-600 dark:text-green-400">Đã duyệt</span>
+              </div>
+            )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Template ID (ZNS)</label>
-              <input
-                type="text"
-                value={templateId}
-                onChange={(e) => setTemplateId(e.target.value)}
-                placeholder="Lấy từ ZNS Template Library"
-                className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm font-mono"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Tên mẫu (ghi chú)</label>
-              <input
-                type="text"
-                value={templateTen}
-                onChange={(e) => setTemplateTen(e.target.value)}
-                placeholder="Chăm sóc, thu thập ý kiến của KH sau khi mua hàng"
-                className="w-full px-3 py-2.5 rounded-xl border border-border bg-background text-sm"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                Ánh xạ dữ liệu (biến trong mẫu → nguồn dữ liệu)
-              </label>
-              <button
-                type="button"
-                onClick={addMappingRow}
-                className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
-              >
-                <Plus size={14} /> Thêm biến
-              </button>
-            </div>
-            <div className="space-y-2">
-              {mappingRows.map((row, idx) => (
-                <div key={idx} className="flex flex-wrap items-center gap-2">
-                  <input
-                    type="text"
-                    value={row.key}
-                    onChange={(e) => updateMappingRow(idx, { key: e.target.value })}
-                    placeholder="customer_name"
-                    className="flex-1 min-w-[120px] px-2.5 py-2 rounded-lg border border-border bg-background text-sm font-mono"
-                  />
-                  <select
-                    value={row.source}
-                    onChange={(e) => updateMappingRow(idx, { source: e.target.value as ZnsFieldSource })}
-                    className="px-2.5 py-2 rounded-lg border border-border bg-background text-sm"
-                  >
-                    {(Object.keys(SOURCE_LABELS) as ZnsFieldSource[]).map((s) => (
-                      <option key={s} value={s}>
-                        {SOURCE_LABELS[s]}
-                      </option>
-                    ))}
-                  </select>
-                  {row.source === 'static' && (
-                    <input
-                      type="text"
-                      value={row.value}
-                      onChange={(e) => updateMappingRow(idx, { value: e.target.value })}
-                      placeholder="Giá trị..."
-                      className="flex-1 min-w-[100px] px-2.5 py-2 rounded-lg border border-border bg-background text-sm"
-                    />
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => removeMappingRow(idx)}
-                    className="p-2 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              ))}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Ngôi sao đánh giá trong mẫu do Zalo tự hiển thị — không phải dữ liệu cần gửi.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={handlePreview}
-              disabled={loadingPreview}
+              onClick={handleTemplatePreview}
+              disabled={loadingPreview || !templateId}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border text-sm font-medium hover:bg-muted disabled:opacity-50"
             >
               {loadingPreview ? <Loader2 size={14} className="animate-spin" /> : null}
-              Xem trước
+              {showTemplatePreview ? 'Ẩn Template' : 'Xem trước Template'}
+            </button>
+            <button
+              type="button"
+              onClick={requestSendConfirmation}
+              disabled={isSending}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 disabled:opacity-50"
+            >
+              {isSending ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
+              {isSending ? 'Đang gửi...' : `Gửi đánh giá (${selectedIds.size})`}
             </button>
           </div>
 
-          {previewData && (
-            <div className="rounded-xl border border-border bg-muted/40 p-3 space-y-1">
-              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">
-                Dữ liệu gửi mẫu (khách: {selectedCustomers[0]?.ho_va_ten})
-              </p>
-              {Object.entries(previewData).map(([k, v]) => (
-                <div key={k} className="text-sm flex gap-2">
-                  <span className="font-mono text-muted-foreground">{k}:</span>
-                  <span className="text-foreground">{v || '(trống)'}</span>
+          {showTemplatePreview && previewData && (
+            <div className="rounded-xl border border-border bg-muted/40 p-3 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="font-bold text-foreground">Xem trước Template</h3>
+                <button
+                  type="button"
+                  onClick={() => setDarkTemplatePreview((value) => !value)}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-2.5 py-1 text-xs text-foreground"
+                  aria-label="Đổi giao diện xem trước Template"
+                >
+                  {darkTemplatePreview ? <Moon size={13} /> : <Sun size={13} />}
+                  Giao diện {darkTemplatePreview ? 'tối' : 'sáng'}
+                </button>
+              </div>
+
+              {templateDetail?.preview_url && templateId !== ORDER_REVIEW_TEMPLATE.template_id ? (
+                <iframe
+                  src={templateDetail.preview_url}
+                  title={`Xem trước ${templateTen}`}
+                  className="h-[520px] w-full rounded-xl border border-border bg-white"
+                />
+              ) : (
+                <div className={`rounded-xl p-4 transition-colors ${darkTemplatePreview ? 'bg-slate-900 text-slate-100' : 'bg-[#f1f3ff] text-slate-900'}`}>
+                  <div className={`mx-auto max-w-md rounded-xl p-5 shadow-sm ${darkTemplatePreview ? 'bg-slate-800' : 'bg-white'}`}>
+                    <img src={ORDER_REVIEW_LOGO_URL} alt="Anh Công Nhân" className="mb-4 h-auto max-h-16 max-w-full object-contain" />
+                    <h4 className="text-lg font-bold">Đánh giá đơn hàng</h4>
+                    <p className={`mt-3 leading-7 ${darkTemplatePreview ? 'text-slate-200' : 'text-slate-600'}`}>
+                      Trung tâm sửa chữa xe Anh Công Nhân cảm ơn Quý khách hàng{' '}
+                      <strong className={darkTemplatePreview ? 'text-white' : 'text-slate-900'}>
+                        {previewData.customer_name || '<customer_name>'}
+                      </strong>{' '}
+                      đã tin tưởng sử dụng dịch vụ tại trung tâm vào ngày{' '}
+                      <strong className={darkTemplatePreview ? 'text-white' : 'text-slate-900'}>
+                        {previewData.order_date || '<order_date>'}
+                      </strong>. Nhằm nâng cao chất lượng dịch vụ, chúng tôi rất mong nhận được đánh giá phản hồi của Quý khách.
+                    </p>
+                    <div className="mt-4 flex items-center justify-around rounded-xl border border-orange-200 px-3 py-4 text-4xl leading-none text-orange-400">
+                      {[1, 2, 3, 4, 5].map((star) => <span key={star}>☆</span>)}
+                    </div>
+                  </div>
                 </div>
-              ))}
+              )}
             </div>
           )}
         </div>
@@ -704,25 +792,25 @@ const ZnsBulkSendPage: React.FC = () => {
           {serviceFilters.length > 0 && (
             <div className="space-y-2 rounded-xl border border-dashed border-border p-2.5">
               <label className="text-[11px] font-normal text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                Chưa dùng các dịch vụ đã chọn trong khoảng
+                Đã dùng dịch vụ đã chọn trong khoảng
                 {loadingServiceDates && <Loader2 size={12} className="animate-spin" />}
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <label className="text-xs font-normal text-muted-foreground">Từ ngày</label>
+                  <label className="block text-xs font-normal text-muted-foreground">Từ ngày</label>
                   <DateInputVi
                     value={serviceFromDate}
                     onChange={setServiceFromDate}
-                    aria-label="Từ ngày chưa dùng dịch vụ"
+                    aria-label="Từ ngày sử dụng dịch vụ"
                     className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm font-normal"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-normal text-muted-foreground">Đến ngày</label>
+                  <label className="block text-xs font-normal text-muted-foreground">Đến ngày</label>
                   <DateInputVi
                     value={serviceToDate}
                     onChange={setServiceToDate}
-                    aria-label="Đến ngày chưa dùng dịch vụ"
+                    aria-label="Đến ngày sử dụng dịch vụ"
                     className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm font-normal"
                   />
                 </div>
@@ -774,19 +862,9 @@ const ZnsBulkSendPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Send action */}
-      <div className="bg-card border border-border rounded-2xl p-4 lg:p-6 space-y-3">
-        <button
-          type="button"
-          onClick={() => void handleSend()}
-          disabled={isSending}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white font-semibold hover:bg-primary/90 disabled:opacity-50"
-        >
-          {isSending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-          {isSending ? 'Đang gửi...' : `Gửi cho ${selectedIds.size} khách hàng`}
-        </button>
-
-        {progress.total > 0 && (
+      {/* Send progress */}
+      {progress.total > 0 && (
+        <div className="bg-card border border-border rounded-2xl p-4 lg:p-6 space-y-3">
           <div className="space-y-1.5">
             <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
               <div
@@ -799,13 +877,54 @@ const ZnsBulkSendPage: React.FC = () => {
               {progress.skipped} bỏ qua
             </p>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {showSendConfirmation && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="zns-send-confirmation-title"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setShowSendConfirmation(false);
+          }}
+        >
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-xl">
+            <h2 id="zns-send-confirmation-title" className="text-lg font-bold text-foreground">
+              Xác nhận gửi đánh giá
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              Bạn có chắc muốn gửi mẫu <strong className="text-foreground">{templateTen}</strong> tới{' '}
+              <strong className="text-foreground">{selectedCustomers.length} khách hàng</strong> đã chọn không?
+            </p>
+            <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+              Sau khi xác nhận, hệ thống sẽ bắt đầu gửi ZNS và không thể thu hồi tin đã gửi.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowSendConfirmation(false)}
+                className="rounded-xl border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={confirmSend}
+                className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90"
+              >
+                <Send size={15} /> Xác nhận gửi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Campaign history */}
       <div className="bg-card border border-border rounded-2xl p-4 lg:p-6 space-y-3">
         <h2 className="font-bold text-foreground flex items-center gap-2">
-          <History size={18} /> Lịch sử chiến dịch
+          <History size={18} /> Lịch sử gửi đánh giá
         </h2>
 
         {loadingCampaigns ? (
@@ -813,7 +932,7 @@ const ZnsBulkSendPage: React.FC = () => {
             <Loader2 size={16} className="animate-spin" /> Đang tải...
           </div>
         ) : campaigns.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Chưa có chiến dịch nào.</p>
+          <p className="text-sm text-muted-foreground">Chưa có lần gửi đánh giá nào.</p>
         ) : (
           <div className="divide-y divide-border">
             {campaigns.map((c) => {

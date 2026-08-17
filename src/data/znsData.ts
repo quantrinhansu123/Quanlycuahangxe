@@ -54,11 +54,56 @@ export interface OaStatus {
   error?: string;
 }
 
+export interface ZnsTemplateSummary {
+  template_id: string;
+  template_name: string;
+  status: string | number | null;
+}
+
+export interface ZnsTemplateDetail extends ZnsTemplateSummary {
+  preview_url?: string | null;
+  parameters?: Array<{ name: string; type: string }>;
+}
+
+async function edgeFunctionErrorMessage(error: unknown, fallback: string): Promise<string> {
+  const context = (error as { context?: Response } | null)?.context;
+  if (context && typeof context.clone === 'function') {
+    try {
+      const body = await context.clone().json() as { error?: string; message?: string };
+      if (body.error || body.message) return body.error || body.message || fallback;
+    } catch {
+      // Phản hồi không phải JSON: dùng thông báo mặc định phía dưới.
+    }
+  }
+  return error instanceof Error ? error.message : fallback;
+}
+
 /** Trạng thái kết nối Zalo OA — dùng cho banner trên trang gửi ZNS. */
 export async function getOaStatus(): Promise<OaStatus> {
   const { data, error } = await supabase.functions.invoke<OaStatus>('zns-oa-status');
-  if (error) throw error;
+  if (error) throw new Error(await edgeFunctionErrorMessage(error, 'Không lấy được trạng thái Zalo OA'));
   return data as OaStatus;
+}
+
+export async function listZnsTemplates(): Promise<ZnsTemplateSummary[]> {
+  const { data, error } = await supabase.functions.invoke<{ templates?: ZnsTemplateSummary[]; error?: string }>(
+    'zns-templates',
+    { body: {} }
+  );
+  if (error) throw new Error(await edgeFunctionErrorMessage(error, 'Không tải được danh sách mẫu Zalo'));
+  if (data?.error) throw new Error(data.error);
+  return data?.templates || [];
+}
+
+export async function getZnsTemplateDetail(templateId: string): Promise<ZnsTemplateDetail> {
+  const { data, error } = await supabase.functions.invoke<{ template?: ZnsTemplateDetail; error?: string }>(
+    'zns-templates',
+    { body: { template_id: templateId } }
+  );
+  if (error) throw new Error(await edgeFunctionErrorMessage(error, 'Không tải được chi tiết mẫu Zalo'));
+  if (data?.error) throw new Error(data.error);
+  if (!data?.template) throw new Error('Không tìm thấy Template');
+  return data.template;
 }
 
 /** Đổi authorization code (từ redirect Zalo OAuth) lấy access/refresh token, lưu về DB. */

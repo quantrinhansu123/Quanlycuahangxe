@@ -116,6 +116,15 @@ export interface ZaloSendResult {
   errorMessage?: string;
 }
 
+const ZALO_SEND_TIMEOUT_MS = 15_000;
+
+export function zaloErrorMessage(code: unknown, message: unknown): string {
+  if (String(code ?? "") === "-120") {
+    return "Zalo từ chối quyền gửi ZBS/ZNS (-120). Ứng dụng hoặc OA chưa được cấp quyền ZBS Template Message, hoặc OA không thuộc tài khoản ZBS đang sở hữu template. Hãy cấu hình quyền/liên kết trên Zalo rồi kết nối lại OA.";
+  }
+  return String(message || "Gửi ZNS thất bại (không rõ nguyên nhân)");
+}
+
 /**
  * Gọi Zalo ZNS send-template API cho 1 người nhận.
  * [VERIFY] endpoint/tên trường request-response chính xác theo tài liệu Zalo ZNS hiện hành —
@@ -128,20 +137,35 @@ export async function sendZnsMessage(
   templateData: Record<string, string>,
   trackingId?: string,
 ): Promise<ZaloSendResult> {
+  const safeTrackingId = (trackingId || crypto.randomUUID())
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .slice(0, 48);
   let resp: Response;
+  const abortController = new AbortController();
+  const timeoutId = setTimeout(() => abortController.abort(), ZALO_SEND_TIMEOUT_MS);
   try {
     resp = await fetch("https://business.openapi.zalo.me/message/template", {
       method: "POST",
       headers: { access_token: accessToken, "Content-Type": "application/json" },
+      signal: abortController.signal,
       body: JSON.stringify({
         phone: phone84,
         template_id: templateId,
         template_data: templateData,
-        tracking_id: trackingId,
+        tracking_id: safeTrackingId,
       }),
     });
   } catch (err) {
+    if (abortController.signal.aborted) {
+      return {
+        ok: false,
+        errorCode: "ZALO_TIMEOUT",
+        errorMessage: `Zalo không phản hồi sau ${ZALO_SEND_TIMEOUT_MS / 1000} giây`,
+      };
+    }
     return { ok: false, errorMessage: `Không thể kết nối tới Zalo: ${String(err)}` };
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   const json = await resp.json().catch(() => ({}));
@@ -151,6 +175,6 @@ export async function sendZnsMessage(
   return {
     ok: false,
     errorCode: String(json?.error ?? resp.status),
-    errorMessage: json?.message ?? "Gửi ZNS thất bại (không rõ nguyên nhân)",
+    errorMessage: zaloErrorMessage(json?.error ?? resp.status, json?.message),
   };
 }

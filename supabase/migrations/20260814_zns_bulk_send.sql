@@ -98,8 +98,7 @@ CREATE INDEX IF NOT EXISTS idx_zns_gui_log_chien_dich_id ON public.zns_gui_log (
 CREATE INDEX IF NOT EXISTS idx_zns_gui_log_trang_thai ON public.zns_gui_log (trang_thai);
 CREATE INDEX IF NOT EXISTS idx_zns_gui_log_khach_hang_id ON public.zns_gui_log (khach_hang_id);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_zns_gui_log_idempotency
-    ON public.zns_gui_log (chien_dich_id, idempotency_key)
-    WHERE idempotency_key IS NOT NULL;
+    ON public.zns_gui_log (chien_dich_id, idempotency_key);
 
 DROP TRIGGER IF EXISTS update_zns_gui_log_updated_at ON public.zns_gui_log;
 CREATE TRIGGER update_zns_gui_log_updated_at
