@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BadgeDollarSign, Building2, Calculator, Calendar, CheckCircle2, Loader2, Plus, Save, Table2, Trash2, TrendingUp, UserPlus } from 'lucide-react';
+import { BadgeDollarSign, Building2, Calculator, Calendar, CheckCircle2, GitCompareArrows, Loader2, Plus, Save, Table2, Trash2, TrendingUp, UserPlus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { clsx } from 'clsx';
 import { getChamCongTrongKhoang } from '../data/attendanceData';
@@ -1283,6 +1283,15 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
             >
               {revenueLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <TrendingUp className="w-4 h-4" />}
               Doanh số
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate(`/tien-luong/doi-soat-doanh-so?thang=${thang}&nam=${nam}`)}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-sky-300 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-700 hover:bg-sky-100"
+              title="Mở trang so sánh doanh số bảng lương với phiếu bán hàng"
+            >
+              <GitCompareArrows className="h-4 w-4" />
+              Rà soát
             </button>
             {isAdmin && (
               <>

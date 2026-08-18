@@ -24,6 +24,7 @@ const PayrollSettingsPage = lazy(() => import('./pages/PayrollSettingsPage'));
 const SalaryComponentPage = lazy(() => import('./pages/SalaryComponentPage'));
 const AllowancePolicyPage = lazy(() => import('./pages/AllowancePolicyPage'));
 const PayrollAttendanceSalaryPage = lazy(() => import('./pages/PayrollAttendanceSalaryPage'));
+const PayrollRevenueReconciliationPage = lazy(() => import('./pages/PayrollRevenueReconciliationPage'));
 const RevenueReportPage = lazy(() => import('./pages/RevenueReportPage'));
 const PermissionSettingsPage = lazy(() => import('./pages/PermissionSettingsPage'));
 const PersonnelManagementPage = lazy(() => import('./pages/PersonnelManagementPage'));
@@ -98,6 +99,10 @@ function AppRoutes() {
               <Route
                 path="bang-luong-cham-cong"
                 element={<ProtectedRoute viewKey="tien-luong"><PayrollAttendanceSalaryPage /></ProtectedRoute>}
+              />
+              <Route
+                path="doi-soat-doanh-so"
+                element={<ProtectedRoute viewKey="tien-luong"><PayrollRevenueReconciliationPage /></ProtectedRoute>}
               />
               {/* CÃ¡c trang cáº¥u hÃ¬nh â€” chá»‰ admin */}
               <Route path="thong-so" element={<ProtectedRoute viewKey="tien-luong-cau-hinh"><PayrollSettingsPage /></ProtectedRoute>} />
