@@ -18,7 +18,7 @@ import {
   User,
   Search
 } from 'lucide-react';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
@@ -27,6 +27,12 @@ import { extraMenuItems, sidebarMenu } from '../../data/sidebarMenu';
 import { formatTime24h } from '../../utils/datetimeFormat';
 import { SubModuleSwitcher } from '../ui/SubModuleSwitcher';
 import type { ModuleCardProps } from '../ui/ModuleCard';
+import {
+  clearAppNotifications,
+  getAppNotifications,
+  markAllAppNotificationsRead,
+  markAppNotificationRead,
+} from '../../data/notificationData';
 
 interface Notification {
   id: string;
@@ -35,74 +41,19 @@ interface Notification {
   time: string;
   type: 'info' | 'warning' | 'success';
   isRead: boolean;
+  route: string | null;
 }
 
-const mockNotifications: Notification[] = [
-  {
-    id: '1',
-    title: 'Chào mừng trở lại',
-    description: 'Đây là thông báo mẫu. Bạn có thể thêm, đánh dấu đã đọc hoặc xóa từng thông báo.',
-    time: '2 phút trước',
-    type: 'info',
-    isRead: false,
-  },
-  {
-    id: '2',
-    title: 'Cập nhật hệ thống',
-    description: 'Phiên bản mới đã sẵn sàng. Vui lòng làm mới trang khi thuận tiện.',
-    time: '1 giờ trước',
-    type: 'success',
-    isRead: false,
-  },
-  {
-    id: '3',
-    title: 'Đơn nghỉ phép đã duyệt',
-    description: 'Đơn xin nghỉ phép từ 12/02 đến 14/02 đã được phê duyệt.',
-    time: '3 giờ trước',
-    type: 'success',
-    isRead: false,
-  },
-  {
-    id: '4',
-    title: 'Bảo trì định kỳ',
-    description: 'Hệ thống sẽ bảo trì từ 23:00 ngày 15/02 đến 02:00 ngày 16/02. Vui lòng lưu dữ liệu trước...',
-    time: '5 giờ trước',
-    type: 'warning',
-    isRead: false,
-  },
-  {
-    id: '5',
-    title: 'Nhắc nhở nộp báo cáo',
-    description: 'Báo cáo tháng 1 chưa được nộp. Hạn chót: 15/02.',
-    time: '1 ngày trước',
-    type: 'warning',
-    isRead: true,
-  },
-  {
-    id: '6',
-    title: 'Lương tháng 1 đã sẵn sàng',
-    description: 'Phiếu lương tháng 1/2026 đã được cập nhật trên hệ thống.',
-    time: '2 ngày trước',
-    type: 'success',
-    isRead: true,
-  },
-  {
-    id: '7',
-    title: 'Nội quy công ty mới',
-    description: 'Vui lòng đọc và xác nhận nội quy làm việc mới áp dụng từ tháng sau.',
-    time: '3 ngày trước',
-    type: 'info',
-    isRead: true,
-  },
-  {
-    id: '8',
-    title: 'Thông báo cũ',
-    description: 'Đây là một thông báo cũ để kiểm tra tính năng xem tất cả.',
-    time: '1 tuần trước',
-    type: 'info',
-    isRead: true,
-  }
-];
+function formatRelativeNotificationTime(value: string): string {
+  const date = new Date(value);
+  const deltaSeconds = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
+  if (!Number.isFinite(deltaSeconds)) return '';
+  if (deltaSeconds < 60) return 'Vừa xong';
+  if (deltaSeconds < 3600) return `${Math.floor(deltaSeconds / 60)} phút trước`;
+  if (deltaSeconds < 86400) return `${Math.floor(deltaSeconds / 3600)} giờ trước`;
+  if (deltaSeconds < 604800) return `${Math.floor(deltaSeconds / 86400)} ngày trước`;
+  return date.toLocaleDateString('vi-VN');
+}
 
 interface TopbarProps {
   sidebarOpen: boolean;
@@ -120,7 +71,7 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
   subModules
 }) => {
   const [time, setTime] = useState(new Date());
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -131,6 +82,38 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
   const { avatar } = useTheme();
   const { nhanVien, signOut, hasViewAccess } = useAuth();
   const canOpenPermissionSettings = hasViewAccess('cai-dat-phan-quyen');
+
+  const loadNotifications = useCallback(async () => {
+    if (!nhanVien?.id || nhanVien.id === 'demo-nv-uuid') {
+      setNotifications([]);
+      return;
+    }
+    try {
+      const rows = await getAppNotifications(nhanVien.id);
+      setNotifications(rows.map((row) => ({
+        id: row.id,
+        title: row.tieu_de,
+        description: row.noi_dung,
+        time: formatRelativeNotificationTime(row.created_at),
+        type: row.loai,
+        isRead: Boolean(row.da_doc_luc),
+        route: row.duong_dan,
+      })));
+    } catch (error) {
+      console.error('Không thể tải thông báo:', error);
+    }
+  }, [nhanVien?.id]);
+
+  useEffect(() => {
+    void loadNotifications();
+    const interval = window.setInterval(() => void loadNotifications(), 30_000);
+    const onFocus = () => void loadNotifications();
+    window.addEventListener('focus', onFocus);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [loadNotifications]);
 
   const defaultAvatar = "https://ui-avatars.com/api/?name=User&background=random&color=random";
   const userAvatar = avatar || defaultAvatar;
@@ -147,7 +130,7 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
     // Check specific module items in moduleData first
     for (const mainPath in moduleData) {
       for (const section of moduleData[mainPath]) {
-        const found = section.items.find((item: any) => item.path === path);
+        const found = section.items.find((item) => item.path === path);
         if (found) return found.title;
       }
     }
@@ -224,16 +207,40 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
     return `${dayName}, ${date.toLocaleDateString('vi-VN')}`;
   };
 
-  const markAllAsRead = () => {
+  const markAllAsRead = async () => {
     setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+    if (nhanVien?.id) {
+      try {
+        await markAllAppNotificationsRead(nhanVien.id);
+      } catch (error) {
+        console.error('Không thể đánh dấu đã đọc:', error);
+        void loadNotifications();
+      }
+    }
   };
 
-  const clearAll = () => {
+  const clearAll = async () => {
     setNotifications([]);
+    if (nhanVien?.id) {
+      try {
+        await clearAppNotifications(nhanVien.id);
+      } catch (error) {
+        console.error('Không thể xóa thông báo:', error);
+        void loadNotifications();
+      }
+    }
   };
 
-  const markAsRead = (id: string) => {
+  const openNotification = async (notification: Notification) => {
+    const { id } = notification;
     setNotifications(notifications.map(n => n.id === id ? { ...n, isRead: true } : n));
+    try {
+      await markAppNotificationRead(id);
+    } catch (error) {
+      console.error('Không thể cập nhật thông báo:', error);
+    }
+    setShowNotifications(false);
+    if (notification.route) navigate(notification.route);
   };
 
   const getIcon = (type: Notification['type']) => {
@@ -375,7 +382,7 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
 
           {/* Dropdown */}
           {showNotifications && (
-            <div className="absolute right-0 mt-2 w-[350px] bg-card rounded-xl shadow-xl border border-border overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-right">
+            <div className="absolute right-0 z-50 mt-2 w-[min(350px,calc(100vw-1rem))] bg-card rounded-xl shadow-xl border border-border overflow-hidden animate-in fade-in zoom-in-95 duration-200 origin-top-right">
               {/* Header */}
               <div className="p-3 border-b border-border flex items-center justify-between bg-card sticky top-0 z-10">
                 <div className="flex items-center gap-2">
@@ -415,7 +422,7 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
                     {displayNotifications.map((notification) => (
                       <div
                         key={notification.id}
-                        onClick={() => markAsRead(notification.id)}
+                        onClick={() => void openNotification(notification)}
                         className={clsx(
                           "p-3 transition-colors cursor-pointer hover:bg-muted/30 relative",
                           getTypeStyles(notification.type, notification.isRead)

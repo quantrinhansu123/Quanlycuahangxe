@@ -34,6 +34,7 @@ interface ComparisonRow {
   position: string;
   payroll?: BangLuong;
   payrollRevenue: number;
+  grossRevenue: number;
   sourceRevenue: number;
   difference: number;
   orders: PayrollRevenueOrderRow[];
@@ -43,6 +44,7 @@ interface ComparisonRow {
 interface ReconciliationData {
   personnel: NhanSu[];
   payroll: BangLuong[];
+  grossTotals: Map<string, number>;
   totals: Map<string, number>;
   ordersByStaff: Map<string, PayrollRevenueOrderRow[]>;
 }
@@ -118,7 +120,13 @@ const PayrollRevenueReconciliationPage: React.FC = () => {
         getPayrollBatch(month, year),
         loadPayrollRevenueData(year, month),
       ]);
-      setData({ personnel, payroll, totals: revenue.totals, ordersByStaff: revenue.ordersByStaff });
+      setData({
+        personnel,
+        payroll,
+        grossTotals: revenue.grossTotals,
+        totals: revenue.totals,
+        ordersByStaff: revenue.ordersByStaff,
+      });
     } catch (loadError) {
       console.error('Không thể tải dữ liệu rà soát doanh số:', loadError);
       setError(loadError instanceof Error ? loadError.message : 'Không thể tải dữ liệu đối chiếu.');
@@ -144,6 +152,7 @@ const PayrollRevenueReconciliationPage: React.FC = () => {
     const addRow = (key: string, person: NhanSu | undefined, payroll: BangLuong | undefined) => {
       const payrollName = payroll?.nhan_su?.ho_ten?.trim();
       const name = person?.ho_ten?.trim() || payrollName || key;
+      const grossRevenue = Number(data.grossTotals.get(key) ?? 0);
       const sourceRevenue = Number(data.totals.get(key) ?? 0);
       const payrollRevenue = Number(payroll?.doanh_so ?? 0);
       const difference = sourceRevenue - payrollRevenue;
@@ -161,6 +170,7 @@ const PayrollRevenueReconciliationPage: React.FC = () => {
         position: person?.vi_tri?.trim() || payroll?.nhan_su?.vi_tri?.trim() || 'Chưa xác định',
         payroll,
         payrollRevenue,
+        grossRevenue,
         sourceRevenue,
         difference,
         orders: data.ordersByStaff.get(key) ?? [],
@@ -220,6 +230,8 @@ const PayrollRevenueReconciliationPage: React.FC = () => {
       mismatched: rows.length - matched,
       missing,
       absoluteDifference: rows.reduce((sum, row) => sum + Math.abs(row.difference), 0),
+      grossRevenue: rows.reduce((sum, row) => sum + row.grossRevenue, 0),
+      allocatedRevenue: rows.reduce((sum, row) => sum + row.sourceRevenue, 0),
     };
   }, [rows]);
 
@@ -240,7 +252,7 @@ const PayrollRevenueReconciliationPage: React.FC = () => {
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-2xl font-bold tracking-tight text-foreground">Rà soát doanh số</h1>
                 <span className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700">
-                  Bản mẫu chỉ đọc
+                  Chỉ đọc
                 </span>
               </div>
               <p className="mt-1 text-sm text-muted-foreground">
@@ -288,16 +300,18 @@ const PayrollRevenueReconciliationPage: React.FC = () => {
           <div className="flex gap-2">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
             <p>
-              Một đơn có nhiều người phụ trách sẽ được ghi nhận <strong>toàn bộ giá trị đơn cho từng người</strong>,
-              đúng với cách lọc nhân viên tại trang Phiếu bán hàng. Trang này chưa tự sửa dữ liệu.
+              Mỗi đơn được chia đều cho những người có tên trong mục <strong>Người phụ trách</strong>;
+              tên nhập lặp chỉ tính một lần. Trang này đối chiếu bảng lương với doanh số sau chia và không tự sửa dữ liệu.
             </p>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-3 2xl:grid-cols-6">
           <SummaryCard icon={Users} label="Nhân viên kiểm tra" value={String(summary.total)} tone="slate" />
           <SummaryCard icon={CheckCircle2} label="Đã khớp" value={String(summary.matched)} tone="green" />
           <SummaryCard icon={AlertCircle} label="Cần kiểm tra" value={String(summary.mismatched)} tone="red" />
+          <SummaryCard icon={ReceiptText} label="Doanh số chưa chia" value={formatVnd(summary.grossRevenue)} tone="slate" />
+          <SummaryCard icon={Users} label="Doanh số sau chia" value={formatVnd(summary.allocatedRevenue)} tone="green" />
           <SummaryCard icon={SlidersHorizontal} label="Tổng chênh lệch" value={formatVnd(summary.absoluteDifference)} tone="amber" />
         </div>
 
@@ -481,7 +495,10 @@ function ComparisonRowCard({ row, onShowOrders }: { row: ComparisonRow; onShowOr
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xl font-bold tabular-nums text-slate-900">{formatVnd(row.sourceRevenue)}</p>
-            <p className="mt-1.5 text-xs text-muted-foreground">{row.orders.length} đơn trong kỳ</p>
+            <p className="mt-1 text-xs font-semibold text-blue-700">Sau chia</p>
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              Chưa chia: {formatVnd(row.grossRevenue)} · {row.orders.length} đơn
+            </p>
           </div>
           <button
             type="button"

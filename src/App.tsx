@@ -99,20 +99,20 @@ function AppRoutes() {
               <Route path="bang-luong" element={<ProtectedRoute viewKey="tien-luong"><PayrollPage /></ProtectedRoute>} />
               <Route
                 path="bang-luong-cham-cong"
-                element={<ProtectedRoute viewKey="tien-luong"><PayrollAttendanceSalaryPage /></ProtectedRoute>}
+                element={<ProtectedRoute adminOnly viewKey="tien-luong"><PayrollAttendanceSalaryPage /></ProtectedRoute>}
               />
               <Route
                 path="doi-soat-doanh-so"
-                element={<ProtectedRoute viewKey="tien-luong"><PayrollRevenueReconciliationPage /></ProtectedRoute>}
+                element={<ProtectedRoute adminOnly viewKey="tien-luong"><PayrollRevenueReconciliationPage /></ProtectedRoute>}
               />
               <Route
                 path="doi-soat-cham-cong"
-                element={<ProtectedRoute viewKey="tien-luong"><PayrollAttendanceReconciliationPage /></ProtectedRoute>}
+                element={<ProtectedRoute adminOnly viewKey="tien-luong"><PayrollAttendanceReconciliationPage /></ProtectedRoute>}
               />
               {/* CÃ¡c trang cáº¥u hÃ¬nh â€” chá»‰ admin */}
-              <Route path="thong-so" element={<ProtectedRoute viewKey="tien-luong-cau-hinh"><PayrollSettingsPage /></ProtectedRoute>} />
-              <Route path="thanh-phan" element={<ProtectedRoute viewKey="tien-luong-cau-hinh"><SalaryComponentPage /></ProtectedRoute>} />
-              <Route path="chinh-sach" element={<ProtectedRoute viewKey="tien-luong-cau-hinh"><AllowancePolicyPage /></ProtectedRoute>} />
+              <Route path="thong-so" element={<ProtectedRoute adminOnly viewKey="tien-luong-cau-hinh"><PayrollSettingsPage /></ProtectedRoute>} />
+              <Route path="thanh-phan" element={<ProtectedRoute adminOnly viewKey="tien-luong-cau-hinh"><SalaryComponentPage /></ProtectedRoute>} />
+              <Route path="chinh-sach" element={<ProtectedRoute adminOnly viewKey="tien-luong-cau-hinh"><AllowancePolicyPage /></ProtectedRoute>} />
             </Route>
 
             {/* BÃ¡o cÃ¡o doanh thu â€” chá»‰ admin */}

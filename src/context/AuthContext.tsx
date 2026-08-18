@@ -12,8 +12,11 @@ import {
   clearStoredAuth,
   getStoredDemoRole,
   getStoredNhanVien,
+  getStoredSessionToken,
   setStoredNhanVien,
+  setStoredSessionToken,
 } from '../lib/authStorage';
+import { supabase } from '../lib/supabase';
 
 /** Phiên ứng dụng (lưu local); không dùng Supabase Auth. */
 export interface AppUser {
@@ -63,7 +66,7 @@ interface AuthContextType {
   canUseDataFilters: boolean;
   isLoading: boolean;
   hasViewAccess: (viewKey: ViewPermissionKey) => boolean;
-  persistLogin: (nhanVien: NhanVien) => void;
+  persistLogin: (nhanVien: NhanVien, sessionToken?: string) => void;
   signOut: () => Promise<void>;
 }
 
@@ -108,6 +111,7 @@ function buildDemoNhanVien(demoRole: string): NhanVien {
 }
 
 function sessionFromNhanVien(nhanVien: NhanVien): { session: AppSession; supabaseUser: AppUser } {
+  const storedSessionToken = getStoredSessionToken();
   const user: AppUser = {
     id: nhanVien.auth_user_id || nhanVien.id || 'local-uuid',
     email: nhanVien.email || 'local@example.com',
@@ -118,7 +122,7 @@ function sessionFromNhanVien(nhanVien: NhanVien): { session: AppSession; supabas
   };
   return {
     session: {
-      access_token: 'local-token',
+      access_token: storedSessionToken || 'legacy-local-token',
       refresh_token: 'local-refresh',
       expires_in: 3600,
       token_type: 'bearer',
@@ -143,7 +147,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const persistLogin = useCallback(
-    (nv: NhanVien) => {
+    (nv: NhanVien, sessionToken?: string) => {
+      if (sessionToken) setStoredSessionToken(sessionToken);
       setStoredNhanVien(nv);
       applyNhanVien(nv);
     },
@@ -156,11 +161,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const bootstrap = async () => {
       const demoRole = getStoredDemoRole();
       const stored = getStoredNhanVien();
+      const storedSessionToken = getStoredSessionToken();
 
       if (stored) {
         if (stored.id === 'demo-nv-uuid' || demoRole) {
           applyNhanVien(stored);
         } else {
+          if (!storedSessionToken) {
+            // Chỉ ép đăng nhập lại khi DB đã có migration session mới. Trước
+            // lúc migration được áp dụng, RPC chưa tồn tại và app cũ vẫn chạy.
+            const probe = await supabase.rpc('current_app_nhan_su_uuid');
+            if (!probe.error) {
+              clearStoredAuth();
+              setSession(null);
+              setSupabaseUser(null);
+              setNhanVien(null);
+              if (!cancelled) setIsLoading(false);
+              return;
+            }
+          }
           const fresh = await fetchNhanVienById(stored.id);
           if (cancelled) return;
           if (!fresh) {
@@ -240,6 +259,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signOut = async () => {
+    const sessionToken = getStoredSessionToken();
+    if (sessionToken) {
+      try {
+        await supabase.rpc('logout_app_session', { p_session_token: sessionToken });
+      } catch {
+        // Phiên local vẫn phải được xóa kể cả khi mất mạng.
+      }
+    }
     clearStoredAuth();
     setSession(null);
     setSupabaseUser(null);
@@ -257,8 +284,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const canUseDataFilters = !isTechnician;
 
   const hasViewAccess = useCallback(
-    (viewKey: ViewPermissionKey): boolean =>
-      canAccessView(nhanVien?.vi_tri, viewKey, isAdmin, nhanVien?.co_so),
+    (viewKey: ViewPermissionKey): boolean => {
+      void permVersion;
+      return canAccessView(nhanVien?.vi_tri, viewKey, isAdmin, nhanVien?.co_so);
+    },
     [nhanVien?.vi_tri, nhanVien?.co_so, isAdmin, permVersion]
   );
 
@@ -286,4 +315,5 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => useContext(AuthContext);

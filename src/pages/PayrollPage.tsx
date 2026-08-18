@@ -3,10 +3,10 @@ import {
   Search, Settings2, Download, Send, BadgeDollarSign, 
   ChevronDown, Filter, Calendar, Building2, CheckCircle2, AlertCircle, Loader2,
   Plus, ArrowLeft, MoreHorizontal, MessageSquare, User, Check, RefreshCcw,
-  Printer
+  Printer, LockKeyhole, UnlockKeyhole, X
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { getPayrollBatch, updatePayrollStatus, bulkCreatePayrollItems, deletePayrollBatch } from '../data/payrollData';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { getPayrollBatch, bulkCreatePayrollItems, deletePayrollBatch } from '../data/payrollData';
 import type { BangLuong } from '../data/payrollData';
 import { getAllowancePolicies } from '../data/allowancePolicyData';
 import SelectPayrollEmployeeModal from '../components/SelectPayrollEmployeeModal';
@@ -17,16 +17,29 @@ import * as XLSX from 'xlsx';
 import { useAuth } from '../context/AuthContext';
 import { syncPayrollFromAttendance } from '../data/payrollAttendanceSyncData';
 import PayrollSlipModal from '../components/PayrollSlipModal';
+import {
+  getPayrollHistory,
+  PAYROLL_STATUSES,
+  performPayrollWorkflowAction,
+  type PayrollHistoryEntry,
+} from '../data/payrollWorkflowData';
 
 
 
 const PayrollPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { isAdmin } = useAuth();
   const [payrollData, setPayrollData] = useState<BangLuong[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const value = Number(searchParams.get('thang'));
+    return value >= 1 && value <= 12 ? value : new Date().getMonth() + 1;
+  });
+  const [selectedYear, setSelectedYear] = useState(() => {
+    const value = Number(searchParams.get('nam'));
+    return value >= 2000 && value <= 2100 ? value : new Date().getFullYear();
+  });
   const [selectedCoSo, setSelectedCoSo] = useState('Tất cả cơ sở');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('Tất cả');
@@ -35,6 +48,13 @@ const PayrollPage: React.FC = () => {
   const [payrollSlipItem, setPayrollSlipItem] = useState<BangLuong | null>(null);
   const [isPaying, setIsPaying] = useState(false);
   const [isSyncingAttendance, setIsSyncingAttendance] = useState(false);
+  const [workflowBusy, setWorkflowBusy] = useState(false);
+  const [feedbackTarget, setFeedbackTarget] = useState<BangLuong | null>(null);
+  const [feedbackContent, setFeedbackContent] = useState('');
+  const [unlockIds, setUnlockIds] = useState<string[]>([]);
+  const [unlockReason, setUnlockReason] = useState('');
+  const [historyEntries, setHistoryEntries] = useState<PayrollHistoryEntry[] | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [showColConfig, setShowColConfig] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<string[]>([
@@ -45,6 +65,19 @@ const PayrollPage: React.FC = () => {
   const colConfigRef = useRef<HTMLDivElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const lastAutomaticSyncKeyRef = useRef('');
+  const viewedPayrollIdsRef = useRef(new Set<string>());
+
+  useEffect(() => {
+    const queryMonth = Number(searchParams.get('thang'));
+    const queryYear = Number(searchParams.get('nam'));
+    if (!(queryMonth >= 1 && queryMonth <= 12 && queryYear >= 2000 && queryYear <= 2100)) return;
+    if (queryMonth === selectedMonth && queryYear === selectedYear) return;
+    const timer = window.setTimeout(() => {
+      setSelectedMonth(queryMonth);
+      setSelectedYear(queryYear);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [searchParams, selectedMonth, selectedYear]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -84,7 +117,7 @@ const PayrollPage: React.FC = () => {
 
   // Khi quản trị viên mở/chuyển kỳ lương, tự đối soát các dòng chưa khóa với
   // chấm công. Nhờ đó ngày công và tăng ca không còn phụ thuộc vào việc nhớ bấm
-  // nút đồng bộ. Dòng đã duyệt/đã chi trả chỉ đổi khi admin chủ động xác nhận.
+  // nút đồng bộ. Dòng đã khóa/đã chi trả luôn được giữ nguyên.
   useEffect(() => {
     if (!isAdmin) return;
 
@@ -131,7 +164,7 @@ const PayrollPage: React.FC = () => {
           thang: selectedMonth,
           nam: selectedYear,
           co_so: p.co_so,
-          trang_thai: 'Chờ duyệt',
+          trang_thai: 'Bản nháp',
           doanh_so: 0,
           doanh_so_muc_tieu: 0,
           luong_ngay_cong: 0,
@@ -169,29 +202,42 @@ const PayrollPage: React.FC = () => {
   };
 
   const handleSendSlip = async () => {
-    const count = selectedIds.length > 0 ? selectedIds.length : filteredData.length;
-    if (count === 0) {
+    const targetIds = selectedIds.length > 0
+      ? selectedIds
+      : filteredData
+          .filter((item) => !['Đã duyệt', 'Đã khóa', 'Đã chi trả'].includes(item.trang_thai))
+          .map((item) => item.id);
+    if (targetIds.length === 0) {
       alert('Không có dữ liệu để gửi phiếu lương!');
       return;
     }
-    
-    if (!window.confirm(`Gửi phiếu lương cho ${count} nhân viên?`)) return;
-    
-    alert('Đang gửi phiếu lương qua Email/Zalo...');
-    setTimeout(() => alert(`Đã gửi thành công ${count} phiếu lương!`), 1500);
+    if (!window.confirm(`Gửi phiếu lương trong ứng dụng cho ${targetIds.length} nhân viên?`)) return;
+
+    try {
+      setWorkflowBusy(true);
+      const count = await performPayrollWorkflowAction('send', targetIds);
+      await fetchData();
+      setSelectedIds([]);
+      alert(`Đã gửi ${count} phiếu lương vào tài khoản nhân viên.`);
+    } catch (error) {
+      console.error('Không thể gửi phiếu lương:', error);
+      alert(error instanceof Error ? error.message : 'Không thể gửi phiếu lương.');
+    } finally {
+      setWorkflowBusy(false);
+    }
   };
 
   const handleSyncAttendance = async () => {
     const scope = selectedCoSo === 'Tất cả cơ sở' ? 'tất cả cơ sở' : selectedCoSo;
     const lockedCount = payrollData.filter(
-      (item) => item.trang_thai === 'Đã duyệt' || item.trang_thai === 'Đã chi trả'
+      (item) => ['Đã duyệt', 'Đã khóa', 'Đã chi trả'].includes(item.trang_thai)
     ).length;
     if (
       !window.confirm(
         `Đồng bộ chấm công tháng ${selectedMonth}/${selectedYear} cho ${scope}?\n\n` +
           'Hệ thống sẽ tính lại ngày công, chuyên cần, tăng ca, xăng xe điện thoại, thâm niên, tiền ăn và hoa hồng.' +
           (lockedCount > 0
-            ? `\n\nCó ${lockedCount} dòng đã duyệt/đã chi trả. Số liệu các dòng này cũng sẽ được đối soát lại, nhưng trạng thái vẫn được giữ nguyên.`
+            ? `\n\nCó ${lockedCount} dòng đã khóa/đã chi trả. Các dòng này sẽ được giữ nguyên.`
             : '')
       )
     ) {
@@ -204,7 +250,7 @@ const PayrollPage: React.FC = () => {
         selectedMonth,
         selectedYear,
         selectedCoSo,
-        { choPhepCapNhatBangLuongDaKhoa: true }
+        undefined
       );
       await fetchData();
 
@@ -234,7 +280,9 @@ const PayrollPage: React.FC = () => {
   };
 
   const handlePayAll = async () => {
-    const targetIds = selectedIds.length > 0 ? selectedIds : payrollData.filter(item => item.trang_thai !== 'Đã chi trả').map(item => item.id);
+    const targetIds = selectedIds.length > 0
+      ? selectedIds
+      : payrollData.filter(item => item.trang_thai === 'Đã khóa').map(item => item.id);
     
     if (targetIds.length === 0) {
       alert('Không có nhân viên nào cần chi trả lương!');
@@ -245,7 +293,7 @@ const PayrollPage: React.FC = () => {
 
     try {
       setIsPaying(true);
-      await updatePayrollStatus(targetIds, 'Đã chi trả');
+      await performPayrollWorkflowAction('pay', targetIds);
       await fetchData();
       setSelectedIds([]);
       alert('Chi trả thành công!');
@@ -281,27 +329,24 @@ const PayrollPage: React.FC = () => {
     }
   };
 
-  const handleNotifyEmployees = () => {
-    alert('Hệ thống đang chuẩn bị gửi thông báo bảng lương cho toàn bộ nhân viên qua ứng dụng Mobile/Zalo...');
-    setTimeout(() => alert('Đã gửi thông báo thành công cho các nhân viên có dữ liệu lương!'), 1500);
-  };
-
   const handleApproveSelected = async () => {
-    const targetIds = selectedIds.length > 0 ? selectedIds : payrollData.filter(item => item.trang_thai === 'Chờ duyệt').map(item => item.id);
+    const targetIds = selectedIds.length > 0
+      ? selectedIds
+      : payrollData.filter(item => item.trang_thai === 'Đã xác nhận').map(item => item.id);
     
     if (targetIds.length === 0) {
-      alert('Không có nhân viên nào ở trạng thái Chờ duyệt!');
+      alert('Không có phiếu nào đã được nhân viên xác nhận để khóa.');
       return;
     }
     
-    if (!window.confirm(`Xác nhận phê duyệt (Khóa) bảng lương cho ${targetIds.length} nhân viên?`)) return;
+    if (!window.confirm(`Khóa ${targetIds.length} phiếu lương đã được nhân viên xác nhận?`)) return;
 
     try {
       setLoading(true);
-      await updatePayrollStatus(targetIds, 'Đã duyệt');
+      await performPayrollWorkflowAction('lock', targetIds);
       await fetchData();
       setSelectedIds([]);
-      alert('Phê duyệt thành công! Bảng lương đã được xác nhận.');
+      alert('Đã khóa phiếu lương thành công.');
     } catch (error) {
        console.error(error);
        alert('Có lỗi xảy ra khi phê duyệt.');
@@ -398,6 +443,110 @@ const PayrollPage: React.FC = () => {
     setPayrollSlipItem(item);
   };
 
+  const openPayrollSlip = useCallback(async (item: BangLuong) => {
+    setPayrollSlipItem(item);
+    if (isAdmin || viewedPayrollIdsRef.current.has(item.id) || item.xem_luc) return;
+    viewedPayrollIdsRef.current.add(item.id);
+    try {
+      await performPayrollWorkflowAction('view', [item.id]);
+      setPayrollData((current) => current.map((row) =>
+        row.id === item.id ? { ...row, xem_luc: new Date().toISOString() } : row
+      ));
+    } catch (error) {
+      console.error('Không thể ghi nhận thời gian xem phiếu:', error);
+    }
+  }, [isAdmin]);
+
+  useEffect(() => {
+    if (loading) return;
+    const requestedId = searchParams.get('phieu');
+    if (!requestedId) return;
+    const requested = payrollData.find((item) => item.id === requestedId);
+    if (requested) {
+      const timer = window.setTimeout(() => void openPayrollSlip(requested), 0);
+      return () => window.clearTimeout(timer);
+    }
+  }, [loading, openPayrollSlip, payrollData, searchParams]);
+
+  const handleEmployeeConfirm = async (item: BangLuong) => {
+    if (!window.confirm(`Xác nhận phiếu lương tháng ${item.thang}/${item.nam} là chính xác?`)) return;
+    try {
+      setWorkflowBusy(true);
+      await performPayrollWorkflowAction('confirm', [item.id]);
+      await fetchData();
+      alert('Đã xác nhận phiếu lương.');
+    } catch (error) {
+      console.error(error);
+      alert(error instanceof Error ? error.message : 'Không thể xác nhận phiếu lương.');
+    } finally {
+      setWorkflowBusy(false);
+    }
+  };
+
+  const submitEmployeeFeedback = async () => {
+    if (!feedbackTarget || feedbackContent.trim().length < 3) return;
+    try {
+      setWorkflowBusy(true);
+      await performPayrollWorkflowAction('feedback', [feedbackTarget.id], feedbackContent);
+      setFeedbackTarget(null);
+      setFeedbackContent('');
+      await fetchData();
+      alert('Phản hồi đã được gửi tới quản lý.');
+    } catch (error) {
+      console.error(error);
+      alert(error instanceof Error ? error.message : 'Không thể gửi phản hồi.');
+    } finally {
+      setWorkflowBusy(false);
+    }
+  };
+
+  const beginUnlock = () => {
+    const ids = selectedIds.length > 0
+      ? selectedIds
+      : payrollData.filter((item) => item.trang_thai === 'Đã khóa').map((item) => item.id);
+    if (ids.length === 0) {
+      alert('Chưa chọn phiếu đang ở trạng thái Đã khóa.');
+      return;
+    }
+    setUnlockIds(ids);
+    setUnlockReason('');
+  };
+
+  const submitUnlock = async () => {
+    if (unlockIds.length === 0 || unlockReason.trim().length < 3) return;
+    try {
+      setWorkflowBusy(true);
+      await performPayrollWorkflowAction('unlock', unlockIds, unlockReason);
+      setUnlockIds([]);
+      setUnlockReason('');
+      setSelectedIds([]);
+      await fetchData();
+      alert('Đã mở khóa. Mọi chỉnh sửa tiếp theo phải được gửi lại cho nhân viên xác nhận.');
+    } catch (error) {
+      console.error(error);
+      alert(error instanceof Error ? error.message : 'Không thể mở khóa phiếu lương.');
+    } finally {
+      setWorkflowBusy(false);
+    }
+  };
+
+  const openHistory = async () => {
+    const ids = selectedIds.length > 0 ? selectedIds : payrollData.map((item) => item.id);
+    if (ids.length === 0) return;
+    setHistoryLoading(true);
+    setHistoryEntries([]);
+    setShowMoreMenu(false);
+    try {
+      setHistoryEntries(await getPayrollHistory(ids));
+    } catch (error) {
+      console.error(error);
+      alert('Không thể tải lịch sử phiếu lương.');
+      setHistoryEntries(null);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
   const handleAdvancedFilter = () => {
     alert('Tính năng lọc nâng cao (Theo bộ phận, cấp bậc, thời gian) đang được đồng bộ dữ liệu!');
   };
@@ -415,8 +564,9 @@ const PayrollPage: React.FC = () => {
     }
     return true;
   });
+  const feedbackItems = payrollData.filter((item) => item.trang_thai === 'Có phản hồi');
 
-  const isLocked = payrollData.length > 0 && payrollData.every(item => item.trang_thai === 'Đã duyệt' || item.trang_thai === 'Đã chi trả');
+  const isLocked = payrollData.length > 0 && payrollData.every(item => ['Đã duyệt', 'Đã khóa', 'Đã chi trả'].includes(item.trang_thai));
 
   const handleLockBatch = async () => {
     if (isLocked) {
@@ -424,19 +574,19 @@ const PayrollPage: React.FC = () => {
       return;
     }
     
-    const pendingItems = payrollData.filter(item => item.trang_thai === 'Chờ duyệt');
+    const pendingItems = payrollData.filter(item => item.trang_thai === 'Đã xác nhận');
     if (pendingItems.length === 0) {
-      alert('Tất cả nhân viên đã được duyệt hoặc chi trả!');
+      alert('Chỉ phiếu đã được nhân viên xác nhận mới có thể khóa.');
       return;
     }
 
-    if (!window.confirm(`Xác nhận KHÓA bảng lương? Thao tác này sẽ tự động PHÊ DUYỆT cho ${pendingItems.length} nhân sự còn lại.`)) return;
+    if (!window.confirm(`Khóa ${pendingItems.length} phiếu đã được nhân viên xác nhận?`)) return;
 
     try {
       setLoading(true);
-      await updatePayrollStatus(pendingItems.map(i => i.id), 'Đã duyệt');
+      await performPayrollWorkflowAction('lock', pendingItems.map(i => i.id));
       await fetchData();
-      alert('Đã khóa và phê duyệt bảng lương thành công!');
+      alert('Đã khóa bảng lương thành công!');
     } catch (error) {
        console.error(error);
        alert('Có lỗi xảy ra khi khóa bảng lương.');
@@ -470,18 +620,20 @@ const PayrollPage: React.FC = () => {
                    />
                 </div>
               </h1>
-              <button 
-                onClick={handleLockBatch}
-                className={clsx(
-                  "px-2.5 py-1 border text-[10px] font-black uppercase rounded-full flex items-center gap-1.5 transition-all shadow-sm",
-                  isLocked 
-                    ? "bg-emerald-50 border-emerald-200 text-emerald-600" 
-                    : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-amber-50 hover:border-amber-200 hover:text-amber-600"
-                )}
-              >
-                {isLocked ? <CheckCircle2 size={10} /> : <Calendar size={10} />}
-                {isLocked ? 'Đã khóa' : 'Chưa khóa'}
-              </button>
+              {isAdmin && (
+                <button
+                  onClick={handleLockBatch}
+                  className={clsx(
+                    "px-2.5 py-1 border text-[10px] font-black uppercase rounded-full flex items-center gap-1.5 transition-all shadow-sm",
+                    isLocked
+                      ? "bg-emerald-50 border-emerald-200 text-emerald-600"
+                      : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-amber-50 hover:border-amber-200 hover:text-amber-600"
+                  )}
+                >
+                  {isLocked ? <CheckCircle2 size={10} /> : <Calendar size={10} />}
+                  {isLocked ? 'Đã khóa' : 'Chưa khóa'}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -526,19 +678,31 @@ const PayrollPage: React.FC = () => {
             </button>
           )}
           {isAdmin && (
-            <button onClick={handleSendSlip} className="hidden sm:flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-lg font-bold text-sm text-slate-600 hover:bg-slate-50 transition-all shadow-sm">
+            <button disabled={workflowBusy} onClick={handleSendSlip} className="flex items-center gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 bg-white border border-slate-200 rounded-lg font-bold text-sm text-slate-600 hover:bg-slate-50 transition-all shadow-sm disabled:opacity-50">
               <Send size={18} />
-              Gửi phiếu lương
+              <span className="hidden sm:inline">Gửi nhân viên kiểm tra</span>
             </button>
           )}
           {isAdmin && (
             <button
-              disabled={loading}
+              disabled={loading || workflowBusy}
               onClick={handleApproveSelected}
               className="flex items-center gap-2 px-2.5 sm:px-4 py-2 sm:py-2.5 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg font-bold text-sm hover:bg-blue-100 transition-all shadow-sm disabled:opacity-50"
             >
               {loading ? <Loader2 size={18} className="animate-spin" /> : <CheckCircle2 size={18} />}
-              <span className="hidden sm:inline">Duyệt lương</span>
+              <span className="hidden sm:inline">Khóa lương</span>
+            </button>
+          )}
+          {isAdmin && (
+            <button
+              type="button"
+              disabled={workflowBusy}
+              onClick={beginUnlock}
+              className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 text-sm font-bold text-amber-700 shadow-sm transition-colors hover:bg-amber-100 disabled:opacity-50 sm:px-4 sm:py-2.5"
+              title="Mở khóa phiếu đã khóa và lưu lý do"
+            >
+              <UnlockKeyhole size={18} />
+              <span className="hidden sm:inline">Mở khóa</span>
             </button>
           )}
           {isAdmin && (
@@ -574,7 +738,7 @@ const PayrollPage: React.FC = () => {
                     Xóa toàn bộ bảng lương
                   </button>
                   <button
-                    onClick={() => { alert('Đã sao chép liên kết bảng lương!'); setShowMoreMenu(false); }}
+                    onClick={() => void openHistory()}
                     className="w-full flex items-center gap-3 p-3 text-slate-600 hover:bg-slate-50 rounded-lg text-sm font-bold transition-all text-left"
                   >
                     <Calendar size={18} />
@@ -585,12 +749,6 @@ const PayrollPage: React.FC = () => {
             </div>
           )}
 
-          <button 
-            onClick={handleNotifyEmployees}
-            className="p-2.5 text-slate-400 hover:text-primary hover:bg-primary/5 rounded-lg transition-all"
-          >
-            <MessageSquare size={20} />
-          </button>
         </div>
       </div>
 
@@ -618,10 +776,8 @@ const PayrollPage: React.FC = () => {
                onChange={(e) => setStatusFilter(e.target.value)}
                className="pl-4 pr-10 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-xs outline-none focus:ring-2 focus:ring-primary/20 appearance-none transition-all shadow-sm"
              >
-               <option>Tất cả trạng thái</option>
-               <option>Chờ duyệt</option>
-               <option>Đã duyệt</option>
-               <option>Đã chi trả</option>
+               <option value="Tất cả">Tất cả trạng thái</option>
+               {PAYROLL_STATUSES.map((status) => <option key={status}>{status}</option>)}
              </select>
              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={14} />
           </div>
@@ -725,6 +881,86 @@ const PayrollPage: React.FC = () => {
         </div>
       </div>
 
+      {isAdmin && feedbackItems.length > 0 && (
+        <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <MessageSquare className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
+            <div className="min-w-0 flex-1">
+              <h2 className="font-black text-amber-950">Phản hồi cần kiểm tra ({feedbackItems.length})</h2>
+              <div className="mt-2 grid gap-2 lg:grid-cols-2">
+                {feedbackItems.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => void openPayrollSlip(item)}
+                    className="rounded-xl border border-amber-200 bg-white p-3 text-left transition-colors hover:bg-amber-50"
+                  >
+                    <p className="text-sm font-bold text-slate-900">
+                      {item.nhan_su?.ho_ten} · tháng {item.thang}/{item.nam}
+                    </p>
+                    <p className="mt-1 line-clamp-2 text-sm text-amber-900">{item.phan_hoi_nhan_vien}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {!isAdmin && filteredData.map((item) => (
+        <section key={`review-${item.id}`} className="rounded-2xl border border-blue-200 bg-linear-to-br from-blue-50 to-white p-4 shadow-sm sm:p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-widest text-blue-600">Phiếu lương của bạn</p>
+              <h2 className="mt-1 text-lg font-black text-slate-900">Tháng {item.thang}/{item.nam}</h2>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                <span className={clsx('rounded-full border px-2.5 py-1 font-bold', payrollStatusClass(item.trang_thai))}>
+                  {item.trang_thai}
+                </span>
+                {item.gui_luc && <span className="text-slate-500">Gửi lúc {formatWorkflowTime(item.gui_luc)}</span>}
+              </div>
+              {item.phan_hoi_nhan_vien && (
+                <p className="mt-3 rounded-lg bg-amber-100 px-3 py-2 text-sm text-amber-900">
+                  Phản hồi đã gửi: {item.phan_hoi_nhan_vien}
+                </p>
+              )}
+            </div>
+            <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:justify-end">
+              <button
+                type="button"
+                onClick={() => void openPayrollSlip(item)}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-2.5 text-sm font-bold text-blue-700 hover:bg-blue-50"
+              >
+                <Printer size={17} /> Xem phiếu lương
+              </button>
+              {item.trang_thai === 'Chờ nhân viên xác nhận' && (
+                <>
+                  <button
+                    type="button"
+                    disabled={workflowBusy}
+                    onClick={() => void handleEmployeeConfirm(item)}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-black text-white hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    <CheckCircle2 size={17} /> Xác nhận đúng
+                  </button>
+                  <button
+                    type="button"
+                    disabled={workflowBusy}
+                    onClick={() => {
+                      setFeedbackTarget(item);
+                      setFeedbackContent('');
+                    }}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-black text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+                  >
+                    <MessageSquare size={17} /> Gửi phản hồi
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </section>
+      ))}
+
       <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm overflow-hidden relative">
         {/* Desktop Table */}
         <div className="hidden md:block overflow-x-auto">
@@ -802,9 +1038,11 @@ const PayrollPage: React.FC = () => {
                           </div>
                           <p className="text-slate-500 font-bold text-lg tracking-tight">Không tìm thấy dữ liệu phù hợp</p>
                           <p className="text-slate-400 text-sm italic mt-1">Vui lòng kiểm tra lại bộ lọc hoặc kỳ lương</p>
-                          <button onClick={() => setShowAddEmployee(true)} className="mt-6 flex items-center gap-2 px-6 py-2.5 bg-primary/10 text-primary font-black rounded-xl hover:bg-primary/20 transition-all uppercase text-[11px] tracking-widest">
-                            <Plus size={16} /> Khởi tạo bảng lương
-                          </button>
+                          {isAdmin && (
+                            <button onClick={() => setShowAddEmployee(true)} className="mt-6 flex items-center gap-2 px-6 py-2.5 bg-primary/10 text-primary font-black rounded-xl hover:bg-primary/20 transition-all uppercase text-[11px] tracking-widest">
+                              <Plus size={16} /> Khởi tạo bảng lương
+                            </button>
+                          )}
                        </div>
                     </td>
                  </tr>
@@ -918,27 +1156,14 @@ const PayrollPage: React.FC = () => {
                         <div className="flex flex-col items-end">
                           <p className="text-sm font-black text-emerald-700">{formatCurrency(item.thuc_linh)}</p>
                           <div className="flex items-center gap-1 mt-1">
-                            {item.trang_thai === 'Đã chi trả' ? (
-                              <>
-                                <span className="text-[10px] font-black text-emerald-500 uppercase">Đã trả</span>
-                                <CheckCircle2 size={10} className="text-emerald-500" />
-                              </>
-                            ) : item.trang_thai === 'Đã duyệt' ? (
-                              <>
-                                <span className="text-[10px] font-black text-blue-500 uppercase">Đã duyệt</span>
-                                <CheckCircle2 size={10} className="text-blue-500" />
-                              </>
-                            ) : (
-                              <>
-                                <span className="text-[10px] font-black text-amber-500 uppercase">Chờ duyệt</span>
-                                <AlertCircle size={10} className="text-amber-500" />
-                              </>
-                            )}
+                            <span className={clsx('rounded-full border px-2 py-0.5 text-[9px] font-black uppercase', payrollStatusClass(item.trang_thai))}>
+                              {item.trang_thai}
+                            </span>
                           </div>
                         </div>
                         <button
                           type="button"
-                          onClick={() => setPayrollSlipItem(item)}
+                          onClick={() => void openPayrollSlip(item)}
                           title={`Xem và in phiếu lương ${item.nhan_su?.ho_ten || ''}`}
                           className="p-2 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
                         >
@@ -966,9 +1191,11 @@ const PayrollPage: React.FC = () => {
                 <User size={32} className="text-slate-300" />
               </div>
               <p className="text-slate-500 font-bold">Không có dữ liệu</p>
-              <button onClick={() => setShowAddEmployee(true)} className="mt-4 flex items-center gap-2 px-5 py-2 bg-primary/10 text-primary font-black rounded-xl text-[11px] uppercase tracking-widest mx-auto">
-                <Plus size={14} /> Khởi tạo bảng lương
-              </button>
+              {isAdmin && (
+                <button onClick={() => setShowAddEmployee(true)} className="mt-4 flex items-center gap-2 px-5 py-2 bg-primary/10 text-primary font-black rounded-xl text-[11px] uppercase tracking-widest mx-auto">
+                  <Plus size={14} /> Khởi tạo bảng lương
+                </button>
+              )}
             </div>
           ) : (
             <div className="divide-y divide-slate-100">
@@ -998,9 +1225,7 @@ const PayrollPage: React.FC = () => {
                       <span className="text-[14px] font-black text-slate-900 truncate">{item.nhan_su?.ho_ten}</span>
                       <span className={clsx(
                         "text-[10px] font-black uppercase px-1.5 py-0.5 rounded shrink-0 ml-2",
-                        item.trang_thai === 'Đã chi trả' ? "bg-emerald-50 text-emerald-600" :
-                        item.trang_thai === 'Đã duyệt' ? "bg-blue-50 text-blue-600" :
-                        "bg-amber-50 text-amber-600"
+                        payrollStatusClass(item.trang_thai)
                       )}>{item.trang_thai}</span>
                     </div>
                     <p className="text-[11px] text-slate-400 font-bold mb-2">{item.co_so} · {item.nhan_su?.vi_tri}</p>
@@ -1042,7 +1267,7 @@ const PayrollPage: React.FC = () => {
                       type="button"
                       onClick={(event) => {
                         event.stopPropagation();
-                        setPayrollSlipItem(item);
+                        void openPayrollSlip(item);
                       }}
                       className="mt-3 w-full flex items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-black uppercase tracking-wide text-emerald-700"
                     >
@@ -1089,8 +1314,144 @@ const PayrollPage: React.FC = () => {
           onClose={() => setPayrollSlipItem(null)}
         />
       )}
+      {feedbackTarget && (
+        <div className="fixed inset-0 z-[100001] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl sm:p-6" role="dialog" aria-modal="true" aria-labelledby="feedback-title">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 id="feedback-title" className="text-lg font-black text-slate-900">Gửi phản hồi phiếu lương</h2>
+                <p className="mt-1 text-sm text-slate-500">Nội dung sẽ được lưu và gửi thông báo tới quản lý.</p>
+              </div>
+              <button type="button" onClick={() => setFeedbackTarget(null)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100" aria-label="Đóng">
+                <X size={18} />
+              </button>
+            </div>
+            <textarea
+              autoFocus
+              rows={5}
+              value={feedbackContent}
+              onChange={(event) => setFeedbackContent(event.target.value)}
+              placeholder="Ví dụ: Vui lòng kiểm tra lại doanh số đơn BH-..."
+              className="mt-4 w-full resize-y rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+            />
+            <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button type="button" onClick={() => setFeedbackTarget(null)} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-600">Hủy</button>
+              <button
+                type="button"
+                disabled={workflowBusy || feedbackContent.trim().length < 3}
+                onClick={() => void submitEmployeeFeedback()}
+                className="rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-black text-white disabled:opacity-50"
+              >
+                Gửi phản hồi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {unlockIds.length > 0 && (
+        <div className="fixed inset-0 z-[100001] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl sm:p-6" role="dialog" aria-modal="true" aria-labelledby="unlock-title">
+            <div className="flex items-start gap-3">
+              <div className="rounded-xl bg-amber-100 p-2.5 text-amber-700"><UnlockKeyhole size={21} /></div>
+              <div>
+                <h2 id="unlock-title" className="text-lg font-black text-slate-900">Mở khóa {unlockIds.length} phiếu lương</h2>
+                <p className="mt-1 text-sm text-slate-500">Sau khi sửa, phiếu phải được gửi lại và nhân viên xác nhận lại.</p>
+              </div>
+            </div>
+            <label className="mt-4 block text-sm font-bold text-slate-700" htmlFor="unlock-reason">Lý do mở khóa</label>
+            <textarea
+              id="unlock-reason"
+              autoFocus
+              rows={4}
+              value={unlockReason}
+              onChange={(event) => setUnlockReason(event.target.value)}
+              placeholder="Nhập nội dung cần điều chỉnh..."
+              className="mt-2 w-full resize-y rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-100"
+            />
+            <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button type="button" onClick={() => setUnlockIds([])} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-600">Hủy</button>
+              <button
+                type="button"
+                disabled={workflowBusy || unlockReason.trim().length < 3}
+                onClick={() => void submitUnlock()}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-black text-white disabled:opacity-50"
+              >
+                <UnlockKeyhole size={17} /> Xác nhận mở khóa
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {historyEntries !== null && (
+        <div className="fixed inset-0 z-[100001] flex items-center justify-center bg-slate-950/60 p-3 backdrop-blur-sm sm:p-6">
+          <div className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="history-title">
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 sm:px-6">
+              <div className="flex items-center gap-2">
+                <LockKeyhole className="text-primary" size={20} />
+                <h2 id="history-title" className="font-black text-slate-900">Lịch sử phiếu lương</h2>
+              </div>
+              <button type="button" onClick={() => setHistoryEntries(null)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100" aria-label="Đóng"><X size={18} /></button>
+            </div>
+            <div className="overflow-y-auto p-4 sm:p-6">
+              {historyLoading ? (
+                <div className="flex min-h-40 items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>
+              ) : historyEntries?.length ? (
+                <div className="space-y-3">
+                  {historyEntries.map((entry) => (
+                    <article key={entry.id} className="rounded-xl border border-slate-200 p-3 sm:p-4">
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="text-sm font-black text-slate-900">{payrollHistoryActionLabel(entry.hanh_dong)}</p>
+                        <time className="text-xs text-slate-500">{formatWorkflowTime(entry.created_at)}</time>
+                      </div>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Người thao tác: {entry.nguoi_thao_tac?.ho_ten || 'Hệ thống'}
+                        {entry.trang_thai_truoc !== entry.trang_thai_sau ? ` · ${entry.trang_thai_truoc || '—'} → ${entry.trang_thai_sau || '—'}` : ''}
+                      </p>
+                      {entry.noi_dung && <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">{entry.noi_dung}</p>}
+                      {entry.ly_do && <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">Lý do: {entry.ly_do}</p>}
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className="py-10 text-center text-sm text-slate-500">Chưa có lịch sử thao tác.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
+function formatWorkflowTime(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? '—'
+    : new Intl.DateTimeFormat('vi-VN', {
+        hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric',
+      }).format(date);
+}
+
+function payrollStatusClass(status: string): string {
+  if (status === 'Đã chi trả' || status === 'Đã xác nhận') return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+  if (status === 'Đã khóa') return 'border-blue-200 bg-blue-50 text-blue-700';
+  if (status === 'Có phản hồi') return 'border-amber-300 bg-amber-100 text-amber-800';
+  if (status === 'Chờ nhân viên xác nhận') return 'border-violet-200 bg-violet-50 text-violet-700';
+  return 'border-slate-200 bg-slate-50 text-slate-600';
+}
+
+function payrollHistoryActionLabel(action: string): string {
+  const labels: Record<string, string> = {
+    salary_updated: 'Đã sửa số liệu lương',
+    sent: 'Đã gửi nhân viên kiểm tra',
+    viewed: 'Nhân viên đã xem',
+    feedback: 'Nhân viên gửi phản hồi',
+    confirmed: 'Nhân viên xác nhận đúng',
+    locked: 'Đã khóa phiếu lương',
+    unlocked: 'Đã mở khóa phiếu lương',
+    paid: 'Đã ghi nhận chi trả',
+  };
+  return labels[action] || action;
+}
 
 export default PayrollPage;

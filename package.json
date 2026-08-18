@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "prebuild": "pnpm security:zalo",
+    "prebuild": "npm run security:zalo",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",

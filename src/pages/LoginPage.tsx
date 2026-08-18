@@ -13,6 +13,8 @@ interface PhoneLoginResult {
   email: string | null;
   sdt: string | null;
   auth_user_id: string | null;
+  session_token?: string;
+  session_expires_at?: string;
 }
 
 const normalizePhone = (value: string) => value.replace(/\D/g, '');
@@ -92,7 +94,11 @@ const LoginPage: React.FC = () => {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('reason') === 'account_deleted') {
-      setError('Tài khoản đã bị xóa hoặc vô hiệu hóa. Vui lòng liên hệ quản trị viên.');
+      const timer = window.setTimeout(
+        () => setError('Tài khoản đã bị xóa hoặc vô hiệu hóa. Vui lòng liên hệ quản trị viên.'),
+        0
+      );
+      return () => window.clearTimeout(timer);
     }
   }, []);
 
@@ -133,7 +139,7 @@ const LoginPage: React.FC = () => {
         return;
       }
 
-      persistLogin(matchedUser as NhanVien);
+      persistLogin(matchedUser as NhanVien, matchedUser.session_token);
       const homePath = getLoginRedirectPath(
         matchedUser.vi_tri,
         /quản trị|admin|chủ cửa|quản lý/i.test(matchedUser.vi_tri),

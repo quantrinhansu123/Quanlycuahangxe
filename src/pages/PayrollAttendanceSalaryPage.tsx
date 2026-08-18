@@ -819,7 +819,6 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
         donGiaTienAnTheoKy: normalizedNormal,
         donGiaTienAnTangCaTheoKy: normalizedOvertime,
         ghiDeDonGiaTienAnDaChot: true,
-        choPhepCapNhatTienAnKhiDaKhoa: true,
         chiCapNhatTienAn: true,
       });
       setRows(rowsRecalculatedByCount);
@@ -869,7 +868,6 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
             donGiaTienAnTheoKy: savedNormalValue,
             donGiaTienAnTangCaTheoKy: savedOvertimeValue,
             ghiDeDonGiaTienAnDaChot: true,
-            choPhepCapNhatTienAnKhiDaKhoa: true,
             chiCapNhatTienAn: true,
           });
         }
@@ -1006,16 +1004,13 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
         rows,
         donGiaTienAnTheoKy: donGiaTienAnKy,
         donGiaTienAnTangCaTheoKy: donGiaTienAnTangCaKy,
-        // Đây là thao tác chỉnh sửa chủ động của admin. Cho phép cập nhật số
-        // liệu của dòng đã duyệt/đã chi trả nhưng giữ nguyên trạng thái khóa.
-        choPhepCapNhatBangLuongDaKhoa: true,
       });
       setKyDaLuu(true);
       setSaveNotice(
         result.skippedLockedCount > 0
           ? {
               kind: 'warning',
-              text: `Đã lưu ${result.syncedCount} nhân sự; bỏ qua ${result.skippedLockedCount} dòng đã duyệt/đã chi trả.`,
+              text: `Đã lưu ${result.syncedCount} nhân sự; bỏ qua ${result.skippedLockedCount} dòng đã khóa/đã chi trả. Hãy mở khóa có lý do trước khi sửa.`,
             }
           : {
               kind: 'success',

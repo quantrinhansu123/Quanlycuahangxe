@@ -2,6 +2,7 @@ import type { NhanVien } from '../context/AuthContext';
 
 export const AUTH_NHAN_VIEN_KEY = 'local_nhan_vien';
 export const AUTH_DEMO_ROLE_KEY = 'demo_role';
+export const AUTH_SESSION_TOKEN_KEY = 'app_session_token';
 
 function parseNhanVien(raw: string): NhanVien | null {
   try {
@@ -41,6 +42,16 @@ export function setStoredNhanVien(nhanVien: NhanVien | Record<string, unknown>):
   localStorage.setItem(AUTH_NHAN_VIEN_KEY, json);
 }
 
+export function getStoredSessionToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(AUTH_SESSION_TOKEN_KEY) || sessionStorage.getItem(AUTH_SESSION_TOKEN_KEY);
+}
+
+export function setStoredSessionToken(token: string): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(AUTH_SESSION_TOKEN_KEY, token);
+}
+
 export function getStoredDemoRole(): string | null {
   if (typeof window === 'undefined') return null;
   return localStorage.getItem(AUTH_DEMO_ROLE_KEY) || sessionStorage.getItem(AUTH_DEMO_ROLE_KEY);
@@ -50,6 +61,8 @@ export function clearStoredAuth(): void {
   if (typeof window === 'undefined') return;
   localStorage.removeItem(AUTH_NHAN_VIEN_KEY);
   localStorage.removeItem(AUTH_DEMO_ROLE_KEY);
+  localStorage.removeItem(AUTH_SESSION_TOKEN_KEY);
   sessionStorage.removeItem(AUTH_NHAN_VIEN_KEY);
   sessionStorage.removeItem(AUTH_DEMO_ROLE_KEY);
+  sessionStorage.removeItem(AUTH_SESSION_TOKEN_KEY);
 }

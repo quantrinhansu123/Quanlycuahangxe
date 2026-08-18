@@ -27,11 +27,8 @@ const PersonnelRevenueOrdersModal: React.FC<PersonnelRevenueOrdersModalProps> = 
   const navigate = useNavigate();
   if (!isOpen) return null;
 
-  const tongDoanhSo = orders.reduce((s, o) => s + o.phan_bo, 0);
-  const tongNeuChiaDeu = orders.reduce(
-    (sum, order) => sum + order.tong_tien_don / Math.max(1, order.so_nhan_vien),
-    0
-  );
+  const tongChuaChia = orders.reduce((sum, order) => sum + order.tong_tien_don, 0);
+  const tongSauChia = orders.reduce((sum, order) => sum + order.phan_bo, 0);
   const suspiciousCount = orders.filter((order) => order.duplicate_order_ids.length > 0).length;
 
   const openOrder = (orderId: string) => {
@@ -68,12 +65,12 @@ const PersonnelRevenueOrdersModal: React.FC<PersonnelRevenueOrdersModalProps> = 
             <span className="font-semibold tabular-nums">{orders.length}</span>
           </span>
           <span>
-            <span className="text-muted-foreground">Đang ghi nhận (chưa chia): </span>
-            <span className="font-bold text-primary tabular-nums">{formatVnd(tongDoanhSo)}</span>
+            <span className="text-muted-foreground">Tổng doanh số chưa chia: </span>
+            <span className="font-bold text-slate-900 tabular-nums">{formatVnd(tongChuaChia)}</span>
           </span>
           <span>
-            <span className="text-muted-foreground">Nếu chia đều theo số người: </span>
-            <span className="font-bold text-emerald-700 tabular-nums">{formatVnd(Math.round(tongNeuChiaDeu))}</span>
+            <span className="text-muted-foreground">Doanh số sau chia: </span>
+            <span className="font-bold text-emerald-700 tabular-nums">{formatVnd(tongSauChia)}</span>
           </span>
           {suspiciousCount > 0 && (
             <span className="inline-flex items-center gap-1 font-semibold text-amber-700">
@@ -105,8 +102,8 @@ const PersonnelRevenueOrdersModal: React.FC<PersonnelRevenueOrdersModalProps> = 
                   <th className="py-2 pr-2 font-semibold whitespace-nowrap">Ngày / giờ</th>
                   <th className="py-2 pr-2 font-semibold">Khách hàng</th>
                   <th className="py-2 pr-2 font-semibold text-right whitespace-nowrap">Tổng tiền đơn</th>
-                  <th className="py-2 pr-2 font-semibold text-right whitespace-nowrap">Hiện ghi nhận</th>
-                  <th className="py-2 pr-2 font-semibold text-right whitespace-nowrap">Nếu chia đều</th>
+                  <th className="py-2 pr-2 font-semibold text-center whitespace-nowrap">Số người</th>
+                  <th className="py-2 pr-2 font-semibold text-right whitespace-nowrap">Phần được hưởng</th>
                   <th className="py-2 pr-2 font-semibold">Người phụ trách</th>
                   <th className="py-2 font-semibold whitespace-nowrap">Kiểm tra</th>
                 </tr>
@@ -134,11 +131,11 @@ const PersonnelRevenueOrdersModal: React.FC<PersonnelRevenueOrdersModalProps> = 
                     <td className="py-2.5 pr-2 text-right font-mono whitespace-nowrap">
                       {formatVnd(o.tong_tien_don)}
                     </td>
-                    <td className="py-2.5 pr-2 text-right font-mono font-semibold text-primary whitespace-nowrap">
-                      {formatVnd(o.phan_bo)}
+                    <td className="py-2.5 pr-2 text-center font-mono font-semibold text-slate-700 whitespace-nowrap">
+                      {o.so_nhan_vien}
                     </td>
                     <td className="py-2.5 pr-2 text-right font-mono font-semibold text-emerald-700 whitespace-nowrap">
-                      {formatVnd(Math.round(o.tong_tien_don / Math.max(1, o.so_nhan_vien)))}
+                      {formatVnd(o.phan_bo)}
                     </td>
                     <td className="py-2.5 pr-2 text-xs text-muted-foreground min-w-[12rem] max-w-[18rem]" title={o.phu_trach}>
                       <div className="flex items-start gap-1.5">

@@ -14,7 +14,7 @@ const MainLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [globalSearch, setGlobalSearch] = useState('');
   const location = useLocation();
-  const { hasViewAccess } = useAuth();
+  const { hasViewAccess, isAdmin } = useAuth();
 
   // Pages that focus on heavy data (management tables)
   // Hide sidebar/bottom nav to give maximum space
@@ -28,15 +28,19 @@ const MainLayout: React.FC = () => {
     const items = moduleData[`/${location.pathname.split('/')[1]}`]?.flatMap(s => s.items) || [];
     return items.filter((i) => {
       if (i.showInTopbar === false) return false;
+      if (!isAdmin && location.pathname.startsWith('/tien-luong') && i.path !== '/tien-luong/bang-luong') {
+        return false;
+      }
       const viewKey = resolveViewKeyByPath(i.path);
       return !viewKey || hasViewAccess(viewKey);
     });
-  }, [location.pathname, hasViewAccess]);
+  }, [location.pathname, hasViewAccess, isAdmin]);
 
   // Auto-close sidebar on mobile when navigating
   React.useEffect(() => {
     if (window.innerWidth < 1024 && sidebarOpen) {
-      setSidebarOpen(false);
+      const timer = window.setTimeout(() => setSidebarOpen(false), 0);
+      return () => window.clearTimeout(timer);
     }
   }, [location.pathname, sidebarOpen]);
 
@@ -92,4 +96,3 @@ const MainLayout: React.FC = () => {
 };
 
 export default MainLayout;
-

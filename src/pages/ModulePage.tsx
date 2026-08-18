@@ -10,12 +10,12 @@ import { resolveViewKeyByPath } from '../data/viewPermissions';
 
 const ModulePage: React.FC = () => {
   const { globalSearch, setGlobalSearch } = useOutletContext<{ globalSearch: string; setGlobalSearch: (val: string) => void }>() || { globalSearch: '', setGlobalSearch: () => {} };
-  const { hasViewAccess } = useAuth();
+  const { hasViewAccess, isAdmin } = useAuth();
   const location = useLocation();
   // Extract the base module path (e.g., "/ban-hang") correctly even for sub-routes
   const baseModulePath = `/${location.pathname.split('/')[1]}`;
   const currentItem = sidebarMenu.find(item => item.path === baseModulePath);
-  const data = moduleData[baseModulePath] || [];
+  const data = React.useMemo(() => moduleData[baseModulePath] || [], [baseModulePath]);
   const navigate = useNavigate();
 
   const visibleData = React.useMemo(
@@ -24,15 +24,21 @@ const ModulePage: React.FC = () => {
         .map((section) => ({
           ...section,
           items: section.items.filter((item) => {
+            if (!isAdmin && baseModulePath === '/tien-luong' && item.path !== '/tien-luong/bang-luong') {
+              return false;
+            }
             const viewKey = resolveViewKeyByPath(item.path);
             return !viewKey || hasViewAccess(viewKey);
           }),
         }))
         .filter((section) => section.items.length > 0),
-    [data, hasViewAccess, resolveViewKeyByPath]
+    [baseModulePath, data, hasViewAccess, isAdmin]
   );
 
-  const subModules = visibleData.length > 0 ? visibleData[0].items : [];
+  const subModules = React.useMemo(
+    () => (visibleData.length > 0 ? visibleData[0].items : []),
+    [visibleData]
+  );
 
   // Smart Redirection for Mobile: nhảy thẳng trang con cho các module (gọn hơn), trừ Bán hàng — cần
   // giữ màn hình 2 thẻ (phiếu / khách) thay vì ép vào phiếu bán hàng.

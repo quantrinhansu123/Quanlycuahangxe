@@ -555,6 +555,9 @@ export interface PayrollRevenueOrderRow {
 }
 
 export interface PayrollRevenueData {
+  /** Tổng nguyên giá trị các đơn có tên nhân viên, trước khi chia. */
+  grossTotals: Map<string, number>;
+  /** Tổng phần doanh số nhân viên thực nhận sau khi chia theo người phụ trách. */
   totals: Map<string, number>;
   ordersByStaff: Map<string, PayrollRevenueOrderRow[]>;
 }
@@ -573,12 +576,13 @@ function pushPayrollOrder(
 }
 
 /**
- * Gom doanh số + chi tiết đơn theo Phụ trách, cùng quy tắc với bộ lọc nhân viên
- * ở trang Phiếu bán hàng: mỗi nhân viên được ghi nhận toàn bộ giá trị của đơn
- * mà họ cùng phụ trách. Ưu tiên tổng chi tiết đơn; fallback tong_tien.
+ * Gom doanh số + chi tiết đơn theo Phụ trách. Mỗi đơn được chia đều cho danh
+ * sách nhân viên duy nhất sau khi chuẩn hóa tên/mã; tên lặp chỉ tính một lần.
+ * Ưu tiên tổng chi tiết đơn; fallback tong_tien.
  */
 export async function loadPayrollRevenueData(nam: number, thang: number): Promise<PayrollRevenueData> {
   const { start: startDate, end: endDate } = khoangNgayCuaThangReport(nam, thang);
+  const grossTotals = new Map<string, number>();
   const totals = new Map<string, number>();
   const ordersByStaff = new Map<string, PayrollRevenueOrderRow[]>();
 
@@ -591,26 +595,31 @@ export async function loadPayrollRevenueData(nam: number, thang: number): Promis
       let staffList = staff[i % staff.length];
       if (i % 5 === 0) staffList += `, ${staff[(i + 1) % staff.length]}`;
       const amount = 500_000 + i * 10_000;
-      const parts = staffList.split(',').map((s) => s.trim()).filter(Boolean);
+      const parts = Array.from(
+        new Set(staffList.split(',').map((s) => chuanHoaTenTheoDon(s)).filter(Boolean))
+      );
+      const allocatedAmount = amount / parts.length;
       const orderRow: PayrollRevenueOrderRow = {
         id_bh: `BH-${100 + i}`,
         ngay: d.toISOString().split('T')[0],
         gio: '10:00',
         khach_hang: `Khách demo ${i + 1}`,
         tong_tien_don: amount,
-        phan_bo: amount,
+        phan_bo: allocatedAmount,
         so_nhan_vien: parts.length,
         phu_trach: staffList,
         duplicate_order_ids: [],
       };
       for (const n of parts) {
-        pushPayrollOrder(ordersByStaff, totals, chuanHoaTenTheoDon(n), {
+        grossTotals.set(n, (grossTotals.get(n) || 0) + amount);
+        pushPayrollOrder(ordersByStaff, totals, n, {
           ...orderRow,
-          phan_bo: amount,
+          phan_bo: allocatedAmount,
         });
       }
     }
-    return { totals, ordersByStaff };
+    totals.forEach((value, key) => totals.set(key, Math.round(value)));
+    return { grossTotals, totals, ordersByStaff };
   }
 
   const [headers, ctRecords, personnel] = await Promise.all([
@@ -676,8 +685,19 @@ export async function loadPayrollRevenueData(nam: number, thang: number): Promis
     const amount = revenueForOrderHeader(h, orderRevenueMap);
     if (amount <= 0) continue;
 
-    const names = staffRaw.split(',').map((s) => s.trim()).filter(Boolean);
-    if (names.length === 0) continue;
+    // Một tên có thể bị nhập lặp trên cùng đơn. Chuẩn hóa alias trước khi
+    // loại trùng để mỗi nhân viên chỉ được tính đúng một lần.
+    const staffKeys = Array.from(
+      new Set(
+        staffRaw
+          .split(',')
+          .map((name) => resolvePersonnelKey(name, aliases))
+          .filter(Boolean)
+      )
+    );
+    if (staffKeys.length === 0) continue;
+
+    const allocatedAmount = amount / staffKeys.length;
 
     const baseRow: PayrollRevenueOrderRow = {
       id_bh: String(h.id_bh || h.id),
@@ -685,15 +705,15 @@ export async function loadPayrollRevenueData(nam: number, thang: number): Promis
       gio: h.gio,
       khach_hang: (h.ten_khach_hang || '').trim() || '—',
       tong_tien_don: amount,
-      phan_bo: amount,
-      so_nhan_vien: names.length,
+      phan_bo: allocatedAmount,
+      so_nhan_vien: staffKeys.length,
       phu_trach: staffRaw,
       duplicate_order_ids: duplicateCandidates.get(String(h.id_bh || h.id)) ?? [],
     };
 
-    for (const name of names) {
-      const k = resolvePersonnelKey(name, aliases);
-      pushPayrollOrder(ordersByStaff, totals, k, { ...baseRow, phan_bo: amount });
+    for (const staffKey of staffKeys) {
+      grossTotals.set(staffKey, (grossTotals.get(staffKey) || 0) + amount);
+      pushPayrollOrder(ordersByStaff, totals, staffKey, baseRow);
     }
   }
 
@@ -705,7 +725,12 @@ export async function loadPayrollRevenueData(nam: number, thang: number): Promis
     });
   }
 
-  return { totals, ordersByStaff };
+  // Cộng các phần chính xác trước rồi mới làm tròn một lần ở tổng tháng.
+  // Cách này khớp snapshot lương hiện hữu (ví dụ Anh Huân: 26.428.417đ)
+  // và tránh sai vài đồng do làm tròn riêng từng đơn.
+  totals.forEach((value, key) => totals.set(key, Math.round(value)));
+
+  return { grossTotals, totals, ordersByStaff };
 }
 
 /** Gom doanh số theo nhân viên cho bảng lương chấm công. */

@@ -22,7 +22,7 @@ import { getPersonnel } from './personnelData';
 import { loadPayrollRevenueData } from './reportData';
 import { removeVietnameseTones } from '../lib/utils';
 
-const LOCKED_PAYROLL_STATUSES = new Set(['Đã duyệt', 'Đã chi trả']);
+const LOCKED_PAYROLL_STATUSES = new Set(['Đã duyệt', 'Đã khóa', 'Đã chi trả']);
 const DEFAULT_COMMISSION_PERCENT = 2;
 
 export interface PayrollAttendanceSyncResult {
@@ -44,15 +44,8 @@ export interface PayrollAttendanceSyncOptions {
   donGiaTienAnTangCaTheoKy?: number;
   /** Admin chủ động sửa lại đơn giá của chính kỳ đã lưu. */
   ghiDeDonGiaTienAnDaChot?: boolean;
-  /** Cho phép admin sửa riêng đơn giá tiền ăn của kỳ đã duyệt/đã chi trả. */
-  choPhepCapNhatTienAnKhiDaKhoa?: boolean;
   /** Không tính lại các thành phần lương khác và không tạo thêm dòng lương mới. */
   chiCapNhatTienAn?: boolean;
-  /**
-   * Đối soát lại cả dòng đã duyệt/đã chi trả nhưng giữ nguyên trạng thái.
-   * Chỉ dùng cho thao tác thủ công có xác nhận của quản trị viên.
-   */
-  choPhepCapNhatBangLuongDaKhoa?: boolean;
 }
 
 function monthRange(year: number, month: number): { start: string; end: string } {
@@ -98,7 +91,7 @@ function resolveMoneyOverride(
 
 /**
  * Đồng bộ toàn bộ bảng lương từ chấm công, doanh số và các điều chỉnh nhập tay.
- * Những dòng đã duyệt/đã chi trả không bị thay đổi.
+ * Những dòng đã khóa/đã chi trả không bị thay đổi.
  */
 export async function syncPayrollFromAttendance(
   month: number,
@@ -150,12 +143,7 @@ export async function syncPayrollFromAttendance(
     const existing = existingByPersonnelId.get(person.id);
     if (options?.chiCapNhatTienAn && !existing) continue;
     const updateMealPriceOnly = Boolean(existing && options?.chiCapNhatTienAn);
-    if (
-      existing &&
-      LOCKED_PAYROLL_STATUSES.has(existing.trang_thai) &&
-      !options?.choPhepCapNhatTienAnKhiDaKhoa &&
-      !options?.choPhepCapNhatBangLuongDaKhoa
-    ) {
+    if (existing && LOCKED_PAYROLL_STATUSES.has(existing.trang_thai)) {
       skippedLockedCount += 1;
       continue;
     }
@@ -440,7 +428,7 @@ export async function syncPayrollFromAttendance(
         tong_thu_nhap: totalIncome,
         tong_khau_tru: totalDeduction,
         thuc_linh: totalIncome - totalDeduction,
-        trang_thai: existing?.trang_thai ?? 'Chờ duyệt',
+        trang_thai: existing?.trang_thai ?? 'Chưa gửi',
         ghi_chu: monthlyBonusNote || null,
       });
       breakdownByPersonnelId.set(person.id, nextBreakdown);
