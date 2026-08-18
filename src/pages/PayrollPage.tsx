@@ -471,12 +471,13 @@ const PayrollPage: React.FC = () => {
     }
   }, [loading, openPayrollSlip, payrollData, searchParams]);
 
-  const handleEmployeeConfirm = async (item: BangLuong) => {
+  const handleEmployeeConfirm = async (item: BangLuong, closeSlipAfterSuccess = false) => {
     if (!window.confirm(`Xác nhận phiếu lương tháng ${item.thang}/${item.nam} là chính xác?`)) return;
     try {
       setWorkflowBusy(true);
       await performPayrollWorkflowAction('confirm', [item.id]);
       await fetchData();
+      if (closeSlipAfterSuccess) setPayrollSlipItem(null);
       alert('Đã xác nhận phiếu lương.');
     } catch (error) {
       console.error(error);
@@ -484,6 +485,12 @@ const PayrollPage: React.FC = () => {
     } finally {
       setWorkflowBusy(false);
     }
+  };
+
+  const beginEmployeeFeedback = (item: BangLuong, closeSlip = false) => {
+    if (closeSlip) setPayrollSlipItem(null);
+    setFeedbackTarget(item);
+    setFeedbackContent('');
   };
 
   const submitEmployeeFeedback = async () => {
@@ -996,10 +1003,7 @@ const PayrollPage: React.FC = () => {
                   <button
                     type="button"
                     disabled={workflowBusy}
-                    onClick={() => {
-                      setFeedbackTarget(item);
-                      setFeedbackContent('');
-                    }}
+                    onClick={() => beginEmployeeFeedback(item)}
                     className="inline-flex items-center justify-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-black text-amber-800 hover:bg-amber-100 disabled:opacity-50"
                   >
                     <MessageSquare size={17} /> Gửi phản hồi
@@ -1362,6 +1366,10 @@ const PayrollPage: React.FC = () => {
           month={selectedMonth}
           year={selectedYear}
           onClose={() => setPayrollSlipItem(null)}
+          canReview={!isAdmin && payrollSlipItem.trang_thai === 'Chờ nhân viên xác nhận'}
+          submitting={workflowBusy}
+          onConfirm={() => void handleEmployeeConfirm(payrollSlipItem, true)}
+          onFeedback={() => beginEmployeeFeedback(payrollSlipItem, true)}
         />
       )}
       {feedbackTarget && (

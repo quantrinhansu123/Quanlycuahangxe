@@ -159,11 +159,11 @@ const LoginPage: React.FC = () => {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <img src="/logo.png" alt="Logo" className="w-16 h-16 object-contain mb-3" />
-          <h1 className="text-2xl font-extrabold bg-linear-to-r from-[#D4AF37] via-[#FFD700] to-[#B8860B] bg-clip-text text-transparent">
-            Hệ thống VH
+          <img src="/logo.png" alt="Logo Anh Công Nhân" className="w-32 h-32 object-contain mb-3" />
+          <h1 className="px-4 text-center text-2xl font-black text-foreground">
+            Anh Công Nhân
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">Cửa hàng sửa xe</p>
+          <p className="text-sm text-muted-foreground mt-1">Trung tâm sửa chữa xe</p>
         </div>
 
         {/* Form */}

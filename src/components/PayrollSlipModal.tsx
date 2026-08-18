@@ -1,5 +1,14 @@
 import { useEffect } from 'react';
-import { BadgeDollarSign, Building2, CalendarDays, Printer, UserRound, X } from 'lucide-react';
+import {
+  Building2,
+  CalendarDays,
+  CheckCircle2,
+  Loader2,
+  MessageSquare,
+  Printer,
+  UserRound,
+  X,
+} from 'lucide-react';
 import { createPortal } from 'react-dom';
 import type { BangLuong } from '../data/payrollData';
 
@@ -8,6 +17,10 @@ interface PayrollSlipModalProps {
   month: number;
   year: number;
   onClose: () => void;
+  canReview?: boolean;
+  submitting?: boolean;
+  onConfirm?: () => void;
+  onFeedback?: () => void;
 }
 
 const money = (value: unknown): string =>
@@ -21,7 +34,16 @@ const statusClass = (status: string): string => {
   return 'border-amber-200 bg-amber-50 text-amber-700';
 };
 
-const PayrollSlipModal: React.FC<PayrollSlipModalProps> = ({ item, month, year, onClose }) => {
+const PayrollSlipModal: React.FC<PayrollSlipModalProps> = ({
+  item,
+  month,
+  year,
+  onClose,
+  canReview = false,
+  submitting = false,
+  onConfirm,
+  onFeedback,
+}) => {
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -98,7 +120,7 @@ const PayrollSlipModal: React.FC<PayrollSlipModalProps> = ({ item, month, year, 
             border-radius: 0 !important;
             box-shadow: none !important;
           }
-          .payroll-slip-toolbar { display: none !important; }
+          .payroll-slip-toolbar, .payroll-slip-review { display: none !important; }
           .payroll-slip-paper {
             max-width: none !important;
             padding: 0 !important;
@@ -136,22 +158,52 @@ const PayrollSlipModal: React.FC<PayrollSlipModalProps> = ({ item, month, year, 
             </div>
           </div>
 
+          {canReview && onConfirm && onFeedback && (
+            <div className="payroll-slip-review flex shrink-0 flex-col gap-3 border-b border-blue-200 bg-blue-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+              <div>
+                <p className="text-sm font-black text-blue-950">Phiếu lương đang chờ bạn xác nhận</p>
+                <p className="mt-0.5 text-xs text-blue-700">Kiểm tra số liệu và chọn một trong hai phương án dưới đây.</p>
+              </div>
+              <div className="grid grid-cols-1 gap-2 sm:flex sm:shrink-0">
+                <button
+                  type="button"
+                  disabled={submitting}
+                  onClick={onConfirm}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-black text-white shadow-sm hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {submitting ? <Loader2 size={17} className="animate-spin" /> : <CheckCircle2 size={17} />}
+                  Xác nhận phiếu đúng
+                </button>
+                <button
+                  type="button"
+                  disabled={submitting}
+                  onClick={onFeedback}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-amber-300 bg-white px-4 py-2.5 text-sm font-black text-amber-800 shadow-sm hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <MessageSquare size={17} /> Báo nội dung chưa đúng
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="payroll-slip-scroll overflow-auto bg-slate-100 p-3 sm:p-6">
             <article className="payroll-slip-paper mx-auto max-w-[210mm] overflow-hidden rounded-xl bg-white p-5 text-slate-900 shadow-sm sm:p-8">
               <header className="payroll-slip-no-break border-b-2 border-emerald-600 pb-5">
-                <div className="flex items-start justify-between gap-6">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-600 text-white">
-                      <BadgeDollarSign size={27} />
-                    </div>
+                    <img
+                      src="/logo.png"
+                      alt="Logo Anh Công Nhân"
+                      className="h-16 w-16 shrink-0 object-contain"
+                    />
                     <div>
                       <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-700">
-                        Quản lý chuỗi cửa hàng sửa xe
+                        Trung tâm sửa chữa xe Anh Công Nhân
                       </p>
                       <h1 className="mt-0.5 text-2xl font-black tracking-tight text-slate-950">PHIẾU LƯƠNG</h1>
                     </div>
                   </div>
-                  <div className="text-right text-xs text-slate-500">
+                  <div className="text-left text-xs text-slate-500 sm:text-right">
                     <p className="font-bold text-slate-800">Kỳ lương tháng {month}/{year}</p>
                     <p className="mt-1">Mã phiếu: {slipCode}</p>
                     <p>Ngày in: {printedDate}</p>
@@ -283,7 +335,7 @@ const PayrollSlipModal: React.FC<PayrollSlipModalProps> = ({ item, month, year, 
               </section>
 
               <footer className="payroll-slip-no-break border-t border-slate-200 pt-3 text-center text-[9px] text-slate-400">
-                Phiếu được lập từ hệ thống quản lý cửa hàng · Vui lòng kiểm tra thông tin trước khi ký nhận
+                Phiếu được lập từ hệ thống Trung tâm sửa chữa xe Anh Công Nhân · Vui lòng kiểm tra thông tin trước khi ký nhận
               </footer>
             </article>
           </div>

@@ -70,15 +70,15 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({ isOpen, setIsOpen }) => {
           )}>
             <img
               src="/logo.png"
-              alt="Logo"
+              alt="Logo Anh Công Nhân"
               className="w-full h-full object-contain"
             />
           </div>
           <div className={clsx("flex flex-col ml-3 whitespace-nowrap transition-opacity duration-300", !isOpen && "opacity-0 hidden")}>
-            <span className="font-extrabold text-[15px] leading-tight bg-linear-to-r from-[#D4AF37] via-[#FFD700] to-[#B8860B] bg-clip-text text-transparent">
-              Hệ thống VH
+            <span className="font-black text-[14px] leading-tight text-slate-900 dark:text-slate-100">
+              ANH CÔNG NHÂN
             </span>
-            <span className="text-[11px] text-muted-foreground font-medium leading-tight">Cửa hàng sửa xe</span>
+            <span className="text-[10px] text-muted-foreground font-medium leading-tight">Trung tâm sửa chữa xe</span>
           </div>
         </div>
 
