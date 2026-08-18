@@ -3,7 +3,7 @@ import {
   Search, Settings2, Download, Send, BadgeDollarSign, 
   ChevronDown, Filter, Calendar, Building2, CheckCircle2, AlertCircle, Loader2,
   Plus, ArrowLeft, MoreHorizontal, MessageSquare, User, Check, RefreshCcw,
-  Printer, LockKeyhole, UnlockKeyhole, X
+  Printer, LockKeyhole, UnlockKeyhole, Undo2, X
 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getPayrollBatch, bulkCreatePayrollItems, deletePayrollBatch } from '../data/payrollData';
@@ -18,6 +18,7 @@ import { useAuth } from '../context/AuthContext';
 import { syncPayrollFromAttendance } from '../data/payrollAttendanceSyncData';
 import PayrollSlipModal from '../components/PayrollSlipModal';
 import {
+  cancelPayrollPayments,
   getPayrollHistory,
   PAYROLL_STATUSES,
   performPayrollWorkflowAction,
@@ -53,6 +54,8 @@ const PayrollPage: React.FC = () => {
   const [feedbackContent, setFeedbackContent] = useState('');
   const [unlockIds, setUnlockIds] = useState<string[]>([]);
   const [unlockReason, setUnlockReason] = useState('');
+  const [cancelPaymentIds, setCancelPaymentIds] = useState<string[]>([]);
+  const [cancelPaymentReason, setCancelPaymentReason] = useState('');
   const [historyEntries, setHistoryEntries] = useState<PayrollHistoryEntry[] | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [showColConfig, setShowColConfig] = useState(false);
@@ -530,6 +533,41 @@ const PayrollPage: React.FC = () => {
     }
   };
 
+  const beginCancelPayment = () => {
+    if (selectedIds.length === 0) {
+      alert('Hãy chọn ít nhất một phiếu đang ở trạng thái Đã chi trả.');
+      return;
+    }
+    const selectedItems = payrollData.filter((item) => selectedIds.includes(item.id));
+    if (
+      selectedItems.length !== selectedIds.length
+      || selectedItems.some((item) => item.trang_thai !== 'Đã chi trả')
+    ) {
+      alert('Chỉ được chọn các phiếu đang ở trạng thái Đã chi trả.');
+      return;
+    }
+    setCancelPaymentIds(selectedIds);
+    setCancelPaymentReason('');
+  };
+
+  const submitCancelPayment = async () => {
+    if (cancelPaymentIds.length === 0 || cancelPaymentReason.trim().length < 3) return;
+    try {
+      setWorkflowBusy(true);
+      const count = await cancelPayrollPayments(cancelPaymentIds, cancelPaymentReason);
+      setCancelPaymentIds([]);
+      setCancelPaymentReason('');
+      setSelectedIds([]);
+      await fetchData();
+      alert(`Đã hủy ghi nhận chi trả cho ${count} phiếu lương. Phiếu đã trở về trạng thái Đã khóa.`);
+    } catch (error) {
+      console.error(error);
+      alert(error instanceof Error ? error.message : 'Không thể hủy chi trả lương.');
+    } finally {
+      setWorkflowBusy(false);
+    }
+  };
+
   const openHistory = async () => {
     const ids = selectedIds.length > 0 ? selectedIds : payrollData.map((item) => item.id);
     if (ids.length === 0) return;
@@ -713,6 +751,18 @@ const PayrollPage: React.FC = () => {
             >
               {isPaying ? <Loader2 size={18} className="animate-spin" /> : <BadgeDollarSign size={18} />}
               <span className="hidden sm:inline">{isPaying ? 'Đang xử lý...' : 'Trả lương'}</span>
+            </button>
+          )}
+          {isAdmin && (
+            <button
+              type="button"
+              disabled={workflowBusy || isPaying}
+              onClick={beginCancelPayment}
+              className="flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-2 text-sm font-bold text-rose-700 shadow-sm transition-colors hover:bg-rose-100 disabled:opacity-50 sm:px-4 sm:py-2.5"
+              title="Chọn phiếu đã chi trả, nhập lý do và đưa phiếu về trạng thái đã khóa"
+            >
+              <Undo2 size={18} />
+              <span className="hidden sm:inline">Hủy chi trả</span>
             </button>
           )}
           
@@ -1382,6 +1432,40 @@ const PayrollPage: React.FC = () => {
           </div>
         </div>
       )}
+      {cancelPaymentIds.length > 0 && (
+        <div className="fixed inset-0 z-[100001] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl sm:p-6" role="dialog" aria-modal="true" aria-labelledby="cancel-payment-title">
+            <div className="flex items-start gap-3">
+              <div className="rounded-xl bg-rose-100 p-2.5 text-rose-700"><Undo2 size={21} /></div>
+              <div>
+                <h2 id="cancel-payment-title" className="text-lg font-black text-slate-900">Hủy chi trả {cancelPaymentIds.length} phiếu lương</h2>
+                <p className="mt-1 text-sm text-slate-500">Phiếu sẽ trở về trạng thái Đã khóa. Thao tác và lý do được lưu trong lịch sử.</p>
+              </div>
+            </div>
+            <label className="mt-4 block text-sm font-bold text-slate-700" htmlFor="cancel-payment-reason">Lý do hủy chi trả</label>
+            <textarea
+              id="cancel-payment-reason"
+              autoFocus
+              rows={4}
+              value={cancelPaymentReason}
+              onChange={(event) => setCancelPaymentReason(event.target.value)}
+              placeholder="Ví dụ: Đánh dấu chi trả nhầm, giao dịch ngân hàng chưa thành công..."
+              className="mt-2 w-full resize-y rounded-xl border border-slate-200 p-3 text-sm outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
+            />
+            <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button type="button" onClick={() => setCancelPaymentIds([])} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-600">Đóng</button>
+              <button
+                type="button"
+                disabled={workflowBusy || cancelPaymentReason.trim().length < 3}
+                onClick={() => void submitCancelPayment()}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-black text-white disabled:opacity-50"
+              >
+                <Undo2 size={17} /> Xác nhận hủy chi trả
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {historyEntries !== null && (
         <div className="fixed inset-0 z-[100001] flex items-center justify-center bg-slate-950/60 p-3 backdrop-blur-sm sm:p-6">
           <div className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="history-title">
@@ -1451,6 +1535,7 @@ function payrollHistoryActionLabel(action: string): string {
     locked: 'Đã khóa phiếu lương',
     unlocked: 'Đã mở khóa phiếu lương',
     paid: 'Đã ghi nhận chi trả',
+    payment_cancelled: 'Đã hủy ghi nhận chi trả',
   };
   return labels[action] || action;
 }

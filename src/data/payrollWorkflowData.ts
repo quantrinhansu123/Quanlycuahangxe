@@ -41,6 +41,23 @@ export async function performPayrollWorkflowAction(
   return Number(data ?? 0);
 }
 
+export async function cancelPayrollPayments(
+  payrollIds: string[],
+  reason: string
+): Promise<number> {
+  if (payrollIds.length === 0) return 0;
+  const normalizedReason = reason.trim();
+  if (normalizedReason.length < 3) {
+    throw new Error('Lý do hủy chi trả phải có ít nhất 3 ký tự.');
+  }
+  const { data, error } = await supabase.rpc('cancel_payroll_payment', {
+    p_payroll_ids: payrollIds,
+    p_reason: normalizedReason,
+  });
+  if (error) throw new Error(error.message);
+  return Number(data ?? 0);
+}
+
 export async function getPayrollHistory(payrollIds: string[]): Promise<PayrollHistoryEntry[]> {
   if (payrollIds.length === 0) return [];
   const { data, error } = await supabase
