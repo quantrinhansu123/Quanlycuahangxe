@@ -436,6 +436,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
       setRevenueLoading(true);
       const { start, end } = khoangNgayCuaThang(nam, thang);
       let sourceRows = s.rows;
+      let hasSavedRows = false;
       let defaultMealPrice = DEFAULT_MEAL_UNIT_PRICE;
       let defaultOvertimeMealPrice = DEFAULT_OVERTIME_MEAL_UNIT_PRICE;
       try {
@@ -459,6 +460,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
         setKyDaLuu(savedPayroll.length > 0);
         const savedRows = payrollBatchToInputRows(savedPayroll);
         if (savedRows.length > 0) {
+          hasSavedRows = true;
           sourceRows = savedRows;
           const savedPercentItem = savedPayroll.find((item) =>
             hasPayrollDetail(item, 'phan_tram_hoa_hong')
@@ -504,7 +506,10 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
         console.error('Lấy bảng lương đã lưu thất bại:', e);
       }
       try {
-        const { rows: merged, payrollData } = await gopDoanhSoTheoBaoCao(sourceRows, nam, thang);
+        const payrollData = await loadPayrollRevenueData(nam, thang);
+        const merged = hasSavedRows
+          ? sourceRows
+          : (await gopDoanhSoTheoBaoCao(sourceRows, nam, thang, payrollData)).rows;
         if (cancelled || loadedKyRef.current !== periodKey) return;
         setRows(merged);
         setRevenueCache(payrollData);
@@ -1001,6 +1006,9 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
         rows,
         donGiaTienAnTheoKy: donGiaTienAnKy,
         donGiaTienAnTangCaTheoKy: donGiaTienAnTangCaKy,
+        // Đây là thao tác chỉnh sửa chủ động của admin. Cho phép cập nhật số
+        // liệu của dòng đã duyệt/đã chi trả nhưng giữ nguyên trạng thái khóa.
+        choPhepCapNhatBangLuongDaKhoa: true,
       });
       setKyDaLuu(true);
       setSaveNotice(
@@ -1271,7 +1279,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
               onClick={capNhatDoanhSoTuPhieuBan}
               disabled={revenueLoading || quickLoading}
               className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-primary/10 border-primary/30 text-primary text-sm font-medium px-3 py-2 hover:bg-primary/15 disabled:opacity-50"
-              title="Đơn có ngày (cột ngay) thuộc đúng tháng/năm kỳ; cộng tong_tien theo Họ tên (nhan_vien_id, nhiều tên cách phẩy → chia đều). Dòng không Họ tên → doanh số 0."
+              title="Đơn có ngày thuộc đúng tháng/năm kỳ; mỗi nhân viên được ghi nhận toàn bộ giá trị đơn mà họ cùng phụ trách, khớp bộ lọc nhân viên ở Phiếu bán hàng."
             >
               {revenueLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <TrendingUp className="w-4 h-4" />}
               Doanh số
@@ -1354,7 +1362,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                 {thCell('Họ tên', 'Tên nhân viên')}
                 {thCell(
                   'Doanh số tháng',
-                  'Doanh số đã chia đều theo số người cùng phụ trách đơn — dùng tính hoa hồng'
+                  'Toàn bộ giá trị các đơn nhân viên phụ trách, khớp trang Phiếu bán hàng — dùng tính hoa hồng'
                 )}
                 {thCell('Loại', 'Chính thức / thời vụ')}
                 {thCell('Lương', 'Lương cơ bản riêng của kỳ; admin có thể nhập và sửa trực tiếp')}

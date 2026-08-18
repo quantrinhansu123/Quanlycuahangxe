@@ -571,8 +571,9 @@ function pushPayrollOrder(
 }
 
 /**
- * Gom doanh số + chi tiết đơn theo Phụ trách (cùng logic trang Phiếu bán hàng).
- * Ưu tiên tổng chi tiết đơn; fallback tong_tien. Nhiều NV trên đơn → chia đều.
+ * Gom doanh số + chi tiết đơn theo Phụ trách, cùng quy tắc với bộ lọc nhân viên
+ * ở trang Phiếu bán hàng: mỗi nhân viên được ghi nhận toàn bộ giá trị của đơn
+ * mà họ cùng phụ trách. Ưu tiên tổng chi tiết đơn; fallback tong_tien.
  */
 export async function loadPayrollRevenueData(nam: number, thang: number): Promise<PayrollRevenueData> {
   const { start: startDate, end: endDate } = khoangNgayCuaThangReport(nam, thang);
@@ -589,21 +590,20 @@ export async function loadPayrollRevenueData(nam: number, thang: number): Promis
       if (i % 5 === 0) staffList += `, ${staff[(i + 1) % staff.length]}`;
       const amount = 500_000 + i * 10_000;
       const parts = staffList.split(',').map((s) => s.trim()).filter(Boolean);
-      const share = amount / parts.length;
       const orderRow: PayrollRevenueOrderRow = {
         id_bh: `BH-${100 + i}`,
         ngay: d.toISOString().split('T')[0],
         gio: '10:00',
         khach_hang: `Khách demo ${i + 1}`,
         tong_tien_don: amount,
-        phan_bo: share,
+        phan_bo: amount,
         so_nhan_vien: parts.length,
         phu_trach: staffList,
       };
       for (const n of parts) {
         pushPayrollOrder(ordersByStaff, totals, chuanHoaTenTheoDon(n), {
           ...orderRow,
-          phan_bo: share,
+          phan_bo: amount,
         });
       }
     }
@@ -640,21 +640,20 @@ export async function loadPayrollRevenueData(nam: number, thang: number): Promis
     const names = staffRaw.split(',').map((s) => s.trim()).filter(Boolean);
     if (names.length === 0) continue;
 
-    const share = amount / names.length;
     const baseRow: PayrollRevenueOrderRow = {
       id_bh: String(h.id_bh || h.id),
       ngay: h.ngay,
       gio: h.gio,
       khach_hang: (h.ten_khach_hang || '').trim() || '—',
       tong_tien_don: amount,
-      phan_bo: share,
+      phan_bo: amount,
       so_nhan_vien: names.length,
       phu_trach: staffRaw,
     };
 
     for (const name of names) {
       const k = resolvePersonnelKey(name, aliases);
-      pushPayrollOrder(ordersByStaff, totals, k, { ...baseRow, phan_bo: share });
+      pushPayrollOrder(ordersByStaff, totals, k, { ...baseRow, phan_bo: amount });
     }
   }
 

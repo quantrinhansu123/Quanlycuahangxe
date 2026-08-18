@@ -25,7 +25,7 @@ const PersonnelRevenueOrdersModal: React.FC<PersonnelRevenueOrdersModalProps> = 
 }) => {
   if (!isOpen) return null;
 
-  const tongPhanBo = orders.reduce((s, o) => s + o.phan_bo, 0);
+  const tongDoanhSo = orders.reduce((s, o) => s + o.phan_bo, 0);
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm">
@@ -56,8 +56,8 @@ const PersonnelRevenueOrdersModal: React.FC<PersonnelRevenueOrdersModalProps> = 
             <span className="font-semibold tabular-nums">{orders.length}</span>
           </span>
           <span>
-            <span className="text-muted-foreground">Tổng phân bổ: </span>
-            <span className="font-bold text-primary tabular-nums">{formatVnd(tongPhanBo)}</span>
+            <span className="text-muted-foreground">Tổng doanh số ghi nhận: </span>
+            <span className="font-bold text-primary tabular-nums">{formatVnd(tongDoanhSo)}</span>
           </span>
         </div>
 
@@ -80,7 +80,7 @@ const PersonnelRevenueOrdersModal: React.FC<PersonnelRevenueOrdersModalProps> = 
                   <th className="py-2 pr-2 font-semibold whitespace-nowrap">Giờ</th>
                   <th className="py-2 pr-2 font-semibold">Khách hàng</th>
                   <th className="py-2 pr-2 font-semibold text-right whitespace-nowrap">Tổng tiền đơn</th>
-                  <th className="py-2 pr-2 font-semibold text-right whitespace-nowrap">Phân bổ</th>
+                  <th className="py-2 pr-2 font-semibold text-right whitespace-nowrap">Doanh số ghi nhận</th>
                   <th className="py-2 font-semibold">Phụ trách</th>
                 </tr>
               </thead>
@@ -95,11 +95,6 @@ const PersonnelRevenueOrdersModal: React.FC<PersonnelRevenueOrdersModalProps> = 
                     </td>
                     <td className="py-2.5 pr-2 text-right font-mono whitespace-nowrap">
                       {formatVnd(o.tong_tien_don)}
-                      {o.so_nhan_vien > 1 && (
-                        <span className="block text-[10px] text-muted-foreground font-sans">
-                          ÷ {o.so_nhan_vien} NV
-                        </span>
-                      )}
                     </td>
                     <td className="py-2.5 pr-2 text-right font-mono font-semibold text-primary whitespace-nowrap">
                       {formatVnd(o.phan_bo)}

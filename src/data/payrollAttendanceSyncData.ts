@@ -296,9 +296,12 @@ export async function syncPayrollFromAttendance(
       (existingBreakdown.loai_nhan_vien === 2 ? 'thoi_vu' : 'chinh_thuc');
     const revenueFromOrders =
       revenueData.totals.get(normalizePersonnelToken(person.ho_ten)) ?? 0;
+    // Bảng lương đã lưu là snapshot của kỳ. Các lượt tự đối soát chấm công
+    // không được âm thầm ghi đè doanh số đã chỉnh; nút "Doanh số" trên trang
+    // bảng lương sẽ truyền override khi admin chủ động lấy lại từ phiếu bán.
     const monthlyRevenue = Math.max(
       0,
-      amount(override?.tongDoanhThu ?? revenueFromOrders ?? existing?.doanh_so)
+      amount(override?.tongDoanhThu ?? existing?.doanh_so ?? revenueFromOrders)
     );
     const monthlyBonus = Math.max(
       0,
