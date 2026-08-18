@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BadgeDollarSign, Building2, Calculator, Calendar, CheckCircle2, GitCompareArrows, Loader2, Plus, Save, Table2, Trash2, TrendingUp, UserPlus } from 'lucide-react';
+import { BadgeDollarSign, Building2, Calculator, Calendar, CheckCircle2, Clock3, GitCompareArrows, Loader2, Plus, Save, Table2, Trash2, TrendingUp, UserPlus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { clsx } from 'clsx';
 import { getChamCongTrongKhoang } from '../data/attendanceData';
@@ -1078,12 +1078,16 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
     [revenueCache, nam, thang, nhanTheoChuanTen, setOrdersModal]
   );
 
-  const thCell = (short: string, full: string) => (
+  const thCell = (short: string, full: string, onClick?: () => void) => (
     <th
       className="sticky top-0 z-[1] bg-muted/80 backdrop-blur border-b border-border px-2.5 py-3 text-left text-xs sm:text-sm font-semibold text-muted-foreground whitespace-nowrap"
       title={full}
     >
-      {short}
+      {onClick ? (
+        <button type="button" onClick={onClick} className="font-semibold text-primary underline-offset-4 hover:underline">
+          {short}
+        </button>
+      ) : short}
     </th>
   );
 
@@ -1291,7 +1295,16 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
               title="Mở trang so sánh doanh số bảng lương với phiếu bán hàng"
             >
               <GitCompareArrows className="h-4 w-4" />
-              Rà soát
+              Rà soát DS
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate(`/tien-luong/doi-soat-cham-cong?thang=${thang}&nam=${nam}`)}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-violet-300 bg-violet-50 px-3 py-2 text-sm font-semibold text-violet-700 hover:bg-violet-100"
+              title="Mở trang so sánh ngày công bảng lương với dữ liệu chấm công gốc"
+            >
+              <Clock3 className="h-4 w-4" />
+              Rà soát công
             </button>
             {isAdmin && (
               <>
@@ -1371,13 +1384,15 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                 {thCell('Họ tên', 'Tên nhân viên')}
                 {thCell(
                   'Doanh số tháng',
-                  'Toàn bộ giá trị các đơn nhân viên phụ trách, khớp trang Phiếu bán hàng — dùng tính hoa hồng'
+                  'Toàn bộ giá trị các đơn nhân viên phụ trách, khớp trang Phiếu bán hàng — bấm để rà soát',
+                  () => navigate(`/tien-luong/doi-soat-doanh-so?thang=${thang}&nam=${nam}`)
                 )}
                 {thCell('Loại', 'Chính thức / thời vụ')}
                 {thCell('Lương', 'Lương cơ bản riêng của kỳ; admin có thể nhập và sửa trực tiếp')}
                 {thCell(
                   'Ngày công',
-                  '28 ngày = 1 tháng lương. Số công từ chấm công + ô « + » nhập thêm ngày làm thêm. Tiền = (LCB ÷ 28) × tổng ngày công.'
+                  '28 ngày = 1 tháng lương. Số công từ chấm công + ô « + » nhập thêm ngày làm thêm. Bấm để rà soát.',
+                  () => navigate(`/tien-luong/doi-soat-cham-cong?thang=${thang}&nam=${nam}`)
                 )}
                 {thCell('Chuyên cần', 'Đủ 28 công trong kỳ được hưởng 200.000đ')}
                 {thCell(

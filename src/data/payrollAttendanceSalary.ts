@@ -167,6 +167,20 @@ function dongThuocNhanVien(
   return chuanHoaCham(String(d.nhan_su)) === hoTenChuan;
 }
 
+/**
+ * Lấy đúng các lượt chấm công thuộc một nhân viên theo cùng quy tắc đang dùng
+ * để tính ngày công, tăng ca và tiền ăn trên bảng lương.
+ */
+export function locDongChamTheoNhanVien(
+  cacDong: DongChamBuaNhap[],
+  hoTen: string,
+  nhanSuId: string | null | undefined,
+  idNhanSu: string | null | undefined = undefined
+): DongChamBuaNhap[] {
+  const hoTenChuan = chuanHoaCham(hoTen);
+  return cacDong.filter((dong) => dongThuocNhanVien(dong, hoTenChuan, nhanSuId, idNhanSu));
+}
+
 function phutKhoiThoiGian(t: string | null | undefined): number | null {
   return parseTimeStringToMinutes(t);
 }
@@ -198,8 +212,7 @@ export function demSoBuaAnTachTheoDongCham(
   nhanSuId: string | null | undefined,
   idNhanSu: string | null | undefined = undefined
 ): { soBuaCoBan: number; soBuaTangCa: number; tong: number } {
-  const hTen = chuanHoaCham(hoTen);
-  const thu = cacDong.filter((d) => dongThuocNhanVien(d, hTen, nhanSuId, idNhanSu));
+  const thu = locDongChamTheoNhanVien(cacDong, hoTen, nhanSuId, idNhanSu);
   if (thu.length === 0) return { soBuaCoBan: 0, soBuaTangCa: 0, tong: 0 };
   const theoNgay = new Map<string, DongChamBuaNhap[]>();
   for (const d of thu) {
@@ -240,8 +253,7 @@ export function demSoNgayCongTheoDongCham(
   nhanSuId: string | null | undefined,
   idNhanSu: string | null | undefined = undefined
 ): number {
-  const hTen = chuanHoaCham(hoTen);
-  const thu = cacDong.filter((d) => dongThuocNhanVien(d, hTen, nhanSuId, idNhanSu));
+  const thu = locDongChamTheoNhanVien(cacDong, hoTen, nhanSuId, idNhanSu);
   const theoNgay = new Map<string, DongChamBuaNhap[]>();
   for (const d of thu) {
     if (!d.ngay) continue;
@@ -268,8 +280,7 @@ export function demGioTangCaTheoDongCham(
   nhanSuId: string | null | undefined,
   idNhanSu: string | null | undefined = undefined
 ): number {
-  const hTen = chuanHoaCham(hoTen);
-  const thu = cacDong.filter((d) => dongThuocNhanVien(d, hTen, nhanSuId, idNhanSu));
+  const thu = locDongChamTheoNhanVien(cacDong, hoTen, nhanSuId, idNhanSu);
   if (thu.length === 0) return 0;
   const theoNgay = new Map<string, DongChamBuaNhap[]>();
   for (const d of thu) {
