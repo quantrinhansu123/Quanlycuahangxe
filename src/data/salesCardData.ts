@@ -646,6 +646,36 @@ export const getSalesCards = async (staffId?: string): Promise<SalesCard[]> => {
   return cards;
 };
 
+/** Tải đúng một phiếu theo mã BH hoặc UUID để mở trực tiếp từ trang rà soát. */
+export const getSalesCardByReference = async (reference: string): Promise<SalesCard | null> => {
+  const normalizedReference = reference.trim();
+  if (!normalizedReference) return null;
+
+  const byCode = await supabase
+    .from('the_ban_hang')
+    .select('*')
+    .eq('id_bh', normalizedReference)
+    .limit(1)
+    .maybeSingle();
+  if (byCode.error) throw byCode.error;
+
+  let card = byCode.data as SalesCard | null;
+  if (!card && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(normalizedReference)) {
+    const byId = await supabase
+      .from('the_ban_hang')
+      .select('*')
+      .eq('id', normalizedReference)
+      .limit(1)
+      .maybeSingle();
+    if (byId.error) throw byId.error;
+    card = byId.data as SalesCard | null;
+  }
+
+  if (!card) return null;
+  await enrichSalesCards([card]);
+  return card;
+};
+
 /** Bộ cột tối thiểu đủ để tính thẻ tổng hợp — tránh kéo cả bản ghi khi quét toàn bảng. */
 const SUMMARY_CARD_COLUMNS = 'id, id_bh, ngay, gio, created_at, ten_khach_hang, khach_hang_id, dich_vu_id';
 

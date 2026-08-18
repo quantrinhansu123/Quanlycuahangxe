@@ -267,7 +267,7 @@ async function fetchAllHeaderRecords(startDate?: string, endDate?: string) {
   }
   let query = supabase
     .from('the_ban_hang')
-    .select('id, id_bh, ngay, gio, nhan_vien_id, tong_tien, ten_khach_hang');
+    .select('id, id_bh, ngay, gio, nhan_vien_id, tong_tien, ten_khach_hang, khach_hang_id, so_dien_thoai');
 
   if (startDate) query = query.gte('ngay', startDate);
   if (endDate) query = query.lte('ngay', endDate);
@@ -550,6 +550,8 @@ export interface PayrollRevenueOrderRow {
   phan_bo: number;
   so_nhan_vien: number;
   phu_trach: string;
+  /** Các mã đơn khác có cùng ngày + khách hàng + số tiền, cần kiểm tra nhập trùng. */
+  duplicate_order_ids: string[];
 }
 
 export interface PayrollRevenueData {
@@ -599,6 +601,7 @@ export async function loadPayrollRevenueData(nam: number, thang: number): Promis
         phan_bo: amount,
         so_nhan_vien: parts.length,
         phu_trach: staffList,
+        duplicate_order_ids: [],
       };
       for (const n of parts) {
         pushPayrollOrder(ordersByStaff, totals, chuanHoaTenTheoDon(n), {
@@ -619,7 +622,7 @@ export async function loadPayrollRevenueData(nam: number, thang: number): Promis
   const aliases = buildPersonnelAliasMap(personnel);
   const orderRevenueMap = buildOrderRevenueFromCT(ctRecords, nam, thang);
 
-  for (const h of headers as Array<{
+  type PayrollOrderHeader = {
     id: string;
     id_bh?: string | null;
     ngay: string;
@@ -627,7 +630,43 @@ export async function loadPayrollRevenueData(nam: number, thang: number): Promis
     nhan_vien_id?: string | null;
     tong_tien?: number | null;
     ten_khach_hang?: string | null;
-  }>) {
+    khach_hang_id?: string | null;
+    so_dien_thoai?: string | null;
+  };
+
+  const payrollHeaders = headers as PayrollOrderHeader[];
+  const duplicateCandidates = new Map<string, string[]>();
+  const duplicateBuckets = new Map<string, string[]>();
+  for (const header of payrollHeaders) {
+    const ky = extractNamThangTuNgayCot(header.ngay);
+    if (ky !== null && (ky.nam !== nam || ky.thang !== thang)) continue;
+    const amount = revenueForOrderHeader(header, orderRevenueMap);
+    if (amount <= 0) continue;
+    const phone = String(header.so_dien_thoai ?? '').replace(/\D/g, '');
+    const customerId = String(header.khach_hang_id ?? '').trim().toLowerCase();
+    const customerName = chuanHoaTenTheoDon(String(header.ten_khach_hang ?? ''));
+    const customerKey = phone.length >= 6
+      ? `phone:${phone}`
+      : customerId
+        ? `id:${customerId}`
+        : customerName && customerName !== '—'
+          ? `name:${customerName}`
+          : '';
+    if (!customerKey) continue;
+    const signature = `${header.ngay}|${customerKey}|${Math.round(amount)}`;
+    const orderRef = String(header.id_bh || header.id);
+    const bucket = duplicateBuckets.get(signature) ?? [];
+    bucket.push(orderRef);
+    duplicateBuckets.set(signature, bucket);
+  }
+  duplicateBuckets.forEach((orderRefs) => {
+    if (orderRefs.length < 2) return;
+    orderRefs.forEach((orderRef) => {
+      duplicateCandidates.set(orderRef, orderRefs.filter((candidate) => candidate !== orderRef));
+    });
+  });
+
+  for (const h of payrollHeaders) {
     const ky = extractNamThangTuNgayCot(h.ngay);
     if (ky !== null && (ky.nam !== nam || ky.thang !== thang)) continue;
 
@@ -649,6 +688,7 @@ export async function loadPayrollRevenueData(nam: number, thang: number): Promis
       phan_bo: amount,
       so_nhan_vien: names.length,
       phu_trach: staffRaw,
+      duplicate_order_ids: duplicateCandidates.get(String(h.id_bh || h.id)) ?? [],
     };
 
     for (const name of names) {

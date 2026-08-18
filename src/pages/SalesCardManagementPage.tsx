@@ -42,6 +42,7 @@ import {
   buildServiceNameLookup,
   deleteSalesCard, 
   findServiceForOrderDetailLine,
+  getSalesCardByReference,
   getNextSalesCardCode, 
   getSalesCardsForExport,
   getSalesCardsPaginated,
@@ -137,6 +138,10 @@ const SalesCardManagementPage: React.FC = () => {
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
   const location = useLocation();
+  const orderRefFromQuery = useMemo(
+    () => new URLSearchParams(location.search).get('don')?.trim() || '',
+    [location.search]
+  );
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -804,12 +809,54 @@ const SalesCardManagementPage: React.FC = () => {
     setIsModalOpen(true);
   };
 
+  const handleViewCardRef = React.useRef(handleViewCard);
+  handleViewCardRef.current = handleViewCard;
+  const openedOrderRef = React.useRef('');
+
+  useEffect(() => {
+    if (!orderRefFromQuery) {
+      openedOrderRef.current = '';
+      return;
+    }
+    if (openedOrderRef.current === orderRefFromQuery) return;
+
+    let cancelled = false;
+    const openLinkedOrder = async () => {
+      try {
+        await Promise.all([
+          loadReferenceData(),
+          import('../components/SalesCardFormModal'),
+        ]);
+        const card = await getSalesCardByReference(orderRefFromQuery);
+        if (cancelled) return;
+        if (!card) {
+          showToast(`Không tìm thấy phiếu ${orderRefFromQuery}.`, 'error');
+          return;
+        }
+        openedOrderRef.current = orderRefFromQuery;
+        await handleViewCardRef.current(card);
+      } catch (error) {
+        console.error('Không thể mở phiếu từ trang rà soát:', error);
+        if (!cancelled) showToast('Không thể mở phiếu bán hàng. Vui lòng thử lại.', 'error');
+      }
+    };
+
+    void openLinkedOrder();
+    return () => {
+      cancelled = true;
+    };
+  }, [loadReferenceData, orderRefFromQuery, showToast]);
+
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setIsReadOnlyModal(false);
     setEditingCard(null);
     setFormData({});
     setPendingNewCustomer(null);
+    if (orderRefFromQuery) {
+      openedOrderRef.current = '';
+      navigate(location.pathname, { replace: true });
+    }
   };
 
   const handleSubmit = async (formDataHeader: SalesCardFormData) => {
@@ -928,6 +975,17 @@ const SalesCardManagementPage: React.FC = () => {
         if (changes.length > 0) {
           saveEditHistory(savedCard.id, nhanVien?.ho_ten || 'Hệ thống', changes);
         }
+      } else {
+        // Ghi lại người lập phiếu từ thời điểm triển khai tính năng kiểm tra đơn.
+        // Các phiếu cũ không thể suy ngược chính xác người đã nhập ban đầu.
+        saveEditHistory(savedCard.id, nhanVien?.ho_ten || 'Hệ thống', [
+          {
+            field: 'created',
+            label: 'Tạo phiếu',
+            old_value: null,
+            new_value: savedCard.id_bh || savedCard.id,
+          },
+        ]);
       }
 
       // 'Deep Clean': Clear ALL old records (both by UUID and by Order Code) to prevent phantom duplicates
