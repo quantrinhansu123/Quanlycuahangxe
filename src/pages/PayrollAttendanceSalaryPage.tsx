@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BadgeDollarSign, Building2, Calculator, Calendar, CheckCircle2, Clock3, GitCompareArrows, Loader2, Plus, Save, Table2, Trash2, TrendingUp, UserPlus } from 'lucide-react';
+import { BadgeDollarSign, Building2, Calculator, Calendar, CheckCircle2, Clock3, GitCompareArrows, Loader2, Plus, Save, Table2, Trash2, TrendingUp, UserPlus, Utensils, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { clsx } from 'clsx';
 import { getChamCongTrongKhoang } from '../data/attendanceData';
@@ -365,6 +365,13 @@ function danhSachNamKy(referenceYear: number, namDangChon: number): number[] {
   return Array.from(set).sort((a, b) => a - b);
 }
 
+function formatDonGiaGon(value: number): string {
+  if (Math.abs(value) >= 1000) {
+    return `${new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 1 }).format(value / 1000)}k`;
+  }
+  return `${new Intl.NumberFormat('vi-VN').format(value)}đ`;
+}
+
 const PayrollAttendanceSalaryPage: React.FC = () => {
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
@@ -390,6 +397,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
   const [kyDaLuu, setKyDaLuu] = useState(false);
   const [savingMealSetting, setSavingMealSetting] = useState(false);
   const [savingPeriodMealPrice, setSavingPeriodMealPrice] = useState(false);
+  const [showMealPriceEditor, setShowMealPriceEditor] = useState(false);
   const [rows, setRows] = useState<BangLuongChamCongInput[]>(initial.rows);
   const [quickLoading, setQuickLoading] = useState(false);
   const [revenueLoading, setRevenueLoading] = useState(false);
@@ -1136,90 +1144,23 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                 </select>
               </div>
             </div>
-            <div
-              className="flex shrink-0 items-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50/70 px-2 py-1 dark:border-emerald-800 dark:bg-emerald-950/20"
-              title={`Lưu hai mức mặc định; chỉ tự cập nhật kỳ hiện tại ${m0}/${y0}, các kỳ trước giữ nguyên.`}
+            <button
+              type="button"
+              onClick={() => setShowMealPriceEditor(true)}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50/70 px-2.5 py-1.5 text-xs font-semibold text-emerald-800 transition-colors hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-300"
+              title={`Thiết lập đơn giá tiền ăn mặc định và riêng kỳ ${thang}/${nam}`}
+              aria-label={`Thiết lập tiền ăn kỳ ${thang}/${nam}: thường ${formatTienNhap(donGiaTienAnKy)} đồng, tăng ca ${formatTienNhap(donGiaTienAnTangCaKy)} đồng`}
             >
-              <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">Mặc định</span>
-              <span className="text-[11px] text-muted-foreground">Thường</span>
-              <input
-                type="text"
-                inputMode="numeric"
-                className="w-20 bg-background border border-border/60 rounded px-1.5 py-1 text-sm font-mono text-right"
-                value={formatTienNhap(donGiaTienAnMacDinh)}
-                disabled={!isAdmin || savingMealSetting}
-                onChange={(e) => setDonGiaTienAnMacDinh(parseTienNhap(e.target.value))}
-                aria-label="Đơn giá tiền ăn thường mặc định"
-              />
-              <span className="text-[11px] text-muted-foreground">TC</span>
-              <input
-                type="text"
-                inputMode="numeric"
-                className="w-20 bg-background border border-border/60 rounded px-1.5 py-1 text-sm font-mono text-right"
-                value={formatTienNhap(donGiaTienAnTangCaMacDinh)}
-                disabled={!isAdmin || savingMealSetting}
-                onChange={(e) =>
-                  setDonGiaTienAnTangCaMacDinh(parseTienNhap(e.target.value))
-                }
-                aria-label="Đơn giá tiền ăn tăng ca mặc định"
-              />
-              <span className="text-xs font-medium whitespace-nowrap">đ/bữa</span>
-              {isAdmin && (
-                <button
-                  type="button"
-                  onClick={saveMealDefault}
-                  disabled={savingMealSetting}
-                  className="rounded border border-emerald-300 bg-background px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 dark:text-emerald-400"
-                >
-                  {savingMealSetting ? 'Đang lưu' : 'Lưu'}
-                </button>
-              )}
-            </div>
-            <div
-              className="flex shrink-0 items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50/70 px-2 py-1 dark:border-amber-800 dark:bg-amber-950/20"
-              title={
-                kyDaLuu
-                  ? `Sửa riêng hai đơn giá kỳ ${thang}/${nam}; không ảnh hưởng kỳ khác.`
-                  : `Hai đơn giá sẽ được chốt khi lưu kỳ ${thang}/${nam}.`
-              }
-            >
-              <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">Kỳ {thang}/{nam}</span>
-              <span className="text-[11px] text-muted-foreground">Thường</span>
-              <input
-                type="text"
-                inputMode="numeric"
-                className="w-20 bg-background border border-border/60 rounded px-1.5 py-1 text-sm font-mono text-right"
-                value={formatTienNhap(donGiaTienAnKy)}
-                disabled={!isAdmin || savingPeriodMealPrice}
-                onChange={(e) => setDonGiaTienAnKy(parseTienNhap(e.target.value))}
-                aria-label={`Đơn giá tiền ăn kỳ ${thang}/${nam}`}
-              />
-              <span className="text-[11px] text-muted-foreground">TC</span>
-              <input
-                type="text"
-                inputMode="numeric"
-                className="w-20 bg-background border border-border/60 rounded px-1.5 py-1 text-sm font-mono text-right"
-                value={formatTienNhap(donGiaTienAnTangCaKy)}
-                disabled={!isAdmin || savingPeriodMealPrice}
-                onChange={(e) => setDonGiaTienAnTangCaKy(parseTienNhap(e.target.value))}
-                aria-label={`Đơn giá tiền ăn tăng ca kỳ ${thang}/${nam}`}
-              />
-              <span className="text-xs font-medium whitespace-nowrap">đ/bữa</span>
-              {isAdmin && kyDaLuu && (
-                <button
-                  type="button"
-                  onClick={updateCurrentPeriodMealPrice}
-                  disabled={
-                    savingPeriodMealPrice ||
-                    (donGiaTienAnKy === donGiaTienAnDaChot &&
-                      donGiaTienAnTangCaKy === donGiaTienAnTangCaDaChot)
-                  }
-                  className="rounded border border-amber-300 bg-background px-2 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-100 disabled:opacity-50 dark:text-amber-400"
-                >
-                  {savingPeriodMealPrice ? 'Đang cập nhật' : 'Cập nhật kỳ'}
-                </button>
-              )}
-            </div>
+              <Utensils className="h-4 w-4 shrink-0" />
+              <span>Tiền ăn</span>
+              <span className="rounded bg-background/90 px-1.5 py-0.5 font-mono text-foreground">
+                {formatDonGiaGon(donGiaTienAnKy)}
+              </span>
+              <span className="text-emerald-700/70 dark:text-emerald-300/70">· TC</span>
+              <span className="rounded bg-background/90 px-1.5 py-0.5 font-mono text-foreground">
+                {formatDonGiaGon(donGiaTienAnTangCaKy)}
+              </span>
+            </button>
             <div
               className="flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-primary/5 border-primary/20 px-2 py-1"
               title="Mức hoa hồng mặc định cho dòng mới; bấm Áp dụng để gán cho toàn bộ nhân viên"
@@ -1736,6 +1677,141 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {showMealPriceEditor && (
+        <div
+          className="fixed inset-0 z-[100001] flex items-end justify-center bg-black/50 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setShowMealPriceEditor(false);
+          }}
+        >
+          <div
+            className="w-full max-w-xl rounded-t-2xl bg-background shadow-2xl sm:rounded-2xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="meal-price-editor-title"
+          >
+            <div className="flex items-center justify-between border-b border-border px-4 py-3 sm:px-5">
+              <div className="flex items-center gap-2">
+                <span className="rounded-lg bg-emerald-100 p-2 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                  <Utensils className="h-5 w-5" />
+                </span>
+                <div>
+                  <h2 id="meal-price-editor-title" className="font-bold text-foreground">Thiết lập tiền ăn</h2>
+                  <p className="text-xs text-muted-foreground">Đơn vị: đồng/bữa</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowMealPriceEditor(false)}
+                className="rounded-lg p-2 text-muted-foreground hover:bg-muted"
+                aria-label="Đóng thiết lập tiền ăn"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="grid gap-3 p-4 sm:grid-cols-2 sm:p-5">
+              <section className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3 dark:border-emerald-900 dark:bg-emerald-950/20">
+                <div className="mb-3">
+                  <h3 className="text-sm font-bold text-emerald-900 dark:text-emerald-200">Đơn giá mặc định</h3>
+                  <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">Áp dụng cho kỳ mới; kỳ cũ được giữ nguyên.</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    Thường
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      className="mt-1 w-full rounded-lg border border-border bg-background px-2.5 py-2 text-right font-mono text-sm text-foreground"
+                      value={formatTienNhap(donGiaTienAnMacDinh)}
+                      disabled={!isAdmin || savingMealSetting}
+                      onChange={(event) => setDonGiaTienAnMacDinh(parseTienNhap(event.target.value))}
+                      aria-label="Đơn giá tiền ăn thường mặc định"
+                    />
+                  </label>
+                  <label className="text-xs font-medium text-muted-foreground">
+                    Tăng ca
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      className="mt-1 w-full rounded-lg border border-border bg-background px-2.5 py-2 text-right font-mono text-sm text-foreground"
+                      value={formatTienNhap(donGiaTienAnTangCaMacDinh)}
+                      disabled={!isAdmin || savingMealSetting}
+                      onChange={(event) => setDonGiaTienAnTangCaMacDinh(parseTienNhap(event.target.value))}
+                      aria-label="Đơn giá tiền ăn tăng ca mặc định"
+                    />
+                  </label>
+                </div>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={saveMealDefault}
+                    disabled={savingMealSetting}
+                    className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    {savingMealSetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    {savingMealSetting ? 'Đang lưu...' : 'Lưu mặc định'}
+                  </button>
+                )}
+              </section>
+
+              <section className="rounded-xl border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-900 dark:bg-amber-950/20">
+                <div className="mb-3">
+                  <h3 className="text-sm font-bold text-amber-900 dark:text-amber-200">Riêng kỳ {thang}/{nam}</h3>
+                  <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">Chỉ thay đổi đơn giá của kỳ đang chọn.</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    Thường
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      className="mt-1 w-full rounded-lg border border-border bg-background px-2.5 py-2 text-right font-mono text-sm text-foreground"
+                      value={formatTienNhap(donGiaTienAnKy)}
+                      disabled={!isAdmin || savingPeriodMealPrice}
+                      onChange={(event) => setDonGiaTienAnKy(parseTienNhap(event.target.value))}
+                      aria-label={`Đơn giá tiền ăn kỳ ${thang}/${nam}`}
+                    />
+                  </label>
+                  <label className="text-xs font-medium text-muted-foreground">
+                    Tăng ca
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      className="mt-1 w-full rounded-lg border border-border bg-background px-2.5 py-2 text-right font-mono text-sm text-foreground"
+                      value={formatTienNhap(donGiaTienAnTangCaKy)}
+                      disabled={!isAdmin || savingPeriodMealPrice}
+                      onChange={(event) => setDonGiaTienAnTangCaKy(parseTienNhap(event.target.value))}
+                      aria-label={`Đơn giá tiền ăn tăng ca kỳ ${thang}/${nam}`}
+                    />
+                  </label>
+                </div>
+                {isAdmin && kyDaLuu ? (
+                  <button
+                    type="button"
+                    onClick={updateCurrentPeriodMealPrice}
+                    disabled={
+                      savingPeriodMealPrice ||
+                      (donGiaTienAnKy === donGiaTienAnDaChot &&
+                        donGiaTienAnTangCaKy === donGiaTienAnTangCaDaChot)
+                    }
+                    className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-amber-600 px-3 py-2 text-xs font-bold text-white hover:bg-amber-700 disabled:opacity-50"
+                  >
+                    {savingPeriodMealPrice ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    {savingPeriodMealPrice ? 'Đang cập nhật...' : 'Cập nhật kỳ'}
+                  </button>
+                ) : (
+                  <p className="mt-3 rounded-lg bg-background/70 px-3 py-2 text-center text-[11px] text-muted-foreground">
+                    Giá sẽ được chốt khi lưu bảng lương kỳ này.
+                  </p>
+                )}
+              </section>
+            </div>
+          </div>
+        </div>
+      )}
 
       <PersonnelRevenueOrdersModal
         isOpen={ordersModal !== null}
