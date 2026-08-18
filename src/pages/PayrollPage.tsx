@@ -1443,6 +1443,7 @@ function payrollStatusClass(status: string): string {
 function payrollHistoryActionLabel(action: string): string {
   const labels: Record<string, string> = {
     salary_updated: 'Đã sửa số liệu lương',
+    commission_corrected_to_2_percent: 'Đã sửa hoa hồng về 2%',
     sent: 'Đã gửi nhân viên kiểm tra',
     viewed: 'Nhân viên đã xem',
     feedback: 'Nhân viên gửi phản hồi',

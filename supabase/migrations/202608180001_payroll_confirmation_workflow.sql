@@ -222,6 +222,76 @@ CREATE TABLE IF NOT EXISTS public.bang_luong_lich_su (
 CREATE INDEX IF NOT EXISTS idx_bang_luong_lich_su_payroll
     ON public.bang_luong_lich_su(bang_luong_id, created_at DESC);
 
+-- Sửa snapshot cụ thể đã được yêu cầu kiểm tra: Anh Huân tháng 8/2026 dùng
+-- tỷ lệ 2% trên doanh số đã chia 26.428.417đ. Dữ liệu cũ đang lưu nhầm 25%.
+-- Chỉ chạm đúng kỳ/nhân viên này và đưa về Chưa gửi để phải xác nhận lại.
+DO $$
+DECLARE
+    v_row RECORD;
+    v_old_commission NUMERIC;
+    v_new_commission NUMERIC;
+    v_percent NUMERIC;
+    v_after JSONB;
+BEGIN
+    FOR v_row IN
+        SELECT bl.id, bl.doanh_so, bl.luong_doanh_so, bl.tong_thu_nhap, bl.thuc_linh
+        FROM public.bang_luong bl
+        JOIN public.nhan_su ns ON ns.id = bl.nhan_su_id
+        WHERE bl.thang = 8
+          AND bl.nam = 2026
+          AND lower(trim(ns.ho_ten)) = lower('Anh Huân')
+    LOOP
+        SELECT d.gia_tri INTO v_percent
+        FROM public.bang_luong_chi_tiet d
+        WHERE d.bang_luong_id = v_row.id
+          AND d.ghi_chu = 'payroll:phan_tram_hoa_hong'
+        LIMIT 1;
+
+        IF coalesce(v_percent, 2) = 2 THEN
+            CONTINUE;
+        END IF;
+
+        SELECT coalesce(d.gia_tri, 0) INTO v_old_commission
+        FROM public.bang_luong_chi_tiet d
+        WHERE d.bang_luong_id = v_row.id
+          AND d.ghi_chu = 'payroll:hoa_hong'
+        LIMIT 1;
+        v_old_commission := coalesce(v_old_commission, v_row.luong_doanh_so, 0);
+        v_new_commission := round(coalesce(v_row.doanh_so, 0) * 0.02);
+
+        UPDATE public.bang_luong
+        SET luong_doanh_so = v_new_commission,
+            tong_thu_nhap = coalesce(tong_thu_nhap, 0) - v_old_commission + v_new_commission,
+            thuc_linh = coalesce(thuc_linh, 0) - v_old_commission + v_new_commission,
+            trang_thai = 'Chưa gửi',
+            khoa_luc = NULL,
+            khoa_boi = NULL,
+            xac_nhan_luc = NULL
+        WHERE id = v_row.id;
+
+        UPDATE public.bang_luong_chi_tiet
+        SET gia_tri = 2
+        WHERE bang_luong_id = v_row.id
+          AND ghi_chu = 'payroll:phan_tram_hoa_hong';
+
+        UPDATE public.bang_luong_chi_tiet
+        SET gia_tri = v_new_commission
+        WHERE bang_luong_id = v_row.id
+          AND ghi_chu = 'payroll:hoa_hong';
+
+        SELECT to_jsonb(bl) INTO v_after FROM public.bang_luong bl WHERE bl.id = v_row.id;
+        INSERT INTO public.bang_luong_lich_su(
+            bang_luong_id, hanh_dong, trang_thai_truoc, trang_thai_sau,
+            noi_dung, phien_ban, du_lieu_luong
+        ) VALUES (
+            v_row.id, 'commission_corrected_to_2_percent', 'Đã khóa', 'Chưa gửi',
+            'Điều chỉnh hoa hồng Anh Huân tháng 8/2026 về 2% trên doanh số đã chia.',
+            1, v_after
+        );
+    END LOOP;
+END;
+$$;
+
 ALTER TABLE public.thong_bao_ung_dung ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bang_luong_lich_su ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bang_luong ENABLE ROW LEVEL SECURITY;
