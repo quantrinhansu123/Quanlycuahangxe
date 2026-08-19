@@ -2,7 +2,9 @@ import { createClient, SupabaseClient } from "jsr:@supabase/supabase-js@2";
 
 export const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  // x-app-session is added by the frontend Supabase fetch wrapper.
+  // It must be listed here or the browser rejects the preflight request.
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-app-session",
   "Cache-Control": "no-store",
   "Referrer-Policy": "no-referrer",
   "X-Content-Type-Options": "nosniff",
@@ -134,7 +136,7 @@ export async function sendZnsMessage(
   accessToken: string,
   phone84: string,
   templateId: string,
-  templateData: Record<string, string>,
+  templateData: Record<string, string | number>,
   trackingId?: string,
 ): Promise<ZaloSendResult> {
   const safeTrackingId = (trackingId || crypto.randomUUID())

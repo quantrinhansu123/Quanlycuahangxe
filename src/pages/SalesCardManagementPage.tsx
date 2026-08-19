@@ -55,6 +55,7 @@ import {
   getCustomerFirstSaleDates 
 } from '../data/salesCardData';
 import { computeChanges, saveEditHistory } from '../data/salesCardHistoryData';
+import { queueOrderMessage } from '../data/znsOrderMessageData';
 import type { DichVu } from '../data/serviceData';
 import { supabase } from '../lib/supabase';
 import { preferCustomerLinkKey } from '../lib/customerOrderLink';
@@ -1073,6 +1074,48 @@ const SalesCardManagementPage: React.FC = () => {
             })()
           : Promise.resolve()
       ]);
+
+      // Đơn mới được đưa vào hàng đợi duyệt Zalo. Không gửi tự động: chỉ quản trị viên
+      // mới có thể bấm duyệt ở trang Gửi ZNS → Duyệt tin nhắn.
+      if (!editingCard) {
+        const queuedCustomer = customers.find((customer) =>
+          customer.id === savedCard.khach_hang_id || customer.ma_khach_hang === savedCard.khach_hang_id
+        );
+        const customerName = savedCard.ten_khach_hang || queuedCustomer?.ho_va_ten || 'Khách hàng';
+        const phone = savedCard.so_dien_thoai || queuedCustomer?.so_dien_thoai || null;
+        const serviceName = detailRecords
+          .map((item) => `${item.san_pham || 'Dịch vụ'}${(item.so_luong || 1) > 1 ? ` x${item.so_luong}` : ''}`)
+          .join(', ');
+        const completedAt = new Date(`${savedCard.ngay}T${savedCard.gio || '00:00:00'}`);
+        const pad2 = (n: number) => String(n).padStart(2, '0');
+        // Zalo ZBS chỉ chấp nhận tham số DATE theo các format cố định (vd "hh:mm:ss dd/mm/yyyy"),
+        // không chấp nhận "toLocaleString" (có dấu phẩy, không đệm 0) — gây lỗi "date has invalid format".
+        const dateText = Number.isNaN(completedAt.getTime())
+          ? savedCard.ngay
+          : `${pad2(completedAt.getHours())}:${pad2(completedAt.getMinutes())}:${pad2(completedAt.getSeconds())} ${pad2(completedAt.getDate())}/${pad2(completedAt.getMonth() + 1)}/${completedAt.getFullYear()}`;
+
+        void queueOrderMessage({
+          order_id: savedCard.id,
+          order_code: savedCard.id_bh || savedCard.id,
+          customer_name: customerName,
+          phone,
+          service_name: serviceName,
+          total_amount: totalAmount,
+          completed_at: Number.isNaN(completedAt.getTime()) ? null : completedAt.toISOString(),
+          template_data: {
+            name: customerName,
+            order_code: savedCard.id_bh || savedCard.id,
+            price: Math.round(totalAmount),
+            status: 'thành công',
+            date: dateText,
+            service_name: serviceName,
+          },
+          created_by: nhanVien?.ho_ten || null,
+        }).catch((queueError) => {
+          // Không chặn tạo đơn nếu hàng đợi Zalo gặp sự cố; quản trị viên có thể kiểm tra log.
+          console.error('Không thể tạo hàng đợi duyệt tin nhắn Zalo:', queueError);
+        });
+      }
 
       handleCloseModal();
       showToast('Lập phiếu bán hàng thành công!', 'success');

@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  ClipboardList,
   History,
   Link2,
   Loader2,
@@ -22,6 +23,7 @@ import { CUSTOMER_BRANCH_OPTIONS, matchesServiceBranch, resolveCustomerBranch } 
 import { removeVietnameseTones } from '../lib/utils';
 import { SearchableSelect } from '../components/ui/SearchableSelect';
 import DateInputVi from '../components/ui/DateInputVi';
+import { OrderMessageApprovalPanel } from '../components/zns/OrderMessageApprovalPanel';
 import {
   chunkArray,
   createCampaign,
@@ -167,6 +169,7 @@ const ZnsBulkSendPage: React.FC = () => {
   const [campaignLogs, setCampaignLogs] = useState<ZnsLogEntry[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [logFilter, setLogFilter] = useState<'all' | 'that_bai'>('all');
+  const [activeTab, setActiveTab] = useState<'order-review' | 'message-approval'>('order-review');
   const znsPermissionDenied = /(?:-120|does not have permission|quyền gửi ZBS\/ZNS)/i.test(templatePermissionError);
 
   const refreshOaStatus = async () => {
@@ -590,6 +593,57 @@ const ZnsBulkSendPage: React.FC = () => {
 
   return (
     <div className="p-4 lg:p-6 space-y-5">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <button
+          type="button"
+          aria-current={activeTab === 'order-review' ? 'page' : undefined}
+          onClick={() => setActiveTab('order-review')}
+          className={`flex min-h-28 items-center gap-4 rounded-2xl border px-5 text-left shadow-sm transition-colors ${
+            activeTab === 'order-review' ? 'border-primary bg-primary/5 dark:bg-primary/10' : 'border-border bg-card hover:bg-muted/40'
+          }`}
+        >
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-white">
+            <Send size={21} />
+          </span>
+          <span>
+            <span className="block font-bold text-foreground">Gửi đánh giá đơn hàng</span>
+            <span className="mt-1 block text-sm text-muted-foreground">Chọn khách hàng và gửi mẫu đánh giá Zalo</span>
+          </span>
+        </button>
+
+        <button
+          type="button"
+          aria-current={activeTab === 'message-approval' ? 'page' : undefined}
+          onClick={() => setActiveTab('message-approval')}
+          className={`flex min-h-28 items-center gap-4 rounded-2xl border px-5 text-left shadow-sm transition-colors ${
+            activeTab === 'message-approval' ? 'border-primary bg-primary/5 dark:bg-primary/10' : 'border-border bg-card hover:bg-muted/40'
+          }`}
+        >
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+            <ClipboardList size={21} />
+          </span>
+          <span>
+            <span className="block font-bold text-foreground">Duyệt tin nhắn</span>
+            <span className="mt-1 block text-sm text-muted-foreground">Duyệt rồi mới gửi xác nhận đơn hàng</span>
+          </span>
+        </button>
+
+        <button
+          type="button"
+          disabled
+          className="flex min-h-28 items-center gap-4 rounded-2xl border border-border bg-card px-5 text-left opacity-65"
+        >
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+            <History size={21} />
+          </span>
+          <span>
+            <span className="block font-bold text-foreground">Báo cáo đánh giá</span>
+            <span className="mt-1 block text-sm text-muted-foreground">Sẽ cập nhật sau</span>
+          </span>
+        </button>
+      </div>
+
+      {activeTab === 'message-approval' ? <OrderMessageApprovalPanel /> : <>
       <div>
         <h1 className="text-xl font-bold text-foreground">Gửi đánh giá đơn hàng</h1>
         <p className="text-sm text-muted-foreground mt-1">
@@ -597,40 +651,24 @@ const ZnsBulkSendPage: React.FC = () => {
         </p>
       </div>
 
-      {/* OA connection banner */}
-      <div className="bg-card border border-border rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
-        {loadingOaStatus ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 size={16} className="animate-spin" /> Đang kiểm tra kết nối Zalo OA...
-          </div>
-        ) : oaStatus?.connected ? (
-          <div className="flex items-center gap-2 text-sm">
-            <CheckCircle2 size={18} className="text-green-600 shrink-0" />
-            <span className="text-foreground font-medium">
-              Đã kết nối OA <span className="font-mono">{oaStatus.oa_id}</span>
-            </span>
-            {oaStatus.access_token_expires_at && (
-              <span className="text-muted-foreground">
-                — token còn hạn tới {new Date(oaStatus.access_token_expires_at).toLocaleString('vi-VN')}
-              </span>
-            )}
-          </div>
-        ) : (
+      {/* OA connection banner — token tự làm mới ngầm nên chỉ hiện khi thực sự mất kết nối */}
+      {!loadingOaStatus && !oaStatus?.connected && (
+        <div className="bg-card border border-border rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-sm">
             <AlertTriangle size={18} className="text-amber-600 shrink-0" />
             <span className="text-foreground font-medium">Chưa kết nối Zalo OA</span>
             {oaStatus?.error && <span className="text-muted-foreground">({oaStatus.error})</span>}
           </div>
-        )}
-        <button
-          type="button"
-          onClick={connectOa}
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border text-sm font-medium hover:bg-muted"
-        >
-          <Link2 size={14} />
-          {oaStatus?.connected ? 'Kết nối lại' : 'Kết nối Zalo OA'}
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={connectOa}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border text-sm font-medium hover:bg-muted"
+          >
+            <Link2 size={14} />
+            Kết nối Zalo OA
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
         {/* Campaign form */}
@@ -1011,6 +1049,7 @@ const ZnsBulkSendPage: React.FC = () => {
           </div>
         )}
       </div>
+      </>}
     </div>
   );
 };
