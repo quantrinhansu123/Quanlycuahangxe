@@ -66,6 +66,22 @@ const SalesCardFormModal = React.lazy(() => import('../components/SalesCardFormM
 
 type ServiceLineItem = { id: string; ten_dich_vu: string; gia_ban: number; so_luong: number };
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function getCustomerForOrderQueue(customerRef: string | null | undefined): Promise<Pick<KhachHang, 'ho_va_ten' | 'so_dien_thoai'> | null> {
+  const ref = customerRef?.trim();
+  if (!ref) return null;
+  const column = UUID_PATTERN.test(ref) ? 'id' : 'ma_khach_hang';
+  const { data, error } = await supabase
+    .from('khach_hang')
+    .select('ho_va_ten, so_dien_thoai')
+    .eq(column, ref)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data as Pick<KhachHang, 'ho_va_ten' | 'so_dien_thoai'> | null;
+}
+
 function mergeServiceLineItems(
   ctRows: Array<{
     id?: string;
@@ -1078,9 +1094,23 @@ const SalesCardManagementPage: React.FC = () => {
       // Đơn mới được đưa vào hàng đợi duyệt Zalo. Không gửi tự động: chỉ quản trị viên
       // mới có thể bấm duyệt ở trang Gửi ZNS → Duyệt tin nhắn.
       if (!editingCard) {
-        const queuedCustomer = customers.find((customer) =>
+        void (async () => {
+        const localQueuedCustomer = customers.find((customer) =>
           customer.id === savedCard.khach_hang_id || customer.ma_khach_hang === savedCard.khach_hang_id
         );
+        const queuedCustomer = await getCustomerForOrderQueue(savedCard.khach_hang_id) || localQueuedCustomer;
+        const mappedCustomerName = queuedCustomer?.ho_va_ten;
+        const mappedPhone = queuedCustomer?.so_dien_thoai;
+        if (mappedCustomerName || mappedPhone) {
+          const { error: customerSnapshotError } = await supabase
+            .from('the_ban_hang')
+            .update({
+              ten_khach_hang: mappedCustomerName || null,
+              so_dien_thoai: mappedPhone || null,
+            })
+            .eq('id', savedCard.id);
+          if (customerSnapshotError) throw customerSnapshotError;
+        }
         const customerName = savedCard.ten_khach_hang || queuedCustomer?.ho_va_ten || 'Khách hàng';
         const phone = savedCard.so_dien_thoai || queuedCustomer?.so_dien_thoai || null;
         const serviceName = detailRecords
@@ -1094,16 +1124,16 @@ const SalesCardManagementPage: React.FC = () => {
           ? savedCard.ngay
           : `${pad2(completedAt.getHours())}:${pad2(completedAt.getMinutes())}:${pad2(completedAt.getSeconds())} ${pad2(completedAt.getDate())}/${pad2(completedAt.getMonth() + 1)}/${completedAt.getFullYear()}`;
 
-        void queueOrderMessage({
+        await queueOrderMessage({
           order_id: savedCard.id,
           order_code: savedCard.id_bh || savedCard.id,
-          customer_name: customerName,
-          phone,
+          customer_name: mappedCustomerName || customerName,
+          phone: mappedPhone || phone,
           service_name: serviceName,
           total_amount: totalAmount,
           completed_at: Number.isNaN(completedAt.getTime()) ? null : completedAt.toISOString(),
           template_data: {
-            name: customerName,
+            name: mappedCustomerName || customerName,
             order_code: savedCard.id_bh || savedCard.id,
             price: Math.round(totalAmount),
             status: 'thành công',
@@ -1111,7 +1141,8 @@ const SalesCardManagementPage: React.FC = () => {
             service_name: serviceName,
           },
           created_by: nhanVien?.ho_ten || null,
-        }).catch((queueError) => {
+        });
+        })().catch((queueError) => {
           // Không chặn tạo đơn nếu hàng đợi Zalo gặp sự cố; quản trị viên có thể kiểm tra log.
           console.error('Không thể tạo hàng đợi duyệt tin nhắn Zalo:', queueError);
         });

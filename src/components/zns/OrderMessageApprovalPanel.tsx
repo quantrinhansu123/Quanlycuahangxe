@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, Loader2, Search, Send, Users, X } from 'lucide-react';
+import { CheckCircle2, Loader2, Search, Send, Trash2, Users, X } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import {
   approveOrderMessages,
+  deleteFailedOrderMessage,
+  deleteFailedOrderMessages,
   listOrderMessageQueue,
   type OrderMessageQueueItem,
 } from '../../data/znsOrderMessageData';
@@ -33,6 +35,9 @@ export const OrderMessageApprovalPanel: React.FC = () => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [rowToDelete, setRowToDelete] = useState<OrderMessageQueueItem | null>(null);
+  const [showBulkDeleteConfirmation, setShowBulkDeleteConfirmation] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -58,6 +63,10 @@ export const OrderMessageApprovalPanel: React.FC = () => {
   }, [rows, searchTerm, dateFilter]);
 
   const pendingRows = displayedRows.filter((row) => row.status !== 'da_gui');
+  const selectedFailedIds = useMemo(
+    () => displayedRows.filter((row) => row.status === 'that_bai' && selectedIds.has(row.id)).map((row) => row.id),
+    [displayedRows, selectedIds],
+  );
 
   useEffect(() => {
     setSelectedIds((current) => {
@@ -90,6 +99,43 @@ export const OrderMessageApprovalPanel: React.FC = () => {
       showToast(error instanceof Error ? error.message : 'Không thể gửi tin nhắn xác nhận', 'error');
     } finally {
       setSending(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!rowToDelete) return;
+    setDeleting(true);
+    try {
+      await deleteFailedOrderMessage(rowToDelete.id);
+      setRows((current) => current.filter((row) => row.id !== rowToDelete.id));
+      setSelectedIds((current) => {
+        const next = new Set(current);
+        next.delete(rowToDelete.id);
+        return next;
+      });
+      setRowToDelete(null);
+      showToast('Đã xóa tin nhắn gửi lại.', 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Không thể xóa tin nhắn gửi lại', 'error');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const confirmBulkDelete = async () => {
+    if (selectedFailedIds.length === 0) return;
+    setDeleting(true);
+    try {
+      const deleted = await deleteFailedOrderMessages(selectedFailedIds);
+      const deletedIds = new Set(selectedFailedIds);
+      setRows((current) => current.filter((row) => !deletedIds.has(row.id)));
+      setSelectedIds((current) => new Set([...current].filter((id) => !deletedIds.has(id))));
+      setShowBulkDeleteConfirmation(false);
+      showToast(`Đã xóa ${deleted} tin nhắn gửi lại.`, 'success');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Không thể xóa các tin nhắn đã chọn', 'error');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -136,7 +182,7 @@ export const OrderMessageApprovalPanel: React.FC = () => {
                   onChange={(event) => setDateFilter(event.target.value)}
                   className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none focus:border-primary"
                 />
-                {dateFilter ? (
+                {false && dateFilter ? (
                   <button
                     type="button"
                     onClick={() => setDateFilter('')}
@@ -149,6 +195,16 @@ export const OrderMessageApprovalPanel: React.FC = () => {
               </div>
             </label>
           </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              disabled={sending || deleting || selectedFailedIds.length === 0}
+              onClick={() => setShowBulkDeleteConfirmation(true)}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-red-200 px-4 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-red-900/70 dark:text-red-400 dark:hover:bg-red-950/30"
+            >
+              <Trash2 size={16} />
+              Xóa đã chọn ({selectedFailedIds.length})
+            </button>
           <button
             type="button"
             disabled={sending || selectedIds.size === 0}
@@ -158,6 +214,7 @@ export const OrderMessageApprovalPanel: React.FC = () => {
             {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
             Duyệt & gửi đã chọn ({selectedIds.size})
           </button>
+          </div>
         </div>
 
         {loading ? (
@@ -213,6 +270,7 @@ export const OrderMessageApprovalPanel: React.FC = () => {
                         {row.last_error ? <p className="mt-1 max-w-[200px] text-xs text-red-500">{row.last_error}</p> : null}
                       </td>
                       <td className="px-3 py-3">
+                        <div className="flex items-center gap-2">
                         <button
                           type="button"
                           disabled={!canSend || sending}
@@ -222,6 +280,19 @@ export const OrderMessageApprovalPanel: React.FC = () => {
                           {row.status === 'that_bai' ? <Send size={14} /> : <CheckCircle2 size={14} />}
                           {row.status === 'that_bai' ? 'Gửi lại' : 'Duyệt gửi'}
                         </button>
+                        {row.status === 'that_bai' ? (
+                          <button
+                            type="button"
+                            disabled={sending || deleting}
+                            onClick={() => setRowToDelete(row)}
+                            title="Xóa tin nhắn gửi lại"
+                            aria-label={`Xóa tin nhắn gửi lại của đơn ${row.order_code}`}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-45 dark:border-red-900/70 dark:text-red-400 dark:hover:bg-red-950/30"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        ) : null}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -231,6 +302,66 @@ export const OrderMessageApprovalPanel: React.FC = () => {
           </div>
         )}
       </div>
+      {showBulkDeleteConfirmation ? (
+        <div className="fixed inset-0 z-[2100] flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal="true" aria-labelledby="bulk-delete-order-message-title">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-2xl">
+            <h2 id="bulk-delete-order-message-title" className="text-lg font-bold text-foreground">Xác nhận xóa nhiều tin nhắn</h2>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              Bạn có chắc muốn xóa <strong className="text-foreground">{selectedFailedIds.length}</strong> tin nhắn đang ở trạng thái gửi lại?
+              Thao tác này không thể hoàn tác.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => setShowBulkDeleteConfirmation(false)}
+                className="rounded-xl border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                disabled={deleting || selectedFailedIds.length === 0}
+                onClick={() => void confirmBulkDelete()}
+                className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {deleting ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
+                Xóa
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {rowToDelete ? (
+        <div className="fixed inset-0 z-[2100] flex items-center justify-center bg-black/45 p-4" role="dialog" aria-modal="true" aria-labelledby="delete-order-message-title">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-2xl">
+            <h2 id="delete-order-message-title" className="text-lg font-bold text-foreground">Xác nhận xóa tin nhắn</h2>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              Bạn có chắc muốn xóa tin nhắn gửi lại của đơn <strong className="text-foreground">{rowToDelete.order_code}</strong>?
+              Thao tác này không thể hoàn tác.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => setRowToDelete(null)}
+                className="rounded-xl border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => void confirmDelete()}
+                className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {deleting ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
+                Xóa
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <div className="flex items-center gap-2 text-xs text-muted-foreground"><Users size={14} /> Mỗi lần duyệt đều được ghi nhận để quản trị viên kiểm soát số lần gửi.</div>
     </div>
   );

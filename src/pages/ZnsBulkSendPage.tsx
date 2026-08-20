@@ -19,7 +19,7 @@ import { getCustomersForSelect } from '../data/customerData';
 import { getServiceUsageDatesMap, getServices, type DichVu } from '../data/serviceData';
 import { normalizeVnPhoneDigits } from '../lib/phoneUtils';
 import { getCustomerLinkKeys } from '../lib/customerOrderLink';
-import { CUSTOMER_BRANCH_OPTIONS, matchesServiceBranch, resolveCustomerBranch } from '../constants/customerBranches';
+import { CUSTOMER_BRANCH_OPTIONS, normalizeBranchLabel, resolveCustomerBranch } from '../constants/customerBranches';
 import { removeVietnameseTones } from '../lib/utils';
 import { SearchableSelect } from '../components/ui/SearchableSelect';
 import DateInputVi from '../components/ui/DateInputVi';
@@ -72,7 +72,20 @@ const ORDER_REVIEW_TEMPLATE = {
   status: 1,
 } as const;
 
+const ORDER_CONFIRMATION_TEMPLATE_ID = '624663';
+
 const ORDER_REVIEW_LOGO_URL = 'https://stc-oa.zdn.vn/uploads/2026/08/17/77fdca07b05bea9143f72299b465976c.png';
+
+const COMBINING_DIACRITICS_RE = new RegExp('[\\u0300-\\u036f]', 'g');
+
+function isOrderConfirmationTemplate(template: ZnsTemplateSummary): boolean {
+  if (template.template_id === ORDER_CONFIRMATION_TEMPLATE_ID) return true;
+  const normalized = template.template_name
+    .normalize('NFD')
+    .replace(COMBINING_DIACRITICS_RE, '')
+    .toLowerCase();
+  return normalized.includes('xac nhan don hang');
+}
 
 function mappingRowsForTemplate(detail: ZnsTemplateDetail | null): MappingRow[] {
   if (!detail?.parameters?.length) return DEFAULT_MAPPING_ROWS;
@@ -236,7 +249,9 @@ const ZnsBulkSendPage: React.FC = () => {
       try {
         const rows = await listZnsTemplates();
         const byId = new Map<string, ZnsTemplateSummary>([[ORDER_REVIEW_TEMPLATE.template_id, ORDER_REVIEW_TEMPLATE]]);
-        rows.forEach((row) => byId.set(row.template_id, row));
+        rows
+          .filter((row) => !isOrderConfirmationTemplate(row))
+          .forEach((row) => byId.set(row.template_id, row));
         if (!cancelled) setTemplates([...byId.values()]);
       } catch (err) {
         if (!cancelled) {
@@ -259,6 +274,7 @@ const ZnsBulkSendPage: React.FC = () => {
       setTemplateDetail(null);
       setPreviewData(null);
       setShowTemplatePreview(false);
+      setSelectedIds(new Set());
       return;
     }
 
@@ -269,6 +285,8 @@ const ZnsBulkSendPage: React.FC = () => {
     setTemplateDetail(null);
     setPreviewData(null);
     setShowTemplatePreview(false);
+    // Danh sách người nhận thuộc mẫu đang chọn; không giữ lựa chọn của mẫu trước đó.
+    setSelectedIds(new Set());
     setLoadingTemplates(true);
     try {
       const detail = await getZnsTemplateDetail(selected.template_id);
@@ -283,6 +301,12 @@ const ZnsBulkSendPage: React.FC = () => {
 
   const handleBranchFilterChange = (value: string) => {
     setBranchFilter(value);
+    setServiceFilters([]);
+    setServiceFromDate('');
+    setServiceToDate('');
+    setServiceUsageDatesMap(new Map());
+    setServiceUsageDatesMapFor('');
+    setLoadingServiceDates(false);
   };
 
   const handleServiceFiltersChange = (values: string[]) => {
@@ -297,12 +321,12 @@ const ZnsBulkSendPage: React.FC = () => {
   };
 
   const serviceOptions = useMemo(() => {
-    const scoped = branchFilter ? services.filter((s) => matchesServiceBranch(s.co_so, branchFilter)) : services;
-    const scopedNames = new Set(scoped.map((s) => s.ten_dich_vu?.trim()).filter(Boolean));
+    const scoped = branchFilter
+      ? services.filter((service) => normalizeBranchLabel(service.co_so) === normalizeBranchLabel(branchFilter))
+      : services;
     const idsByName = new Map<string, string[]>();
-    // Luôn gom ID theo tên trên toàn bộ cơ sở để value của một dịch vụ không
-    // thay đổi khi chọn/bỏ chọn cơ sở. Cơ sở chỉ quyết định tên nào được hiện.
-    for (const s of services) {
+    // Chỉ gom các dịch vụ trùng tên trong phạm vi cơ sở đang được chọn.
+    for (const s of scoped) {
       const name = s.ten_dich_vu?.trim();
       if (!name) continue;
       const ids = idsByName.get(name) || [];
@@ -310,7 +334,6 @@ const ZnsBulkSendPage: React.FC = () => {
       idsByName.set(name, ids);
     }
     return Array.from(idsByName.entries())
-      .filter(([name]) => scopedNames.has(name))
       .sort((a, b) => a[0].localeCompare(b[0], 'vi'))
       .map(([name, ids]) => ({ value: ids.join(','), label: name, searchKey: name }));
   }, [services, branchFilter]);
@@ -619,7 +642,7 @@ const ZnsBulkSendPage: React.FC = () => {
             activeTab === 'message-approval' ? 'border-primary bg-primary/5 dark:bg-primary/10' : 'border-border bg-card hover:bg-muted/40'
           }`}
         >
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-white">
             <ClipboardList size={21} />
           </span>
           <span>
@@ -776,8 +799,8 @@ const ZnsBulkSendPage: React.FC = () => {
           )}
         </div>
 
-        {/* Customer picker */}
-        <div className="bg-card border border-border rounded-2xl p-4 lg:p-6 space-y-3">
+        {/* Customer selection is only available for the configured review template. */}
+        {templateId === ORDER_REVIEW_TEMPLATE.template_id && <div className="bg-card border border-border rounded-2xl p-4 lg:p-6 space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="font-bold text-foreground flex items-center gap-2">
               <Users size={18} /> Chọn khách hàng
@@ -897,7 +920,7 @@ const ZnsBulkSendPage: React.FC = () => {
               })
             )}
           </div>
-        </div>
+        </div>}
       </div>
 
       {/* Send progress */}

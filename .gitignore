@@ -29,3 +29,6 @@ env*
 *.njsproj
 *.sln
 *.sw?
+
+pnpm-lock.yaml
+pnpm-workspace.yaml
