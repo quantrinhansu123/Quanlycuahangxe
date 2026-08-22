@@ -103,7 +103,15 @@ type ServiceUsageOrder = {
   id: string;
   id_bh: string | null;
   khach_hang_id: string | null;
+  so_km: number | null;
   ngay: string;
+  gio: string;
+};
+
+export type ServiceUsageLatest = {
+  ngay: string;
+  gio: string;
+  so_km: number | null;
 };
 
 const SERVICE_USAGE_QUERY_CHUNK = 50;
@@ -136,7 +144,7 @@ export async function getServiceUsageDatesMap(serviceValues: string[]): Promise<
     for (let from = 0; ; from += SERVICE_USAGE_PAGE_SIZE) {
       const { data, error } = await supabase
         .from('the_ban_hang')
-        .select('id, id_bh, khach_hang_id, ngay')
+        .select('id, id_bh, khach_hang_id, so_km, ngay, gio')
         .in('dich_vu_id', valueChunk)
         .not('khach_hang_id', 'is', null)
         .order('id', { ascending: true })
@@ -180,12 +188,12 @@ export async function getServiceUsageDatesMap(serviceValues: string[]): Promise<
     const uuidRefs = refChunk.filter((ref) => /^[0-9a-f-]{36}$/i.test(ref));
     const byCodeResult = await supabase
       .from('the_ban_hang')
-      .select('id, id_bh, khach_hang_id, ngay')
+      .select('id, id_bh, khach_hang_id, so_km, ngay, gio')
       .in('id_bh', refChunk);
     const byIdResult = uuidRefs.length > 0
       ? await supabase
         .from('the_ban_hang')
-        .select('id, id_bh, khach_hang_id, ngay')
+        .select('id, id_bh, khach_hang_id, so_km, ngay, gio')
         .in('id', uuidRefs)
       : { data: [] as ServiceUsageOrder[], error: null };
 
@@ -211,6 +219,100 @@ export async function getServiceUsageDatesMap(serviceValues: string[]): Promise<
   }
 
   map.forEach((dates) => dates.sort());
+
+  return map;
+}
+
+/** Lần dùng gần nhất của từng khách trong các dịch vụ được chọn, kèm số Km trên đơn đó. */
+export async function getServiceUsageLatestMap(serviceValues: string[]): Promise<Map<string, ServiceUsageLatest>> {
+  const map = new Map<string, ServiceUsageLatest>();
+  const values = [...new Set(serviceValues.map((value) => value.trim()).filter(Boolean))];
+  if (values.length === 0) return map;
+
+  const orders = new Map<string, ServiceUsageOrder>();
+  const detailOrderRefs = new Set<string>();
+
+  for (const valueChunk of serviceUsageChunks(values)) {
+    for (let from = 0; ; from += SERVICE_USAGE_PAGE_SIZE) {
+      const { data, error } = await supabase
+        .from('the_ban_hang')
+        .select('id, id_bh, khach_hang_id, so_km, ngay, gio')
+        .in('dich_vu_id', valueChunk)
+        .not('khach_hang_id', 'is', null)
+        .order('id', { ascending: true })
+        .range(from, from + SERVICE_USAGE_PAGE_SIZE - 1);
+
+      if (error) {
+        console.error('Error fetching latest service usage from sales cards:', error);
+        throw error;
+      }
+
+      const rows = (data as ServiceUsageOrder[]) || [];
+      rows.forEach((row) => orders.set(row.id, row));
+      if (rows.length < SERVICE_USAGE_PAGE_SIZE) break;
+    }
+
+    for (let from = 0; ; from += SERVICE_USAGE_PAGE_SIZE) {
+      const { data, error } = await supabase
+        .from('the_ban_hang_ct')
+        .select('id, id_don_hang')
+        .in('san_pham', valueChunk)
+        .not('id_don_hang', 'is', null)
+        .order('id', { ascending: true })
+        .range(from, from + SERVICE_USAGE_PAGE_SIZE - 1);
+
+      if (error) {
+        console.error('Error fetching latest service usage from sales card details:', error);
+        throw error;
+      }
+
+      const rows = (data as { id: string; id_don_hang: string | null }[]) || [];
+      rows.forEach((row) => {
+        const ref = row.id_don_hang?.trim();
+        if (ref) detailOrderRefs.add(ref);
+      });
+      if (rows.length < SERVICE_USAGE_PAGE_SIZE) break;
+    }
+  }
+
+  const refs = [...detailOrderRefs];
+  for (const refChunk of serviceUsageChunks(refs)) {
+    const uuidRefs = refChunk.filter((ref) => /^[0-9a-f-]{36}$/i.test(ref));
+    const byCodeResult = await supabase
+      .from('the_ban_hang')
+      .select('id, id_bh, khach_hang_id, so_km, ngay, gio')
+      .in('id_bh', refChunk);
+    const byIdResult = uuidRefs.length > 0
+      ? await supabase
+        .from('the_ban_hang')
+        .select('id, id_bh, khach_hang_id, so_km, ngay, gio')
+        .in('id', uuidRefs)
+      : { data: [] as ServiceUsageOrder[], error: null };
+
+    const { data: byCode, error: byCodeError } = byCodeResult;
+    const { data: byId, error: byIdError } = byIdResult;
+    if (byCodeError || byIdError) {
+      const error = byCodeError || byIdError;
+      console.error('Error resolving latest service usage orders:', error);
+      throw error;
+    }
+
+    [...((byCode as ServiceUsageOrder[]) || []), ...((byId as ServiceUsageOrder[]) || [])]
+      .forEach((row) => orders.set(row.id, row));
+  }
+
+  for (const order of orders.values()) {
+    if (!order.khach_hang_id || !order.ngay) continue;
+    const customerKey = order.khach_hang_id.trim().toLowerCase();
+    const previous = map.get(customerKey);
+    if (
+      !previous ||
+      order.ngay > previous.ngay ||
+      (order.ngay === previous.ngay && order.gio > previous.gio)
+    ) {
+      map.set(customerKey, { ngay: order.ngay, gio: order.gio, so_km: order.so_km });
+    }
+  }
 
   return map;
 }

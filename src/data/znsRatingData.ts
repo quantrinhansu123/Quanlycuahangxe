@@ -17,7 +17,7 @@ export interface ZnsRating {
   thoi_diem_danh_gia: string | null;
   nguon: ZnsRatingSource;
   created_at: string;
-  khach_hang: { ho_va_ten: string; so_dien_thoai: string } | null;
+  khach_hang: { ho_va_ten: string; so_dien_thoai: string; dia_chi_hien_tai: string | null } | null;
   gui_log: { so_dien_thoai: string } | null;
   chien_dich: { ten_chien_dich: string; template_id: string } | null;
 }
@@ -26,7 +26,7 @@ export async function listRatings(): Promise<ZnsRating[]> {
   const { data, error } = await supabase
     .from('zns_danh_gia')
     .select(
-      '*, khach_hang:khach_hang_id(ho_va_ten, so_dien_thoai), gui_log:gui_log_id(so_dien_thoai), chien_dich:chien_dich_id(ten_chien_dich, template_id)'
+      '*, khach_hang:khach_hang_id(ho_va_ten, so_dien_thoai, dia_chi_hien_tai), gui_log:gui_log_id(so_dien_thoai), chien_dich:chien_dich_id(ten_chien_dich, template_id)'
     )
     .order('thoi_diem_danh_gia', { ascending: false, nullsFirst: false });
   if (error) throw error;

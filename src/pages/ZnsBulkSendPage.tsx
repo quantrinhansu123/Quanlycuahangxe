@@ -16,7 +16,13 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { getCustomersForSelect } from '../data/customerData';
-import { getServiceUsageDatesMap, getServices, type DichVu } from '../data/serviceData';
+import {
+  getServiceUsageDatesMap,
+  getServiceUsageLatestMap,
+  getServices,
+  type DichVu,
+  type ServiceUsageLatest,
+} from '../data/serviceData';
 import { normalizeVnPhoneDigits } from '../lib/phoneUtils';
 import { getCustomerLinkKeys } from '../lib/customerOrderLink';
 import { CUSTOMER_BRANCH_OPTIONS, normalizeBranchLabel, resolveCustomerBranch } from '../constants/customerBranches';
@@ -24,6 +30,7 @@ import { removeVietnameseTones } from '../lib/utils';
 import { SearchableSelect } from '../components/ui/SearchableSelect';
 import DateInputVi from '../components/ui/DateInputVi';
 import { OrderMessageApprovalPanel } from '../components/zns/OrderMessageApprovalPanel';
+import { ZnsRatingReportPanel } from '../components/zns/ZnsRatingReportPanel';
 import {
   chunkArray,
   createCampaign,
@@ -72,7 +79,14 @@ const ORDER_REVIEW_TEMPLATE = {
   status: 1,
 } as const;
 
+/** Mẫu ZNS nhắc khách quay lại dùng dịch vụ đã dùng trước đây — dùng chung khối
+ * "Chọn khách hàng" với mẫu đánh giá đơn hàng, chỉ khác điều kiện lọc theo thời gian. */
+const APPOINTMENT_REMINDER_TEMPLATE_ID = '626812';
+const REMINDER_MONTH_OPTIONS = [1, 2, 3, 6, 9, 12] as const;
+const DEFAULT_REMINDER_MONTHS = 3;
+
 const ORDER_CONFIRMATION_TEMPLATE_ID = '624663';
+const HIDDEN_ZNS_TEMPLATE_IDS = new Set(['625983']);
 
 const ORDER_REVIEW_LOGO_URL = 'https://stc-oa.zdn.vn/uploads/2026/08/17/77fdca07b05bea9143f72299b465976c.png';
 
@@ -87,15 +101,40 @@ function isOrderConfirmationTemplate(template: ZnsTemplateSummary): boolean {
   return normalized.includes('xac nhan don hang');
 }
 
-function mappingRowsForTemplate(detail: ZnsTemplateDetail | null): MappingRow[] {
-  if (!detail?.parameters?.length) return DEFAULT_MAPPING_ROWS;
-  return detail.parameters.map((parameter) => {
-    const key = parameter.name.replace(/[<>]/g, '').trim();
-    if (key === 'customer_name') return { key, source: 'ho_va_ten', value: '' };
-    if (key === 'order_date') return { key, source: 'last_order.ngay', value: '' };
-    if (key === 'order_code') return { key, source: 'last_order.id_bh', value: '' };
-    return { key, source: 'static', value: '' };
-  });
+function mappingRowsForTemplate(detail: ZnsTemplateDetail | null, selectedTemplateId = ''): MappingRow[] {
+  const rows: MappingRow[] = detail?.parameters?.length
+    ? detail.parameters.map((parameter) => {
+        const key = parameter.name.replace(/[<>]/g, '').trim();
+        if (key === 'customer_name') return { key, source: 'ho_va_ten', value: '' };
+        if (key === 'order_date') return { key, source: 'last_order.ngay', value: '' };
+        if (key === 'order_code') return { key, source: 'last_order.id_bh', value: '' };
+        if (key === 'vehicle_name') {
+          return selectedTemplateId === APPOINTMENT_REMINDER_TEMPLATE_ID
+            ? { key, source: 'static', value: '_' }
+            : { key, source: 'bien_so_xe', value: '' };
+        }
+        if (key === 'license_plate') return { key, source: 'bien_so_xe', value: '' };
+        if (key === 'maintenance_mileage') return { key, source: 'last_service.so_km', value: '' };
+        return { key, source: 'static', value: '' };
+      })
+    : DEFAULT_MAPPING_ROWS.map((row) => ({ ...row }));
+
+  // Nếu Zalo tạm thời không trả được chi tiết Template, vẫn gửi đủ biến bắt buộc
+  // của mẫu nhắc lịch hẹn thay vì để vehicle_name bị bỏ khỏi template_data.
+  if (selectedTemplateId === APPOINTMENT_REMINDER_TEMPLATE_ID) {
+    for (const key of ['vehicle_name', 'license_plate', 'maintenance_mileage']) {
+      if (rows.some((row) => row.key === key)) continue;
+      rows.push({
+        key,
+        source: key === 'maintenance_mileage'
+          ? 'last_service.so_km'
+          : key === 'vehicle_name' ? 'static' : 'bien_so_xe',
+        value: key === 'vehicle_name' ? '_' : '',
+      });
+    }
+  }
+
+  return rows;
 }
 
 const STATUS_BADGE: Record<string, { label: string; className: string }> = {
@@ -118,6 +157,50 @@ const ZALO_OAUTH_REDIRECT_URI = import.meta.env.VITE_ZALO_OAUTH_REDIRECT_URI as 
 
 function isValidVnMobile(phone: string): boolean {
   return /^0\d{9}$/.test(normalizeVnPhoneDigits(phone));
+}
+
+function toDateInputValue(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/** Số tháng dương lịch chênh lệch (làm tròn xuống) — dùng cho lọc "chưa quay lại từ N tháng". */
+function monthsBetween(fromIso: string, toIso: string): number {
+  const from = new Date(`${fromIso}T00:00:00`);
+  const to = new Date(`${toIso}T00:00:00`);
+  let months = (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth());
+  if (to.getDate() < from.getDate()) months -= 1;
+  return Math.max(0, months);
+}
+
+/** Ngày dùng dịch vụ gần nhất (trong các dịch vụ đang lọc) của 1 khách hàng — so sánh chuỗi ISO yyyy-mm-dd. */
+function getLastServiceUsageDate(customer: CustomerOption, serviceUsageDatesMap: Map<string, string[]>): string | null {
+  let last: string | null = null;
+  for (const key of getCustomerLinkKeys(customer)) {
+    const dates = serviceUsageDatesMap.get(key.trim().toLowerCase());
+    if (!dates) continue;
+    for (const date of dates) {
+      if (!last || date > last) last = date;
+    }
+  }
+  return last;
+}
+
+function getLastServiceUsageSummary(
+  customer: CustomerOption,
+  serviceUsageLatestMap: Map<string, ServiceUsageLatest>
+): ServiceUsageLatest | null {
+  let latest: ServiceUsageLatest | null = null;
+  for (const key of getCustomerLinkKeys(customer)) {
+    const usage = serviceUsageLatestMap.get(key.trim().toLowerCase());
+    if (!usage) continue;
+    if (!latest || usage.ngay > latest.ngay || (usage.ngay === latest.ngay && usage.gio > latest.gio)) {
+      latest = usage;
+    }
+  }
+  return latest;
 }
 
 function dedupeCustomersByPhone(rows: CustomerOption[]): CustomerOption[] {
@@ -152,7 +235,10 @@ const ZnsBulkSendPage: React.FC = () => {
   const [serviceFilters, setServiceFilters] = useState<string[]>([]); // mỗi phần tử có thể chứa nhiều ID cùng tên dịch vụ
   const [serviceFromDate, setServiceFromDate] = useState('');
   const [serviceToDate, setServiceToDate] = useState('');
+  // Chỉ dùng khi mẫu đang chọn là "Thông báo nhắc đến lịch hẹn" (626812).
+  const [reminderMonths, setReminderMonths] = useState(DEFAULT_REMINDER_MONTHS);
   const [serviceUsageDatesMap, setServiceUsageDatesMap] = useState<Map<string, string[]>>(new Map());
+  const [serviceUsageLatestMap, setServiceUsageLatestMap] = useState<Map<string, ServiceUsageLatest>>(new Map());
   const [serviceUsageDatesMapFor, setServiceUsageDatesMapFor] = useState('');
   const [loadingServiceDates, setLoadingServiceDates] = useState(false);
 
@@ -182,7 +268,7 @@ const ZnsBulkSendPage: React.FC = () => {
   const [campaignLogs, setCampaignLogs] = useState<ZnsLogEntry[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [logFilter, setLogFilter] = useState<'all' | 'that_bai'>('all');
-  const [activeTab, setActiveTab] = useState<'order-review' | 'message-approval'>('order-review');
+  const [activeTab, setActiveTab] = useState<'order-review' | 'message-approval' | 'rating-report'>('order-review');
   const znsPermissionDenied = /(?:-120|does not have permission|quyền gửi ZBS\/ZNS)/i.test(templatePermissionError);
 
   const refreshOaStatus = async () => {
@@ -250,7 +336,7 @@ const ZnsBulkSendPage: React.FC = () => {
         const rows = await listZnsTemplates();
         const byId = new Map<string, ZnsTemplateSummary>([[ORDER_REVIEW_TEMPLATE.template_id, ORDER_REVIEW_TEMPLATE]]);
         rows
-          .filter((row) => !isOrderConfirmationTemplate(row))
+          .filter((row) => !isOrderConfirmationTemplate(row) && !HIDDEN_ZNS_TEMPLATE_IDS.has(row.template_id))
           .forEach((row) => byId.set(row.template_id, row));
         if (!cancelled) setTemplates([...byId.values()]);
       } catch (err) {
@@ -275,6 +361,9 @@ const ZnsBulkSendPage: React.FC = () => {
       setPreviewData(null);
       setShowTemplatePreview(false);
       setSelectedIds(new Set());
+      setExpandedCampaignId(null);
+      setCampaignLogs([]);
+      setLogFilter('all');
       return;
     }
 
@@ -287,6 +376,9 @@ const ZnsBulkSendPage: React.FC = () => {
     setShowTemplatePreview(false);
     // Danh sách người nhận thuộc mẫu đang chọn; không giữ lựa chọn của mẫu trước đó.
     setSelectedIds(new Set());
+    setExpandedCampaignId(null);
+    setCampaignLogs([]);
+    setLogFilter('all');
     setLoadingTemplates(true);
     try {
       const detail = await getZnsTemplateDetail(selected.template_id);
@@ -305,6 +397,7 @@ const ZnsBulkSendPage: React.FC = () => {
     setServiceFromDate('');
     setServiceToDate('');
     setServiceUsageDatesMap(new Map());
+    setServiceUsageLatestMap(new Map());
     setServiceUsageDatesMapFor('');
     setLoadingServiceDates(false);
   };
@@ -316,6 +409,7 @@ const ZnsBulkSendPage: React.FC = () => {
       setServiceFromDate('');
       setServiceToDate('');
       setServiceUsageDatesMap(new Map());
+      setServiceUsageLatestMap(new Map());
       setServiceUsageDatesMapFor('');
     }
   };
@@ -343,23 +437,43 @@ const ZnsBulkSendPage: React.FC = () => {
     [serviceFilters]
   );
 
+  const selectedServiceValues = useMemo(() => {
+    const selectedIds = new Set(serviceFilters.flatMap((value) => value.split(',').map((id) => id.trim()).filter(Boolean)));
+    return services
+      .filter((service) => selectedIds.has(service.id))
+      .flatMap((service) => [service.id, service.id_dich_vu || '', service.ten_dich_vu]);
+  }, [services, serviceFilters]);
+
+  const isAppointmentReminder = templateId === APPOINTMENT_REMINDER_TEMPLATE_ID;
+  const allServiceValues = useMemo(
+    () => services.flatMap((service) => [service.id, service.id_dich_vu || '', service.ten_dich_vu]),
+    [services]
+  );
+  const serviceUsageRequestKey = serviceFilterKey || (isAppointmentReminder ? 'all-services' : '');
+
   // Chọn dịch vụ -> tải toàn bộ ngày sử dụng. Khi chưa chọn ngày, chỉ cần khách
   // từng dùng dịch vụ; khi có ngày, ngày sử dụng phải nằm trong khoảng đã chọn.
   useEffect(() => {
-    if (!serviceFilterKey) return;
+    if (!serviceUsageRequestKey) {
+      setServiceUsageDatesMap(new Map());
+      setServiceUsageLatestMap(new Map());
+      setServiceUsageDatesMapFor('');
+      setLoadingServiceDates(false);
+      return;
+    }
     let cancelled = false;
     (async () => {
       try {
-        const ids = serviceFilters.flatMap((value) => value.split(','));
-        const selectedServices = services.filter((service) => ids.includes(service.id));
-        const serviceValues = selectedServices.flatMap((service) => [
-          service.id,
-          service.id_dich_vu || '',
-          service.ten_dich_vu,
+        const serviceValues = serviceFilterKey ? selectedServiceValues : allServiceValues;
+        const [map, latestMap] = await Promise.all([
+          serviceFilterKey
+            ? getServiceUsageDatesMap(serviceValues)
+            : Promise.resolve(new Map<string, string[]>()),
+          getServiceUsageLatestMap(serviceValues),
         ]);
-        const map = await getServiceUsageDatesMap(serviceValues);
         if (!cancelled) {
           setServiceUsageDatesMap(map);
+          setServiceUsageLatestMap(latestMap);
           setServiceUsageDatesMapFor(serviceFilterKey);
         }
       } catch (err) {
@@ -372,7 +486,7 @@ const ZnsBulkSendPage: React.FC = () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serviceFilterKey]);
+  }, [serviceUsageRequestKey, serviceFilterKey, selectedServiceValues, allServiceValues, branchFilter]);
 
   const filteredCustomers = useMemo(() => {
     const rawQuery = searchQuery.trim();
@@ -382,17 +496,26 @@ const ZnsBulkSendPage: React.FC = () => {
     const applyServiceFilter =
       serviceFilters.length > 0 &&
       serviceUsageDatesMapFor === serviceFilterKey;
+    const todayIso = toDateInputValue(new Date());
     const matches = customers.filter((c) => {
+      // Ẩn khách chưa có SĐT hợp lệ — không thể gửi ZNS nên không cần hiện trong danh sách chọn.
+      if (!isValidVnMobile(c.so_dien_thoai)) return false;
       if (branchFilter && resolveCustomerBranch(c.dia_chi_hien_tai) !== branchFilter) return false;
       if (applyServiceFilter) {
-        const usedSelectedServiceInRange = getCustomerLinkKeys(c).some((key) =>
-          (serviceUsageDatesMap.get(key.trim().toLowerCase()) || []).some(
-            (date) =>
-              (!serviceFromDate || date >= serviceFromDate) &&
-              (!serviceToDate || date <= serviceToDate)
-          )
-        );
-        if (!usedSelectedServiceInRange) return false;
+        if (isAppointmentReminder) {
+          // Chỉ nhắc khách đã từng dùng dịch vụ này nhưng lần gần nhất đã cách hôm nay >= N tháng.
+          const lastUsageDate = getLastServiceUsageDate(c, serviceUsageDatesMap);
+          if (!lastUsageDate || monthsBetween(lastUsageDate, todayIso) < reminderMonths) return false;
+        } else {
+          const usedSelectedServiceInRange = getCustomerLinkKeys(c).some((key) =>
+            (serviceUsageDatesMap.get(key.trim().toLowerCase()) || []).some(
+              (date) =>
+                (!serviceFromDate || date >= serviceFromDate) &&
+                (!serviceToDate || date <= serviceToDate)
+            )
+          );
+          if (!usedSelectedServiceInRange) return false;
+        }
       }
       if (!q) return true;
       const haystack = removeVietnameseTones(`${c.ho_va_ten} ${c.so_dien_thoai} ${c.bien_so_xe || ''}`);
@@ -412,6 +535,8 @@ const ZnsBulkSendPage: React.FC = () => {
     serviceToDate,
     serviceUsageDatesMap,
     serviceUsageDatesMapFor,
+    isAppointmentReminder,
+    reminderMonths,
   ]);
 
   const selectableFilteredIds = useMemo(
@@ -450,7 +575,7 @@ const ZnsBulkSendPage: React.FC = () => {
 
   const buildFieldMapping = (): Record<string, ZnsFieldMappingEntry> => {
     const out: Record<string, ZnsFieldMappingEntry> = {};
-    for (const row of mappingRowsForTemplate(templateDetail)) {
+    for (const row of mappingRowsForTemplate(templateDetail, templateId)) {
       const key = row.key.trim();
       if (!key) continue;
       out[key] = row.source === 'static' ? { source: 'static', value: row.value } : { source: row.source };
@@ -466,12 +591,21 @@ const ZnsBulkSendPage: React.FC = () => {
     const sample = selectedCustomers[0];
     setShowTemplatePreview(true);
     if (!sample) {
-      setPreviewData({ customer_name: '<customer_name>', order_date: '<order_date>' });
+      setPreviewData(
+        isAppointmentReminder
+          ? {
+              customer_name: '<customer_name>',
+              vehicle_name: '<vehicle_name>',
+              maintenance_mileage: '<maintenance_mileage>',
+              order_date: '<order_date>',
+            }
+          : { customer_name: '<customer_name>', order_date: '<order_date>' }
+      );
       return;
     }
     setLoadingPreview(true);
     try {
-      const data = await renderTemplateDataForCustomer(sample, buildFieldMapping());
+      const data = await renderTemplateDataForCustomer(sample, buildFieldMapping(), selectedServiceValues);
       setPreviewData(data);
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Không tạo được bản xem trước', 'error');
@@ -518,7 +652,7 @@ const ZnsBulkSendPage: React.FC = () => {
       });
       await setCampaignTotals(campaign.id, selectedCustomers.length);
 
-      const rendered = await renderTemplateDataForCustomers(selectedCustomers, fieldMapping);
+      const rendered = await renderTemplateDataForCustomers(selectedCustomers, fieldMapping, selectedServiceValues);
       const chunks = chunkArray(rendered, 25);
 
       let totalSent = 0;
@@ -614,6 +748,11 @@ const ZnsBulkSendPage: React.FC = () => {
     [campaignLogs, logFilter]
   );
 
+  const templateCampaigns = useMemo(
+    () => (templateId ? campaigns.filter((campaign) => campaign.template_id === templateId) : []),
+    [campaigns, templateId]
+  );
+
   return (
     <div className="p-4 lg:p-6 space-y-5">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -653,20 +792,25 @@ const ZnsBulkSendPage: React.FC = () => {
 
         <button
           type="button"
-          disabled
-          className="flex min-h-28 items-center gap-4 rounded-2xl border border-border bg-card px-5 text-left opacity-65"
+          aria-current={activeTab === 'rating-report' ? 'page' : undefined}
+          onClick={() => setActiveTab('rating-report')}
+          className={`flex min-h-28 items-center gap-4 rounded-2xl border px-5 text-left shadow-sm transition-colors ${
+            activeTab === 'rating-report' ? 'border-primary bg-primary/5 dark:bg-primary/10' : 'border-border bg-card hover:bg-muted/40'
+          }`}
         >
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-white">
             <History size={21} />
           </span>
           <span>
             <span className="block font-bold text-foreground">Báo cáo đánh giá</span>
-            <span className="mt-1 block text-sm text-muted-foreground">Sẽ cập nhật sau</span>
+            <span className="mt-1 block text-sm text-muted-foreground">Tổng hợp điểm và xu hướng đánh giá</span>
           </span>
         </button>
       </div>
 
-      {activeTab === 'message-approval' ? <OrderMessageApprovalPanel /> : <>
+      {activeTab === 'message-approval' ? <OrderMessageApprovalPanel /> : null}
+      {activeTab === 'rating-report' ? <ZnsRatingReportPanel /> : null}
+      {activeTab === 'order-review' && <>
       <div>
         <h1 className="text-xl font-bold text-foreground">Gửi đánh giá đơn hàng</h1>
         <p className="text-sm text-muted-foreground mt-1">
@@ -704,7 +848,7 @@ const ZnsBulkSendPage: React.FC = () => {
               {loadingTemplates && <Loader2 size={12} className="animate-spin" />}
             </label>
             <SearchableSelect
-              options={templates.map((template) => ({
+              options={templates.filter((template) => !HIDDEN_ZNS_TEMPLATE_IDS.has(template.template_id)).map((template) => ({
                 value: template.template_id,
                 label: `${template.template_name} — ID ${template.template_id}`,
                 searchKey: `${template.template_name} ${template.template_id}`,
@@ -774,7 +918,7 @@ const ZnsBulkSendPage: React.FC = () => {
                   title={`Xem trước ${templateTen}`}
                   className="h-[520px] w-full rounded-xl border border-border bg-white"
                 />
-              ) : (
+              ) : templateId === ORDER_REVIEW_TEMPLATE.template_id ? (
                 <div className={`rounded-xl p-4 transition-colors ${darkTemplatePreview ? 'bg-slate-900 text-slate-100' : 'bg-[#f1f3ff] text-slate-900'}`}>
                   <div className={`mx-auto max-w-md rounded-xl p-5 shadow-sm ${darkTemplatePreview ? 'bg-slate-800' : 'bg-white'}`}>
                     <img src={ORDER_REVIEW_LOGO_URL} alt="Anh Công Nhân" className="mb-4 h-auto max-h-16 max-w-full object-contain" />
@@ -794,13 +938,62 @@ const ZnsBulkSendPage: React.FC = () => {
                     </div>
                   </div>
                 </div>
+              ) : isAppointmentReminder ? (
+                <div className={`rounded-xl p-4 transition-colors ${darkTemplatePreview ? 'bg-slate-900 text-slate-100' : 'bg-[#f1f3ff] text-slate-900'}`}>
+                  <div className={`mx-auto max-w-md rounded-xl p-5 shadow-sm ${darkTemplatePreview ? 'bg-slate-800' : 'bg-white'}`}>
+                    <img src={ORDER_REVIEW_LOGO_URL} alt="Anh Công Nhân" className="mb-4 h-auto max-h-16 max-w-full object-contain" />
+                    <h4 className="text-lg font-bold">Nhắc lịch bảo dưỡng</h4>
+                    <p className={`mt-3 leading-7 ${darkTemplatePreview ? 'text-slate-200' : 'text-slate-600'}`}>
+                      Trung tâm sửa chữa xe Anh Công Nhân xin nhắc Quý khách{' '}
+                      <strong className={darkTemplatePreview ? 'text-white' : 'text-slate-900'}>
+                        {previewData.customer_name || '<customer_name>'}
+                      </strong>
+                      {(previewData.vehicle_name || previewData.license_plate) && (
+                        <>
+                          {' '}— xe biển số{' '}
+                          <strong className={darkTemplatePreview ? 'text-white' : 'text-slate-900'}>
+                            {previewData.vehicle_name || previewData.license_plate}
+                          </strong>
+                        </>
+                      )}
+                      {' '}đã đến lịch bảo dưỡng định kỳ
+                      {previewData.maintenance_mileage && (
+                        <>
+                          {' '}(đã đi được{' '}
+                          <strong className={darkTemplatePreview ? 'text-white' : 'text-slate-900'}>
+                            {previewData.maintenance_mileage} km
+                          </strong>
+                          )
+                        </>
+                      )}
+                      {previewData.order_date && (
+                        <>
+                          , lần bảo dưỡng gần nhất vào ngày{' '}
+                          <strong className={darkTemplatePreview ? 'text-white' : 'text-slate-900'}>
+                            {previewData.order_date}
+                          </strong>
+                        </>
+                      )}
+                      . Quý khách vui lòng sắp xếp thời gian đến trung tâm để được kiểm tra, bảo dưỡng xe kịp thời.
+                    </p>
+                  </div>
+                  <p className={`mt-3 text-center text-xs ${darkTemplatePreview ? 'text-slate-400' : 'text-slate-500'}`}>
+                    * Bản xem trước ước lượng dựa trên dữ liệu điền vào — Zalo chưa trả được layout thật (Template ID {templateId}).
+                    Nội dung tin gửi thật sẽ theo đúng mẫu đã được Zalo duyệt, có thể trình bày khác bản xem trước này.
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                  Chưa tải được bản xem trước từ Zalo cho mẫu này. Nội dung tin gửi vẫn theo đúng mẫu{' '}
+                  <strong className="text-foreground">{templateTen}</strong> đã được Zalo duyệt.
+                </div>
               )}
             </div>
           )}
         </div>
 
-        {/* Customer selection is only available for the configured review template. */}
-        {templateId === ORDER_REVIEW_TEMPLATE.template_id && <div className="bg-card border border-border rounded-2xl p-4 lg:p-6 space-y-3">
+        {/* Customer selection is only available for the review + appointment-reminder templates. */}
+        {(templateId === ORDER_REVIEW_TEMPLATE.template_id || isAppointmentReminder) && <div className="bg-card border border-border rounded-2xl p-4 lg:p-6 space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="font-bold text-foreground flex items-center gap-2">
               <Users size={18} /> Chọn khách hàng
@@ -851,35 +1044,57 @@ const ZnsBulkSendPage: React.FC = () => {
           </div>
 
           {serviceFilters.length > 0 && (
-            <div className="space-y-2 rounded-xl border border-dashed border-border p-2.5">
-              <label className="text-[11px] font-normal text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                Đã dùng dịch vụ đã chọn trong khoảng
-                {loadingServiceDates && <Loader2 size={12} className="animate-spin" />}
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <label className="block text-xs font-normal text-muted-foreground">Từ ngày</label>
-                  <DateInputVi
-                    value={serviceFromDate}
-                    onChange={setServiceFromDate}
-                    aria-label="Từ ngày sử dụng dịch vụ"
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm font-normal"
+            isAppointmentReminder ? (
+              <div className="space-y-2 rounded-xl border border-dashed border-border p-2.5">
+                <label className="text-[11px] font-normal text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  Chưa quay lại dùng dịch vụ đã chọn từ
+                  {loadingServiceDates && <Loader2 size={12} className="animate-spin" />}
+                </label>
+                <div className="flex flex-wrap items-center gap-2">
+                  <SearchableSelect
+                    options={REMINDER_MONTH_OPTIONS.map((m) => ({ value: String(m), label: `${m} tháng` }))}
+                    value={String(reminderMonths)}
+                    onValueChange={(v) => setReminderMonths(Number(v) || DEFAULT_REMINDER_MONTHS)}
+                    className="w-36 font-normal"
+                    optionClassName="font-normal"
                   />
+                  <span className="text-xs text-muted-foreground">trở lên, tính đến hôm nay</span>
                 </div>
-                <div className="space-y-1">
-                  <label className="block text-xs font-normal text-muted-foreground">Đến ngày</label>
-                  <DateInputVi
-                    value={serviceToDate}
-                    onChange={setServiceToDate}
-                    aria-label="Đến ngày sử dụng dịch vụ"
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm font-normal"
-                  />
-                </div>
+                <p className="text-xs text-muted-foreground">
+                  Chỉ hiện khách đã từng dùng dịch vụ đã chọn nhưng lần gần nhất cách đây từ {reminderMonths} tháng trở lên.
+                </p>
               </div>
-              {serviceFromDate && serviceToDate && serviceFromDate > serviceToDate && (
-                <p className="text-xs text-red-500">Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc.</p>
-              )}
-            </div>
+            ) : (
+              <div className="space-y-2 rounded-xl border border-dashed border-border p-2.5">
+                <label className="text-[11px] font-normal text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  Đã dùng dịch vụ đã chọn trong khoảng
+                  {loadingServiceDates && <Loader2 size={12} className="animate-spin" />}
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className="block text-xs font-normal text-muted-foreground">Từ ngày</label>
+                    <DateInputVi
+                      value={serviceFromDate}
+                      onChange={setServiceFromDate}
+                      aria-label="Từ ngày sử dụng dịch vụ"
+                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm font-normal"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="block text-xs font-normal text-muted-foreground">Đến ngày</label>
+                    <DateInputVi
+                      value={serviceToDate}
+                      onChange={setServiceToDate}
+                      aria-label="Đến ngày sử dụng dịch vụ"
+                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm font-normal"
+                    />
+                  </div>
+                </div>
+                {serviceFromDate && serviceToDate && serviceFromDate > serviceToDate && (
+                  <p className="text-xs text-red-500">Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc.</p>
+                )}
+              </div>
+            )
           )}
 
           <label className="flex items-center gap-2 text-sm font-normal text-foreground cursor-pointer">
@@ -897,6 +1112,13 @@ const ZnsBulkSendPage: React.FC = () => {
             ) : (
               filteredCustomers.map((c) => {
                 const valid = isValidVnMobile(c.so_dien_thoai);
+                const lastUsageDate = isAppointmentReminder && serviceFilters.length > 0
+                  ? getLastServiceUsageDate(c, serviceUsageDatesMap)
+                  : null;
+                const showUsageSummary = isAppointmentReminder || serviceFilters.length > 0;
+                const latestServiceUsage = showUsageSummary
+                  ? getLastServiceUsageSummary(c, serviceUsageLatestMap)
+                  : null;
                 return (
                   <label
                     key={c.id}
@@ -908,8 +1130,26 @@ const ZnsBulkSendPage: React.FC = () => {
                       onChange={() => toggleCustomer(c.id)}
                       className="rounded"
                     />
-                    <span className="flex-1 truncate text-foreground">{c.ho_va_ten}</span>
-                    <span className="font-mono text-muted-foreground">{c.so_dien_thoai}</span>
+                    <span className="flex-1 truncate text-foreground">
+                      {c.ho_va_ten} - <span className="font-mono text-muted-foreground">{c.so_dien_thoai}</span>
+                    </span>
+                    {lastUsageDate && !latestServiceUsage && (
+                      <span className="text-xs text-muted-foreground shrink-0">
+                        Gần nhất: {lastUsageDate.split('-').reverse().join('/')}
+                      </span>
+                    )}
+                    {showUsageSummary && (
+                      <span className="text-xs text-muted-foreground shrink-0 text-right leading-5">
+                        <span className="block">Ngày gần nhất: {latestServiceUsage
+                          ? latestServiceUsage.ngay.split('-').reverse().join('/')
+                          : loadingServiceDates ? 'Đang tải...' : 'Chưa có'}</span>
+                        <span className="block">
+                          Km gần nhất: {latestServiceUsage && Number(latestServiceUsage.so_km) > 0
+                            ? `${Number(latestServiceUsage.so_km).toLocaleString('vi-VN')} km`
+                            : 'Chưa có'}
+                        </span>
+                      </span>
+                    )}
                     {!valid && (
                       <span title="Số điện thoại không hợp lệ">
                         <AlertTriangle size={14} className="text-amber-500" />
@@ -983,7 +1223,7 @@ const ZnsBulkSendPage: React.FC = () => {
       )}
 
       {/* Campaign history */}
-      <div className="bg-card border border-border rounded-2xl p-4 lg:p-6 space-y-3">
+      {templateId && <div className="bg-card border border-border rounded-2xl p-4 lg:p-6 space-y-3">
         <h2 className="font-bold text-foreground flex items-center gap-2">
           <History size={18} /> Lịch sử gửi đánh giá
         </h2>
@@ -992,11 +1232,11 @@ const ZnsBulkSendPage: React.FC = () => {
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 size={16} className="animate-spin" /> Đang tải...
           </div>
-        ) : campaigns.length === 0 ? (
+        ) : templateCampaigns.length === 0 ? (
           <p className="text-sm text-muted-foreground">Chưa có lần gửi đánh giá nào.</p>
         ) : (
           <div className="divide-y divide-border">
-            {campaigns.map((c) => {
+            {templateCampaigns.map((c) => {
               const badge = STATUS_BADGE[c.trang_thai] || STATUS_BADGE.nhap;
               const expanded = expandedCampaignId === c.id;
               return (
@@ -1071,7 +1311,7 @@ const ZnsBulkSendPage: React.FC = () => {
             })}
           </div>
         )}
-      </div>
+      </div>}
       </>}
     </div>
   );

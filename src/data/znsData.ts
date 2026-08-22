@@ -1,12 +1,18 @@
 import { supabase } from '../lib/supabase';
 import { normalizeVnPhoneDigits } from '../lib/phoneUtils';
 import { getCustomerServiceHistory } from './customerData';
-import { chunkArray } from './salesCardData';
+import { chunkArray, type SalesCard } from './salesCardData';
 
 export type ZnsCampaignStatus = 'nhap' | 'dang_gui' | 'hoan_thanh' | 'hoan_thanh_co_loi' | 'huy';
 export type ZnsLogStatus = 'cho_gui' | 'thanh_cong' | 'that_bai' | 'bo_qua';
 
-export type ZnsFieldSource = 'ho_va_ten' | 'last_order.id_bh' | 'last_order.ngay' | 'static';
+export type ZnsFieldSource =
+  | 'ho_va_ten'
+  | 'bien_so_xe'
+  | 'last_order.id_bh'
+  | 'last_order.ngay'
+  | 'last_service.so_km'
+  | 'static';
 
 export interface ZnsFieldMappingEntry {
   source: ZnsFieldSource;
@@ -177,6 +183,20 @@ export async function getCampaignLogs(campaignId: string): Promise<ZnsLogEntry[]
   return (data as ZnsLogEntry[]) || [];
 }
 
+export interface ZnsGuiLogWithCustomer extends ZnsLogEntry {
+  khach_hang: { ho_va_ten: string; dia_chi_hien_tai: string | null } | null;
+}
+
+/** Toàn bộ log gửi ZNS (mọi chiến dịch) — dùng cho báo cáo tổng hợp theo khách hàng. */
+export async function listAllGuiLogs(): Promise<ZnsGuiLogWithCustomer[]> {
+  const { data, error } = await supabase
+    .from('zns_gui_log')
+    .select('*, khach_hang:khach_hang_id(ho_va_ten, dia_chi_hien_tai)')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data as ZnsGuiLogWithCustomer[]) || [];
+}
+
 export interface RenderedRecipient {
   idempotency_key: string;
   khach_hang_id: string | null;
@@ -211,20 +231,48 @@ export function formatZbsDate(value: string | null | undefined): string {
   return raw;
 }
 
+function normalizeServiceValue(value: unknown): string {
+  return String(value ?? '').trim().toLowerCase();
+}
+
+function orderMatchesSelectedService(order: SalesCard, serviceValues: string[]): boolean {
+  if (serviceValues.length === 0) return true;
+  const wanted = new Set(serviceValues.map(normalizeServiceValue).filter(Boolean));
+  const candidates = [
+    order.dich_vu_id,
+    ...(order.dich_vu_ids || []),
+    order.dich_vu?.id,
+    order.dich_vu?.id_dich_vu,
+    order.dich_vu?.ten_dich_vu,
+    ...(order.the_ban_hang_ct || []).map((detail) => detail.san_pham),
+  ]
+    .map(normalizeServiceValue)
+    .filter(Boolean);
+  return candidates.some((candidate) => wanted.has(candidate));
+}
+
 /** Render field_mapping thành template_data cho 1 khách hàng cụ thể. */
 export async function renderTemplateDataForCustomer(
-  customer: { id: string; ho_va_ten: string; so_dien_thoai: string },
-  fieldMapping: Record<string, ZnsFieldMappingEntry>
+  customer: { id: string; ho_va_ten: string; so_dien_thoai: string; bien_so_xe?: string | null },
+  fieldMapping: Record<string, ZnsFieldMappingEntry>,
+  serviceValues: string[] = []
 ): Promise<Record<string, string>> {
   const needsOrder = Object.values(fieldMapping).some((m) => m.source.startsWith('last_order.'));
+  const needsLastServiceMileage = Object.values(fieldMapping).some((m) => m.source === 'last_service.so_km');
   let lastOrderIdBh = '';
   let lastOrderNgay = '';
+  let lastServiceKm = '';
 
-  if (needsOrder) {
+  if (needsOrder || needsLastServiceMileage) {
     const history = await getCustomerServiceHistory({ id: customer.id, so_dien_thoai: customer.so_dien_thoai });
     const latest = history[0];
     lastOrderIdBh = latest?.id_bh || '';
     lastOrderNgay = latest?.ngay || '';
+    if (needsLastServiceMileage) {
+      const latestSelectedService = history.find((order) => orderMatchesSelectedService(order, serviceValues));
+      const km = Number(latestSelectedService?.so_km);
+      lastServiceKm = Number.isFinite(km) && km > 0 ? String(km) : '';
+    }
   }
 
   const out: Record<string, string> = {};
@@ -233,11 +281,17 @@ export async function renderTemplateDataForCustomer(
       case 'ho_va_ten':
         out[key] = customer.ho_va_ten || '';
         break;
+      case 'bien_so_xe':
+        out[key] = customer.bien_so_xe?.trim() || '';
+        break;
       case 'last_order.id_bh':
         out[key] = lastOrderIdBh;
         break;
       case 'last_order.ngay':
         out[key] = formatZbsDate(lastOrderNgay);
+        break;
+      case 'last_service.so_km':
+        out[key] = lastServiceKm;
         break;
       case 'static':
         out[key] = mapping.value || '';
@@ -251,8 +305,9 @@ export async function renderTemplateDataForCustomer(
 
 /** Render field_mapping cho nhiều khách hàng cùng lúc (dùng trước khi gửi hàng loạt). */
 export async function renderTemplateDataForCustomers(
-  customers: Array<{ id: string; ho_va_ten: string; so_dien_thoai: string }>,
-  fieldMapping: Record<string, ZnsFieldMappingEntry>
+  customers: Array<{ id: string; ho_va_ten: string; so_dien_thoai: string; bien_so_xe?: string | null }>,
+  fieldMapping: Record<string, ZnsFieldMappingEntry>,
+  serviceValues: string[] = []
 ): Promise<RenderedRecipient[]> {
   const out: RenderedRecipient[] = [];
   for (const chunk of chunkArray(customers, 20)) {
@@ -261,7 +316,7 @@ export async function renderTemplateDataForCustomers(
         idempotency_key: buildIdempotencyKey(c.id, c.so_dien_thoai),
         khach_hang_id: c.id,
         phone: normalizeVnPhoneDigits(c.so_dien_thoai),
-        template_data: await renderTemplateDataForCustomer(c, fieldMapping),
+        template_data: await renderTemplateDataForCustomer(c, fieldMapping, serviceValues),
       }))
     );
     out.push(...rendered);
