@@ -26,6 +26,12 @@ import {
 import { normalizeVnPhoneDigits } from '../lib/phoneUtils';
 import { getCustomerLinkKeys } from '../lib/customerOrderLink';
 import { CUSTOMER_BRANCH_OPTIONS, normalizeBranchLabel, resolveCustomerBranch } from '../constants/customerBranches';
+import {
+  HIDDEN_ZNS_TEMPLATE_IDS,
+  ZNS_MAINTENANCE_BRANCH_ADDRESSES,
+  ZNS_MAINTENANCE_PARAMETER_KEYS,
+  ZNS_MAINTENANCE_TEMPLATE_ID,
+} from '../constants/znsTemplates';
 import { removeVietnameseTones } from '../lib/utils';
 import { SearchableSelect } from '../components/ui/SearchableSelect';
 import DateInputVi from '../components/ui/DateInputVi';
@@ -81,12 +87,11 @@ const ORDER_REVIEW_TEMPLATE = {
 
 /** Mẫu ZNS nhắc khách quay lại dùng dịch vụ đã dùng trước đây — dùng chung khối
  * "Chọn khách hàng" với mẫu đánh giá đơn hàng, chỉ khác điều kiện lọc theo thời gian. */
-const APPOINTMENT_REMINDER_TEMPLATE_ID = '626812';
+const APPOINTMENT_REMINDER_TEMPLATE_ID = ZNS_MAINTENANCE_TEMPLATE_ID;
 const REMINDER_MONTH_OPTIONS = [1, 2, 3, 6, 9, 12] as const;
 const DEFAULT_REMINDER_MONTHS = 3;
 
 const ORDER_CONFIRMATION_TEMPLATE_ID = '624663';
-const HIDDEN_ZNS_TEMPLATE_IDS = new Set(['625983']);
 
 const ORDER_REVIEW_LOGO_URL = 'https://stc-oa.zdn.vn/uploads/2026/08/17/77fdca07b05bea9143f72299b465976c.png';
 
@@ -101,15 +106,40 @@ function isOrderConfirmationTemplate(template: ZnsTemplateSummary): boolean {
   return normalized.includes('xac nhan don hang');
 }
 
-function mappingRowsForTemplate(detail: ZnsTemplateDetail | null, selectedTemplateId = ''): MappingRow[] {
+function appointmentBranchAddress(branch: string): string {
+  return ZNS_MAINTENANCE_BRANCH_ADDRESSES[normalizeBranchLabel(branch)] || '';
+}
+
+function templateParameterKeys(detail: ZnsTemplateDetail | null): Set<string> {
+  return new Set((detail?.parameters || []).map((parameter) => parameter.name.replace(/[<>]/g, '').trim()));
+}
+
+function isMaintenanceReminderTemplate(
+  templateId: string,
+  templateName: string,
+  detail: ZnsTemplateDetail | null,
+): boolean {
+  if (templateId === APPOINTMENT_REMINDER_TEMPLATE_ID) return true;
+
+  const parameterKeys = templateParameterKeys(detail);
+  if (ZNS_MAINTENANCE_PARAMETER_KEYS.every((key) => parameterKeys.has(key))) return true;
+
+  const normalizedName = removeVietnameseTones(templateName).toLowerCase();
+  return normalizedName.includes('bao duong') && normalizedName.includes('xe');
+}
+
+function mappingRowsForTemplate(detail: ZnsTemplateDetail | null, isMaintenanceTemplate = false): MappingRow[] {
   const rows: MappingRow[] = detail?.parameters?.length
     ? detail.parameters.map((parameter) => {
         const key = parameter.name.replace(/[<>]/g, '').trim();
         if (key === 'customer_name') return { key, source: 'ho_va_ten', value: '' };
         if (key === 'order_date') return { key, source: 'last_order.ngay', value: '' };
         if (key === 'order_code') return { key, source: 'last_order.id_bh', value: '' };
+        if (key === 'service_name') return { key, source: 'selected_service.name', value: '' };
+        if (key === 'branch_address') return { key, source: 'dia_chi_hien_tai', value: '' };
+        if (key === 'months_since_service') return { key, source: 'last_service_usage.months', value: '' };
         if (key === 'vehicle_name') {
-          return selectedTemplateId === APPOINTMENT_REMINDER_TEMPLATE_ID
+          return isMaintenanceTemplate
             ? { key, source: 'static', value: '_' }
             : { key, source: 'bien_so_xe', value: '' };
         }
@@ -120,16 +150,20 @@ function mappingRowsForTemplate(detail: ZnsTemplateDetail | null, selectedTempla
     : DEFAULT_MAPPING_ROWS.map((row) => ({ ...row }));
 
   // Nếu Zalo tạm thời không trả được chi tiết Template, vẫn gửi đủ biến bắt buộc
-  // của mẫu nhắc lịch hẹn thay vì để vehicle_name bị bỏ khỏi template_data.
-  if (selectedTemplateId === APPOINTMENT_REMINDER_TEMPLATE_ID) {
-    for (const key of ['vehicle_name', 'license_plate', 'maintenance_mileage']) {
+  // của mẫu đặt lịch bảo dưỡng thay vì để các biến bị bỏ khỏi template_data.
+  if (isMaintenanceTemplate) {
+    for (const key of ['license_plate', 'service_name', 'branch_address', 'months_since_service']) {
       if (rows.some((row) => row.key === key)) continue;
       rows.push({
         key,
-        source: key === 'maintenance_mileage'
-          ? 'last_service.so_km'
-          : key === 'vehicle_name' ? 'static' : 'bien_so_xe',
-        value: key === 'vehicle_name' ? '_' : '',
+        source: key === 'license_plate'
+          ? 'bien_so_xe'
+          : key === 'service_name'
+            ? 'selected_service.name'
+            : key === 'branch_address'
+              ? 'dia_chi_hien_tai'
+              : 'last_service_usage.months',
+        value: '',
       });
     }
   }
@@ -235,7 +269,7 @@ const ZnsBulkSendPage: React.FC = () => {
   const [serviceFilters, setServiceFilters] = useState<string[]>([]); // mỗi phần tử có thể chứa nhiều ID cùng tên dịch vụ
   const [serviceFromDate, setServiceFromDate] = useState('');
   const [serviceToDate, setServiceToDate] = useState('');
-  // Chỉ dùng khi mẫu đang chọn là "Thông báo nhắc đến lịch hẹn" (626812).
+  // Chỉ dùng khi mẫu đang chọn là mẫu nhắc bảo dưỡng có bộ biến tương ứng.
   const [reminderMonths, setReminderMonths] = useState(DEFAULT_REMINDER_MONTHS);
   const [serviceUsageDatesMap, setServiceUsageDatesMap] = useState<Map<string, string[]>>(new Map());
   const [serviceUsageLatestMap, setServiceUsageLatestMap] = useState<Map<string, ServiceUsageLatest>>(new Map());
@@ -444,7 +478,17 @@ const ZnsBulkSendPage: React.FC = () => {
       .flatMap((service) => [service.id, service.id_dich_vu || '', service.ten_dich_vu]);
   }, [services, serviceFilters]);
 
-  const isAppointmentReminder = templateId === APPOINTMENT_REMINDER_TEMPLATE_ID;
+  const selectedServiceName = useMemo(() => {
+    const selectedIds = new Set(serviceFilters.flatMap((value) => value.split(',').map((id) => id.trim()).filter(Boolean)));
+    return services
+      .filter((service) => selectedIds.has(service.id))
+      .map((service) => service.ten_dich_vu?.trim())
+      .filter(Boolean)
+      .filter((name, index, names) => names.indexOf(name) === index)
+      .join(', ');
+  }, [services, serviceFilters]);
+
+  const isAppointmentReminder = isMaintenanceReminderTemplate(templateId, templateTen, templateDetail);
   const allServiceValues = useMemo(
     () => services.flatMap((service) => [service.id, service.id_dich_vu || '', service.ten_dich_vu]),
     [services]
@@ -575,9 +619,17 @@ const ZnsBulkSendPage: React.FC = () => {
 
   const buildFieldMapping = (): Record<string, ZnsFieldMappingEntry> => {
     const out: Record<string, ZnsFieldMappingEntry> = {};
-    for (const row of mappingRowsForTemplate(templateDetail, templateId)) {
+    for (const row of mappingRowsForTemplate(templateDetail, isAppointmentReminder)) {
       const key = row.key.trim();
       if (!key) continue;
+      if (isAppointmentReminder && key === 'months_since_service') {
+        out[key] = { source: 'static', value: String(reminderMonths) };
+        continue;
+      }
+      if (isAppointmentReminder && key === 'branch_address') {
+        out[key] = { source: 'static', value: appointmentBranchAddress(branchFilter) };
+        continue;
+      }
       out[key] = row.source === 'static' ? { source: 'static', value: row.value } : { source: row.source };
     }
     return out;
@@ -605,7 +657,7 @@ const ZnsBulkSendPage: React.FC = () => {
     }
     setLoadingPreview(true);
     try {
-      const data = await renderTemplateDataForCustomer(sample, buildFieldMapping(), selectedServiceValues);
+      const data = await renderTemplateDataForCustomer(sample, buildFieldMapping(), selectedServiceValues, selectedServiceName);
       setPreviewData(data);
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Không tạo được bản xem trước', 'error');
@@ -652,7 +704,12 @@ const ZnsBulkSendPage: React.FC = () => {
       });
       await setCampaignTotals(campaign.id, selectedCustomers.length);
 
-      const rendered = await renderTemplateDataForCustomers(selectedCustomers, fieldMapping, selectedServiceValues);
+      const rendered = await renderTemplateDataForCustomers(
+        selectedCustomers,
+        fieldMapping,
+        selectedServiceValues,
+        selectedServiceName,
+      );
       const chunks = chunkArray(rendered, 25);
 
       let totalSent = 0;

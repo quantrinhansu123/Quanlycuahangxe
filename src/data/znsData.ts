@@ -9,9 +9,12 @@ export type ZnsLogStatus = 'cho_gui' | 'thanh_cong' | 'that_bai' | 'bo_qua';
 export type ZnsFieldSource =
   | 'ho_va_ten'
   | 'bien_so_xe'
+  | 'dia_chi_hien_tai'
+  | 'selected_service.name'
   | 'last_order.id_bh'
   | 'last_order.ngay'
   | 'last_service.so_km'
+  | 'last_service_usage.months'
   | 'static';
 
 export interface ZnsFieldMappingEntry {
@@ -251,27 +254,59 @@ function orderMatchesSelectedService(order: SalesCard, serviceValues: string[]):
   return candidates.some((candidate) => wanted.has(candidate));
 }
 
+function toIsoDateInput(value: Date): string {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, '0');
+  const day = String(value.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function monthsBetweenIso(fromIso: string, toIso: string): number {
+  const from = new Date(`${fromIso.slice(0, 10)}T00:00:00`);
+  const to = new Date(`${toIso.slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return 0;
+
+  let months = (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth());
+  if (to.getDate() < from.getDate()) months -= 1;
+  return Math.max(0, months);
+}
+
 /** Render field_mapping thành template_data cho 1 khách hàng cụ thể. */
 export async function renderTemplateDataForCustomer(
-  customer: { id: string; ho_va_ten: string; so_dien_thoai: string; bien_so_xe?: string | null },
+  customer: {
+    id: string;
+    ho_va_ten: string;
+    so_dien_thoai: string;
+    bien_so_xe?: string | null;
+    dia_chi_hien_tai?: string | null;
+  },
   fieldMapping: Record<string, ZnsFieldMappingEntry>,
-  serviceValues: string[] = []
+  serviceValues: string[] = [],
+  selectedServiceName = ''
 ): Promise<Record<string, string>> {
   const needsOrder = Object.values(fieldMapping).some((m) => m.source.startsWith('last_order.'));
   const needsLastServiceMileage = Object.values(fieldMapping).some((m) => m.source === 'last_service.so_km');
+  const needsLastServiceUsageMonths = Object.values(fieldMapping)
+    .some((m) => m.source === 'last_service_usage.months');
   let lastOrderIdBh = '';
   let lastOrderNgay = '';
   let lastServiceKm = '';
+  let lastServiceUsageMonths = '';
 
-  if (needsOrder || needsLastServiceMileage) {
+  if (needsOrder || needsLastServiceMileage || needsLastServiceUsageMonths) {
     const history = await getCustomerServiceHistory({ id: customer.id, so_dien_thoai: customer.so_dien_thoai });
     const latest = history[0];
     lastOrderIdBh = latest?.id_bh || '';
     lastOrderNgay = latest?.ngay || '';
-    if (needsLastServiceMileage) {
+    if (needsLastServiceMileage || needsLastServiceUsageMonths) {
       const latestSelectedService = history.find((order) => orderMatchesSelectedService(order, serviceValues));
-      const km = Number(latestSelectedService?.so_km);
-      lastServiceKm = Number.isFinite(km) && km > 0 ? String(km) : '';
+      if (needsLastServiceMileage) {
+        const km = Number(latestSelectedService?.so_km);
+        lastServiceKm = Number.isFinite(km) && km > 0 ? String(km) : '';
+      }
+      if (needsLastServiceUsageMonths && latestSelectedService?.ngay) {
+        lastServiceUsageMonths = String(monthsBetweenIso(latestSelectedService.ngay, toIsoDateInput(new Date())));
+      }
     }
   }
 
@@ -284,6 +319,12 @@ export async function renderTemplateDataForCustomer(
       case 'bien_so_xe':
         out[key] = customer.bien_so_xe?.trim() || '';
         break;
+      case 'dia_chi_hien_tai':
+        out[key] = customer.dia_chi_hien_tai?.trim() || '';
+        break;
+      case 'selected_service.name':
+        out[key] = selectedServiceName;
+        break;
       case 'last_order.id_bh':
         out[key] = lastOrderIdBh;
         break;
@@ -292,6 +333,9 @@ export async function renderTemplateDataForCustomer(
         break;
       case 'last_service.so_km':
         out[key] = lastServiceKm;
+        break;
+      case 'last_service_usage.months':
+        out[key] = lastServiceUsageMonths;
         break;
       case 'static':
         out[key] = mapping.value || '';
@@ -305,9 +349,16 @@ export async function renderTemplateDataForCustomer(
 
 /** Render field_mapping cho nhiều khách hàng cùng lúc (dùng trước khi gửi hàng loạt). */
 export async function renderTemplateDataForCustomers(
-  customers: Array<{ id: string; ho_va_ten: string; so_dien_thoai: string; bien_so_xe?: string | null }>,
+  customers: Array<{
+    id: string;
+    ho_va_ten: string;
+    so_dien_thoai: string;
+    bien_so_xe?: string | null;
+    dia_chi_hien_tai?: string | null;
+  }>,
   fieldMapping: Record<string, ZnsFieldMappingEntry>,
-  serviceValues: string[] = []
+  serviceValues: string[] = [],
+  selectedServiceName = ''
 ): Promise<RenderedRecipient[]> {
   const out: RenderedRecipient[] = [];
   for (const chunk of chunkArray(customers, 20)) {
@@ -316,7 +367,7 @@ export async function renderTemplateDataForCustomers(
         idempotency_key: buildIdempotencyKey(c.id, c.so_dien_thoai),
         khach_hang_id: c.id,
         phone: normalizeVnPhoneDigits(c.so_dien_thoai),
-        template_data: await renderTemplateDataForCustomer(c, fieldMapping, serviceValues),
+        template_data: await renderTemplateDataForCustomer(c, fieldMapping, serviceValues, selectedServiceName),
       }))
     );
     out.push(...rendered);

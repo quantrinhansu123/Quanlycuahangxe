@@ -30,6 +30,7 @@ import { listAllGuiLogs, listCampaigns, type ZnsCampaign, type ZnsGuiLogWithCust
 import { listRatings, type ZnsRating } from '../../data/znsRatingData';
 import { listOrderMessageQueue, type OrderMessageQueueItem, type OrderMessageStatus } from '../../data/znsOrderMessageData';
 import { CUSTOMER_BRANCH_OPTIONS, resolveCustomerBranch } from '../../constants/customerBranches';
+import { ZNS_MAINTENANCE_TEMPLATE_ID, ZNS_MAINTENANCE_TEMPLATE_NAME } from '../../constants/znsTemplates';
 import { normalizeVnPhoneDigits } from '../../lib/phoneUtils';
 import { removeVietnameseTones } from '../../lib/utils';
 
@@ -40,14 +41,14 @@ const LOW_RATING_THRESHOLD = 2;
  * như 2 mẫu kia — nên không có điểm đánh giá, chỉ có thống kê gửi riêng. */
 const ORDER_CONFIRMATION_TEMPLATE_ID = '624663';
 
-/** Mẫu "Thông báo nhắc đến lịch hẹn" chỉ là tin thông báo, Zalo không thu thập sao đánh giá cho mẫu này
+/** Mẫu nhắc bảo dưỡng chỉ là tin thông báo, Zalo không thu thập sao đánh giá cho mẫu này
  * (khác mẫu 623794 là mẫu ZBS đánh giá dịch vụ) — nên cũng chỉ hiện thống kê gửi, không có điểm/biểu đồ đánh giá. */
-const APPOINTMENT_REMINDER_TEMPLATE_ID = '626812';
+const APPOINTMENT_REMINDER_TEMPLATE_ID = ZNS_MAINTENANCE_TEMPLATE_ID;
 
 /** Luôn hiện các mẫu ZNS đã biết trong bộ lọc, kể cả khi chưa có chiến dịch nào gửi bằng mẫu đó. */
 const KNOWN_TEMPLATES: Array<{ template_id: string; template_name: string }> = [
   { template_id: '623794', template_name: 'Chăm sóc, thu thập ý kiến của KH sau khi mua hàng' },
-  { template_id: '626812', template_name: 'Thông báo nhắc đến lịch hẹn' },
+  { template_id: ZNS_MAINTENANCE_TEMPLATE_ID, template_name: ZNS_MAINTENANCE_TEMPLATE_NAME },
   { template_id: ORDER_CONFIRMATION_TEMPLATE_ID, template_name: 'Xác nhận đơn hàng' },
 ];
 
