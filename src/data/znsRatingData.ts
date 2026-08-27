@@ -6,6 +6,7 @@ export interface ZnsRating {
   id: string;
   gui_log_id: string | null;
   chien_dich_id: string | null;
+  template_id: string | null;
   khach_hang_id: string | null;
   zalo_msg_id: string | null;
   tracking_id: string | null;

@@ -27,7 +27,7 @@ import { SearchableSelect } from '../ui/SearchableSelect';
 import DateInputVi from '../ui/DateInputVi';
 import { useToast } from '../../context/ToastContext';
 import { listAllGuiLogs, listCampaigns, type ZnsCampaign, type ZnsGuiLogWithCustomer } from '../../data/znsData';
-import { listRatings, type ZnsRating } from '../../data/znsRatingData';
+import { listRatings, syncRatings, type ZnsRating } from '../../data/znsRatingData';
 import { listOrderMessageQueue, type OrderMessageQueueItem, type OrderMessageStatus } from '../../data/znsOrderMessageData';
 import { CUSTOMER_BRANCH_OPTIONS, resolveCustomerBranch } from '../../constants/customerBranches';
 import { ZNS_MAINTENANCE_TEMPLATE_ID, ZNS_MAINTENANCE_TEMPLATE_NAME } from '../../constants/znsTemplates';
@@ -63,6 +63,11 @@ function toDateInputValue(d: Date): string {
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+/** Mã mẫu của một đánh giá: ưu tiên cột template_id, fallback qua chiến dịch đã liên kết. */
+function ratingTemplateId(rating: ZnsRating): string | null {
+  return rating.template_id || rating.chien_dich?.template_id || null;
 }
 
 function ratingDayKey(rating: ZnsRating): string | null {
@@ -108,8 +113,19 @@ export const ZnsRatingReportPanel: React.FC = () => {
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      setLoading(true);
+
+    // Kéo đánh giá mới từ Zalo (API rating/get) cho các mẫu đã biết — bù cho trường hợp
+    // Webhook chưa cấu hình. Upsert theo msg_id nên chạy lại nhiều lần vẫn an toàn.
+    const syncFromZalo = async () => {
+      const toMs = Date.now();
+      const fromMs = toMs - 30 * 24 * 60 * 60 * 1000;
+      await Promise.allSettled(
+        KNOWN_TEMPLATES.map((t) => syncRatings({ template_id: t.template_id, from_time: fromMs, to_time: toMs }))
+      );
+    };
+
+    const load = async (withSpinner: boolean) => {
+      if (withSpinner) setLoading(true);
       try {
         const [ratingRows, campaignRows, logRows, orderMessageRows] = await Promise.all([
           listRatings(),
@@ -124,13 +140,37 @@ export const ZnsRatingReportPanel: React.FC = () => {
           setOrderMessages(orderMessageRows);
         }
       } catch (err) {
-        if (!cancelled) showToast(err instanceof Error ? err.message : 'Không tải được dữ liệu báo cáo đánh giá', 'error');
+        if (!cancelled && withSpinner) {
+          showToast(err instanceof Error ? err.message : 'Không tải được dữ liệu báo cáo đánh giá', 'error');
+        }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled && withSpinner) setLoading(false);
       }
-    })();
+    };
+
+    void load(true);
+    void syncFromZalo().then(() => {
+      if (!cancelled) void load(false);
+    });
+
+    // Đánh giá mới về liên tục (webhook / đồng bộ nền) — làm mới ngầm để số liệu không bị "đứng".
+    const refreshTimer = window.setInterval(() => void load(false), 30_000);
+    const syncTimer = window.setInterval(
+      () => void syncFromZalo().then(() => { if (!cancelled) void load(false); }),
+      5 * 60_000
+    );
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') void load(false);
+    };
+    window.addEventListener('focus', refreshWhenVisible);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+
     return () => {
       cancelled = true;
+      window.clearInterval(refreshTimer);
+      window.clearInterval(syncTimer);
+      window.removeEventListener('focus', refreshWhenVisible);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -155,7 +195,7 @@ export const ZnsRatingReportPanel: React.FC = () => {
     const toMs = toDate ? new Date(`${toDate}T23:59:59.999`).getTime() : null;
 
     return ratings.filter((r) => {
-      if (templateFilter && r.chien_dich?.template_id !== templateFilter) return false;
+      if (templateFilter && ratingTemplateId(r) !== templateFilter) return false;
       if (branchFilter && resolveCustomerBranch(r.khach_hang?.dia_chi_hien_tai) !== branchFilter) return false;
 
       const ratingMs = r.thoi_diem_danh_gia ? new Date(r.thoi_diem_danh_gia).getTime() : null;
@@ -194,7 +234,7 @@ export const ZnsRatingReportPanel: React.FC = () => {
     const prevFromMs = prevToMs - spanMs;
 
     const prevRated = ratings.filter((r) => {
-      if (templateFilter && r.chien_dich?.template_id !== templateFilter) return false;
+      if (templateFilter && ratingTemplateId(r) !== templateFilter) return false;
       if (branchFilter && resolveCustomerBranch(r.khach_hang?.dia_chi_hien_tai) !== branchFilter) return false;
       if (r.rate === null || !r.thoi_diem_danh_gia) return false;
       const ms = new Date(r.thoi_diem_danh_gia).getTime();

@@ -21,6 +21,7 @@ import {
   getServiceUsageLatestMap,
   getServices,
   type DichVu,
+  type ServiceUsageDate,
   type ServiceUsageLatest,
 } from '../data/serviceData';
 import { normalizeVnPhoneDigits } from '../lib/phoneUtils';
@@ -33,6 +34,7 @@ import {
   ZNS_MAINTENANCE_TEMPLATE_ID,
 } from '../constants/znsTemplates';
 import { removeVietnameseTones } from '../lib/utils';
+import { buildServiceNameParam, collapseServiceNamesByKind } from '../lib/znsServiceName';
 import { SearchableSelect } from '../components/ui/SearchableSelect';
 import DateInputVi from '../components/ui/DateInputVi';
 import { OrderMessageApprovalPanel } from '../components/zns/OrderMessageApprovalPanel';
@@ -209,17 +211,47 @@ function monthsBetween(fromIso: string, toIso: string): number {
   return Math.max(0, months);
 }
 
-/** Ngày dùng dịch vụ gần nhất (trong các dịch vụ đang lọc) của 1 khách hàng — so sánh chuỗi ISO yyyy-mm-dd. */
-function getLastServiceUsageDate(customer: CustomerOption, serviceUsageDatesMap: Map<string, string[]>): string | null {
+/** Lần dùng dịch vụ thuộc đúng cơ sở đã chọn — so khớp chặt như bộ lọc dịch vụ theo cơ sở. */
+function usageMatchesBranch(usageCoSo: string | null | undefined, branch: string): boolean {
+  if (!branch) return true;
+  return normalizeBranchLabel(String(usageCoSo || '')) === normalizeBranchLabel(branch);
+}
+
+/** Ngày dùng dịch vụ gần nhất (trong các dịch vụ đang lọc) của 1 khách hàng — so sánh chuỗi ISO yyyy-mm-dd.
+ * Khi truyền `branch`, chỉ tính các lần dùng có phiếu bán thuộc đúng cơ sở đó. */
+function getLastServiceUsageDate(
+  customer: CustomerOption,
+  serviceUsageDatesMap: Map<string, ServiceUsageDate[]>,
+  branch = '',
+): string | null {
   let last: string | null = null;
   for (const key of getCustomerLinkKeys(customer)) {
-    const dates = serviceUsageDatesMap.get(key.trim().toLowerCase());
-    if (!dates) continue;
-    for (const date of dates) {
-      if (!last || date > last) last = date;
+    const entries = serviceUsageDatesMap.get(key.trim().toLowerCase());
+    if (!entries) continue;
+    for (const entry of entries) {
+      if (!usageMatchesBranch(entry.co_so, branch)) continue;
+      if (!last || entry.ngay > last) last = entry.ngay;
     }
   }
   return last;
+}
+
+/** Lần dùng gần nhất (ngày + số Km) của khách trong phạm vi cơ sở đã chọn — lấy từ danh sách ngày dùng. */
+function getBranchScopedUsageSummary(
+  customer: CustomerOption,
+  serviceUsageDatesMap: Map<string, ServiceUsageDate[]>,
+  branch: string,
+): { ngay: string; so_km: number | null } | null {
+  let best: { ngay: string; so_km: number | null } | null = null;
+  for (const key of getCustomerLinkKeys(customer)) {
+    const entries = serviceUsageDatesMap.get(key.trim().toLowerCase());
+    if (!entries) continue;
+    for (const entry of entries) {
+      if (!usageMatchesBranch(entry.co_so, branch)) continue;
+      if (!best || entry.ngay > best.ngay) best = { ngay: entry.ngay, so_km: entry.so_km };
+    }
+  }
+  return best;
 }
 
 function getLastServiceUsageSummary(
@@ -271,7 +303,7 @@ const ZnsBulkSendPage: React.FC = () => {
   const [serviceToDate, setServiceToDate] = useState('');
   // Chỉ dùng khi mẫu đang chọn là mẫu nhắc bảo dưỡng có bộ biến tương ứng.
   const [reminderMonths, setReminderMonths] = useState(DEFAULT_REMINDER_MONTHS);
-  const [serviceUsageDatesMap, setServiceUsageDatesMap] = useState<Map<string, string[]>>(new Map());
+  const [serviceUsageDatesMap, setServiceUsageDatesMap] = useState<Map<string, ServiceUsageDate[]>>(new Map());
   const [serviceUsageLatestMap, setServiceUsageLatestMap] = useState<Map<string, ServiceUsageLatest>>(new Map());
   const [serviceUsageDatesMapFor, setServiceUsageDatesMapFor] = useState('');
   const [loadingServiceDates, setLoadingServiceDates] = useState(false);
@@ -480,12 +512,13 @@ const ZnsBulkSendPage: React.FC = () => {
 
   const selectedServiceName = useMemo(() => {
     const selectedIds = new Set(serviceFilters.flatMap((value) => value.split(',').map((id) => id.trim()).filter(Boolean)));
-    return services
+    const names = services
       .filter((service) => selectedIds.has(service.id))
-      .map((service) => service.ten_dich_vu?.trim())
-      .filter(Boolean)
-      .filter((name, index, names) => names.indexOf(name) === index)
-      .join(', ');
+      .map((service) => service.ten_dich_vu?.trim() || '')
+      .filter(Boolean);
+    // Nhiều biến thể cùng loại (vd các loại "Dầu castrol ...") → chỉ ghi từ đầu ("Dầu").
+    // Sau đó kẹp ≤ 200 ký tự theo giới hạn tham số Zalo.
+    return buildServiceNameParam(collapseServiceNamesByKind(names));
   }, [services, serviceFilters]);
 
   const isAppointmentReminder = isMaintenanceReminderTemplate(templateId, templateTen, templateDetail);
@@ -544,18 +577,24 @@ const ZnsBulkSendPage: React.FC = () => {
     const matches = customers.filter((c) => {
       // Ẩn khách chưa có SĐT hợp lệ — không thể gửi ZNS nên không cần hiện trong danh sách chọn.
       if (!isValidVnMobile(c.so_dien_thoai)) return false;
-      if (branchFilter && resolveCustomerBranch(c.dia_chi_hien_tai) !== branchFilter) return false;
+      // Khi đã lọc theo dịch vụ, cơ sở được xác định theo phiếu bán (kiểm tra bên dưới),
+      // không theo cơ sở trong hồ sơ khách. Chỉ dựa vào hồ sơ khi chưa lọc dịch vụ.
+      if (branchFilter && !applyServiceFilter && resolveCustomerBranch(c.dia_chi_hien_tai) !== branchFilter) {
+        return false;
+      }
       if (applyServiceFilter) {
         if (isAppointmentReminder) {
-          // Chỉ nhắc khách đã từng dùng dịch vụ này nhưng lần gần nhất đã cách hôm nay >= N tháng.
-          const lastUsageDate = getLastServiceUsageDate(c, serviceUsageDatesMap);
+          // Chỉ nhắc khách đã từng dùng dịch vụ này (tại cơ sở đã chọn nếu có)
+          // nhưng lần gần nhất đã cách hôm nay >= N tháng.
+          const lastUsageDate = getLastServiceUsageDate(c, serviceUsageDatesMap, branchFilter);
           if (!lastUsageDate || monthsBetween(lastUsageDate, todayIso) < reminderMonths) return false;
         } else {
           const usedSelectedServiceInRange = getCustomerLinkKeys(c).some((key) =>
             (serviceUsageDatesMap.get(key.trim().toLowerCase()) || []).some(
-              (date) =>
-                (!serviceFromDate || date >= serviceFromDate) &&
-                (!serviceToDate || date <= serviceToDate)
+              (entry) =>
+                usageMatchesBranch(entry.co_so, branchFilter) &&
+                (!serviceFromDate || entry.ngay >= serviceFromDate) &&
+                (!serviceToDate || entry.ngay <= serviceToDate)
             )
           );
           if (!usedSelectedServiceInRange) return false;
@@ -1169,13 +1208,16 @@ const ZnsBulkSendPage: React.FC = () => {
             ) : (
               filteredCustomers.map((c) => {
                 const valid = isValidVnMobile(c.so_dien_thoai);
+                const branchScopedUsage = Boolean(branchFilter) && serviceFilters.length > 0;
                 const lastUsageDate = isAppointmentReminder && serviceFilters.length > 0
-                  ? getLastServiceUsageDate(c, serviceUsageDatesMap)
+                  ? getLastServiceUsageDate(c, serviceUsageDatesMap, branchFilter)
                   : null;
                 const showUsageSummary = isAppointmentReminder || serviceFilters.length > 0;
-                const latestServiceUsage = showUsageSummary
-                  ? getLastServiceUsageSummary(c, serviceUsageLatestMap)
-                  : null;
+                const latestServiceUsage = !showUsageSummary
+                  ? null
+                  : branchScopedUsage
+                    ? getBranchScopedUsageSummary(c, serviceUsageDatesMap, branchFilter)
+                    : getLastServiceUsageSummary(c, serviceUsageLatestMap);
                 return (
                   <label
                     key={c.id}

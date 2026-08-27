@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 import { normalizeVnPhoneDigits } from '../lib/phoneUtils';
 import { getCustomerServiceHistory } from './customerData';
+import { clampZnsParam } from '../lib/znsServiceName';
 import { chunkArray, type SalesCard } from './salesCardData';
 
 export type ZnsCampaignStatus = 'nhap' | 'dang_gui' | 'hoan_thanh' | 'hoan_thanh_co_loi' | 'huy';
@@ -343,6 +344,8 @@ export async function renderTemplateDataForCustomer(
       default:
         out[key] = '';
     }
+    // Lưới an toàn: Zalo từ chối tham số dài quá 200 ký tự.
+    out[key] = clampZnsParam(out[key]);
   }
   return out;
 }

@@ -108,11 +108,26 @@ type ServiceUsageOrder = {
   gio: string;
 };
 
+/** Một lần khách dùng dịch vụ đã lọc, kèm cơ sở của phiếu bán tương ứng. */
+export type ServiceUsageDate = {
+  ngay: string;
+  co_so: string;
+  so_km: number | null;
+};
+
 export type ServiceUsageLatest = {
   ngay: string;
   gio: string;
   so_km: number | null;
+  co_so: string;
 };
+
+/** Cơ sở gắn với 1 phiếu — lấy từ cột co_so trên dòng chi tiết phiếu bán. */
+function resolveUsageBranch(order: ServiceUsageOrder, detailBranchByRef: Map<string, string>): string {
+  const byBh = order.id_bh ? detailBranchByRef.get(order.id_bh.trim().toLowerCase()) : undefined;
+  const byId = detailBranchByRef.get(order.id.trim().toLowerCase());
+  return (byBh || byId || '').trim();
+}
 
 const SERVICE_USAGE_QUERY_CHUNK = 50;
 const SERVICE_USAGE_PAGE_SIZE = 1000;
@@ -132,13 +147,14 @@ function serviceUsageChunks<T>(rows: T[]): T[][] {
  * nằm trong `the_ban_hang_ct.san_pham`. Vì vậy phải kiểm tra cả phiếu chính lẫn
  * chi tiết phiếu, rồi trả map theo `khach_hang_id` (UUID hoặc mã khách hàng).
  */
-export async function getServiceUsageDatesMap(serviceValues: string[]): Promise<Map<string, string[]>> {
-  const map = new Map<string, string[]>();
+export async function getServiceUsageDatesMap(serviceValues: string[]): Promise<Map<string, ServiceUsageDate[]>> {
+  const map = new Map<string, ServiceUsageDate[]>();
   const values = [...new Set(serviceValues.map((value) => value.trim()).filter(Boolean))];
   if (values.length === 0) return map;
 
   const orders = new Map<string, ServiceUsageOrder>();
   const detailOrderRefs = new Set<string>();
+  const detailBranchByRef = new Map<string, string>();
 
   for (const valueChunk of serviceUsageChunks(values)) {
     for (let from = 0; ; from += SERVICE_USAGE_PAGE_SIZE) {
@@ -163,7 +179,7 @@ export async function getServiceUsageDatesMap(serviceValues: string[]): Promise<
     for (let from = 0; ; from += SERVICE_USAGE_PAGE_SIZE) {
       const { data, error } = await supabase
         .from('the_ban_hang_ct')
-        .select('id, id_don_hang')
+        .select('id, id_don_hang, co_so')
         .in('san_pham', valueChunk)
         .not('id_don_hang', 'is', null)
         .order('id', { ascending: true })
@@ -174,10 +190,15 @@ export async function getServiceUsageDatesMap(serviceValues: string[]): Promise<
         throw error;
       }
 
-      const rows = (data as { id: string; id_don_hang: string | null }[]) || [];
+      const rows = (data as { id: string; id_don_hang: string | null; co_so: string | null }[]) || [];
       rows.forEach((row) => {
         const ref = row.id_don_hang?.trim();
-        if (ref) detailOrderRefs.add(ref);
+        if (!ref) return;
+        detailOrderRefs.add(ref);
+        const branch = (row.co_so || '').trim();
+        if (branch && !detailBranchByRef.has(ref.toLowerCase())) {
+          detailBranchByRef.set(ref.toLowerCase(), branch);
+        }
       });
       if (rows.length < SERVICE_USAGE_PAGE_SIZE) break;
     }
@@ -213,12 +234,15 @@ export async function getServiceUsageDatesMap(serviceValues: string[]): Promise<
   for (const order of orders.values()) {
     if (!order.khach_hang_id || !order.ngay) continue;
     const customerKey = order.khach_hang_id.trim().toLowerCase();
-    const dates = map.get(customerKey) || [];
-    if (!dates.includes(order.ngay)) dates.push(order.ngay);
-    map.set(customerKey, dates);
+    const co_so = resolveUsageBranch(order, detailBranchByRef);
+    const entries = map.get(customerKey) || [];
+    if (!entries.some((entry) => entry.ngay === order.ngay && entry.co_so === co_so)) {
+      entries.push({ ngay: order.ngay, co_so, so_km: order.so_km });
+    }
+    map.set(customerKey, entries);
   }
 
-  map.forEach((dates) => dates.sort());
+  map.forEach((entries) => entries.sort((a, b) => a.ngay.localeCompare(b.ngay)));
 
   return map;
 }
@@ -231,6 +255,7 @@ export async function getServiceUsageLatestMap(serviceValues: string[]): Promise
 
   const orders = new Map<string, ServiceUsageOrder>();
   const detailOrderRefs = new Set<string>();
+  const detailBranchByRef = new Map<string, string>();
 
   for (const valueChunk of serviceUsageChunks(values)) {
     for (let from = 0; ; from += SERVICE_USAGE_PAGE_SIZE) {
@@ -255,7 +280,7 @@ export async function getServiceUsageLatestMap(serviceValues: string[]): Promise
     for (let from = 0; ; from += SERVICE_USAGE_PAGE_SIZE) {
       const { data, error } = await supabase
         .from('the_ban_hang_ct')
-        .select('id, id_don_hang')
+        .select('id, id_don_hang, co_so')
         .in('san_pham', valueChunk)
         .not('id_don_hang', 'is', null)
         .order('id', { ascending: true })
@@ -266,10 +291,15 @@ export async function getServiceUsageLatestMap(serviceValues: string[]): Promise
         throw error;
       }
 
-      const rows = (data as { id: string; id_don_hang: string | null }[]) || [];
+      const rows = (data as { id: string; id_don_hang: string | null; co_so: string | null }[]) || [];
       rows.forEach((row) => {
         const ref = row.id_don_hang?.trim();
-        if (ref) detailOrderRefs.add(ref);
+        if (!ref) return;
+        detailOrderRefs.add(ref);
+        const branch = (row.co_so || '').trim();
+        if (branch && !detailBranchByRef.has(ref.toLowerCase())) {
+          detailBranchByRef.set(ref.toLowerCase(), branch);
+        }
       });
       if (rows.length < SERVICE_USAGE_PAGE_SIZE) break;
     }
@@ -310,7 +340,12 @@ export async function getServiceUsageLatestMap(serviceValues: string[]): Promise
       order.ngay > previous.ngay ||
       (order.ngay === previous.ngay && order.gio > previous.gio)
     ) {
-      map.set(customerKey, { ngay: order.ngay, gio: order.gio, so_km: order.so_km });
+      map.set(customerKey, {
+        ngay: order.ngay,
+        gio: order.gio,
+        so_km: order.so_km,
+        co_so: resolveUsageBranch(order, detailBranchByRef),
+      });
     }
   }
 

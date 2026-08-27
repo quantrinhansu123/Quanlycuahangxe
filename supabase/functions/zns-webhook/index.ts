@@ -9,6 +9,7 @@ interface FeedbackMessage {
   msg_id?: string;
   feedbacks?: string[];
   tracking_id?: string;
+  template_id?: string | number;
 }
 
 /**
@@ -82,11 +83,25 @@ Deno.serve(async (req) => {
 
   const submitMs = Number(message.submit_time);
 
+  // template_id: ưu tiên payload Zalo, sau đó suy từ chiến dịch của log gửi đã khớp.
+  let templateId =
+    (message.template_id != null ? String(message.template_id) : "") ||
+    (payload.template_id != null ? String(payload.template_id) : "");
+  if (!templateId && guiLog?.chien_dich_id) {
+    const campaign = await supabaseAdmin
+      .from("zns_chien_dich")
+      .select("template_id")
+      .eq("id", guiLog.chien_dich_id)
+      .maybeSingle();
+    templateId = campaign.data?.template_id ?? "";
+  }
+
   const { error } = await supabaseAdmin.from("zns_danh_gia").upsert(
     {
       gui_log_id: guiLog?.id ?? null,
       chien_dich_id: guiLog?.chien_dich_id ?? null,
       khach_hang_id: guiLog?.khach_hang_id ?? null,
+      template_id: templateId || null,
       zalo_msg_id: msgId,
       tracking_id: message.tracking_id ?? null,
       rating_type: message.rating_type ?? null,

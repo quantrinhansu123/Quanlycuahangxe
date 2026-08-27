@@ -52,6 +52,7 @@ Deno.serve(async (req) => {
             gui_log_id: guiLog?.id ?? null,
             chien_dich_id: guiLog?.chien_dich_id ?? null,
             khach_hang_id: guiLog?.khach_hang_id ?? null,
+            template_id,
             zalo_msg_id: item.msgId,
             tracking_id: item.trackingId || null,
             rate: item.rate,

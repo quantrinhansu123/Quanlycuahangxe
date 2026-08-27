@@ -32,7 +32,6 @@ const PersonnelManagementPage = lazy(() => import('./pages/PersonnelManagementPa
 const WarehouseStockListPage = lazy(() => import('./pages/WarehouseStockListPage'));
 const SparePartsListPage = lazy(() => import('./pages/SparePartsListPage'));
 const ZnsBulkSendPage = lazy(() => import('./pages/ZnsBulkSendPage'));
-const ZnsRatingPage = lazy(() => import('./pages/ZnsRatingPage'));
 const ZaloOauthCallbackPage = lazy(() => import('./pages/ZaloOauthCallbackPage'));
 
 
@@ -136,15 +135,6 @@ function AppRoutes() {
               element={
                 <ProtectedRoute adminOnly viewKey="zns-gui-hang-loat">
                   <ZnsBulkSendPage />
-                </ProtectedRoute>
-              }
-            />
-            {/* Đánh giá dịch vụ qua Zalo — chỉ admin */}
-            <Route
-              path="/zns/danh-gia"
-              element={
-                <ProtectedRoute adminOnly viewKey="zns-danh-gia">
-                  <ZnsRatingPage />
                 </ProtectedRoute>
               }
             />
