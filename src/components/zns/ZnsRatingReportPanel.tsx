@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Clock,
+  Eye,
   ListChecks,
   Loader2,
   MessageSquareText,
@@ -11,6 +12,7 @@ import {
   TrendingUp,
   Users,
   XCircle,
+  X,
 } from 'lucide-react';
 import {
   Bar,
@@ -57,6 +59,22 @@ const ORDER_MESSAGE_STATUS_BADGE: Record<OrderMessageStatus, { label: string; cl
   that_bai: { label: 'Thất bại', className: 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400' },
   cho_duyet: { label: 'Chờ duyệt', className: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400' },
 };
+
+const ZNS_LOG_STATUS_BADGE = {
+  thanh_cong: { label: 'Thành công', className: 'bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400' },
+  that_bai: { label: 'Thất bại', className: 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400' },
+  cho_gui: { label: 'Chờ gửi', className: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400' },
+  bo_qua: { label: 'Bỏ qua', className: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300' },
+} as const;
+
+function formatSentAt(value: string | null): string {
+  if (!value) return 'Chưa gửi';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Không xác định';
+  return new Intl.DateTimeFormat('vi-VN', {
+    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit',
+  }).format(date);
+}
 
 function toDateInputValue(d: Date): string {
   const year = d.getFullYear();
@@ -106,6 +124,16 @@ export const ZnsRatingReportPanel: React.FC = () => {
   const [toDate, setToDate] = useState('');
   const [branchFilter, setBranchFilter] = useState('');
   const [templateFilter, setTemplateFilter] = useState('');
+  const [selectedCustomer, setSelectedCustomer] = useState<{
+    name: string;
+    phone: string;
+    logs: ZnsGuiLogWithCustomer[];
+  } | null>(null);
+  const [selectedOrderCustomer, setSelectedOrderCustomer] = useState<{
+    name: string;
+    phone: string;
+    messages: OrderMessageQueueItem[];
+  } | null>(null);
 
   // Chỉ dùng cho bảng "Danh sách khách hàng đã gửi xác nhận đơn hàng".
   const [orderMessageSearch, setOrderMessageSearch] = useState('');
@@ -244,13 +272,6 @@ export const ZnsRatingReportPanel: React.FC = () => {
     return prevRated.reduce((sum, r) => sum + (r.rate ?? 0), 0) / prevRated.length;
   }, [ratings, fromDate, toDate, branchFilter, templateFilter]);
 
-  const totalSentSuccess = useMemo(
-    () => campaignsInScope.reduce((sum, c) => sum + c.so_luong_thanh_cong, 0),
-    [campaignsInScope]
-  );
-
-  const responseRate = totalSentSuccess > 0 ? (ratingsInScope.length / totalSentSuccess) * 100 : null;
-
   const lowRatingRows = useMemo(
     () =>
       ratingsInScope
@@ -330,7 +351,7 @@ export const ZnsRatingReportPanel: React.FC = () => {
     const toMs = toDate ? new Date(`${toDate}T23:59:59.999`).getTime() : null;
     const campaignById = new Map(campaigns.map((c) => [c.id, c]));
 
-    const grouped = new Map<string, { name: string; phone: string; count: number }>();
+    const grouped = new Map<string, { name: string; phone: string; count: number; logs: ZnsGuiLogWithCustomer[] }>();
     guiLogs.forEach((log) => {
       const campaign = campaignById.get(log.chien_dich_id);
       if (templateFilter && campaign?.template_id !== templateFilter) return;
@@ -345,17 +366,50 @@ export const ZnsRatingReportPanel: React.FC = () => {
       const existing = grouped.get(key);
       if (existing) {
         existing.count += 1;
+        existing.logs.push(log);
       } else {
         grouped.set(key, {
           name: log.khach_hang?.ho_va_ten?.trim() || '',
           phone: log.so_dien_thoai,
           count: 1,
+          logs: [log],
         });
       }
     });
 
-    return [...grouped.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'vi'));
+    return [...grouped.values()]
+      .map((row) => ({ ...row, logs: row.logs.sort((a, b) => (b.gui_luc || b.created_at).localeCompare(a.gui_luc || a.created_at)) }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'vi'));
   }, [guiLogs, campaigns, fromDate, toDate, branchFilter, templateFilter]);
+
+  // Dùng log thực tế thay vì tổng đếm trên chiến dịch, đồng thời khử trùng phản hồi theo mã tin nhắn.
+  // Một tin nhắn chỉ được tính một lần, vì vậy tỷ lệ phản hồi luôn nằm trong khoảng 0–100%.
+  const responseRate = useMemo(() => {
+    const successfulSendIds = new Set(
+      customerRows
+        .flatMap((row) => row.logs)
+        .filter((log) => log.trang_thai === 'thanh_cong')
+        .map((log) => log.id)
+    );
+    if (successfulSendIds.size === 0) return null;
+
+    const responseIds = new Set(
+      ratingsInScope.map((rating) => rating.zalo_msg_id || rating.gui_log_id || rating.tracking_id || rating.id)
+    );
+    return Math.min(100, (responseIds.size / successfulSendIds.size) * 100);
+  }, [customerRows, ratingsInScope]);
+
+  useEffect(() => {
+    if (!selectedCustomer && !selectedOrderCustomer) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setSelectedCustomer(null);
+        setSelectedOrderCustomer(null);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [selectedCustomer, selectedOrderCustomer]);
 
   const trendDelta = avgRate !== null && prevPeriodAvgRate !== null ? avgRate - prevPeriodAvgRate : null;
 
@@ -388,6 +442,7 @@ export const ZnsRatingReportPanel: React.FC = () => {
       count: number;
       latestStatus: OrderMessageStatus;
       latestTimeKey: string;
+      messages: OrderMessageQueueItem[];
     };
     const grouped = new Map<string, Row>();
     orderMessagesInScope.forEach((m) => {
@@ -398,6 +453,7 @@ export const ZnsRatingReportPanel: React.FC = () => {
       const existing = grouped.get(key);
       if (existing) {
         existing.count += 1;
+        existing.messages.push(m);
         if (timeKey >= existing.latestTimeKey) {
           existing.latestStatus = m.status;
           existing.latestTimeKey = timeKey;
@@ -409,10 +465,13 @@ export const ZnsRatingReportPanel: React.FC = () => {
           count: 1,
           latestStatus: m.status,
           latestTimeKey: timeKey,
+          messages: [m],
         });
       }
     });
-    return [...grouped.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'vi'));
+    return [...grouped.values()]
+      .map((row) => ({ ...row, messages: row.messages.sort((a, b) => (b.last_sent_at || b.created_at).localeCompare(a.last_sent_at || a.created_at)) }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'vi'));
   }, [orderMessagesInScope]);
 
   const orderMessageStatusOptions = useMemo(
@@ -603,24 +662,28 @@ export const ZnsRatingReportPanel: React.FC = () => {
                       <th className="py-1.5 pr-3 font-normal">Tên khách hàng</th>
                       <th className="py-1.5 pr-3 font-normal">Số điện thoại</th>
                       <th className="py-1.5 pr-3 font-normal">Số lần gửi</th>
-                      <th className="py-1.5 pr-3 font-normal">Trạng thái</th>
+                      <th className="py-1.5 pr-3 font-normal">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {filteredOrderConfirmationCustomerRows.map((row, idx) => {
-                      const badge = ORDER_MESSAGE_STATUS_BADGE[row.latestStatus];
-                      return (
+                    {filteredOrderConfirmationCustomerRows.map((row, idx) => (
                         <tr key={`${row.phone || 'no-phone'}-${idx}`}>
                           <td className="py-2 pr-3 text-muted-foreground">{idx + 1}</td>
                           <td className="py-2 pr-3 text-foreground">{row.name || 'Không rõ tên'}</td>
                           <td className="py-2 pr-3 font-mono text-foreground">{row.phone || '—'}</td>
                           <td className="py-2 pr-3 text-foreground">{row.count}</td>
                           <td className="py-2 pr-3">
-                            <span className={`text-xs font-semibold px-2 py-1 rounded-full ${badge.className}`}>{badge.label}</span>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedOrderCustomer(row)}
+                              className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-primary hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                            >
+                              <Eye size={15} aria-hidden="true" />
+                              Xem chi tiết
+                            </button>
                           </td>
                         </tr>
-                      );
-                    })}
+                    ))}
                   </tbody>
                 </table>
               </div>
@@ -690,6 +753,7 @@ export const ZnsRatingReportPanel: React.FC = () => {
                       <th className="py-1.5 pr-3 font-normal">Tên khách hàng</th>
                       <th className="py-1.5 pr-3 font-normal">Số điện thoại</th>
                       <th className="py-1.5 pr-3 font-normal">Số lần gửi</th>
+                      <th className="py-1.5 pr-3 font-normal">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -699,6 +763,16 @@ export const ZnsRatingReportPanel: React.FC = () => {
                         <td className="py-2 pr-3 text-foreground">{row.name || 'Không rõ tên'}</td>
                         <td className="py-2 pr-3 font-mono text-foreground">{row.phone}</td>
                         <td className="py-2 pr-3 text-foreground">{row.count}</td>
+                        <td className="py-2 pr-3">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedCustomer(row)}
+                            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-primary hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                          >
+                            <Eye size={15} aria-hidden="true" />
+                            Xem chi tiết
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -775,6 +849,7 @@ export const ZnsRatingReportPanel: React.FC = () => {
                       <th className="py-1.5 pr-3 font-normal">Tên khách hàng</th>
                       <th className="py-1.5 pr-3 font-normal">Số điện thoại</th>
                       <th className="py-1.5 pr-3 font-normal">Số lần gửi</th>
+                      <th className="py-1.5 pr-3 font-normal">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -784,6 +859,16 @@ export const ZnsRatingReportPanel: React.FC = () => {
                         <td className="py-2 pr-3 text-foreground">{row.name || 'Không rõ tên'}</td>
                         <td className="py-2 pr-3 font-mono text-foreground">{row.phone}</td>
                         <td className="py-2 pr-3 text-foreground">{row.count}</td>
+                        <td className="py-2 pr-3">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedCustomer(row)}
+                            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-primary hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                          >
+                            <Eye size={15} aria-hidden="true" />
+                            Xem chi tiết
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -953,6 +1038,128 @@ export const ZnsRatingReportPanel: React.FC = () => {
             )}
           </div>
         </>
+      )}
+      {selectedCustomer && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4"
+          role="presentation"
+          onMouseDown={() => setSelectedCustomer(null)}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="zns-send-detail-title"
+            className="w-full max-w-2xl rounded-2xl border border-border bg-card shadow-xl"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <header className="flex items-start justify-between gap-4 border-b border-border p-5">
+              <div>
+                <h3 id="zns-send-detail-title" className="font-bold text-foreground">Chi tiết gửi ZNS</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {selectedCustomer.name || 'Không rõ tên'} · <span className="font-mono">{selectedCustomer.phone || '—'}</span>
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label="Đóng chi tiết gửi ZNS"
+                onClick={() => setSelectedCustomer(null)}
+                className="flex size-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                <X size={20} aria-hidden="true" />
+              </button>
+            </header>
+            <div className="max-h-[60vh] overflow-y-auto p-5">
+              <p className="mb-3 text-sm text-muted-foreground">{selectedCustomer.logs.length} lần gửi trong phạm vi bộ lọc.</p>
+              <div className="overflow-x-auto rounded-xl border border-border">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-muted/60 text-left text-xs uppercase tracking-wider text-muted-foreground">
+                    <tr>
+                      <th className="px-3 py-2 font-medium">Ngày giờ gửi</th>
+                      <th className="px-3 py-2 font-medium">Trạng thái</th>
+                      <th className="px-3 py-2 font-medium">Ghi chú</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {selectedCustomer.logs.map((log) => {
+                      const badge = ZNS_LOG_STATUS_BADGE[log.trang_thai];
+                      return (
+                        <tr key={log.id}>
+                          <td className="whitespace-nowrap px-3 py-3 text-foreground">{formatSentAt(log.gui_luc || log.created_at)}</td>
+                          <td className="px-3 py-3">
+                            <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${badge.className}`}>{badge.label}</span>
+                          </td>
+                          <td className="px-3 py-3 text-muted-foreground">{log.loi || '—'}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+      {selectedOrderCustomer && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4"
+          role="presentation"
+          onMouseDown={() => setSelectedOrderCustomer(null)}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="order-zns-send-detail-title"
+            className="w-full max-w-2xl rounded-2xl border border-border bg-card shadow-xl"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <header className="flex items-start justify-between gap-4 border-b border-border p-5">
+              <div>
+                <h3 id="order-zns-send-detail-title" className="font-bold text-foreground">Chi tiết gửi xác nhận đơn hàng</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {selectedOrderCustomer.name || 'Không rõ tên'} · <span className="font-mono">{selectedOrderCustomer.phone || '—'}</span>
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label="Đóng chi tiết gửi xác nhận đơn hàng"
+                onClick={() => setSelectedOrderCustomer(null)}
+                className="flex size-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                <X size={20} aria-hidden="true" />
+              </button>
+            </header>
+            <div className="max-h-[60vh] overflow-y-auto p-5">
+              <p className="mb-3 text-sm text-muted-foreground">{selectedOrderCustomer.messages.length} lần gửi trong phạm vi bộ lọc.</p>
+              <div className="overflow-x-auto rounded-xl border border-border">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-muted/60 text-left text-xs uppercase tracking-wider text-muted-foreground">
+                    <tr>
+                      <th className="px-3 py-2 font-medium">Mã đơn</th>
+                      <th className="px-3 py-2 font-medium">Ngày giờ gửi</th>
+                      <th className="px-3 py-2 font-medium">Trạng thái</th>
+                      <th className="px-3 py-2 font-medium">Ghi chú</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {selectedOrderCustomer.messages.map((message) => {
+                      const badge = ORDER_MESSAGE_STATUS_BADGE[message.status];
+                      return (
+                        <tr key={message.id}>
+                          <td className="whitespace-nowrap px-3 py-3 font-mono text-foreground">{message.order_code || '—'}</td>
+                          <td className="whitespace-nowrap px-3 py-3 text-foreground">{formatSentAt(message.last_sent_at || message.created_at)}</td>
+                          <td className="px-3 py-3">
+                            <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${badge.className}`}>{badge.label}</span>
+                          </td>
+                          <td className="px-3 py-3 text-muted-foreground">{message.last_error || '—'}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        </div>
       )}
     </div>
   );

@@ -545,7 +545,7 @@ const ZnsBulkSendPage: React.FC = () => {
         const [map, latestMap] = await Promise.all([
           serviceFilterKey
             ? getServiceUsageDatesMap(serviceValues)
-            : Promise.resolve(new Map<string, string[]>()),
+            : Promise.resolve(new Map<string, ServiceUsageDate[]>()),
           getServiceUsageLatestMap(serviceValues),
         ]);
         if (!cancelled) {
