@@ -5,10 +5,12 @@ import {
   ChevronDown,
   ChevronUp,
   ClipboardList,
+  Eye,
   History,
   Link2,
   Loader2,
   Moon,
+  RefreshCw,
   Send,
   Sun,
   Users,
@@ -45,6 +47,7 @@ import {
   getCampaignLogs,
   getOaStatus,
   getZnsTemplateDetail,
+  formatZnsLogError,
   listCampaigns,
   listZnsTemplates,
   renderTemplateDataForCustomer,
@@ -75,6 +78,14 @@ interface MappingRow {
   source: ZnsFieldSource;
   value: string;
 }
+
+type SendHistoryRow = ZnsLogEntry & { serviceNames: string[] };
+
+type SelectedServiceGroup = {
+  key: string;
+  label: string;
+  values: string[];
+};
 
 const DEFAULT_MAPPING_ROWS: MappingRow[] = [
   { key: 'customer_name', source: 'ho_va_ten', value: '' },
@@ -304,6 +315,8 @@ const ZnsBulkSendPage: React.FC = () => {
   // Chỉ dùng khi mẫu đang chọn là mẫu nhắc bảo dưỡng có bộ biến tương ứng.
   const [reminderMonths, setReminderMonths] = useState(DEFAULT_REMINDER_MONTHS);
   const [serviceUsageDatesMap, setServiceUsageDatesMap] = useState<Map<string, ServiceUsageDate[]>>(new Map());
+  // Mỗi dịch vụ có một map riêng: không dùng map gộp để tránh khách của DV A bị lẫn vào DV B.
+  const [serviceUsageMapsByGroup, setServiceUsageMapsByGroup] = useState<Map<string, Map<string, ServiceUsageDate[]>>>(new Map());
   const [serviceUsageLatestMap, setServiceUsageLatestMap] = useState<Map<string, ServiceUsageLatest>>(new Map());
   const [serviceUsageDatesMapFor, setServiceUsageDatesMapFor] = useState('');
   const [loadingServiceDates, setLoadingServiceDates] = useState(false);
@@ -329,10 +342,15 @@ const ZnsBulkSendPage: React.FC = () => {
 
   // History
   const [campaigns, setCampaigns] = useState<ZnsCampaign[]>([]);
+  const [sendHistory, setSendHistory] = useState<SendHistoryRow[]>([]);
+  const [historyCustomer, setHistoryCustomer] = useState<CustomerOption | null>(null);
+  const [historyServiceName, setHistoryServiceName] = useState<string | null>(null);
   const [loadingCampaigns, setLoadingCampaigns] = useState(true);
   const [expandedCampaignId, setExpandedCampaignId] = useState<string | null>(null);
   const [campaignLogs, setCampaignLogs] = useState<ZnsLogEntry[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
+  const [resendingLogId, setResendingLogId] = useState<string | null>(null);
+  const [selectedRetryLogIds, setSelectedRetryLogIds] = useState<Set<string>>(new Set());
   const [logFilter, setLogFilter] = useState<'all' | 'that_bai'>('all');
   const [activeTab, setActiveTab] = useState<'order-review' | 'message-approval' | 'rating-report'>('order-review');
   const znsPermissionDenied = /(?:-120|does not have permission|quyền gửi ZBS\/ZNS)/i.test(templatePermissionError);
@@ -354,6 +372,26 @@ const ZnsBulkSendPage: React.FC = () => {
     try {
       const rows = await listCampaigns();
       setCampaigns(rows);
+      const logsByCampaign = await Promise.all(rows.map(async (campaign) => {
+        try {
+          const logs = await getCampaignLogs(campaign.id);
+          const metadata = campaign.field_mapping as Record<string, unknown>;
+          const names = Array.isArray(metadata.__service_names)
+            ? metadata.__service_names.filter((value): value is string => typeof value === 'string' && value.trim() !== '')
+            : [];
+          return logs.map((log) => {
+            // Log cũ chưa có metadata chiến dịch: tận dụng service_name đã gửi trong template_data.
+            const legacyServiceValue = log.template_data?.service_name ?? log.template_data?.['<service_name>'];
+            const legacyServiceName = typeof legacyServiceValue === 'string'
+              ? legacyServiceValue.trim()
+              : '';
+            return { ...log, serviceNames: names.length ? names : (legacyServiceName ? [legacyServiceName] : []) };
+          });
+        } catch {
+          return [] as SendHistoryRow[];
+        }
+      }));
+      setSendHistory(logsByCampaign.flat());
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Không tải được lịch sử gửi đánh giá', 'error');
     } finally {
@@ -463,6 +501,7 @@ const ZnsBulkSendPage: React.FC = () => {
     setServiceFromDate('');
     setServiceToDate('');
     setServiceUsageDatesMap(new Map());
+    setServiceUsageMapsByGroup(new Map());
     setServiceUsageLatestMap(new Map());
     setServiceUsageDatesMapFor('');
     setLoadingServiceDates(false);
@@ -475,6 +514,7 @@ const ZnsBulkSendPage: React.FC = () => {
       setServiceFromDate('');
       setServiceToDate('');
       setServiceUsageDatesMap(new Map());
+      setServiceUsageMapsByGroup(new Map());
       setServiceUsageLatestMap(new Map());
       setServiceUsageDatesMapFor('');
     }
@@ -497,6 +537,15 @@ const ZnsBulkSendPage: React.FC = () => {
       .sort((a, b) => a[0].localeCompare(b[0], 'vi'))
       .map(([name, ids]) => ({ value: ids.join(','), label: name, searchKey: name }));
   }, [services, branchFilter]);
+
+  const selectedServiceGroups = useMemo<SelectedServiceGroup[]>(() => {
+    const labelByKey = new Map(serviceOptions.map((option) => [option.value, option.label]));
+    return serviceFilters.map((key) => ({
+      key,
+      label: labelByKey.get(key) || 'Dịch vụ đã chọn',
+      values: key.split(',').map((id) => id.trim()).filter(Boolean),
+    }));
+  }, [serviceFilters, serviceOptions]);
 
   const serviceFilterKey = useMemo(
     () => [...serviceFilters].sort().join('|'),
@@ -533,6 +582,7 @@ const ZnsBulkSendPage: React.FC = () => {
   useEffect(() => {
     if (!serviceUsageRequestKey) {
       setServiceUsageDatesMap(new Map());
+      setServiceUsageMapsByGroup(new Map());
       setServiceUsageLatestMap(new Map());
       setServiceUsageDatesMapFor('');
       setLoadingServiceDates(false);
@@ -542,14 +592,23 @@ const ZnsBulkSendPage: React.FC = () => {
     (async () => {
       try {
         const serviceValues = serviceFilterKey ? selectedServiceValues : allServiceValues;
-        const [map, latestMap] = await Promise.all([
+        const [map, latestMap, perGroupMaps] = await Promise.all([
           serviceFilterKey
             ? getServiceUsageDatesMap(serviceValues)
             : Promise.resolve(new Map<string, ServiceUsageDate[]>()),
           getServiceUsageLatestMap(serviceValues),
+          Promise.all(selectedServiceGroups.map(async (group) => [
+            group.key,
+            await getServiceUsageDatesMap(
+              services
+                .filter((service) => group.values.includes(service.id))
+                .flatMap((service) => [service.id, service.id_dich_vu || '', service.ten_dich_vu]),
+            ),
+          ] as const)),
         ]);
         if (!cancelled) {
           setServiceUsageDatesMap(map);
+          setServiceUsageMapsByGroup(new Map(perGroupMaps));
           setServiceUsageLatestMap(latestMap);
           setServiceUsageDatesMapFor(serviceFilterKey);
         }
@@ -563,7 +622,7 @@ const ZnsBulkSendPage: React.FC = () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serviceUsageRequestKey, serviceFilterKey, selectedServiceValues, allServiceValues, branchFilter]);
+  }, [serviceUsageRequestKey, serviceFilterKey, selectedServiceValues, allServiceValues, selectedServiceGroups, branchFilter]);
 
   const filteredCustomers = useMemo(() => {
     const rawQuery = searchQuery.trim();
@@ -622,6 +681,28 @@ const ZnsBulkSendPage: React.FC = () => {
     reminderMonths,
   ]);
 
+  const groupedFilteredCustomers = useMemo(() => {
+    if (selectedServiceGroups.length < 2 || serviceUsageDatesMapFor !== serviceFilterKey) return [];
+    const todayIso = toDateInputValue(new Date());
+    return selectedServiceGroups.map((group) => {
+      const usageMap = serviceUsageMapsByGroup.get(group.key) || new Map<string, ServiceUsageDate[]>();
+      const customersForService = dedupeCustomersByPhone(filteredCustomers.filter((customer) => {
+        const lastUsageDate = getLastServiceUsageDate(customer, usageMap, branchFilter);
+        if (isAppointmentReminder) {
+          return Boolean(lastUsageDate && monthsBetween(lastUsageDate, todayIso) >= reminderMonths);
+        }
+        return getCustomerLinkKeys(customer).some((key) =>
+          (usageMap.get(key.trim().toLowerCase()) || []).some((entry) =>
+            usageMatchesBranch(entry.co_so, branchFilter) &&
+            (!serviceFromDate || entry.ngay >= serviceFromDate) &&
+            (!serviceToDate || entry.ngay <= serviceToDate)
+          )
+        );
+      }));
+      return { group, customers: customersForService, usageMap };
+    });
+  }, [selectedServiceGroups, serviceUsageMapsByGroup, serviceUsageDatesMapFor, serviceFilterKey, filteredCustomers, branchFilter, isAppointmentReminder, reminderMonths, serviceFromDate, serviceToDate]);
+
   const selectableFilteredIds = useMemo(
     () => filteredCustomers.filter((c) => isValidVnMobile(c.so_dien_thoai)).map((c) => c.id),
     [filteredCustomers]
@@ -671,6 +752,12 @@ const ZnsBulkSendPage: React.FC = () => {
       }
       out[key] = row.source === 'static' ? { source: 'static', value: row.value } : { source: row.source };
     }
+    // Metadata nội bộ để thống kê lịch sử gửi riêng theo từng dịch vụ.
+    (out as Record<string, unknown>).__service_ids = serviceFilters.flatMap((value) => value.split(',').map((id) => id.trim()).filter(Boolean));
+    (out as Record<string, unknown>).__service_names = services
+      .filter((service) => selectedServiceValues.includes(service.id) || selectedServiceValues.includes(service.id_dich_vu || ''))
+      .map((service) => service.ten_dich_vu?.trim())
+      .filter((name): name is string => Boolean(name));
     return out;
   };
 
@@ -829,6 +916,7 @@ const ZnsBulkSendPage: React.FC = () => {
     setExpandedCampaignId(campaignId);
     setLoadingLogs(true);
     setLogFilter('all');
+    setSelectedRetryLogIds(new Set());
     try {
       const logs = await getCampaignLogs(campaignId);
       setCampaignLogs(logs);
@@ -839,15 +927,135 @@ const ZnsBulkSendPage: React.FC = () => {
     }
   };
 
+
+  const resendFailedLog = async (log: ZnsLogEntry) => {
+    if (resendingLogId || !log.idempotency_key) {
+      if (!log.idempotency_key) showToast('Log này không có mã gửi lại hợp lệ.', 'error');
+      return;
+    }
+    if (!oaStatus?.connected) {
+      showToast('Chưa kết nối Zalo OA. Hãy kết nối lại trước khi gửi.', 'error');
+      return;
+    }
+    if (!window.confirm(`Gửi lại tin đến số ${log.so_dien_thoai}?`)) return;
+
+    setResendingLogId(log.id);
+    try {
+      const result = await sendZnsBatch(log.chien_dich_id, [{
+        idempotency_key: log.idempotency_key,
+        khach_hang_id: log.khach_hang_id,
+        phone: log.so_dien_thoai,
+        template_data: log.template_data,
+      }]);
+      if (result.summary.sent > 0) {
+        showToast('Đã gửi lại thành công.', 'success');
+      } else if (result.summary.skipped > 0) {
+        showToast('Không thể gửi lại: số điện thoại không hợp lệ.', 'error');
+      } else {
+        showToast(`Gửi lại thất bại: ${result.results[0]?.error || 'Zalo từ chối tin nhắn.'}`, 'error');
+      }
+      const refreshedLogs = await getCampaignLogs(log.chien_dich_id);
+      setCampaignLogs(refreshedLogs);
+      const stillHasErrors = refreshedLogs.some((entry) => entry.trang_thai === 'that_bai' || entry.trang_thai === 'bo_qua');
+      await updateCampaignStatus(log.chien_dich_id, stillHasErrors ? 'hoan_thanh_co_loi' : 'hoan_thanh');
+      await refreshCampaigns();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Không thể gửi lại tin nhắn.', 'error');
+    } finally {
+      setResendingLogId(null);
+    }
+  };
+
+  const resendSelectedLogs = async () => {
+    const selectedLogs = campaignLogs.filter((log) => selectedRetryLogIds.has(log.id) && log.trang_thai === 'that_bai' && log.idempotency_key);
+    if (selectedLogs.length === 0) return;
+    if (resendingLogId || !oaStatus?.connected) {
+      if (!oaStatus?.connected) showToast('Chưa kết nối Zalo OA. Hãy kết nối lại trước khi gửi.', 'error');
+      return;
+    }
+    if (!window.confirm(`Gửi lại ${selectedLogs.length} tin đã chọn?`)) return;
+
+    setResendingLogId('bulk');
+    try {
+      let sent = 0;
+      let failed = 0;
+      for (const chunk of chunkArray(selectedLogs, 30)) {
+        const result = await sendZnsBatch(chunk[0].chien_dich_id, chunk.map((log) => ({
+          idempotency_key: log.idempotency_key as string,
+          khach_hang_id: log.khach_hang_id,
+          phone: log.so_dien_thoai,
+          template_data: log.template_data,
+        })));
+        sent += result.summary.sent;
+        failed += result.summary.failed;
+      }
+      showToast(failed > 0 ? `Đã gửi lại: ${sent} thành công, ${failed} thất bại.` : `Đã gửi lại thành công ${sent} tin.`, failed > 0 ? 'error' : 'success');
+      const refreshedLogs = await getCampaignLogs(selectedLogs[0].chien_dich_id);
+      setCampaignLogs(refreshedLogs);
+      setSelectedRetryLogIds(new Set());
+      const stillHasErrors = refreshedLogs.some((entry) => entry.trang_thai === 'that_bai' || entry.trang_thai === 'bo_qua');
+      await updateCampaignStatus(selectedLogs[0].chien_dich_id, stillHasErrors ? 'hoan_thanh_co_loi' : 'hoan_thanh');
+      await refreshCampaigns();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Không thể gửi lại các tin đã chọn.', 'error');
+    } finally {
+      setResendingLogId(null);
+    }
+  };
+
   const visibleLogs = useMemo(
     () => (logFilter === 'that_bai' ? campaignLogs.filter((l) => l.trang_thai === 'that_bai') : campaignLogs),
     [campaignLogs, logFilter]
   );
 
+  const getCustomerSendHistory = (customer: CustomerOption): SendHistoryRow[] => {
+    const keys = new Set(getCustomerLinkKeys(customer).map((key) => key.trim().toLowerCase()));
+    const phone = normalizeVnPhoneDigits(customer.so_dien_thoai);
+    return sendHistory.filter((log) =>
+      (log.khach_hang_id && keys.has(log.khach_hang_id.trim().toLowerCase())) || normalizeVnPhoneDigits(log.so_dien_thoai) === phone
+    );
+  };
+  const failedLogs = useMemo(() => campaignLogs.filter((log) => log.trang_thai === 'that_bai'), [campaignLogs]);
+
   const templateCampaigns = useMemo(
     () => (templateId ? campaigns.filter((campaign) => campaign.template_id === templateId) : []),
     [campaigns, templateId]
   );
+
+  const renderCustomerRow = (customer: CustomerOption, group?: SelectedServiceGroup, usageMap = serviceUsageDatesMap) => {
+    const customerHistory = getCustomerSendHistory(customer);
+    const usageCutoffDate = group ? getLastServiceUsageDate(customer, usageMap, branchFilter) : null;
+    const historyForService = group
+      ? customerHistory.filter((log) => log.serviceNames.includes(group.label))
+      : customerHistory;
+    // Một lần sử dụng mới mở một chu kỳ mới; lịch gửi trước mốc đó không được cộng dồn.
+    const sendCount = historyForService.filter((log) =>
+      !usageCutoffDate || (log.gui_luc || log.created_at).slice(0, 10) >= usageCutoffDate
+    ).length;
+    const latestUsage = group ? getBranchScopedUsageSummary(customer, usageMap, branchFilter) : null;
+    return (
+      <div key={`${group?.key || 'all'}-${customer.id}`} className="flex items-center gap-3 px-3 py-2 hover:bg-muted/50 text-sm">
+        <label className="flex min-w-0 flex-1 items-center gap-3 cursor-pointer">
+          <input type="checkbox" checked={selectedIds.has(customer.id)} onChange={() => toggleCustomer(customer.id)} className="rounded" />
+          <span className="truncate text-foreground">
+            {customer.ho_va_ten} - <span className="font-mono text-muted-foreground">{customer.so_dien_thoai}</span>
+          </span>
+        </label>
+        {group && (
+          <span className="hidden text-xs text-muted-foreground shrink-0 text-right leading-5 md:block">
+            <span className="block">Ngày gần nhất: {latestUsage ? latestUsage.ngay.split('-').reverse().join('/') : 'Chưa có'}</span>
+            <span className="block">Km gần nhất: {latestUsage && Number(latestUsage.so_km) > 0 ? `${Number(latestUsage.so_km).toLocaleString('vi-VN')} km` : 'Chưa có'}</span>
+          </span>
+        )}
+        {group && <span className="shrink-0 text-right text-[11px] text-muted-foreground">Đã gửi: {sendCount} lần</span>}
+        {historyForService.length > 0 && (
+          <button type="button" onClick={() => { setHistoryCustomer(customer); setHistoryServiceName(group?.label || null); }} className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-lg border border-border px-2 py-1 text-xs font-medium text-primary hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+            <Eye size={13} /> Chi tiết
+          </button>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="p-4 lg:p-6 space-y-5">
@@ -1205,9 +1413,44 @@ const ZnsBulkSendPage: React.FC = () => {
               </div>
             ) : filteredCustomers.length === 0 ? (
               <div className="p-4 text-sm text-muted-foreground text-center">Không có khách hàng phù hợp</div>
+            ) : groupedFilteredCustomers.length > 0 ? (
+              <div className="divide-y divide-border">
+                {groupedFilteredCustomers.map(({ group, customers: customersForService, usageMap }) => (
+                  <section key={group.key} aria-labelledby={`service-group-${group.key}`} className="py-2 first:pt-0 last:pb-0">
+                    <div className="flex items-center justify-between gap-3 bg-muted/40 px-3 py-2">
+                      <h3 id={`service-group-${group.key}`} className="text-sm font-semibold text-foreground">{group.label}</h3>
+                      <span className="text-xs text-muted-foreground">{customersForService.length} khách hàng</span>
+                    </div>
+                    {customersForService.length === 0 ? (
+                      <p className="px-3 py-3 text-xs text-muted-foreground">Không có khách hàng đã sử dụng dịch vụ này.</p>
+                    ) : customersForService.map((customer) => renderCustomerRow(customer, group, usageMap))}
+                  </section>
+                ))}
+              </div>
             ) : (
               filteredCustomers.map((c) => {
                 const valid = isValidVnMobile(c.so_dien_thoai);
+                const customerHistory = getCustomerSendHistory(c);
+                const usageCutoffDate = serviceFilters.length > 0
+                  ? getLastServiceUsageDate(c, serviceUsageDatesMap, branchFilter)
+                  : null;
+                const selectedDisplayServiceNames = services
+                  .filter((service) => selectedServiceValues.includes(service.id) || selectedServiceValues.includes(service.id_dich_vu || ''))
+                  .map((service) => service.ten_dich_vu?.trim())
+                  .filter((name): name is string => Boolean(name));
+                const serviceSendCounts = new Map<string, number>();
+                selectedDisplayServiceNames.forEach((name) => serviceSendCounts.set(name, 0));
+                customerHistory.forEach((log) => {
+                  // Chỉ tính các tin gửi từ lần sử dụng gần nhất; có hóa đơn mới thì chu kỳ gửi được reset.
+                  if (usageCutoffDate && (log.gui_luc || log.created_at).slice(0, 10) < usageCutoffDate) return;
+                  const names = log.serviceNames.length
+                    ? log.serviceNames
+                    : selectedDisplayServiceNames.length === 1 ? selectedDisplayServiceNames : ['Chưa xác định dịch vụ'];
+                  names.forEach((name) => {
+                    serviceSendCounts.set(name, (serviceSendCounts.get(name) || 0) + 1);
+                  });
+                });
+                const totalServiceSendCount = [...serviceSendCounts.values()].reduce((total, count) => total + count, 0);
                 const branchScopedUsage = Boolean(branchFilter) && serviceFilters.length > 0;
                 const lastUsageDate = isAppointmentReminder && serviceFilters.length > 0
                   ? getLastServiceUsageDate(c, serviceUsageDatesMap, branchFilter)
@@ -1219,19 +1462,16 @@ const ZnsBulkSendPage: React.FC = () => {
                     ? getBranchScopedUsageSummary(c, serviceUsageDatesMap, branchFilter)
                     : getLastServiceUsageSummary(c, serviceUsageLatestMap);
                 return (
-                  <label
+                  <div
                     key={c.id}
                     className="flex items-center gap-3 px-3 py-2 hover:bg-muted/50 cursor-pointer text-sm"
                   >
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.has(c.id)}
-                      onChange={() => toggleCustomer(c.id)}
-                      className="rounded"
-                    />
-                    <span className="flex-1 truncate text-foreground">
-                      {c.ho_va_ten} - <span className="font-mono text-muted-foreground">{c.so_dien_thoai}</span>
-                    </span>
+                    <label className="flex min-w-0 flex-1 items-center gap-3 cursor-pointer">
+                      <input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => toggleCustomer(c.id)} className="rounded" />
+                      <span className="truncate text-foreground">
+                        {c.ho_va_ten} - <span className="font-mono text-muted-foreground">{c.so_dien_thoai}</span>
+                      </span>
+                    </label>
                     {lastUsageDate && !latestServiceUsage && (
                       <span className="text-xs text-muted-foreground shrink-0">
                         Gần nhất: {lastUsageDate.split('-').reverse().join('/')}
@@ -1249,12 +1489,22 @@ const ZnsBulkSendPage: React.FC = () => {
                         </span>
                       </span>
                     )}
+                    {serviceSendCounts.size > 0 && (
+                      <div className="shrink-0 text-right text-[11px] text-muted-foreground sm:block">
+                        <span className="block">Đã gửi: {totalServiceSendCount} lần</span>
+                      </div>
+                    )}
+                    {customerHistory.length > 0 && (
+                      <button type="button" onClick={() => { setHistoryCustomer(c); setHistoryServiceName(null); }} className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-lg border border-border px-2 py-1 text-xs font-medium text-primary hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                        <Eye size={13} /> Chi tiết
+                      </button>
+                    )}
                     {!valid && (
                       <span title="Số điện thoại không hợp lệ">
                         <AlertTriangle size={14} className="text-amber-500" />
                       </span>
                     )}
-                  </label>
+                  </div>
                 );
               })
             )}
@@ -1360,7 +1610,7 @@ const ZnsBulkSendPage: React.FC = () => {
 
                   {expanded && (
                     <div className="pb-3 pl-6 space-y-2">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <button
                           type="button"
                           onClick={() => setLogFilter('all')}
@@ -1379,6 +1629,29 @@ const ZnsBulkSendPage: React.FC = () => {
                         >
                           Chỉ thất bại ({campaignLogs.filter((l) => l.trang_thai === 'that_bai').length})
                         </button>
+                        {failedLogs.length > 0 && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedRetryLogIds(
+                                selectedRetryLogIds.size === failedLogs.length ? new Set() : new Set(failedLogs.map((log) => log.id))
+                              )}
+                              disabled={resendingLogId !== null}
+                              className="ml-auto text-xs font-medium text-primary hover:underline disabled:opacity-50"
+                            >
+                              {selectedRetryLogIds.size === failedLogs.length ? 'Bỏ chọn tất cả' : 'Chọn tất cả lỗi'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void resendSelectedLogs()}
+                              disabled={selectedRetryLogIds.size === 0 || resendingLogId !== null}
+                              className="inline-flex min-h-8 items-center gap-1.5 rounded-lg bg-primary px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {resendingLogId === 'bulk' ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+                              {resendingLogId === 'bulk' ? 'Đang gửi...' : `Gửi lại đã chọn${selectedRetryLogIds.size ? ` (${selectedRetryLogIds.size})` : ''}`}
+                            </button>
+                          </>
+                        )}
                       </div>
 
                       {loadingLogs ? (
@@ -1394,9 +1667,36 @@ const ZnsBulkSendPage: React.FC = () => {
                               const lb = LOG_STATUS_BADGE[l.trang_thai] || LOG_STATUS_BADGE.cho_gui;
                               return (
                                 <div key={l.id} className="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
+                                  {l.trang_thai === 'that_bai' && (
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedRetryLogIds.has(l.id)}
+                                      onChange={(event) => setSelectedRetryLogIds((current) => {
+                                        const next = new Set(current);
+                                        if (event.target.checked) next.add(l.id);
+                                        else next.delete(l.id);
+                                        return next;
+                                      })}
+                                      disabled={resendingLogId !== null}
+                                      aria-label={`Chọn tin lỗi đến số ${l.so_dien_thoai}`}
+                                      className="h-4 w-4 shrink-0 accent-primary"
+                                    />
+                                  )}
                                   <span className="font-mono text-muted-foreground w-32 shrink-0">{l.so_dien_thoai}</span>
                                   <span className={`text-xs font-semibold px-2 py-1 rounded-full ${lb.className}`}>{lb.label}</span>
-                                  {l.loi && <span className="text-xs text-red-500 flex-1">{l.loi}</span>}
+                                  {l.loi && <span className="text-xs text-red-500 flex-1 min-w-[180px]">{formatZnsLogError(l.loi)}</span>}
+                                  {l.trang_thai === 'that_bai' && (
+                                    <button
+                                      type="button"
+                                      onClick={() => void resendFailedLog(l)}
+                                      disabled={resendingLogId !== null}
+                                      aria-label={`Gửi lại tin đến số ${l.so_dien_thoai}`}
+                                      className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-primary/40 px-2.5 py-1 text-xs font-semibold text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                      {resendingLogId === l.id ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+                                      {resendingLogId === l.id ? 'Đang gửi...' : 'Gửi lại'}
+                                    </button>
+                                  )}
                                 </div>
                               );
                             })
@@ -1412,6 +1712,22 @@ const ZnsBulkSendPage: React.FC = () => {
         )}
       </div>}
       </>}
+      {historyCustomer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="presentation" onMouseDown={() => { setHistoryCustomer(null); setHistoryServiceName(null); }}>
+          <section className="max-h-[80vh] w-full max-w-2xl overflow-hidden rounded-2xl border border-border bg-card shadow-xl" role="dialog" aria-modal="true" aria-labelledby="send-history-title" onMouseDown={(event) => event.stopPropagation()}>
+            <header className="flex items-center justify-between border-b border-border px-5 py-4">
+              <div><h2 id="send-history-title" className="font-bold text-foreground">Lịch sử gửi theo dịch vụ</h2><p className="text-sm text-muted-foreground">{historyCustomer.ho_va_ten} · {historyCustomer.so_dien_thoai}{historyServiceName ? ` · ${historyServiceName}` : ''}</p></div>
+              <button type="button" onClick={() => { setHistoryCustomer(null); setHistoryServiceName(null); }} className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted">Đóng</button>
+            </header>
+            <div className="max-h-[65vh] overflow-y-auto p-5">
+              {getCustomerSendHistory(historyCustomer).filter((log) => !historyServiceName || log.serviceNames.includes(historyServiceName)).map((log) => {
+                const badge = LOG_STATUS_BADGE[log.trang_thai] || LOG_STATUS_BADGE.cho_gui;
+                return <div key={log.id} className="flex flex-wrap items-center gap-3 border-b border-border py-3 text-sm last:border-0"><span className="min-w-40 text-muted-foreground">{new Date(log.gui_luc || log.created_at).toLocaleString('vi-VN')}</span><span className={`rounded-full px-2 py-1 text-xs font-semibold ${badge.className}`}>{badge.label}</span>{log.loi && <span className="w-full text-xs text-red-500">Lý do: {formatZnsLogError(log.loi)}</span>}</div>;
+              })}
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 };

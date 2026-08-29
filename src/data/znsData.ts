@@ -50,9 +50,39 @@ export interface ZnsLogEntry {
   trang_thai: ZnsLogStatus;
   zalo_msg_id: string | null;
   zalo_error_code: string | null;
+  idempotency_key?: string;
   loi: string | null;
   gui_luc: string | null;
   created_at: string;
+}
+
+/** Hiển thị lỗi Zalo bằng tiếng Việt trong lịch sử gửi, kể cả với các log đã lưu trước đó. */
+export function formatZnsLogError(error: string | null | undefined): string {
+  if (!error) return '';
+
+  const normalized = error.trim().toLowerCase();
+  if (normalized === 'zbs account charge failure') {
+    return 'Tài khoản ZBS không đủ số dư để gửi tin.';
+  }
+  if (normalized === 'service_name data breaks max length') {
+    return 'Dữ liệu tên dịch vụ vượt quá độ dài cho phép.';
+  }
+  if (normalized === 'internal server error') return 'Lỗi máy chủ nội bộ.';
+  if (normalized.includes('out of quota') || normalized.includes('account charge failure')) {
+    return 'Tài khoản ZBS không đủ số dư để gửi tin.';
+  }
+  if (normalized.includes('phone number invalid')) return 'Số điện thoại không hợp lệ.';
+  if (normalized.includes('access token invalid')) return 'Phiên kết nối Zalo đã hết hạn. Vui lòng kết nối lại.';
+  if (normalized.includes('does not have permission') || normalized.includes('permission to use this feature')) {
+    return 'OA chưa được cấp quyền sử dụng tính năng gửi tin ZBS.';
+  }
+  if (normalized.includes('daily quota') || normalized.includes('quota exceeded')) {
+    return 'OA đã vượt hạn mức gửi tin trong ngày.';
+  }
+  if (normalized.includes('template') && normalized.includes('not found')) return 'Không tìm thấy mẫu tin Zalo.';
+  if (normalized === 'unknown error') return 'Đã xảy ra lỗi không xác định. Vui lòng thử lại sau.';
+
+  return error;
 }
 
 export interface OaStatus {
@@ -63,6 +93,7 @@ export interface OaStatus {
   connected_at?: string;
   error?: string;
 }
+
 
 export interface ZnsTemplateSummary {
   template_id: string;
@@ -94,6 +125,7 @@ export async function getOaStatus(): Promise<OaStatus> {
   if (error) throw new Error(await edgeFunctionErrorMessage(error, 'Không lấy được trạng thái Zalo OA'));
   return data as OaStatus;
 }
+
 
 export async function listZnsTemplates(): Promise<ZnsTemplateSummary[]> {
   const { data, error } = await supabase.functions.invoke<{ templates?: ZnsTemplateSummary[]; error?: string }>(

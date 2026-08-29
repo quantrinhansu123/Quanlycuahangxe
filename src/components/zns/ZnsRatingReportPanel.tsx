@@ -28,7 +28,7 @@ import {
 import { SearchableSelect } from '../ui/SearchableSelect';
 import DateInputVi from '../ui/DateInputVi';
 import { useToast } from '../../context/ToastContext';
-import { listAllGuiLogs, listCampaigns, type ZnsCampaign, type ZnsGuiLogWithCustomer } from '../../data/znsData';
+import { formatZnsLogError, listAllGuiLogs, listCampaigns, type ZnsCampaign, type ZnsGuiLogWithCustomer } from '../../data/znsData';
 import { listRatings, syncRatings, type ZnsRating } from '../../data/znsRatingData';
 import { listOrderMessageQueue, type OrderMessageQueueItem, type OrderMessageStatus } from '../../data/znsOrderMessageData';
 import { CUSTOMER_BRANCH_OPTIONS, resolveCustomerBranch } from '../../constants/customerBranches';
@@ -1088,7 +1088,7 @@ export const ZnsRatingReportPanel: React.FC = () => {
                           <td className="px-3 py-3">
                             <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${badge.className}`}>{badge.label}</span>
                           </td>
-                          <td className="px-3 py-3 text-muted-foreground">{log.loi || '—'}</td>
+                          <td className="px-3 py-3 text-muted-foreground">{formatZnsLogError(log.loi) || '—'}</td>
                         </tr>
                       );
                     })}

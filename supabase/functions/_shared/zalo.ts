@@ -121,8 +121,23 @@ export interface ZaloSendResult {
 const ZALO_SEND_TIMEOUT_MS = 15_000;
 
 export function zaloErrorMessage(code: unknown, message: unknown): string {
-  if (String(code ?? "") === "-120") {
-    return "Zalo từ chối quyền gửi ZBS/ZNS (-120). Ứng dụng hoặc OA chưa được cấp quyền ZBS Template Message, hoặc OA không thuộc tài khoản ZBS đang sở hữu template. Hãy cấu hình quyền/liên kết trên Zalo rồi kết nối lại OA.";
+  const codeString = String(code ?? "");
+  const translatedByCode: Record<string, string> = {
+    "-100": "Đã xảy ra lỗi không xác định. Vui lòng thử lại sau.",
+    "-108": "Số điện thoại không hợp lệ.",
+    "-115": "Tài khoản ZBS không đủ số dư để gửi tin.",
+    "-120": "OA chưa được cấp quyền sử dụng tính năng gửi tin ZBS.",
+    "-124": "Phiên kết nối Zalo đã hết hạn. Vui lòng kết nối lại.",
+    "-135": "OA chưa có quyền gửi tin qua số điện thoại.",
+    "-144": "OA đã vượt hạn mức gửi tin trong ngày.",
+    "-147": "Mẫu tin đã vượt hạn mức gửi trong ngày.",
+  };
+  if (translatedByCode[codeString]) return `${translatedByCode[codeString]} (mã lỗi ${codeString})`;
+  if (String(message || "").toLowerCase() === "service_name data breaks max length") {
+    return "Dữ liệu tên dịch vụ vượt quá độ dài cho phép.";
+  }
+  if (String(message || "").toLowerCase().includes("account charge failure")) {
+    return "Tài khoản ZBS không đủ số dư để gửi tin.";
   }
   return String(message || "Gửi ZNS thất bại (không rõ nguyên nhân)");
 }

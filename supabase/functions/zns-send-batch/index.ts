@@ -139,8 +139,14 @@ Deno.serve(async (req) => {
       );
 
       const status = sendResult.ok ? "thanh_cong" : "that_bai";
-      if (sendResult.ok) sent++;
-      else failed++;
+      // Khi gửi lại một log thất bại, chỉ ghi nhận phần chênh lệch trạng thái
+      // để bộ đếm chiến dịch không bị cộng dồn nhiều lần cho cùng người nhận.
+      if (sendResult.ok) {
+        if (existing?.trang_thai !== "thanh_cong") sent++;
+        if (existing?.trang_thai === "that_bai") failed--;
+      } else if (existing?.trang_thai !== "that_bai") {
+        failed++;
+      }
       results.push({ idempotency_key: r.idempotency_key, status, error: sendResult.errorMessage });
 
       await supabaseAdmin.from("zns_gui_log").upsert(
