@@ -268,6 +268,7 @@ Lưu App Secret trong **Supabase Dashboard → Edge Functions → Secrets** vớ
 ZALO_APP_SECRET
 ```
 
+
 Hoặc dùng CLI:
 
 ```powershell
@@ -455,4 +456,3 @@ Phiên bản hiện tại gửi theo lô từ trình duyệt. Nếu đóng tab g
 - Không đưa App Secret hoặc token vào frontend.
 - Không xóa thẻ meta xác thực Zalo khỏi website production.
 - Kiểm tra lịch sử và lỗi từng người nhận sau mỗi chiến dịch.
-
