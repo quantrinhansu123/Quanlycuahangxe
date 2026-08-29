@@ -358,7 +358,9 @@ const CandidateDetailDialog: React.FC<Props> = ({
               <span className="text-[12px] font-bold text-primary uppercase tracking-wider">Ghi chú nội bộ</span>
             </div>
             <div className="p-5">
-              <p className="text-[13px] text-foreground font-medium italic">Ưu tiên gọi lại sau Tết.</p>
+              <p className="text-[13px] text-foreground font-medium italic">
+                {candidate?.internalNotes?.trim() || 'Chưa có ghi chú nội bộ.'}
+              </p>
             </div>
           </div>
         </div>

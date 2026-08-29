@@ -213,7 +213,7 @@ const CandidatesPage: React.FC = () => {
                     formStatus: candidate.status,
                     formLatestInterview: candidate.latestInterview,
                     formLatestResult: candidate.latestResult,
-                    formInternalNotes: '',
+                    formInternalNotes: candidate.internalNotes ?? '',
                     formDocuments: candidate.documents || [],
                   });
                   setSelectedCandidate(candidate);
@@ -531,6 +531,7 @@ const CandidatesPage: React.FC = () => {
                 latestInterview: formState.formLatestInterview,
                 latestResult: formState.formLatestResult,
                 documents: formState.formDocuments,
+                internalNotes: formState.formInternalNotes,
                 co_so: formState.formAddress.trim() || selectedCandidate?.co_so || undefined,
               };
               await upsertCandidate(payload);
@@ -571,7 +572,7 @@ const CandidatesPage: React.FC = () => {
                 formStatus: selectedCandidate.status,
                 formLatestInterview: selectedCandidate.latestInterview,
                 formLatestResult: selectedCandidate.latestResult,
-                formInternalNotes: '',
+                formInternalNotes: selectedCandidate.internalNotes ?? '',
                 formDocuments: selectedCandidate.documents || []
               });
               setCandidateDetailOpen(false);

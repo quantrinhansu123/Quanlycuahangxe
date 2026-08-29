@@ -17,6 +17,7 @@ import {
   X,
   ExternalLink,
   Filter,
+  Banknote,
 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -46,6 +47,7 @@ import {
   type RevenueByPersonnel,
   type RevenueByService,
 } from '../data/reportData';
+import BusinessReportsPanel from '../components/reports/BusinessReportsPanel';
 
 // ──────────── Formatters ────────────
 const fmt = (n: number) =>
@@ -366,11 +368,12 @@ function ServiceTable({ data }: { data: RevenueByService[] }) {
   );
 
   // Merge _rev/_pro back as total_revenue/profit for sorting
-  const forSort = useMemo(() => searchFiltered.map(r => ({ ...r, total_revenue: r._rev, total_profit: r._pro })), [searchFiltered]);
+  const forSort = useMemo(() => searchFiltered.map(r => ({ ...r, total_revenue: r._rev, total_profit: r._pro, total_cost: r._rev - r._pro })), [searchFiltered]);
   const { sorted, sortKey, sortDir, handleSort } = useSortableTable(forSort, 'total_revenue');
 
   const grandRev = sorted.reduce((s, r) => s + r._rev, 0);
   const grandPro = sorted.reduce((s, r) => s + r._pro, 0);
+  const grandCost = grandRev - grandPro;
   const grandTotal = aggregated.reduce((s, r) => s + r._rev, 0) || 1;
 
   return (
@@ -406,6 +409,7 @@ function ServiceTable({ data }: { data: RevenueByService[] }) {
                 <SortTh<typeof sorted[0]> label="Đơn" col="order_count" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
                 <SortTh<typeof sorted[0]> label="SL" col="total_quantity" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
                 <SortTh<typeof sorted[0]> label="Doanh thu" col="total_revenue" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                <SortTh<typeof sorted[0]> label="Giá vốn" col="total_cost" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
                 <SortTh<typeof sorted[0]> label="Lợi nhuận" col="total_profit" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
                 <th className="px-4 py-3 text-right text-[11px] font-bold text-muted-foreground">Biên LN</th>
                 <th className="px-4 py-3 text-right text-[11px] font-bold text-muted-foreground">Tỷ trọng</th>
@@ -414,7 +418,7 @@ function ServiceTable({ data }: { data: RevenueByService[] }) {
             </thead>
             <tbody className="divide-y divide-border">
               {sorted.length === 0
-                ? <tr><td colSpan={9} className="text-center py-10 text-muted-foreground italic text-[12px]">Không có dữ liệu trong khoảng thời gian đã chọn.</td></tr>
+                ? <tr><td colSpan={10} className="text-center py-10 text-muted-foreground italic text-[12px]">Không có dữ liệu trong khoảng thời gian đã chọn.</td></tr>
                 : sorted.map((item, i) => (
                   <tr key={i} className="hover:bg-muted/20 transition-colors">
                     <td className="px-4 py-3 text-muted-foreground font-mono text-[10px]">{i + 1}</td>
@@ -422,6 +426,7 @@ function ServiceTable({ data }: { data: RevenueByService[] }) {
                     <td className="px-4 py-3 text-right text-muted-foreground">{item._orders || item.order_count}</td>
                     <td className="px-4 py-3 text-right text-muted-foreground">{item.total_quantity}</td>
                     <td className="px-4 py-3 text-right font-bold">{fmt(item._rev)}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-amber-600">{fmt(item._rev - item._pro)}</td>
                     <td className="px-4 py-3 text-right font-bold text-emerald-600">{fmt(item._pro)}</td>
                     <td className="px-4 py-3 text-right"><ProfitBadge revenue={item._rev} profit={item._pro} /></td>
                     <td className="px-4 py-3 text-right">
@@ -454,6 +459,7 @@ function ServiceTable({ data }: { data: RevenueByService[] }) {
               <tr>
                 <td colSpan={4} className="px-4 py-3 text-[12px] font-black">Tổng cộng ({sorted.length} dịch vụ)</td>
                 <td className="px-4 py-3 text-right font-black">{fmt(grandRev)}</td>
+                <td className="px-4 py-3 text-right font-black text-amber-600">{fmt(grandCost)}</td>
                 <td className="px-4 py-3 text-right font-black text-emerald-600">{fmt(grandPro)}</td>
                 <td className="px-4 py-3 text-right"><ProfitBadge revenue={grandRev} profit={grandPro} /></td>
                 <td className="px-4 py-3 text-right font-black">100%</td>
@@ -809,7 +815,7 @@ function PersonnelTable({ data }: { data: { personnel: RevenueByPersonnel[]; avg
 }
 
 // ────────────  Slug map  ────────────
-type TabKey = 'service' | 'day' | 'branch' | 'personnel' | 'chart';
+type TabKey = 'service' | 'day' | 'branch' | 'personnel' | 'chart' | 'financial';
 
 const SLUG_TO_TAB: Record<string, TabKey> = {
   'san-pham': 'service',
@@ -817,6 +823,7 @@ const SLUG_TO_TAB: Record<string, TabKey> = {
   'co-so': 'branch',
   'nhan-su': 'personnel',
   'bieu-do': 'chart',
+  'tai-chinh': 'financial',
 };
 
 const TAB_TO_SLUG: Record<TabKey, string> = {
@@ -825,6 +832,7 @@ const TAB_TO_SLUG: Record<TabKey, string> = {
   branch: 'co-so',
   personnel: 'nhan-su',
   chart: 'bieu-do',
+  financial: 'tai-chinh',
 };
 
 // ──────────── Main Page ────────────
@@ -834,6 +842,7 @@ const tabs: { key: TabKey; label: string; icon: React.ElementType }[] = [
   { key: 'branch', label: 'Theo cơ sở', icon: Building2 },
   { key: 'personnel', label: 'Nhân sự', icon: Users },
   { key: 'chart', label: 'Biểu đồ', icon: LineChartIcon },
+  { key: 'financial', label: 'Tài chính tổng hợp', icon: Banknote },
 ];
 
 const CHART_COLORS = ['#eab308', '#3b82f6', '#ef4444', '#10b981', '#8b5cf6', '#f97316', '#06b6d4', '#84cc16'];
@@ -1488,7 +1497,7 @@ const RevenueReportPage: React.FC = () => {
                 <div className="w-9 h-9 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500">
                   <BarChart2 size={20} />
                 </div>
-                Báo cáo Doanh thu
+                Báo cáo Kinh doanh
               </h1>
               <p className="text-[12px] text-muted-foreground mt-0.5 ml-11 italic">
                 Sắp xếp · Xem chi tiết modal
@@ -1526,7 +1535,7 @@ const RevenueReportPage: React.FC = () => {
             {/* KPI Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
               <StatCard label="Tổng doanh thu" value={fmt(summary.total_revenue)} sub={`${summary.date_range_days} ngày hoạt động`} icon={TrendingUp} color="#3b82f6" />
-              <StatCard label="Lợi nhuận" value={fmt(summary.total_profit)} sub={`Biên: ${((summary.total_profit / (summary.total_revenue || 1)) * 100).toFixed(1)}%`} icon={summary.total_profit >= 0 ? TrendingUp : TrendingDown} color="#10b981" />
+              <StatCard label="Lợi nhuận gộp" value={fmt(summary.total_profit)} sub={`Biên: ${((summary.total_profit / (summary.total_revenue || 1)) * 100).toFixed(1)}%`} icon={summary.total_profit >= 0 ? TrendingUp : TrendingDown} color="#10b981" />
               <StatCard label="Tổng đơn hàng" value={summary.total_orders.toLocaleString('vi-VN')} sub="đơn giao dịch" icon={BarChart2} color="#8b5cf6" />
               <StatCard label="TB / ngày" value={fmt(summary.avg_per_day)} sub="doanh thu bình quân" icon={Calendar} color="#f59e0b" />
               <StatCard label="TB / đơn" value={fmt(summary.avg_per_order)} sub="giá trị đơn bình quân" icon={ArrowUpRight} color="#ec4899" />
@@ -1561,6 +1570,7 @@ const RevenueReportPage: React.FC = () => {
                     personnelData={personnelData?.personnel ?? []}
                   />
                 )}
+                {activeTab === 'financial' && <BusinessReportsPanel startDate={startDate} endDate={endDate} />}
               </div>
             </div>
           </>

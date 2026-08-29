@@ -128,6 +128,7 @@ const mapDbToCandidate = (db: Record<string, unknown>): Candidate => {
     createdAt: db.created_at != null ? String(db.created_at) : '',
     documents: [],
     co_so: (db.co_so as string) ?? null,
+    internalNotes: (db.ghi_chu_noi_bo as string) ?? null,
   };
 };
 
@@ -154,6 +155,10 @@ function candidateToNhanSuPayload(candidate: Partial<Candidate>): Partial<NhanSu
         : undefined,
     vi_tri: viTri,
     co_so: coSo,
+    ghi_chu_noi_bo:
+      candidate.internalNotes !== undefined
+        ? (String(candidate.internalNotes).trim() || null)
+        : undefined,
   };
 
   if (candidate.latestInterview !== undefined) {
@@ -223,6 +228,7 @@ export const upsertCandidate = async (candidate: Partial<Candidate>): Promise<Ca
       createdAt: idx >= 0 ? list[idx].createdAt : new Date().toISOString(),
       documents: candidate.documents ?? [],
       co_so: coSo,
+      internalNotes: candidate.internalNotes ?? (idx >= 0 ? list[idx].internalNotes : null),
     };
     if (idx >= 0) list[idx] = row;
     else list.push(row);

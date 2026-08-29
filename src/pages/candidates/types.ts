@@ -16,6 +16,7 @@ export interface Candidate {
   id_ung_vien?: string | null;
   /** Cơ sở (bảng nhan_su.co_so), map qua form địa chỉ/chi nhánh khi sửa. */
   co_so?: string | null;
+  internalNotes?: string | null;
   password?: string | null;
   status: 'new' | 'reviewing' | 'interviewing' | 'interviewed' | 'hired' | 'rejected';
   source: string;
