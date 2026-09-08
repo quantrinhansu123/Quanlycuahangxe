@@ -1,3 +1,4 @@
+import { useBranches } from '../hooks/useBranches';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Search, Plus, Edit2, Trash2, Camera, Loader2, ChevronDown, 
@@ -29,6 +30,7 @@ import { formatTime24h } from '../utils/datetimeFormat';
 const FinancialCharts = React.lazy(() => import('../components/FinancialCharts'));
 
 const FinancialManagementPage: React.FC = () => {
+  const branchOptions = useBranches();
   const { isAdmin } = useAuth();
   const location = useLocation();
   const isSoQuyPage = location.pathname.startsWith('/so-quy');
@@ -66,7 +68,6 @@ const FinancialManagementPage: React.FC = () => {
   const [editingTransaction, setEditingTransaction] = useState<ThuChi | null>(null);
   const [formData, setFormData] = useState<Partial<ThuChi>>({});
 
-  const branchOptions = ["Cơ sở Bắc Giang", "Cơ sở Bắc Ninh"];
   const typeOptions = ["phiếu thu", "phiếu chi"];
   const statusOptions = ["Hoàn thành", "Đang chờ", "Đã hủy"];
 

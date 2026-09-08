@@ -1,3 +1,4 @@
+import { useBranches } from '../hooks/useBranches';
 import { clsx } from 'clsx';
 import {
   ArrowLeft,
@@ -58,9 +59,9 @@ function parseImportLuong(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-const BRANCH_OPTIONS = ['Cơ sở Bắc Giang', 'Cơ sở Bắc Ninh'] as const;
 
 const PersonnelManagementPage: React.FC = () => {
+  const BRANCH_OPTIONS = useBranches();
   const { isAdmin, nhanVien, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -102,7 +103,7 @@ const PersonnelManagementPage: React.FC = () => {
   // Load data from Supabase
   const resetAllBranchPages = React.useCallback(() => {
     setPageByBranch(Object.fromEntries(BRANCH_OPTIONS.map((b) => [b, 1])));
-  }, []);
+  }, [BRANCH_OPTIONS]);
 
   const loadData = React.useCallback(async () => {
     try {
@@ -131,7 +132,7 @@ const PersonnelManagementPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [pageByBranch, pageSize, debouncedSearch, selectedPositions, location.pathname]);
+  }, [pageByBranch, pageSize, debouncedSearch, selectedPositions, location.pathname, BRANCH_OPTIONS]);
 
   useEffect(() => {
     loadData();

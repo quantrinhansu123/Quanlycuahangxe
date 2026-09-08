@@ -1,6 +1,5 @@
 import type { CustomerLinkInput } from './customerOrderLink';
-import { getCustomerLinkKeys } from './customerOrderLink';
-import { phoneLookupVariants } from './phoneUtils';
+import { queryCustomers } from '../data/salesQueryData';
 import { supabase } from './supabase';
 
 export function parseOrderTimestamp(ngay?: string | null, gio?: string | null): string | null {
@@ -31,24 +30,23 @@ export async function touchCustomerLastOrderAt(
   const ts = parseOrderTimestamp(ngay, gio);
   if (!ts) return;
 
-  const orParts = new Set<string>();
-  const khId = (link.khach_hang_id || '').trim();
-  if (khId) orParts.add(`ma_khach_hang.eq.${khId}`);
-  if (khId) orParts.add(`id.eq.${khId}`);
-  for (const key of getCustomerLinkKeys(link)) {
-    orParts.add(`ma_khach_hang.eq.${key}`);
-    orParts.add(`id.eq.${key}`);
+  const key = (link.khach_hang_id || link.id || link.ma_khach_hang || '').trim();
+  let customerId: string | undefined;
+  if (key) {
+    const column = /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(key) ? 'id' : 'ma_khach_hang';
+    const { data, error } = await supabase.from('khach_hang').select('id').eq(column, key).maybeSingle();
+    if (error) return;
+    customerId = data?.id;
+  } else if (link.so_dien_thoai) {
+    const result = await queryCustomers({ p_phone: link.so_dien_thoai }, 1, 2);
+    if (result.totalCount === 1) customerId = result.data[0].id;
   }
-  for (const p of phoneLookupVariants(link.so_dien_thoai)) {
-    orParts.add(`so_dien_thoai.eq.${p}`);
-  }
-
-  if (orParts.size === 0) return;
+  if (!customerId) return;
 
   const { data, error } = await supabase
     .from('khach_hang')
     .select('id, last_order_at')
-    .or([...orParts].join(','));
+    .eq('id', customerId);
 
   if (error) {
     if (!isMissingLastOrderAtColumn(error)) {

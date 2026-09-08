@@ -1,27 +1,10 @@
+import { salesAmount as sumCardAmountVnd } from '../lib/salesAmount';
 import { clsx } from 'clsx';
 import { Calendar, Check, Clock, Gauge, History, Info, Loader2, MapPin, MessageSquare, Phone, ShoppingCart, User, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { getCustomerServiceHistory, type KhachHang } from '../data/customerData';
-import { formatLocalDateYYYYMMDD } from '../lib/utils';
-
-function sumCardAmountVnd(card: {
-  the_ban_hang_ct?: { gia_ban?: unknown; so_luong?: unknown }[];
-  tong_tien?: unknown;
-  dich_vu?: { gia_ban?: unknown };
-}): number {
-  const line = (card.the_ban_hang_ct || []).reduce((s, ct) => {
-    const price = Number(ct.gia_ban ?? 0);
-    const qty = Number(ct.so_luong ?? 1);
-    return s + (Number.isFinite(price) ? price : 0) * (Number.isFinite(qty) ? qty : 1);
-  }, 0);
-  if (line > 0) return line;
-  const t = Number(card.tong_tien);
-  if (Number.isFinite(t) && t > 0) return t;
-  const dv = Number(card.dich_vu?.gia_ban ?? 0);
-  return Number.isFinite(dv) ? dv : 0;
-}
 
 interface CustomerDetailsModalProps {
    isOpen: boolean;
@@ -36,14 +19,10 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
    customer,
    canViewRevenue = true,
 }) => {
-   const [startDateStr, setStartDateStr] = useState(() => {
-      const end = new Date();
-      const start = new Date(end);
-      start.setMonth(start.getMonth() - 12);
-      return formatLocalDateYYYYMMDD(start);
-   });
-   const [endDateStr, setEndDateStr] = useState(() => formatLocalDateYYYYMMDD(new Date()));
+   const [startDateStr, setStartDateStr] = useState('');
+   const [endDateStr, setEndDateStr] = useState('');
    const [loading, setLoading] = useState(true);
+   const [historyError, setHistoryError] = useState('');
    const [history, setHistory] = useState<any[]>([]);
    const [activeTab, setActiveTab] = useState<'history' | 'km_history' | 'info'>('history');
    const navigate = useNavigate();
@@ -65,6 +44,8 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
       const loadHistory = async () => {
          try {
             setLoading(true);
+            setHistory([]);
+            setHistoryError('');
             const data = await getCustomerServiceHistory(
                {
                   id: customer.id,
@@ -76,6 +57,7 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
             );
             if (isMounted) setHistory(data);
          } catch (error) {
+            if (isMounted) setHistoryError('Không tải được lịch sử. Vui lòng thử lại.');
             console.error('Lỗi khi tải lịch sử:', error);
          } finally {
             if (isMounted) setLoading(false);
@@ -107,8 +89,8 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
 
    const handleShareZalo = () => {
       const formatDate = (date: string) => new Date(date).toLocaleDateString('vi-VN');
-      const start = formatDate(startDateStr);
-      const end = formatDate(endDateStr);
+      const start = startDateStr ? formatDate(startDateStr) : 'Từ đầu';
+      const end = endDateStr ? formatDate(endDateStr) : 'hiện tại';
 
       let msg = `Chào ${customer.ho_va_ten}, Gara gửi tóm tắt dịch vụ của bạn:\n`;
       msg += `-------------------------\n`;
@@ -258,6 +240,8 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
                      <Loader2 className="animate-spin mb-4 text-primary" size={40} />
                      <p className="text-sm font-bold uppercase tracking-widest text-primary/60">Đang truy xuất dữ liệu...</p>
                   </div>
+               ) : historyError ? (
+                  <p role="alert" className="py-8 text-center text-destructive">{historyError}</p>
                ) : activeTab === 'km_history' ? (
                   <div className="animate-in fade-in zoom-in-95 duration-300">
                      {kmHistory.length === 0 ? (

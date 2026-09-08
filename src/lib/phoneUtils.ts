@@ -1,6 +1,6 @@
 /** Chỉ giữ chữ số (dùng cho SĐT). */
 export function digitsOnly(s: string | null | undefined): string {
-  return (s ?? '').replace(/\D/g, '');
+  return String(s ?? '').replace(/\D/g, '');
 }
 
 /**

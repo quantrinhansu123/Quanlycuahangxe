@@ -1,3 +1,5 @@
+import { useBranches } from '../hooks/useBranches';
+import { normalizePlate } from '../lib/customerIdentity';
 import {
   AlertCircle,
   Calendar,
@@ -26,16 +28,13 @@ import { getCustomerByPhone, getCustomerByPlate, uploadCustomerImage, upsertCust
 import { computeCustomerChanges, getCustomerEditHistory, saveCustomerEditHistory, type CustomerEditHistory } from '../data/customerHistoryData';
 import { formatDateTime24h } from '../utils/datetimeFormat';
 import { useToast } from '../context/ToastContext';
-import { CUSTOMER_BRANCH_OPTIONS } from '../constants/customerBranches';
+import { normalizeBranchLabel } from '../constants/customerBranches';
+import BranchCreateButton from './BranchCreateButton';
 
 function resolveStaffBranch(coSo?: string | null): string {
   const v = (coSo || '').trim();
   if (!v) return '';
-  if ((CUSTOMER_BRANCH_OPTIONS as readonly string[]).includes(v)) return v;
-  const lower = v.toLowerCase();
-  if (lower.includes('bắc giang') || lower.includes('bac giang')) return 'Cơ sở Bắc Giang';
-  if (lower.includes('bắc ninh') || lower.includes('bac ninh')) return 'Cơ sở Bắc Ninh';
-  return v;
+  return normalizeBranchLabel(v);
 }
 
 interface CustomerFormModalProps {
@@ -47,6 +46,7 @@ interface CustomerFormModalProps {
 }
 
 const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen, onClose, onSuccess, customer, currentStaffId }) => {
+  const CUSTOMER_BRANCH_OPTIONS = useBranches();
   const [formData, setFormData] = useState<Partial<KhachHang>>({});
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -105,7 +105,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
         if (plate.length < 4) return;
 
         const existing: KhachHang | null = await getCustomerByPlate(plate);
-        if (existing && existing.id !== (customer ? customer.id : '')) {
+        if (existing && existing.id !== (customer ? customer.id : '') && normalizePlate(existing.bien_so_xe) === normalizePlate(formData.bien_so_xe)) {
           if (!customer) {
             setDuplicateWarning(existing);
           } else {
@@ -131,7 +131,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
         if (phone.length < 4) return;
 
         const existing: KhachHang | null = await getCustomerByPhone(phone);
-        if (existing && existing.id !== (customer ? customer.id : '')) {
+        if (existing && existing.id !== (customer ? customer.id : '') && normalizePlate(existing.bien_so_xe) === normalizePlate(formData.bien_so_xe)) {
           if (!customer) {
             setDuplicateWarning(existing);
           }
@@ -142,7 +142,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
     }, 600);
 
     return () => clearTimeout(timer);
-  }, [formData.so_dien_thoai, isOpen, customer, navigate, onClose]);
+  }, [formData.so_dien_thoai, formData.bien_so_xe, isOpen, customer, navigate, onClose]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -181,7 +181,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
       const phone = formData.so_dien_thoai?.trim();
       if (phone && phone.length >= 4) {
         const existing = await getCustomerByPhone(phone);
-        if (existing && existing.id !== (customer ? customer.id : '')) {
+        if (existing && existing.id !== (customer ? customer.id : '') && normalizePlate(existing.bien_so_xe) === normalizePlate(formData.bien_so_xe)) {
           const ok = window.confirm(`⚠️ CẢNH BÁO: Số điện thoại "${phone}" đã thuộc về khách hàng "${existing.ho_va_ten}".\n\nBạn có chắc chắn muốn tiếp tục lưu bản ghi trùng này không?`);
           if (!ok) {
             setIsSubmitting(false);
@@ -194,7 +194,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
       const plate = formData.bien_so_xe?.trim();
       if (plate && plate.length >= 4 && plate !== 'Xe Chưa Biển') {
         const existing = await getCustomerByPlate(plate);
-        if (existing && existing.id !== (customer ? customer.id : '')) {
+        if (existing && existing.id !== (customer ? customer.id : '') && normalizePlate(existing.bien_so_xe) === normalizePlate(formData.bien_so_xe)) {
           const ok = window.confirm(`⚠️ CẢNH BÁO: Biển số "${plate}" đã thuộc về khách hàng "${existing.ho_va_ten}".\n\nBạn có chắc chắn muốn tiếp tục lưu bản ghi trùng này không?`);
           if (!ok) {
             setIsSubmitting(false);
@@ -278,7 +278,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
             <InputField label="Họ và tên" name="ho_va_ten" value={formData.ho_va_ten} onChange={handleInputChange} icon={User} placeholder="Nhập họ tên đầy đủ..." required />
             <InputField label="Số điện thoại" name="so_dien_thoai" value={formData.so_dien_thoai} onChange={handleInputChange} icon={Phone} placeholder="09xx..." required />
             <InputField label="Mã khách hàng" name="ma_khach_hang" value={formData.ma_khach_hang} onChange={handleInputChange} icon={Tag} placeholder="KH-XXXXXX" />
-            <InputField label="Địa chỉ lưu trú hiện tại" name="dia_chi_hien_tai" value={formData.dia_chi_hien_tai} onChange={handleInputChange} icon={MapPin} type="select" options={[...CUSTOMER_BRANCH_OPTIONS]} placeholder="Chọn cơ sở..." />
+            <div><InputField label="Địa chỉ lưu trú hiện tại" name="dia_chi_hien_tai" value={formData.dia_chi_hien_tai} onChange={handleInputChange} icon={MapPin} type="select" options={[...CUSTOMER_BRANCH_OPTIONS]} placeholder="Chọn cơ sở..." /><BranchCreateButton onCreated={name => setFormData(prev => ({ ...prev, dia_chi_hien_tai: name }))} /></div>
             <InputField label="Biển số xe" name="bien_so_xe" value={formData.bien_so_xe} onChange={handleInputChange} icon={CreditCard} placeholder="98A-xxx.xx" />
             <InputField label="Ngày đăng ký" name="ngay_dang_ky" type="date" value={formData.ngay_dang_ky} onChange={handleInputChange} icon={Calendar} />
           </div>

@@ -1,3 +1,4 @@
+import { querySales, queryAllSales, type SalesQueryFilters, type SalesSummary } from './salesQueryData';
 import { supabase } from '../lib/supabase';
 import type { KhachHang } from './customerData';
 import type { NhanSu } from './personnelData';
@@ -5,130 +6,8 @@ import type { SalesCardCT } from './salesCardCTData';
 import type { DichVu } from './serviceData';
 import type { ThuChi } from './financialData';
 import { getTransactionsByOrderIds } from './financialData';
-import { digitsOnly, phoneLookupVariants, samePhoneCore } from '../lib/phoneUtils';
 import { touchCustomerLastOrderAt } from '../lib/customerActivity';
-import {
-  getCustomerLinkKeys,
-  orderMatchesCustomerLink,
-} from '../lib/customerOrderLink';
-import {
-  expandVnTokenVariants,
-  extractVnSearchTokens,
-  foldVietnamese,
-  looseVnIlikePatterns,
-  matchesVnSearch,
-} from '../utils/vnSearchUtils';
-
 export { phoneLookupVariants } from '../lib/phoneUtils';
-
-function escapeIlike(s: string): string {
-  return s.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
-}
-
-function addVnNameIlikeConditions(orConditions: string[], field: string, term: string) {
-  const seen = new Set<string>();
-  const push = (pattern: string) => {
-    const key = `${field}:${pattern}`;
-    if (seen.has(key)) return;
-    seen.add(key);
-    orConditions.push(`${field}.ilike.${pattern}`);
-  };
-
-  push(`%${escapeIlike(term)}%`);
-  for (const token of extractVnSearchTokens(term)) {
-    for (const variant of expandVnTokenVariants(token)) {
-      push(`%${escapeIlike(variant)}%`);
-    }
-    for (const loose of looseVnIlikePatterns(token)) {
-      push(loose);
-    }
-  }
-}
-
-function customerRowMatchesSearch(
-  row: { ho_va_ten?: string | null; so_dien_thoai?: string | null; bien_so_xe?: string | null; ma_khach_hang?: string | null },
-  term: string
-): boolean {
-  const t = term.trim();
-  if (!t) return true;
-  if (matchesVnSearch(row.ho_va_ten || '', t)) return true;
-  if (row.ma_khach_hang && foldVietnamese(row.ma_khach_hang).includes(foldVietnamese(t))) return true;
-  if (row.bien_so_xe && foldVietnamese(row.bien_so_xe).includes(foldVietnamese(t.replace(/[\s.\-]/g, '')))) return true;
-  const phones = phoneLookupVariants(t);
-  if (phones.some((p) => samePhoneCore(row.so_dien_thoai, p))) return true;
-  const digits = digitsOnly(t);
-  if (digits.length >= 8 && digitsOnly(row.so_dien_thoai).includes(digits)) return true;
-  return false;
-}
-
-function salesCardMatchesSearch(
-  card: SalesCard,
-  term: string,
-  customerIdSet: Set<string>,
-  serviceIdSet: Set<string>
-): boolean {
-  const t = term.trim();
-  if (!t) return true;
-
-  if (card.id_bh && foldVietnamese(card.id_bh).includes(foldVietnamese(t))) return true;
-  if (card.khach_hang_id && customerIdSet.has(card.khach_hang_id)) return true;
-  if (card.dich_vu_id && serviceIdSet.has(card.dich_vu_id)) return true;
-
-  const phones = phoneLookupVariants(t);
-  if (phones.some((p) => samePhoneCore(card.so_dien_thoai, p))) return true;
-  const digits = digitsOnly(t);
-  if (digits.length >= 8 && digitsOnly(card.so_dien_thoai).includes(digits)) return true;
-
-  if (matchesVnSearch(card.ten_khach_hang || '', t)) return true;
-  if (card.khach_hang_id && foldVietnamese(card.khach_hang_id).includes(foldVietnamese(t))) return true;
-
-  return false;
-}
-
-/** Tìm id / mã khách hàng theo tên, SĐT, BSX (dùng cho tìm phiếu bán hàng). */
-async function findCustomerIdsForSalesSearch(term: string): Promise<string[]> {
-  const CUSTOMER_SALES_SEARCH_FETCH_BATCH = 1000;
-  const raw = term.trim();
-  if (!raw) return [];
-
-  const orConditions: string[] = [];
-  addVnNameIlikeConditions(orConditions, 'ho_va_ten', raw);
-  orConditions.push(`so_dien_thoai.ilike.%${escapeIlike(raw)}%`);
-  orConditions.push(`ma_khach_hang.ilike.%${escapeIlike(raw)}%`);
-  orConditions.push(`bien_so_xe.ilike.%${escapeIlike(raw)}%`);
-
-  for (const phone of phoneLookupVariants(raw)) {
-    orConditions.push(`so_dien_thoai.ilike.%${escapeIlike(phone)}%`);
-  }
-
-  const bsxNorm = raw.replace(/[\s.\-]/g, '');
-  if (bsxNorm.length >= 3 && bsxNorm.toLowerCase() !== raw.toLowerCase()) {
-    orConditions.push(`bien_so_xe.ilike.%${escapeIlike(bsxNorm)}%`);
-  }
-
-  const ids = new Set<string>();
-  if (orConditions.length > 0) {
-    let offset = 0;
-    for (;;) {
-      const { data: matched } = await supabase
-        .from('khach_hang')
-        .select('id, ma_khach_hang, ho_va_ten, so_dien_thoai, bien_so_xe')
-        .or(orConditions.join(','))
-        .range(offset, offset + CUSTOMER_SALES_SEARCH_FETCH_BATCH - 1);
-
-      const batch = matched || [];
-      for (const c of batch) {
-        if (!customerRowMatchesSearch(c, raw)) continue;
-        if (c.id) ids.add(String(c.id));
-        if (c.ma_khach_hang) ids.add(String(c.ma_khach_hang));
-      }
-      if (batch.length < CUSTOMER_SALES_SEARCH_FETCH_BATCH) break;
-      offset += CUSTOMER_SALES_SEARCH_FETCH_BATCH;
-    }
-  }
-
-  return [...ids];
-}
 
 type ServiceLookupRow = {
   id: string;
@@ -356,6 +235,8 @@ export interface SalesCard {
   phuong_thuc_thanh_toan?: string | null;
   /** Tổng tiền đơn (cột DB); đồng bộ từ chi tiết qua recalculate_the_ban_hang_tong_tien. */
   tong_tien?: number | null;
+  resolved_amount?: number | null;
+  customer_key?: string | null;
   created_at?: string;
 
   // Joined fields
@@ -374,32 +255,6 @@ export type SalesCardFormData = Partial<SalesCard> & {
   service_items?: { id: string; ten_dich_vu: string; gia_ban: number; so_luong?: number }[];
   co_so_khach?: string;
 };
-
-function getSalesCardSortTime(card: SalesCard): number {
-  const createdAt = card.created_at ? Date.parse(card.created_at) : NaN;
-  if (Number.isFinite(createdAt)) return createdAt;
-
-  const dateTime = `${card.ngay || ''}T${card.gio || '00:00:00'}`;
-  const enteredAt = Date.parse(dateTime);
-  return Number.isFinite(enteredAt) ? enteredAt : 0;
-}
-
-function compareSalesCardsNewestFirst(a: SalesCard, b: SalesCard): number {
-  const byInputTime = getSalesCardSortTime(b) - getSalesCardSortTime(a);
-  if (byInputTime !== 0) return byInputTime;
-
-  const byDate = (b.ngay || '').localeCompare(a.ngay || '');
-  if (byDate !== 0) return byDate;
-
-  const byTime = (b.gio || '').localeCompare(a.gio || '');
-  if (byTime !== 0) return byTime;
-
-  return (b.id_bh || b.id || '').localeCompare(a.id_bh || a.id || '');
-}
-
-function sortSalesCardsNewestFirst(cards: SalesCard[]): SalesCard[] {
-  return cards.sort(compareSalesCardsNewestFirst);
-}
 
 export async function enrichSalesCards(cards: SalesCard[]) {
   await Promise.all([
@@ -422,11 +277,12 @@ async function attachDetails(cards: SalesCard[]) {
     const allDetails: SalesCardCT[] = [];
 
     await Promise.all(chunks.map(async (chunk) => {
-      const { data: details } = await supabase
-        .from('the_ban_hang_ct')
-        .select('*')
-        .in('id_don_hang', chunk);
-      if (details) allDetails.push(...details);
+      for (let from = 0; ; from += 1000) {
+        const { data: details, error } = await supabase.rpc('sales_details', { p_refs: chunk }).range(from, from + 999);
+        if (error) throw error;
+        allDetails.push(...(details || []));
+        if ((details || []).length < 1000) break;
+      }
     }));
 
     if (allDetails.length > 0) {
@@ -452,7 +308,7 @@ async function attachDetails(cards: SalesCard[]) {
         (d as SalesCardCT & { ten_dich_vu?: string }).ten_dich_vu = resolved || 'Dịch vụ';
 
         if (d.id_don_hang) {
-          const lowerId = d.id_don_hang.toLowerCase();
+          const lowerId = d.id_don_hang.trim().toLowerCase();
           const list = detailMap.get(lowerId) || [];
           list.push(d);
           detailMap.set(lowerId, list);
@@ -460,57 +316,28 @@ async function attachDetails(cards: SalesCard[]) {
       });
       cards.forEach(card => {
         // Try linking by id_bh first, then by internal UUID
-        const detailsForBh = card.id_bh ? detailMap.get(card.id_bh.toLowerCase()) : null;
+        const detailsForBh = card.id_bh ? detailMap.get(card.id_bh.trim().toLowerCase()) : null;
         const detailsForUuid = detailMap.get(card.id.toLowerCase());
-        card.the_ban_hang_ct = detailsForBh || detailsForUuid || [];
+        card.the_ban_hang_ct = [...new Map([...(detailsForBh || []), ...(detailsForUuid || [])].map(d => [d.id, d])).values()];
       });
     }
   }
 }
 
 async function attachCustomer(cards: SalesCard[]) {
-  const custIds = [...new Set(cards.map(c => c.khach_hang_id).filter(Boolean))] as string[];
-  if (custIds.length > 0) {
-    const chunks = chunkArray(custIds, 50);
-    const allCustomers: any[] = [];
-
-    await Promise.all(chunks.map(async (chunk) => {
-      const maIds = chunk;
-      const uuidIds = chunk.filter(id => id.length === 36);
-
-      const orParts: string[] = [];
-      if (maIds.length > 0) {
-        orParts.push(`ma_khach_hang.in.(${maIds.map(id => `"${id}"`).join(',')})`);
-      }
-      if (uuidIds.length > 0) {
-        orParts.push(`id.in.(${uuidIds.map(id => `"${id}"`).join(',')})`);
-      }
-      if (orParts.length === 0) return;
-
-      const { data: customers } = await supabase
-        .from('khach_hang')
-        .select('id, ma_khach_hang, ho_va_ten, so_dien_thoai, dia_chi_hien_tai, bien_so_xe')
-        .or(orParts.join(','));
-
-      if (customers) allCustomers.push(...customers);
-    }));
-
-    const maMap = new Map(allCustomers.filter(c => !!c.ma_khach_hang).map(c => [c.ma_khach_hang!.toLowerCase(), c]));
-    const idMap = new Map(allCustomers.map(c => [c.id.toLowerCase(), c]));
-
-    cards.forEach(card => {
-      if (card.khach_hang_id) {
-        const key = card.khach_hang_id.toLowerCase();
-        const cust = maMap.get(key) || idMap.get(key);
-        if (cust) card.khach_hang = {
-          id: cust.id,
-          ma_khach_hang: cust.ma_khach_hang,
-          ho_va_ten: cust.ho_va_ten,
-          so_dien_thoai: cust.so_dien_thoai,
-          dia_chi_hien_tai: cust.dia_chi_hien_tai,
-          bien_so_xe: cust.bien_so_xe,
-        };
-      }
+  // Rows from sales_query already use the canonical customer resolver.
+  const missing = cards.filter(c => c.khach_hang === undefined);
+  if (!missing.length) return;
+  const { data, error } = await supabase.rpc('sales_lookup', { p_ids: missing.map(c => c.id) });
+  if (error) throw error;
+  const lookup = new Map((data as SalesCard[]).map(c => [c.id, c]));
+  for (const card of missing) {
+    const resolved = lookup.get(card.id);
+    if (resolved) Object.assign(card, {
+      khach_hang: resolved.khach_hang,
+      ten_khach_hang: resolved.ten_khach_hang,
+      resolved_amount: resolved.resolved_amount,
+      customer_key: resolved.customer_key,
     });
   }
 }
@@ -626,20 +453,7 @@ async function attachFinancialRecord(cards: SalesCard[]) {
 }
 
 export const getSalesCards = async (staffId?: string): Promise<SalesCard[]> => {
-  let query = supabase
-    .from('the_ban_hang')
-    .select(`*`)
-    .order('created_at', { ascending: false })
-    .order('ngay', { ascending: false })
-    .order('gio', { ascending: false });
-
-  if (staffId) {
-    query = query.ilike('nhan_vien_id', `%${staffId}%`);
-  }
-
-  const { data } = await query;
-
-  const cards = sortSalesCardsNewestFirst((data as SalesCard[]) || []);
+  const cards = await queryAllSales({ p_staff: staffId || null });
 
   await enrichSalesCards(cards);
 
@@ -648,443 +462,41 @@ export const getSalesCards = async (staffId?: string): Promise<SalesCard[]> => {
 
 /** Tải đúng một phiếu theo mã BH hoặc UUID để mở trực tiếp từ trang rà soát. */
 export const getSalesCardByReference = async (reference: string): Promise<SalesCard | null> => {
-  const normalizedReference = reference.trim();
-  if (!normalizedReference) return null;
-
-  const byCode = await supabase
-    .from('the_ban_hang')
-    .select('*')
-    .eq('id_bh', normalizedReference)
-    .limit(1)
-    .maybeSingle();
-  if (byCode.error) throw byCode.error;
-
-  let card = byCode.data as SalesCard | null;
-  if (!card && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(normalizedReference)) {
-    const byId = await supabase
-      .from('the_ban_hang')
-      .select('*')
-      .eq('id', normalizedReference)
-      .limit(1)
-      .maybeSingle();
-    if (byId.error) throw byId.error;
-    card = byId.data as SalesCard | null;
-  }
-
+  if (!reference.trim()) return null;
+  const result = await querySales({ p_reference: reference.trim() }, 1, 1);
+  const card = result.data[0];
   if (!card) return null;
   await enrichSalesCards([card]);
   return card;
 };
 
-/** Bộ cột tối thiểu đủ để tính thẻ tổng hợp — tránh kéo cả bản ghi khi quét toàn bảng. */
-const SUMMARY_CARD_COLUMNS = 'id, id_bh, ngay, gio, created_at, ten_khach_hang, khach_hang_id, dich_vu_id';
-
-async function fetchFilteredSalesCardsList(
-  searchQuery?: string,
-  startDate?: string,
-  endDate?: string,
-  staffId?: string,
-  branch?: string,
-  selectColumns?: string
-): Promise<{ allCards: SalesCard[]; totalCount: number }> {
-  const SALES_EXPORT_FETCH_BATCH = 1000;
-  const columns = selectColumns || '*';
-
-  let searchCustomerIdSet = new Set<string>();
-  let searchServiceIdSet = new Set<string>();
-  const trimmedSearch = searchQuery?.trim() || '';
-  const orConditions: string[] = [];
-
-  if (trimmedSearch) {
-    const customerIds = await findCustomerIdsForSalesSearch(trimmedSearch);
-    searchCustomerIdSet = new Set(customerIds);
-
-    const serviceOr: string[] = [];
-    addVnNameIlikeConditions(serviceOr, 'ten_dich_vu', trimmedSearch);
-    const { data: matchedServices } = serviceOr.length > 0
-      ? await supabase.from('dich_vu').select('id').or(serviceOr.join(',')).limit(50)
-      : { data: [] as { id: string }[] };
-    const serviceIds = (matchedServices || []).map((s) => s.id);
-    searchServiceIdSet = new Set(serviceIds);
-
-    if (customerIds.length > 0) {
-      orConditions.push(`khach_hang_id.in.(${customerIds.map((c) => `"${c}"`).join(',')})`);
-    }
-    if (serviceIds.length > 0) {
-      orConditions.push(`dich_vu_id.in.(${serviceIds.map((s) => `"${s}"`).join(',')})`);
-    }
-    orConditions.push(`id_bh.ilike.%${escapeIlike(trimmedSearch)}%`);
-    orConditions.push(`khach_hang_id.ilike.%${escapeIlike(trimmedSearch)}%`);
-    orConditions.push(`so_dien_thoai.ilike.%${escapeIlike(trimmedSearch)}%`);
-    addVnNameIlikeConditions(orConditions, 'ten_khach_hang', trimmedSearch);
-
-    for (const phone of phoneLookupVariants(trimmedSearch)) {
-      orConditions.push(`so_dien_thoai.ilike.%${escapeIlike(phone)}%`);
-    }
-  }
-
-  const buildBaseQuery = () => {
-    let query = supabase.from('the_ban_hang').select(columns, { count: 'exact' });
-    if (orConditions.length > 0) {
-      query = query.or(orConditions.join(','));
-    }
-    if (startDate) query = query.gte('ngay', startDate);
-    if (endDate) query = query.lte('ngay', endDate);
-    if (staffId) query = query.ilike('nhan_vien_id', `%${staffId}%`);
-    return query;
-  };
-
-  let branchCustomerSet: Set<string> | null = null;
-  if (branch) {
-    const branchNameOnly = branch.replace('Cơ sở ', '');
-    branchCustomerSet = new Set<string>();
-    let customerOffset = 0;
-    for (;;) {
-      const { data: matchedCustomers, error: branchError } = await supabase
-        .from('khach_hang')
-        .select('id, ma_khach_hang')
-        .or(`dia_chi_hien_tai.eq."${branch}",dia_chi_hien_tai.eq."${branchNameOnly}"`)
-        .range(customerOffset, customerOffset + SALES_EXPORT_FETCH_BATCH - 1);
-
-      if (branchError) throw branchError;
-      const customerBatch = matchedCustomers || [];
-      customerBatch.forEach((c) => {
-        if (c.id) branchCustomerSet!.add(c.id.toLowerCase());
-        if (c.ma_khach_hang) branchCustomerSet!.add(c.ma_khach_hang.toLowerCase());
-      });
-      if (customerBatch.length < SALES_EXPORT_FETCH_BATCH) break;
-      customerOffset += SALES_EXPORT_FETCH_BATCH;
-    }
-  }
-
-  const fetchBatch = (offset: number) =>
-    buildBaseQuery()
-      .order('created_at', { ascending: false })
-      .order('ngay', { ascending: false })
-      .order('gio', { ascending: false })
-      .range(offset, offset + SALES_EXPORT_FETCH_BATCH - 1);
-
-  // Lô đầu trả về tổng số dòng, nhờ đó các lô còn lại bắn song song thay vì nối đuôi nhau.
-  const { data: firstBatch, count, error: firstError } = await fetchBatch(0);
-  if (firstError) {
-    if (firstError.code === 'PGRST103') return { allCards: [], totalCount: count || 0 };
-    throw firstError;
-  }
-
-  const totalCount = count || 0;
-  const allCardsRaw: SalesCard[] = ((firstBatch as unknown) as SalesCard[]) || [];
-
-  if (allCardsRaw.length === SALES_EXPORT_FETCH_BATCH && totalCount > SALES_EXPORT_FETCH_BATCH) {
-    const offsets: number[] = [];
-    for (let o = SALES_EXPORT_FETCH_BATCH; o < totalCount; o += SALES_EXPORT_FETCH_BATCH) {
-      offsets.push(o);
-    }
-    const batches = await Promise.all(
-      offsets.map(async (o) => {
-        const { data, error } = await fetchBatch(o);
-        if (error) {
-          if (error.code === 'PGRST103') return [] as SalesCard[];
-          throw error;
-        }
-        return ((data as unknown) as SalesCard[]) || [];
-      })
-    );
-    batches.forEach((b) => allCardsRaw.push(...b));
-  }
-
-  let allCards = allCardsRaw;
-  if (trimmedSearch) {
-    allCards = allCards.filter((c) =>
-      salesCardMatchesSearch(c, trimmedSearch, searchCustomerIdSet, searchServiceIdSet)
-    );
-  }
-  if (branchCustomerSet) {
-    allCards = allCards.filter(
-      (c) => c.khach_hang_id && branchCustomerSet!.has(c.khach_hang_id.toLowerCase())
-    );
-  }
-  sortSalesCardsNewestFirst(allCards);
-
-  return {
-    allCards,
-    totalCount: branchCustomerSet ? allCards.length : totalCount,
-  };
+function salesFilters(searchQuery?: string, startDate?: string, endDate?: string, staffId?: string, branch?: string): SalesQueryFilters {
+  return { p_search: searchQuery?.trim() || null, p_start: startDate || null, p_end: endDate || null, p_staff: staffId || null, p_branch: branch || null };
 }
 
-export const getSalesCardsForExport = async (
-  searchQuery?: string,
-  startDate?: string,
-  endDate?: string,
-  staffId?: string,
-  branch?: string
-): Promise<SalesCard[]> => {
-  const { allCards } = await fetchFilteredSalesCardsList(
-    searchQuery,
-    startDate,
-    endDate,
-    staffId,
-    branch
-  );
-  if (allCards.length === 0) return [];
-  await enrichSalesCards(allCards);
-  return allCards;
+export const getSalesCardsForExport = async (searchQuery?: string, startDate?: string, endDate?: string, staffId?: string, branch?: string): Promise<SalesCard[]> => {
+  const cards = await queryAllSales(salesFilters(searchQuery, startDate, endDate, staffId, branch));
+  await enrichSalesCards(cards);
+  return cards;
 };
 
-export const getSalesCardsPaginated = async (
-  page: number,
-  pageSize: number,
-  searchQuery?: string,
-  startDate?: string,
-  endDate?: string,
-  staffId?: string,
-  branch?: string
-): Promise<{ data: SalesCard[], totalCount: number }> => {
-  const trimmedSearch = searchQuery?.trim() ?? '';
-  const from = (page - 1) * pageSize;
-  const to = from + pageSize - 1;
-
-  // Phân trang trực tiếp trên DB khi không cần lọc client-side
-  if (!trimmedSearch && !branch) {
-    let query = supabase.from('the_ban_hang').select('*', { count: 'exact' });
-    if (startDate) query = query.gte('ngay', startDate);
-    if (endDate) query = query.lte('ngay', endDate);
-    if (staffId) query = query.ilike('nhan_vien_id', `%${staffId}%`);
-
-    const { data, count, error } = await query
-      .order('created_at', { ascending: false })
-      .order('ngay', { ascending: false })
-      .order('gio', { ascending: false })
-      .range(from, to);
-
-    if (error) {
-      if (error.code === 'PGRST103') return { data: [], totalCount: count || 0 };
-      throw error;
-    }
-
-    const pagedCards = (data as SalesCard[]) || [];
-    await enrichSalesCards(pagedCards);
-    return { data: pagedCards, totalCount: count || 0 };
-  }
-
-  const { allCards, totalCount } = await fetchFilteredSalesCardsList(
-    searchQuery,
-    startDate,
-    endDate,
-    staffId,
-    branch
-  );
-  const pagedCards = allCards.slice(from, to + 1);
-  await enrichSalesCards(pagedCards);
-  return { data: pagedCards, totalCount };
+export const getSalesCardsPaginated = async (page: number, pageSize: number, searchQuery?: string, startDate?: string, endDate?: string, staffId?: string, branch?: string) => {
+  const result = await querySales(salesFilters(searchQuery, startDate, endDate, staffId, branch), page, pageSize);
+  await enrichSalesCards(result.data);
+  return result;
 };
 
-export type SalesSummaryTotals = {
-  totalCount: number;
-  totalAmount: number;
-  totalCustomers: number;
-  newCustomersCount: number;
-  returningCustomersCount: number;
-};
-
-/** Cờ tắt RPC sau lần đầu phát hiện DB chưa cài hàm, tránh gọi hỏng lặp lại mỗi lần lọc. */
-let salesSummaryRpcAvailable = true;
-
-/**
- * Gọi hàm tổng hợp phía DB (1 request). Trả về null khi chưa cài migration
- * 20260722_sales_summary_rpc.sql để phía gọi tự quay về cách tính ở client.
- */
-async function fetchSalesSummaryViaRpc(
-  startDate?: string,
-  endDate?: string,
-  staffId?: string
-): Promise<SalesSummaryTotals | null> {
-  if (!salesSummaryRpcAvailable) return null;
-
-  const { data, error } = await supabase.rpc('sales_summary_totals', {
-    p_start: startDate || null,
-    p_end: endDate || null,
-    p_staff: staffId || null,
-  });
-
-  if (error) {
-    // 42883 / PGRST202: hàm chưa tồn tại -> khỏi thử lại trong phiên này.
-    const code = (error.code || '').toLowerCase();
-    const msg = (error.message || '').toLowerCase();
-    if (code === '42883' || code === 'pgrst202' || msg.includes('could not find the function')) {
-      salesSummaryRpcAvailable = false;
-      return null;
-    }
-    console.error('sales_summary_totals RPC lỗi, dùng cách tính ở client:', error);
-    return null;
-  }
-
-  const row = Array.isArray(data) ? data[0] : data;
-  if (!row) return null;
-
-  return {
-    totalCount: Number(row.total_count) || 0,
-    totalAmount: Number(row.total_amount) || 0,
-    totalCustomers: Number(row.total_customers) || 0,
-    newCustomersCount: Number(row.new_customers) || 0,
-    returningCustomersCount: Number(row.returning_customers) || 0,
-  };
-}
-
-/** Tổng tiền / khách — tải nền, không chặn danh sách phiếu. */
-export async function getSalesCardsSummaryTotals(
-  searchQuery?: string,
-  startDate?: string,
-  endDate?: string,
-  staffId?: string,
-  branch?: string
-): Promise<SalesSummaryTotals> {
-  // Bộ lọc tìm kiếm / cơ sở phải khớp theo logic client (biến thể tên tiếng Việt, số điện
-  // thoại, mã KH...) nên chỉ đường mặc định mới dùng được RPC.
-  if (!searchQuery?.trim() && !branch) {
-    const viaRpc = await fetchSalesSummaryViaRpc(startDate, endDate, staffId);
-    if (viaRpc) return viaRpc;
-  }
-
-  const { allCards, totalCount } = await fetchFilteredSalesCardsList(
-    searchQuery,
-    startDate,
-    endDate,
-    staffId,
-    branch,
-    // Khi có từ khoá, lọc phải chạy trên bản ghi đầy đủ nên không rút gọn cột được.
-    searchQuery?.trim() ? undefined : SUMMARY_CARD_COLUMNS
-  );
-  const grandTotals = await computeSalesGrandTotals(allCards, startDate);
-  return { totalCount, ...grandTotals };
-}
-
-async function computeSalesGrandTotals(
-  allCards: SalesCard[],
-  startDate?: string
-): Promise<{
-  totalAmount: number;
-  totalCustomers: number;
-  newCustomersCount: number;
-  returningCustomersCount: number;
-}> {
-  let grandTotal = 0;
-  let totalCustomersCount = 0;
-  let newCustomersCount = 0;
-  let returningCustomersCount = 0;
-
-  if (allCards.length === 0) {
-    return { totalAmount: 0, totalCustomers: 0, newCustomersCount: 0, returningCustomersCount: 0 };
-  }
-
-  const uniqueCustomerNames = [...new Set(
-    allCards.map(c => c.khach_hang?.ho_va_ten || c.ten_khach_hang || '').filter(Boolean)
-  )];
-  totalCustomersCount = uniqueCustomerNames.length;
-
-  if (uniqueCustomerNames.length > 0) {
-    const firstDatesMap = await getCustomerFirstSaleDates(uniqueCustomerNames);
-
-    uniqueCustomerNames.forEach(name => {
-      const key = name.trim().toLowerCase();
-      const firstDate = firstDatesMap[key];
-
-      if (startDate && firstDate) {
-        if (firstDate < startDate) {
-          returningCustomersCount++;
-        } else {
-          newCustomersCount++;
-        }
-      } else {
-        newCustomersCount++;
-      }
-    });
-  }
-
-  const allIds = allCards.map(c => c.id).filter(Boolean);
-  const allOrderCodes = allCards.map(c => c.id_bh).filter(Boolean) as string[];
-  const allRefs = [...new Set([...allIds, ...allOrderCodes])];
-
-  const chunks = chunkArray(allRefs, 100);
-  const totalDetails: { thanh_tien: number, gia_ban: number, so_luong: number, id_don_hang: string }[] = [];
-
-  await Promise.all(chunks.map(async (chunk) => {
-    const { data: details } = await supabase
-      .from('the_ban_hang_ct')
-      .select('thanh_tien, gia_ban, so_luong, id_don_hang')
-      .in('id_don_hang', chunk);
-    if (details) totalDetails.push(...details);
-  }));
-
-  grandTotal = totalDetails.reduce((sum, d) => sum + (d.thanh_tien || ((d.gia_ban || 0) * (d.so_luong || 1))), 0);
-
-  const cardsWithDetails = new Set(totalDetails.map(d => d.id_don_hang.toLowerCase()));
-  const legacyCards = allCards.filter(c =>
-    c.dich_vu_id &&
-    !cardsWithDetails.has(c.id.toLowerCase()) &&
-    (!c.id_bh || !cardsWithDetails.has(c.id_bh.toLowerCase()))
-  );
-
-  if (legacyCards.length > 0) {
-    const legacyServiceIds = [...new Set(legacyCards.map(c => c.dich_vu_id).filter(Boolean) as string[])];
-    const { data: services } = await supabase
-      .from('dich_vu')
-      .select('id, gia_ban, ten_dich_vu')
-      .or(`id.in.(${legacyServiceIds.map(id => `"${id}"`).join(',')}),ten_dich_vu.in.(${legacyServiceIds.map(id => `"${id}"`).join(',')})`);
-
-    if (services) {
-      const priceMap = new Map<string, number>();
-      services.forEach(s => {
-        if (s.id) priceMap.set(s.id.toLowerCase(), s.gia_ban || 0);
-        if (s.ten_dich_vu) priceMap.set(s.ten_dich_vu.toLowerCase(), s.gia_ban || 0);
-      });
-      legacyCards.forEach(c => {
-        grandTotal += priceMap.get(c.dich_vu_id!.toLowerCase()) || 0;
-      });
-    }
-  }
-
-  return {
-    totalAmount: grandTotal,
-    totalCustomers: totalCustomersCount,
-    newCustomersCount,
-    returningCustomersCount,
-  };
+export type SalesSummaryTotals = SalesSummary;
+export async function getSalesCardsSummaryTotals(searchQuery?: string, startDate?: string, endDate?: string, staffId?: string, branch?: string) {
+  const result = await querySales(salesFilters(searchQuery, startDate, endDate, staffId, branch), 1, 0);
+  return { ...result.summary, groupedSummary: result.groupedSummary };
 }
 
 export const getSalesCardsByCustomer = async (
-  customer: { id: string; ma_khach_hang?: string | null; so_dien_thoai?: string | null },
-  startDate?: string,
-  endDate?: string
+  customer: { id: string; ma_khach_hang?: string | null; so_dien_thoai?: string | null }, startDate?: string, endDate?: string
 ): Promise<SalesCard[]> => {
-  const keys = getCustomerLinkKeys(customer);
-  if (keys.length === 0) return [];
-
-  let query = supabase
-    .from('the_ban_hang')
-    .select(`*`)
-    .or(keys.map((k) => `khach_hang_id.eq.${k}`).join(','));
-
-  if (startDate) {
-    query = query.gte('ngay', startDate);
-  }
-  if (endDate) {
-    query = query.lte('ngay', endDate);
-  }
-
-  const { data, error } = await query
-    .order('ngay', { ascending: false })
-    .order('gio', { ascending: false })
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    console.error('Error fetching customer sales cards:', error);
-    throw error;
-  }
-
-  const cards = (data as SalesCard[]) || [];
-
+  const cards = await queryAllSales({ p_customer: customer.id || customer.ma_khach_hang, p_start: startDate || null, p_end: endDate || null });
   await enrichSalesCards(cards);
-
   return cards;
 };
 
@@ -1342,10 +754,19 @@ export const createSalesCard = async (card: Partial<SalesCard>): Promise<SalesCa
   return await upsertSalesCard(card, true);
 };
 
+function salesWritePayload(card: Partial<SalesCard>): Partial<SalesCard> {
+  const payload = { ...card } as Record<string, unknown>;
+  for (const key of ['khach_hang', 'nhan_su', 'nhan_su_list', 'dich_vu', 'dich_vu_ids', 'service_items',
+    'the_ban_hang_ct', 'thu_chi', 'co_so_khach', 'resolved_amount', 'customer_key', 'order_branches']) {
+    delete payload[key];
+  }
+  return payload as Partial<SalesCard>;
+}
+
 export const updateSalesCard = async (id: string, card: Partial<SalesCard>): Promise<SalesCard> => {
   const { data, error } = await supabase
     .from('the_ban_hang')
-    .update(card)
+    .update(salesWritePayload(card))
     .eq('id', id)
     .select()
     .single();
@@ -1358,7 +779,7 @@ export const updateSalesCard = async (id: string, card: Partial<SalesCard>): Pro
 };
 
 export const upsertSalesCard = async (card: Partial<SalesCard>, isNew: boolean = false): Promise<SalesCard> => {
-  const normalizedCard: Partial<SalesCard> = { ...card };
+  const normalizedCard = salesWritePayload(card);
 
   if (normalizedCard.khach_hang_id?.trim()) {
     const raw = normalizedCard.khach_hang_id.trim();
@@ -1465,6 +886,7 @@ export const upsertSalesCard = async (card: Partial<SalesCard>, isNew: boolean =
 };
 
 export const bulkUpsertSalesCards = async (cards: Partial<SalesCard>[]): Promise<void> => {
+  cards = cards.map(salesWritePayload);
   const toUpdate = cards.filter(c => c.id);
   const toInsert = cards.filter(c => !c.id);
 
@@ -1799,212 +1221,7 @@ export async function getCustomerOrderAggregatesByPhone(customers: CustomerPhone
   lastOrderDates: Record<string, string>;
   stats: Record<string, { totalRevenue: number; visitCount: number; latestSoKm?: number }>;
 }> {
-  type AggregationSalesCard = Pick<
-    SalesCard,
-    'id' | 'id_bh' | 'khach_hang_id' | 'dich_vu_id' | 'so_dien_thoai' | 'ngay' | 'gio' | 'so_km'
-  >;
-
-  type KmSnapshot = { ngay: string; gio: string; so_km: number };
-
-  const isNewerOrder = (ngay: string, gio: string | undefined, prev?: KmSnapshot): boolean => {
-    if (!prev) return true;
-    if (ngay > prev.ngay) return true;
-    if (ngay < prev.ngay) return false;
-    return (gio || '') > (prev.gio || '');
-  };
-
-  const lastOrderDates: Record<string, string> = {};
-  const stats: Record<string, { totalRevenue: number; visitCount: number; latestSoKm?: number }> = {};
-  const latestKmByCustomerId = new Map<string, KmSnapshot>();
-
-  const mk = (): { totalRevenue: number; visitCount: number; latestSoKm?: number } => ({
-    totalRevenue: 0,
-    visitCount: 0,
-  });
-
-  const idTokens = new Set<string>();
-  const phoneTokens = new Set<string>();
-  for (const c of customers) {
-    const ma = (c.ma_khach_hang || '').trim();
-    if (ma) idTokens.add(ma);
-    const id = (c.id || '').trim();
-    if (id) idTokens.add(id);
-    for (const p of phoneLookupVariants(c.so_dien_thoai)) {
-      phoneTokens.add(p);
-    }
-  }
-
-  if (idTokens.size === 0 && phoneTokens.size === 0) {
-    return { lastOrderDates, stats };
-  }
-
-  const salesCardMap = new Map<string, AggregationSalesCard>();
-  const salesCardSelect =
-    'id, id_bh, khach_hang_id, dich_vu_id, so_dien_thoai, ngay, gio, so_km';
-  const linkChunkSize = 15;
-
-  const mergeSalesCards = (rows: AggregationSalesCard[] | null | undefined) => {
-    (rows || []).forEach((row) => {
-      if (row?.id) salesCardMap.set(row.id, row);
-    });
-  };
-
-  const loadSalesCardsByColumn = async (
-    column: 'khach_hang_id' | 'so_dien_thoai',
-    values: string[]
-  ) => {
-    for (const chunk of chunkArray(values, linkChunkSize)) {
-      if (chunk.length === 0) continue;
-      try {
-        const { data, error } = await supabase
-          .from('the_ban_hang')
-          .select(salesCardSelect)
-          .in(column, chunk);
-        if (error) {
-          console.error(`getCustomerOrderAggregatesByPhone (${column}):`, error);
-          continue;
-        }
-        mergeSalesCards((data || []) as AggregationSalesCard[]);
-      } catch (networkErr) {
-        console.error(`getCustomerOrderAggregatesByPhone (${column}) network:`, networkErr);
-      }
-    }
-  };
-
-  try {
-    await Promise.all([
-      loadSalesCardsByColumn('khach_hang_id', [...idTokens]),
-      loadSalesCardsByColumn('so_dien_thoai', [...phoneTokens]),
-    ]);
-  } catch (err) {
-    console.error('getCustomerOrderAggregatesByPhone:', err);
-    return { lastOrderDates, stats };
-  }
-
-  const salesCards = [...salesCardMap.values()];
-  if (salesCards.length === 0) {
-    return { lastOrderDates, stats };
-  }
-
-  const rowStatsByCustomerId = new Map<string, { totalRevenue: number; visitCount: number; latestSoKm?: number }>();
-  customers.forEach((c) => {
-    const st = mk();
-    rowStatsByCustomerId.set(c.id, st);
-    stats[c.id] = st;
-    const ma = (c.ma_khach_hang ?? '').trim();
-    if (ma) stats[ma] = st;
-  });
-
-  const allOrderRefs = [...new Set(salesCards.flatMap((c) => [c.id, c.id_bh].filter(Boolean) as string[]))];
-
-  const orderTotalsMap = new Map<string, number>();
-  for (const refChunk of chunkArray(allOrderRefs, 50)) {
-    try {
-      const { data: details, error } = await supabase
-        .from('the_ban_hang_ct')
-        .select('id_don_hang, thanh_tien')
-        .in('id_don_hang', refChunk);
-
-      if (error) {
-        console.error('getCustomerOrderAggregatesByPhone (the_ban_hang_ct):', error);
-        continue;
-      }
-
-      (details || []).forEach((d: { id_don_hang?: string | null; thanh_tien?: number | null }) => {
-        if (d.id_don_hang) {
-          const key = String(d.id_don_hang).toLowerCase();
-          orderTotalsMap.set(key, (orderTotalsMap.get(key) || 0) + (d.thanh_tien || 0));
-        }
-      });
-    } catch (networkErr) {
-      console.error('getCustomerOrderAggregatesByPhone (the_ban_hang_ct) network:', networkErr);
-    }
-  }
-
-  const legacyServiceIds = [...new Set(salesCards.map((c) => c.dich_vu_id).filter(Boolean))] as string[];
-  const servicePrices = new Map<string, number>();
-  if (legacyServiceIds.length > 0) {
-    try {
-      for (const idChunk of chunkArray(legacyServiceIds, 20)) {
-        const { data: byId, error: byIdError } = await supabase
-          .from('dich_vu')
-          .select('ten_dich_vu, id_dich_vu, gia_ban')
-          .in('id_dich_vu', idChunk);
-
-        if (byIdError) {
-          console.error('getCustomerOrderAggregatesByPhone (dich_vu id):', byIdError);
-        } else {
-          (byId || []).forEach((s: { id_dich_vu?: string | null; ten_dich_vu?: string | null; gia_ban?: number | null }) => {
-            if (s.id_dich_vu) servicePrices.set(String(s.id_dich_vu).toLowerCase(), s.gia_ban || 0);
-            if (s.ten_dich_vu) servicePrices.set(String(s.ten_dich_vu).toLowerCase(), s.gia_ban || 0);
-          });
-        }
-
-        const { data: byName, error: byNameError } = await supabase
-          .from('dich_vu')
-          .select('ten_dich_vu, id_dich_vu, gia_ban')
-          .in('ten_dich_vu', idChunk);
-
-        if (byNameError) {
-          console.error('getCustomerOrderAggregatesByPhone (dich_vu name):', byNameError);
-        } else {
-          (byName || []).forEach((s: { id_dich_vu?: string | null; ten_dich_vu?: string | null; gia_ban?: number | null }) => {
-            if (s.id_dich_vu) servicePrices.set(String(s.id_dich_vu).toLowerCase(), s.gia_ban || 0);
-            if (s.ten_dich_vu) servicePrices.set(String(s.ten_dich_vu).toLowerCase(), s.gia_ban || 0);
-          });
-        }
-      }
-    } catch (networkErr) {
-      console.error('getCustomerOrderAggregatesByPhone (dich_vu) network:', networkErr);
-    }
-  }
-
-  for (const card of salesCards) {
-    const matched = customers.filter((c) => orderMatchesCustomerLink(card, c));
-    if (matched.length === 0) continue;
-
-    const idBh = card.id_bh ? String(card.id_bh).toLowerCase() : '';
-    const idLower = String(card.id).toLowerCase();
-    let cardTotal =
-      (idBh && orderTotalsMap.get(idBh)) ||
-      orderTotalsMap.get(idLower) ||
-      0;
-    if (cardTotal === 0 && card.dich_vu_id) {
-      cardTotal = servicePrices.get(String(card.dich_vu_id).toLowerCase()) || 0;
-    }
-
-    const ngay = String(card.ngay || '');
-    const km = Number(card.so_km);
-    for (const c of matched) {
-      const st = rowStatsByCustomerId.get(c.id);
-      if (!st) continue;
-      st.totalRevenue += cardTotal;
-      st.visitCount += 1;
-
-      const prevId = lastOrderDates[c.id];
-      if (!prevId || ngay > prevId) lastOrderDates[c.id] = ngay;
-      const ma = (c.ma_khach_hang ?? '').trim();
-      if (ma) {
-        const prevMa = lastOrderDates[ma];
-        if (!prevMa || ngay > prevMa) lastOrderDates[ma] = ngay;
-      }
-
-      if (Number.isFinite(km) && km > 0) {
-        const prevKm = latestKmByCustomerId.get(c.id);
-        if (isNewerOrder(ngay, card.gio, prevKm)) {
-          latestKmByCustomerId.set(c.id, { ngay, gio: card.gio || '', so_km: km });
-        }
-      }
-    }
-  }
-
-  latestKmByCustomerId.forEach((snap, custId) => {
-    const st = stats[custId];
-    if (st) st.latestSoKm = snap.so_km;
-    const customer = customers.find((c) => c.id === custId);
-    const ma = (customer?.ma_khach_hang ?? '').trim();
-    if (ma && stats[ma]) stats[ma].latestSoKm = snap.so_km;
-  });
-
-  return { lastOrderDates, stats };
+  const { data, error } = await supabase.rpc('customer_order_stats', { p_ids: customers.map(c => c.id) });
+  if (error) throw error;
+  return data;
 }

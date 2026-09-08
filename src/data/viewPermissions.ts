@@ -45,8 +45,6 @@ export const VIEW_PERMISSION_STORAGE_KEY = 'view_permissions_by_position';
 /** Ghép phòng ban + vị trí: `cơ sở bắc giang::kỹ thuật viên` */
 export const PERMISSION_KEY_SEP = '::';
 
-export const DEPARTMENT_OPTIONS = ['Cơ sở Bắc Giang', 'Cơ sở Bắc Ninh'] as const;
-
 export const POSITION_OPTIONS = ['Kỹ thuật viên', 'Quản lý', 'Admin', 'Kế toán', 'Bán hàng'] as const;
 
 /** Quyền mặc định theo vị trí (áp dụng mọi phòng ban nếu chưa cấu hình riêng) */

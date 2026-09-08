@@ -1,3 +1,4 @@
+import { branchKey } from '../lib/branchCatalog';
 import type { PostgrestError } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { invalidateServiceLookupCache } from './salesCardData';
@@ -32,46 +33,11 @@ export interface DichVu {
   updated_at?: string;
 }
 
-export const SERVICE_BRANCH_BG = 'Cơ sở Bắc Giang';
-export const SERVICE_BRANCH_BN = 'Cơ sở Bắc Ninh';
 export const SERVICE_BRANCH_MAIN = 'Cơ sở chính';
-export const SERVICE_BRANCH_OPTIONS = [
-  SERVICE_BRANCH_BG,
-  SERVICE_BRANCH_BN,
-  SERVICE_BRANCH_MAIN,
-] as const;
 
 /** Dịch vụ thuộc tab Cơ sở chính (theo cột co_so). */
 export function isMainServiceBranch(coSo: string | null | undefined): boolean {
-  const s = (coSo || '').trim().toLowerCase();
-  if (!s) return true;
-  if (s.includes('chính') || s.includes('chinh')) return true;
-  if (s.includes('bắc giang') || s.includes('bac giang')) return false;
-  if (s.includes('bắc ninh') || s.includes('bac ninh')) return false;
-  return true;
-}
-
-type ServiceBranchFilterQuery = {
-  or: (filters: string) => ServiceBranchFilterQuery;
-  in: (column: string, values: readonly string[]) => ServiceBranchFilterQuery;
-};
-
-function applyServiceBranchFilter<T extends ServiceBranchFilterQuery>(query: T, branches: string[]): T {
-  if (!branches.length) return query;
-
-  const branch = branches[0];
-  if (branches.length === 1 && branch === SERVICE_BRANCH_MAIN) {
-    return query.or(
-      'co_so.is.null,co_so.eq.,co_so.ilike.%chính%,co_so.ilike.%chinh%,co_so.not.in.("Cơ sở Bắc Giang","Cơ sở Bắc Ninh")'
-    ) as T;
-  }
-  if (branches.length === 1 && branch === SERVICE_BRANCH_BG) {
-    return query.or('co_so.ilike.%bắc giang%,co_so.ilike.%bac giang%,co_so.eq.Cơ sở Bắc Giang') as T;
-  }
-  if (branches.length === 1 && branch === SERVICE_BRANCH_BN) {
-    return query.or('co_so.ilike.%bắc ninh%,co_so.ilike.%bac ninh%,co_so.eq.Cơ sở Bắc Ninh') as T;
-  }
-  return query.in('co_so', branches) as T;
+  return !coSo?.trim() || branchKey(coSo) === 'chinh';
 }
 
 const SERVICE_FETCH_BATCH = 1000;
@@ -400,6 +366,7 @@ const upsertServiceInternal = async (service: Partial<DichVu>): Promise<DichVu> 
   };
 
   const { id: _omit, ...insertPayload } = cleanData;
+  void _omit;
   const reserved = new Set<string>();
   let code = await resolveInsertServiceCode(insertPayload.id_dich_vu);
   const maxAttempts = 6;
@@ -437,6 +404,7 @@ export const bulkUpsertServices = async (services: Partial<DichVu>[]): Promise<v
   if (toInsert.length > 0) {
     const cleanInserts = await Promise.all(
       toInsert.map(async ({ id, ...rest }) => {
+        void id;
         const raw = (rest.id_dich_vu || '').trim();
         const id_dich_vu =
           raw && (await isServiceCodeAvailable(raw)) ? raw : await getNextServiceCode();
@@ -507,17 +475,12 @@ export const getServicesPaginated = async (
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
-  let query = supabase
-    .from('dich_vu')
-    .select('*', { count: 'exact' });
+  let query = supabase.rpc('services_for_branches', { p_branches: filters?.branches || null }, { count: 'exact' }).select('*');
 
   if (searchQuery) {
     query = query.or(`ten_dich_vu.ilike.%${searchQuery}%,id_dich_vu.ilike.%${searchQuery}%`);
   }
 
-  if (filters?.branches?.length) {
-    query = applyServiceBranchFilter(query, filters.branches);
-  }
 
   const { data, count, error } = await query
     .order('created_at', { ascending: false })
@@ -579,5 +542,6 @@ export const getNextServiceCode = async (reserved = new Set<string>()): Promise<
 };
 
 async function resolveInsertServiceCode(_requested?: string | null): Promise<string> {
+  void _requested;
   return getNextServiceCode();
 }

@@ -1,3 +1,4 @@
+import { useBranches } from '../hooks/useBranches';
 import React, { useState, useEffect } from 'react';
 import { 
   upsertPayrollSetting,
@@ -12,6 +13,7 @@ import { useAuth } from '../context/AuthContext';
 import { describeRecalculateTongTienResult, formatRecalculateTongTienError, recalculateTheBanHangTongTien } from '../data/salesCardData';
 
 const PayrollSettingsPage: React.FC = () => {
+  const branches = useBranches();
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState<'luong' | 'thue' | 'bao-hiem'>('luong');
@@ -206,7 +208,7 @@ const PayrollSettingsPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {['Cơ sở Bắc Ninh', 'Cơ sở Bắc Giang'].map(co_so => (
+                    {branches.map(co_so => (
                       <tr key={co_so} className="text-gray-700">
                         <td className="px-4 py-3 border-r border-gray-200">{co_so}</td>
                         <td className="px-4 py-3 text-right border-r border-gray-200">

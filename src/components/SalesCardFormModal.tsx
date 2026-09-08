@@ -1,5 +1,6 @@
+import { useBranches } from '../hooks/useBranches';
 import { Banknote, Building2, Calendar, Car, ChevronDown, ChevronUp, Clock, FileText, History, Loader2, Save, ShoppingCart, User, Wrench, X } from 'lucide-react';
-import { CUSTOMER_BRANCH_OPTIONS, matchesServiceBranch, resolveCustomerBranch } from '../constants/customerBranches';
+import { matchesServiceBranch, resolveCustomerBranch } from '../constants/customerBranches';
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { NhanSu } from '../data/personnelData';
@@ -75,6 +76,7 @@ const SalesCardFormModal: React.FC<{
   onCollectPayment?: (data: any, method: string) => Promise<void>;
   isReadOnly?: boolean;
 }> = React.memo(({ isOpen, editingCard, initialData, customerOptions, personnel, services, onClose, onSubmit, isReadOnly, onCollectPayment }) => {
+  const CUSTOMER_BRANCH_OPTIONS = useBranches();
   const { nhanVien } = useAuth();
   const [formData, setFormData] = useState<SalesCardFormData>(initialData);
   const [isCollecting, setIsCollecting] = useState(false);

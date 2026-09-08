@@ -1,14 +1,11 @@
 import { normalizeForCompare } from '../lib/utils';
-
-export const CUSTOMER_BRANCH_OPTIONS = ['Cơ sở Bắc Giang', 'Cơ sở Bắc Ninh'] as const;
+import { branchKey, getBranchOptions } from '../lib/branchCatalog';
 
 export function normalizeBranchLabel(raw: string): string {
   const v = normalizeForCompare(raw);
   if (!v) return '';
-  if (v.includes('bac giang')) return 'Cơ sở Bắc Giang';
-  if (v.includes('bac ninh')) return 'Cơ sở Bắc Ninh';
-  if (v.includes('chinh')) return 'Cơ sở chính';
-  const exact = CUSTOMER_BRANCH_OPTIONS.find((b) => normalizeForCompare(b) === v);
+  if (branchKey(raw) === 'chinh') return 'Cơ sở chính';
+  const exact = getBranchOptions().find((b) => branchKey(b) === branchKey(raw));
   return exact ?? raw.trim().replace(/\s+/g, ' ');
 }
 
@@ -17,10 +14,8 @@ export function matchesServiceBranch(serviceCoSo: string | null | undefined, bra
   const b = normalizeForCompare(normalizeBranchLabel(branch));
   const s = normalizeForCompare(normalizeBranchLabel(String(serviceCoSo || '')));
   if (!b || !s) return false;
-  if (s.includes('chinh')) return true;
+  if (branchKey(s) === 'chinh') return true;
   if (s === b) return true;
-  if (b.includes('bac giang') && s.includes('bac giang')) return true;
-  if (b.includes('bac ninh') && s.includes('bac ninh')) return true;
   return false;
 }
 
@@ -32,9 +27,7 @@ export function isKnownCustomerBranch(raw?: string | null): boolean {
   const trimmed = (raw || '').trim();
   if (!trimmed) return false;
   const normalized = normalizeBranchLabel(trimmed);
-  return (CUSTOMER_BRANCH_OPTIONS as readonly string[]).includes(
-    normalized as (typeof CUSTOMER_BRANCH_OPTIONS)[number]
-  );
+  return getBranchOptions().includes(normalized);
 }
 
 /** Trả về nhãn cơ sở hợp lệ hoặc chuỗi rỗng nếu chưa chọn / không nhận diện được. */

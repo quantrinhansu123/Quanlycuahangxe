@@ -28,6 +28,7 @@ const PayrollRevenueReconciliationPage = lazy(() => import('./pages/PayrollReven
 const PayrollAttendanceReconciliationPage = lazy(() => import('./pages/PayrollAttendanceReconciliationPage'));
 const RevenueReportPage = lazy(() => import('./pages/RevenueReportPage'));
 const PermissionSettingsPage = lazy(() => import('./pages/PermissionSettingsPage'));
+const BranchManagementPage = lazy(() => import('./pages/BranchManagementPage'));
 const PersonnelManagementPage = lazy(() => import('./pages/PersonnelManagementPage'));
 const WarehouseStockListPage = lazy(() => import('./pages/WarehouseStockListPage'));
 const SparePartsListPage = lazy(() => import('./pages/SparePartsListPage'));
@@ -128,6 +129,7 @@ function AppRoutes() {
                 </ProtectedRoute>
               }
             />
+            <Route path="/cai-dat/co-so" element={<ProtectedRoute adminOnly><BranchManagementPage /></ProtectedRoute>} />
 
             {/* Gửi ZNS hàng loạt — chỉ admin */}
             <Route

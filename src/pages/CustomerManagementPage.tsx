@@ -1,3 +1,5 @@
+import { useBranches } from '../hooks/useBranches';
+import { findExistingCustomer } from '../lib/customerIdentity';
 import { clsx } from 'clsx';
 import {
   ArrowLeft,
@@ -24,7 +26,6 @@ import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import CustomerDetailsModal from '../components/CustomerDetailsModal';
 import CustomerFormModal from '../components/CustomerFormModal';
-import { CUSTOMER_BRANCH_OPTIONS } from '../constants/customerBranches';
 import Pagination from '../components/Pagination';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
@@ -60,6 +61,7 @@ function displayCustomerKm(
 
 
 const CustomerManagementPage: React.FC = () => {
+  const CUSTOMER_BRANCH_OPTIONS = useBranches();
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { isAdmin, isTechnician, nhanVien, canManageCustomers, hasViewAccess, canViewRevenue, canUseDataFilters } = useAuth();
@@ -438,26 +440,14 @@ const CustomerManagementPage: React.FC = () => {
             ma_khach_hang: excelId || ('KH-' + Math.random().toString(36).substring(2, 8).toUpperCase())
           };
 
-          // Find existing customer by Customer ID OR Phone
-          const cleanPhone = (p: any) => String(p || '').replace(/\D/g, '');
-          const rowPhone = cleanPhone(res.so_dien_thoai);
-
-          const existing = fullList.find((c: any) => {
-            const rawId = (excelId || '').replace(/-/g, '').toLowerCase();
-            const dbMaKh = (c.ma_khach_hang || '').replace(/-/g, '').toLowerCase();
-            const dbId = c.id.replace(/-/g, '').toLowerCase();
-
-            // PRIORITY: Strict ID match
-            if (rawId) {
-              return dbMaKh === rawId || dbId === rawId;
-            }
-
-            // SECONDARY: Match by Phone (only if no ID provided)
-            const matchPhone = rowPhone && cleanPhone(c.so_dien_thoai) === rowPhone;
-            return matchPhone;
+          const existing = findExistingCustomer(fullList, {
+            ma_khach_hang: excelId || undefined,
+            so_dien_thoai: res.so_dien_thoai,
+            bien_so_xe: res.bien_so_xe,
           });
 
           if (existing) {
+            if (!excelId) res.ma_khach_hang = existing.ma_khach_hang;
             res.id = existing.id; // Map to internal UUID for update
           } else {
             delete res.id; // Ensure no null id is sent — let DB auto-generate

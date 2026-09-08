@@ -1,3 +1,6 @@
+import type { DailySalesSummary } from '../data/salesQueryData';
+import { useBranches } from '../hooks/useBranches';
+import { salesAmount } from '../lib/salesAmount';
 import {
   ArrowLeft,
   Building,
@@ -20,7 +23,7 @@ import {
   Users,
   X
 } from 'lucide-react';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import Pagination from '../components/Pagination';
@@ -46,13 +49,11 @@ import {
   getNextSalesCardCode, 
   getSalesCardsForExport,
   getSalesCardsPaginated,
-  getSalesCardsSummaryTotals,
   looksLikeOpaqueServiceCode,
   normalizeSalesCards,
   resolveServiceDisplayName,
   resolveServiceNameForDetail,
   upsertSalesCard,
-  getCustomerFirstSaleDates 
 } from '../data/salesCardData';
 import { computeChanges, saveEditHistory } from '../data/salesCardHistoryData';
 import { queueOrderMessage } from '../data/znsOrderMessageData';
@@ -137,6 +138,7 @@ function upsertCustomerInList(prev: KhachHang[], customer: KhachHang): KhachHang
 }
 
 const SalesCardManagementPage: React.FC = () => {
+  const branches = useBranches();
   const { nhanVien, isAdmin, isTechnician, canManageOrders, canViewRevenue, canUseDataFilters } = useAuth();
   const isQuanLy = isQuanLyViTri(nhanVien?.vi_tri);
   const canEditSalesCard = useCallback(
@@ -164,7 +166,6 @@ const SalesCardManagementPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [totalCount, setTotalCount] = useState(0);
-  const [summaryRefreshKey, setSummaryRefreshKey] = useState(0);
   const [totalAmount, setTotalAmount] = useState(0);
   const [totalCustomers, setTotalCustomers] = useState(0);
   const [newCustomersCount, setNewCustomersCount] = useState(0);
@@ -181,7 +182,6 @@ const SalesCardManagementPage: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState('');
   const [selectedStaff, setSelectedStaff] = useState('');
   const [selectedBranch, setSelectedBranch] = useState('');
-  const [customerFirstSaleDateMap, setCustomerFirstSaleDateMap] = useState<Record<string, string>>({});
   const [exportingExcel, setExportingExcel] = useState(false);
 
   // Debounce search
@@ -224,7 +224,11 @@ const SalesCardManagementPage: React.FC = () => {
     }
   }, []);
 
+  const salesRequest = useRef(0);
+  const [dailySummaries, setDailySummaries] = useState<Record<string, DailySalesSummary>>({});
+
   const loadSalesCards = useCallback(async () => {
+    const request = ++salesRequest.current;
     try {
       setLoading(true);
       const staffFilter = isAdmin && selectedStaff ? selectedStaff : undefined;
@@ -243,33 +247,31 @@ const SalesCardManagementPage: React.FC = () => {
         branchFilter
       );
 
+      if (request !== salesRequest.current) return;
       setSalesCards(cardsResult.data);
       setTotalCount(cardsResult.totalCount);
 
-      // Fetch first sale dates in background to avoid blocking main list rendering
-      const uniqueNames = [...new Set(
-        cardsResult.data
-          .map(c => c.khach_hang?.ho_va_ten || c.ten_khach_hang || '')
-          .filter(n => n.trim())
-      )] as string[];
-      if (uniqueNames.length > 0) {
-        void getCustomerFirstSaleDates(uniqueNames)
-          .then((firstDates) => setCustomerFirstSaleDateMap(firstDates))
-          .catch((err) => console.error('Error loading first sale dates:', err));
-      } else {
-        setCustomerFirstSaleDateMap({});
-      }
+      setTotalAmount(cardsResult.summary.totalAmount);
+      setTotalCustomers(cardsResult.summary.totalCustomers);
+      setNewCustomersCount(cardsResult.summary.newCustomersCount);
+      setReturningCustomersCount(cardsResult.summary.returningCustomersCount);
+      setDailySummaries(Object.fromEntries(cardsResult.groupedSummary.map(d => [d.date, d])));
     } catch (error) {
+      if (request !== salesRequest.current) return;
+      setSalesCards([]);
+      setTotalCount(0);
+      setTotalAmount(0);
+      setTotalCustomers(0);
+      setDailySummaries({});
       console.error('Error loading sales cards:', error);
       showToast('Không tải được danh sách phiếu bán hàng. Kiểm tra kết nối hoặc thử xóa bộ lọc.', 'error');
     } finally {
-      setLoading(false);
+      if (request === salesRequest.current) setLoading(false);
     }
   }, [currentPage, pageSize, debouncedSearch, startDate, endDate, selectedStaff, selectedBranch, isAdmin, canUseDataFilters, showToast]);
 
   /** Tải lại danh sách + tính lại thẻ tổng hợp sau khi dữ liệu bị thay đổi. */
   const reloadAfterMutation = useCallback(async () => {
-    setSummaryRefreshKey((k) => k + 1);
     await loadSalesCards();
   }, [loadSalesCards]);
 
@@ -282,52 +284,7 @@ const SalesCardManagementPage: React.FC = () => {
     loadData();
   }, [loadData]);
 
-  /**
-   * Thẻ tổng hợp phụ thuộc bộ lọc, KHÔNG phụ thuộc số trang — tách riêng để lật trang
-   * không phải tính lại toàn bộ doanh thu.
-   */
-  const [summaryLoading, setSummaryLoading] = useState(false);
-
-  useEffect(() => {
-    if (!canViewRevenue) {
-      setTotalAmount(0);
-      setTotalCustomers(0);
-      setNewCustomersCount(0);
-      setReturningCustomersCount(0);
-      return;
-    }
-
-    let cancelled = false;
-    setSummaryLoading(true);
-
-    const staffFilter = isAdmin && selectedStaff ? selectedStaff : undefined;
-    const branchFilter = isAdmin && selectedBranch ? selectedBranch : undefined;
-
-    getSalesCardsSummaryTotals(
-      canUseDataFilters ? debouncedSearch : '',
-      canUseDataFilters ? (startDate || undefined) : undefined,
-      canUseDataFilters ? (endDate || undefined) : undefined,
-      staffFilter,
-      branchFilter
-    )
-      .then((summary) => {
-        if (cancelled) return;
-        setTotalAmount(summary.totalAmount);
-        setTotalCustomers(summary.totalCustomers || 0);
-        setNewCustomersCount(summary.newCustomersCount || 0);
-        setReturningCustomersCount(summary.returningCustomersCount || 0);
-      })
-      .catch((err) => {
-        if (!cancelled) console.error('Error loading sales summary:', err);
-      })
-      .finally(() => {
-        if (!cancelled) setSummaryLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [debouncedSearch, startDate, endDate, selectedStaff, selectedBranch, isAdmin, canViewRevenue, canUseDataFilters, summaryRefreshKey]);
+  const summaryLoading = loading;
 
   /**
    * Vá dữ liệu cũ thiếu id_bh: việc bảo trì, không phải dữ liệu hiển thị.
@@ -357,79 +314,21 @@ const SalesCardManagementPage: React.FC = () => {
     });
   }, [salesCards]);
   const groupedSales = useMemo(() => {
-    const getSortTime = (card: SalesCard) => {
-      const createdAt = card.created_at ? Date.parse(card.created_at) : NaN;
-      if (Number.isFinite(createdAt)) return createdAt;
-
-      const enteredAt = Date.parse(`${card.ngay || ''}T${card.gio || '00:00:00'}`);
-      return Number.isFinite(enteredAt) ? enteredAt : 0;
-    };
-
-    const groups: Record<string, {
-      date: string;
-      items: SalesCard[];
-      totalAmount: number;
-      uniqueCustomers: Set<string>;
-      newCustomers: Set<string>;
-      returningCustomers: Set<string>;
-      latestTime: string;
-      latestSortTime: number;
-    }> = {};
-
-    displayItems.forEach(card => {
-      const date = card.ngay;
-      const sortTime = getSortTime(card);
-      if (!groups[date]) {
-        groups[date] = {
-          date,
-          items: [],
-          totalAmount: 0,
-          uniqueCustomers: new Set(),
-          newCustomers: new Set(),
-          returningCustomers: new Set(),
-          latestTime: card.gio || '00:00',
-          latestSortTime: sortTime
-        };
-      }
-      
-      const itemsDetail = (card as any).the_ban_hang_ct || [];
-      const cardTotal = itemsDetail.reduce((sum: number, ct: any) => sum + (ct.thanh_tien || (ct.gia_ban * (ct.so_luong || 1))), 0);
-      
-      groups[date].items.push(card);
-      groups[date].totalAmount += cardTotal;
-      
-      // Use customer name as the unique identifier (normalized)
-      const customerName = (card.khach_hang?.ho_va_ten || card.ten_khach_hang || 'unknown').trim().toLowerCase();
-      groups[date].uniqueCustomers.add(customerName);
-      
-      // Categorize New vs Returning by checking name history
-      const firstDate = customerFirstSaleDateMap[customerName];
-
-      if (firstDate) {
-        if (firstDate >= date) {
-          groups[date].newCustomers.add(customerName);
-        } else {
-          groups[date].returningCustomers.add(customerName);
-        }
-      } else {
-        groups[date].newCustomers.add(customerName);
-      }
-      
-      // Keep track of the latest activity time in this group
-      if (card.gio && card.gio > groups[date].latestTime) {
-        groups[date].latestTime = card.gio;
-      }
-      if (sortTime > groups[date].latestSortTime) {
-        groups[date].latestSortTime = sortTime;
-      }
-    });
-
-    return Object.values(groups).sort((a, b) => {
-      const byNewestInput = b.latestSortTime - a.latestSortTime;
-      if (byNewestInput !== 0) return byNewestInput;
-      return new Date(b.date).getTime() - new Date(a.date).getTime();
-    });
-  }, [displayItems]);
+    const groups = new Map<string, { date: string; items: SalesCard[] }>();
+    for (const card of displayItems) {
+      if (!groups.has(card.ngay)) groups.set(card.ngay, { date: card.ngay, items: [] });
+      groups.get(card.ngay)!.items.push(card);
+    }
+    return [...groups.values()].sort((a, b) => b.date.localeCompare(a.date)).map(group => ({
+      ...group,
+      totalAmount: dailySummaries[group.date]?.totalAmount ?? 0,
+      totalCount: dailySummaries[group.date]?.totalCount ?? 0,
+      totalCustomers: dailySummaries[group.date]?.totalCustomers ?? 0,
+      newCustomersCount: dailySummaries[group.date]?.newCustomersCount ?? 0,
+      returningCustomersCount: dailySummaries[group.date]?.returningCustomersCount ?? 0,
+      latestTime: dailySummaries[group.date]?.latestTime ?? '',
+    }));
+  }, [displayItems, dailySummaries]);
 
   const salesTableColCount = canViewRevenue ? 12 : 11;
 
@@ -786,11 +685,23 @@ const SalesCardManagementPage: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleViewCard = async (card: SalesCard) => {
+  const modalRequest = useRef(0);
+  const handleViewCard = async (selected: SalesCard) => {
+    const request = ++modalRequest.current;
+    let card: SalesCard | null;
+    try {
+      card = await getSalesCardByReference(selected.id);
+    } catch {
+      if (request === modalRequest.current) showToast('Không tải được phiếu bán hàng.', 'error');
+      return;
+    }
+    if (request !== modalRequest.current) return;
+    if (!card) { showToast('Phiếu bán hàng không còn tồn tại.', 'error'); return; }
     setIsReadOnlyModal(true);
-    setEditingCard(card);
 
     const freshServices = await reloadServices();
+    if (request !== modalRequest.current) return;
+    setEditingCard(card);
     const freshLookup = buildServiceNameLookup(freshServices);
 
     let mappedKhId = card.khach_hang_id;
@@ -865,6 +776,7 @@ const SalesCardManagementPage: React.FC = () => {
   }, [loadReferenceData, orderRefFromQuery, showToast]);
 
   const handleCloseModal = () => {
+    modalRequest.current++;
     setIsModalOpen(false);
     setIsReadOnlyModal(false);
     setEditingCard(null);
@@ -1034,7 +946,6 @@ const SalesCardManagementPage: React.FC = () => {
         (sum, item) => sum + ((item.gia_ban || 0) * (item.so_luong || 1)),
         0
       );
-      const khachHangId = savedCard.khach_hang_id;
 
       const exportCoSo = orderBranch;
 
@@ -1076,19 +987,7 @@ const SalesCardManagementPage: React.FC = () => {
             ghi_chu: existingTx?.ghi_chu || `Hệ thống tự động: Đồng bộ tiền đơn hàng ${savedCard.id.slice(0, 8)}`
           };
           await upsertTransaction(financialRecord);
-        })(),
-        khachHangId
-          ? (async () => {
-              const idCol = khachHangId.length === 36 ? 'id' : 'ma_khach_hang';
-              const { error } = await supabase
-                .from('khach_hang')
-                .update({ created_at: new Date().toISOString() })
-                .eq(idCol, khachHangId);
-              if (error && error.code !== '42501') {
-                throw error;
-              }
-            })()
-          : Promise.resolve()
+        })()
       ]);
 
       // Đơn mới được đưa vào hàng đợi duyệt Zalo. Không gửi tự động: chỉ quản trị viên
@@ -1151,8 +1050,7 @@ const SalesCardManagementPage: React.FC = () => {
       handleCloseModal();
       showToast('Lập phiếu bán hàng thành công!', 'success');
       if (!editingCard && currentPage !== 1) {
-        // Về trang 1 tự kéo lại danh sách; thẻ tổng hợp phải bump riêng vì không theo trang.
-        setSummaryRefreshKey((k) => k + 1);
+        // Về trang 1 tải đồng thời danh sách và tổng từ cùng một truy vấn.
         setCurrentPage(1);
       } else {
         void reloadAfterMutation();
@@ -1206,11 +1104,6 @@ const SalesCardManagementPage: React.FC = () => {
       await upsertTransaction(financialRecord);
 
       // AUTOMATION: Bump customer to top
-      if (editingCard.khach_hang_id) {
-        const idCol = editingCard.khach_hang_id.length === 36 ? 'id' : 'ma_khach_hang';
-        // Note: we can omit await here to save time for user, but keeping it ensures consistency
-        await supabase.from('khach_hang').update({ created_at: new Date().toISOString() }).eq(idCol, editingCard.khach_hang_id);
-      }
 
       showToast(`Đã thu tiền thành công: ${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(totalAmount)}`, 'success');
       handleCloseModal();
@@ -1537,10 +1430,7 @@ const SalesCardManagementPage: React.FC = () => {
         const dichVu = items.length > 0
           ? items.map((ct) => `${ct.san_pham || (ct as { ten_dich_vu?: string }).ten_dich_vu || ''} x${ct.so_luong || 1}`).join('; ')
           : card.dich_vu?.ten_dich_vu || '';
-        const total = items.reduce(
-          (s, ct) => s + (Number(ct.thanh_tien) || Number(ct.gia_ban || 0) * Number(ct.so_luong || 1)),
-          0
-        ) || Number(card.tong_tien || 0) || Number(card.dich_vu?.gia_ban || 0);
+        const total = salesAmount(card);
         const coSo = items[0]?.co_so || card.dich_vu?.co_so || '';
         const staff = card.nhan_su_list?.length
           ? card.nhan_su_list.map((p) => p.ho_ten).filter(Boolean).join(', ')
@@ -1694,7 +1584,7 @@ const SalesCardManagementPage: React.FC = () => {
                       className="appearance-none min-w-[7.5rem] sm:min-w-[9rem] pl-2 pr-7 sm:pl-3 sm:pr-8 py-1.5 bg-muted/50 border border-border rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none cursor-pointer transition-all text-[11px] sm:text-[13px]"
                     >
                       <option value="">Cơ sở...</option>
-                      {['Cơ sở Bắc Giang', 'Cơ sở Bắc Ninh'].map((branch) => (
+                      {branches.map((branch) => (
                         <option key={branch} value={branch}>{branch}</option>
                       ))}
                     </select>
@@ -1836,11 +1726,11 @@ const SalesCardManagementPage: React.FC = () => {
                   </div>
                   <div className="flex items-center gap-2 text-[11px] font-bold text-muted-foreground flex-wrap justify-end">
                     <span className="flex items-center gap-1 whitespace-nowrap">
-                      👥 {group.uniqueCustomers.size} khách
+                      👥 {group.totalCustomers} khách
                     </span>
                     <span className="opacity-30">|</span>
                     <span className="flex items-center gap-1 whitespace-nowrap">
-                      📄 {group.items.length} đơn
+                      📄 {group.totalCount} đơn
                     </span>
                     <span className="opacity-30">|</span>
                     {canViewRevenue && (
@@ -1854,7 +1744,7 @@ const SalesCardManagementPage: React.FC = () => {
                 <div className="space-y-4">
                   {group.items.map(card => {
                     const items = (card as any).the_ban_hang_ct || [];
-                    const totalAmount = items.reduce((sum: number, ct: any) => sum + (ct.thanh_tien || (ct.gia_ban * (ct.so_luong || 1))), 0);
+                    const totalAmount = salesAmount(card);
                     const branch = items.length > 0 ? items[0].co_so : (card.dich_vu?.co_so || 'Cơ sở chính');
 
                     return (
@@ -2003,14 +1893,14 @@ const SalesCardManagementPage: React.FC = () => {
                               </span>
                               <span className="inline-flex items-center gap-1.5">
                                 <Users size={14} className="text-slate-400" />
-                                <strong className="text-slate-800">{group.uniqueCustomers.size}</strong> khách
+                                <strong className="text-slate-800">{group.totalCustomers}</strong> khách
                                 <span className="text-[11px] font-semibold text-slate-500 whitespace-nowrap">
-                                  ({group.newCustomers.size} mới | {group.returningCustomers.size} cũ)
+                                  ({group.newCustomersCount} mới | {group.returningCustomersCount} cũ)
                                 </span>
                               </span>
                               <span className="inline-flex items-center gap-1.5">
                                 <ReceiptText size={14} className="text-slate-400" />
-                                <strong className="text-slate-800">{group.items.length}</strong> đơn
+                                <strong className="text-slate-800">{group.totalCount}</strong> đơn
                               </span>
                               {canViewRevenue && (
                               <span className="text-emerald-600 font-black text-[14px]">
@@ -2075,7 +1965,7 @@ const SalesCardManagementPage: React.FC = () => {
                     {canViewRevenue && (
                     <td className="px-4 py-4 text-right font-black text-primary border-b border-slate-100 align-top whitespace-nowrap">
                       {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
-                        ((card as any).the_ban_hang_ct || []).reduce((sum: number, ct: any) => sum + (ct.thanh_tien || (ct.gia_ban * (ct.so_luong || 1))), 0)
+                        salesAmount(card)
                       )}
                     </td>
                     )}

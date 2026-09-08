@@ -1,3 +1,4 @@
+import { useBranches } from '../hooks/useBranches';
 import React, { useState, useEffect } from 'react';
 import { 
   X, Save, Plus, Trash2, Wallet, MapPin, Briefcase, Info, Loader2 
@@ -21,11 +22,12 @@ interface AllowancePolicyModalProps {
 const AllowancePolicyModal: React.FC<AllowancePolicyModalProps> = ({ 
   isOpen, onClose, onSuccess, initialData 
 }) => {
+  const branches = useBranches();
   const [components, setComponents] = useState<ThanhPhanLuong[]>([]);
   const [saving, setSaving] = useState(false);
 
   // Form state
-  const [selectedCoSo, setSelectedCoSo] = useState('Cơ sở Bắc Ninh');
+  const [selectedCoSo, setSelectedCoSo] = useState('');
   const [selectedComponentId, setSelectedComponentId] = useState('');
   const [policyName, setPolicyName] = useState('');
   const [positionEntries, setPositionEntries] = useState<{ id?: string, vi_tri: string, dinh_muc: string, gia_tri: number }[]>([
@@ -43,14 +45,14 @@ const AllowancePolicyModal: React.FC<AllowancePolicyModalProps> = ({
         setPositionEntries(initialData.entries);
       } else {
         // Reset form
-        setSelectedCoSo('Cơ sở Bắc Ninh');
+        setSelectedCoSo(branches[0] || '');
         setSelectedComponentId('');
         setPolicyName('');
         setPositionEntries([{ vi_tri: 'Tất cả vị trí trong đơn vị', dinh_muc: '', gia_tri: 0 }]);
         setErrors({});
       }
     }
-  }, [isOpen, initialData]);
+  }, [isOpen, initialData, branches]);
 
   const fetchComponents = async () => {
     try {
@@ -163,8 +165,7 @@ const AllowancePolicyModal: React.FC<AllowancePolicyModalProps> = ({
                     value={selectedCoSo}
                     onChange={(e) => setSelectedCoSo(e.target.value)}
                   >
-                    <option>Cơ sở Bắc Ninh</option>
-                    <option>Cơ sở Bắc Giang</option>
+                    {branches.map(branch => <option key={branch} value={branch}>{branch}</option>)}
                   </select>
                 </div>
               </div>

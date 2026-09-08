@@ -1,3 +1,4 @@
+import { useBranches } from '../hooks/useBranches';
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Building2, Calculator, Package, Save, X } from 'lucide-react';
@@ -27,9 +28,9 @@ const SalesCardCTFormModal: React.FC<SalesCardCTFormModalProps> = React.memo(({
   onClose,
   onSuccess,
 }) => {
+  const branchOptions = useBranches();
   const [formData, setFormData] = useState<Partial<SalesCardCT>>({});
 
-  const branchOptions = ["Cơ sở Bắc Giang", "Cơ sở Bắc Ninh"];
 
   const salesCardOptions = React.useMemo(() => {
     return salesCards.map(c => ({

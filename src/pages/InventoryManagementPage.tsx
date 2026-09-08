@@ -1,4 +1,5 @@
-﻿import React, { useState, useRef, useEffect } from 'react';
+import { useBranches } from '../hooks/useBranches';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Search, Plus, 
   Edit2, Trash2, 
@@ -19,6 +20,7 @@ import type { DichVu } from '../data/serviceData';
 import InventoryFormModal from '../components/InventoryFormModal';
 
 const InventoryManagementPage: React.FC = () => {
+  const deptOptions = useBranches();
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
   const [records, setRecords] = useState<InventoryRecord[]>([]);
@@ -67,7 +69,7 @@ const InventoryManagementPage: React.FC = () => {
   ];
 
   const typeOptions = ["Nhập kho", "Phiếu nhập", "Xuất kho"];
-  const deptOptions = ["Cơ sở Bắc Giang", "Cơ sở Bắc Ninh"];
+
 
   // Debounce search
   useEffect(() => {

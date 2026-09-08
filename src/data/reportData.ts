@@ -1,3 +1,4 @@
+import { queryAllSales } from './salesQueryData';
 import { getPersonnel } from './personnelData';
 import { getStoredDemoRole } from '../lib/authStorage';
 import { supabase } from '../lib/supabase';
@@ -76,9 +77,10 @@ function buildOrderRevenueFromCT(
 }
 
 function revenueForOrderHeader(
-  h: { id: string; id_bh?: string | null; tong_tien?: number | null },
+  h: { id: string; id_bh?: string | null; tong_tien?: number | null; resolved_amount?: number | null },
   orderRevenueMap: Map<string, number>
 ): number {
+  if (h.resolved_amount != null) return Number(h.resolved_amount);
   const candidates = [h.id_bh, h.id]
     .filter(Boolean)
     .map((x) => String(x).trim().toLowerCase());
@@ -265,20 +267,7 @@ async function fetchAllHeaderRecords(startDate?: string, endDate?: string) {
     }
     return data;
   }
-  let query = supabase
-    .from('the_ban_hang')
-    .select('id, id_bh, ngay, gio, nhan_vien_id, tong_tien, ten_khach_hang, khach_hang_id, so_dien_thoai');
-
-  if (startDate) query = query.gte('ngay', startDate);
-  if (endDate) query = query.lte('ngay', endDate);
-
-  return fetchAllRowsPaginated(async (offset, pageSize) => {
-    const res = await query
-      .order('ngay', { ascending: true })
-      .order('id', { ascending: true })
-      .range(offset, offset + pageSize - 1);
-    return { data: res.data, error: res.error };
-  });
+  return queryAllSales({ p_start: startDate || null, p_end: endDate || null });
 }
 
 export async function getReportSummary(startDate?: string, endDate?: string): Promise<ReportSummary> {

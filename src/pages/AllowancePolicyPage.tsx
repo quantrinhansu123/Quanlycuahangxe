@@ -1,3 +1,4 @@
+import { useBranches } from '../hooks/useBranches';
 import { useState, useEffect } from 'react';
 import { 
   Plus, Search, Trash2, Edit2, Loader2, MapPin, Wallet, ArrowLeft, Briefcase
@@ -9,6 +10,7 @@ import AllowancePolicyModal from '../components/AllowancePolicyModal';
 import { removeVietnameseTones } from '../lib/utils';
 
 const AllowancePolicyPage: React.FC = () => {
+  const branches = useBranches();
   const navigate = useNavigate();
   const [policies, setPolicies] = useState<ChinhSachPhuCap[]>([]);
   const [loading, setLoading] = useState(true);
@@ -180,8 +182,7 @@ const AllowancePolicyPage: React.FC = () => {
                className="w-full pl-10 pr-10 py-3 bg-white border border-slate-200 rounded-2xl font-black text-xs outline-none focus:ring-2 focus:ring-primary/20 appearance-none transition-all shadow-sm"
              >
                <option>Tất cả cơ sở</option>
-               <option>Cơ sở Bắc Ninh</option>
-               <option>Cơ sở Bắc Giang</option>
+               {branches.map(branch => <option key={branch} value={branch}>{branch}</option>)}
              </select>
           </div>
         </div>

@@ -1,3 +1,4 @@
+import { useBranches } from '../hooks/useBranches';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
@@ -28,7 +29,7 @@ import {
 } from '../data/serviceData';
 import { normalizeVnPhoneDigits } from '../lib/phoneUtils';
 import { getCustomerLinkKeys } from '../lib/customerOrderLink';
-import { CUSTOMER_BRANCH_OPTIONS, normalizeBranchLabel, resolveCustomerBranch } from '../constants/customerBranches';
+import { normalizeBranchLabel, resolveCustomerBranch } from '../constants/customerBranches';
 import {
   HIDDEN_ZNS_TEMPLATE_IDS,
   ZNS_MAINTENANCE_BRANCH_ADDRESSES,
@@ -292,6 +293,7 @@ function dedupeCustomersByPhone(rows: CustomerOption[]): CustomerOption[] {
 }
 
 const ZnsBulkSendPage: React.FC = () => {
+  const CUSTOMER_BRANCH_OPTIONS = useBranches();
   const { nhanVien } = useAuth();
   const { showToast } = useToast();
 

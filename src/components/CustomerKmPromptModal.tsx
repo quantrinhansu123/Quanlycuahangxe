@@ -1,9 +1,8 @@
 import { Building2, Gauge, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { CUSTOMER_BRANCH_OPTIONS, isCustomerBranchEmpty } from '../constants/customerBranches';
-
-export { CUSTOMER_BRANCH_OPTIONS, isCustomerBranchEmpty };
+import { isCustomerBranchEmpty } from '../constants/customerBranches';
+import { useBranches } from '../hooks/useBranches';
 
 interface CustomerKmPromptModalProps {
   isOpen: boolean;
@@ -14,26 +13,21 @@ interface CustomerKmPromptModalProps {
   onConfirm: (km: number, coSo?: string) => void;
 }
 
-const CustomerKmPromptModal: React.FC<CustomerKmPromptModalProps> = ({
+const CustomerKmPromptForm: React.FC<CustomerKmPromptModalProps> = ({
   isOpen,
   customerName,
   currentBranch,
-  branchOptions = [...CUSTOMER_BRANCH_OPTIONS],
+  branchOptions: suppliedBranchOptions,
   onCancel,
   onConfirm,
 }) => {
+  const branches = useBranches();
+  const branchOptions = suppliedBranchOptions ?? branches;
   const [kmInput, setKmInput] = useState('');
   const [branchInput, setBranchInput] = useState('');
   const [error, setError] = useState('');
 
   const needsBranch = isCustomerBranchEmpty(currentBranch);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    setError('');
-    setKmInput('');
-    setBranchInput('');
-  }, [isOpen, currentBranch]);
 
   if (!isOpen) return null;
 
@@ -154,5 +148,8 @@ const CustomerKmPromptModal: React.FC<CustomerKmPromptModalProps> = ({
     document.body
   );
 };
+
+const CustomerKmPromptModal: React.FC<CustomerKmPromptModalProps> = props =>
+  props.isOpen ? <CustomerKmPromptForm key={props.currentBranch} {...props} /> : null;
 
 export default CustomerKmPromptModal;

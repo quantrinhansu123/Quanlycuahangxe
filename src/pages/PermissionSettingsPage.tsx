@@ -1,3 +1,4 @@
+import { useBranches } from '../hooks/useBranches';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Save, Search } from 'lucide-react';
 import { getPersonnel } from '../data/personnelData';
@@ -5,7 +6,6 @@ import { removeVietnameseTones } from '../lib/utils';
 import {
   buildPermissionKey,
   DEFAULT_VIEW_PERMISSIONS_BY_POSITION,
-  DEPARTMENT_OPTIONS,
   formatPermissionKeyLabel,
   isCompositePermissionKey,
   normalizeDepartmentKey,
@@ -43,6 +43,7 @@ function migrateStoredPermissions(stored: PermissionMap): PermissionMap {
 }
 
 const PermissionSettingsPage: React.FC = () => {
+  const DEPARTMENT_OPTIONS = useBranches();
   const [permissions, setPermissions] = useState<PermissionMap>(() => {
     try {
       const raw = localStorage.getItem(VIEW_PERMISSION_STORAGE_KEY);
@@ -74,7 +75,7 @@ const PermissionSettingsPage: React.FC = () => {
       .catch(() => {
         /* giữ danh sách mặc định */
       });
-  }, []);
+  }, [DEPARTMENT_OPTIONS]);
 
   const activeKey = useMemo(
     () => buildPermissionKey(phongBan, viTri),

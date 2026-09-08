@@ -71,6 +71,7 @@ export const sidebarMenu: SidebarItem[] = [
   { icon: Box, label: 'Kho vận', path: '/kho-van', viewKey: 'kho-van' },
   { icon: Send, label: 'Gửi ZNS hàng loạt', path: '/zns/gui-hang-loat', adminOnly: true, viewKey: 'zns-gui-hang-loat' },
   { icon: ShieldCheck, label: 'Cài đặt phân quyền', path: '/cai-dat/phan-quyen', adminOnly: true, viewKey: 'cai-dat-phan-quyen' },
+  { icon: Box, label: 'Quản lý cơ sở', path: '/cai-dat/co-so', adminOnly: true },
 ];
 
 // Additional items seen on the dashboard

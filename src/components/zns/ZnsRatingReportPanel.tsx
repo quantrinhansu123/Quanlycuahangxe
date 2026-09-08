@@ -1,3 +1,4 @@
+import { useBranches } from '../../hooks/useBranches';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
@@ -31,7 +32,7 @@ import { useToast } from '../../context/ToastContext';
 import { formatZnsLogError, listAllGuiLogs, listCampaigns, type ZnsCampaign, type ZnsGuiLogWithCustomer } from '../../data/znsData';
 import { listRatings, syncRatings, type ZnsRating } from '../../data/znsRatingData';
 import { listOrderMessageQueue, type OrderMessageQueueItem, type OrderMessageStatus } from '../../data/znsOrderMessageData';
-import { CUSTOMER_BRANCH_OPTIONS, resolveCustomerBranch } from '../../constants/customerBranches';
+import { resolveCustomerBranch } from '../../constants/customerBranches';
 import { ZNS_MAINTENANCE_TEMPLATE_ID, ZNS_MAINTENANCE_TEMPLATE_NAME } from '../../constants/znsTemplates';
 import { normalizeVnPhoneDigits } from '../../lib/phoneUtils';
 import { removeVietnameseTones } from '../../lib/utils';
@@ -111,6 +112,7 @@ function StarRow({ rate }: { rate: number | null }) {
 }
 
 export const ZnsRatingReportPanel: React.FC = () => {
+  const CUSTOMER_BRANCH_OPTIONS = useBranches();
   const { showToast } = useToast();
 
   const [ratings, setRatings] = useState<ZnsRating[]>([]);
@@ -315,7 +317,7 @@ export const ZnsRatingReportPanel: React.FC = () => {
         const avg = rated.length > 0 ? rated.reduce((s, r) => s + (r.rate ?? 0), 0) / rated.length : null;
         return { branch, count: rows.length, avg };
       }).filter((row) => row.count > 0),
-    [ratingsInScope]
+    [ratingsInScope, CUSTOMER_BRANCH_OPTIONS]
   );
 
   const campaignRows = useMemo(() => {

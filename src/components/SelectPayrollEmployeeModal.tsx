@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { Search, X, Loader2, User, Check, Building2, Briefcase } from 'lucide-react';
 import { getPersonnel } from '../data/personnelData';
 import type { NhanSu } from '../data/personnelData';
 import { clsx } from 'clsx';
+import { useBranches } from '../hooks/useBranches';
 
 interface SelectPayrollEmployeeModalProps {
   isOpen: boolean;
@@ -12,20 +13,14 @@ interface SelectPayrollEmployeeModalProps {
 }
 
 const SelectPayrollEmployeeModal: React.FC<SelectPayrollEmployeeModalProps> = ({ isOpen, onClose, onAdd, existingIds }) => {
+  const branches = useBranches();
   const [personnel, setPersonnel] = useState<NhanSu[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [branchFilter, setBranchFilter] = useState('Tất cả cơ sở');
 
-  useEffect(() => {
-    if (isOpen) {
-      fetchPersonnel();
-      setSelectedIds([]);
-    }
-  }, [isOpen]);
-
-  const fetchPersonnel = async () => {
+  const fetchPersonnel = useCallback(async () => {
     try {
       setLoading(true);
       const data = await getPersonnel();
@@ -36,7 +31,14 @@ const SelectPayrollEmployeeModal: React.FC<SelectPayrollEmployeeModalProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [existingIds]);
+
+  useEffect(() => {
+    if (isOpen) {
+      void fetchPersonnel();
+      setSelectedIds([]);
+    }
+  }, [fetchPersonnel, isOpen]);
 
   const normalizeString = (str: string) => {
     return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase();
@@ -93,8 +95,7 @@ const SelectPayrollEmployeeModal: React.FC<SelectPayrollEmployeeModalProps> = ({
                   className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-xs outline-none focus:ring-2 focus:ring-primary/20 appearance-none transition-all"
                 >
                   <option>Tất cả cơ sở</option>
-                  <option>Cơ sở Bắc Ninh</option>
-                  <option>Cơ sở Bắc Giang</option>
+                  {branches.map((branch) => <option key={branch} value={branch}>{branch}</option>)}
                 </select>
              </div>
           </div>

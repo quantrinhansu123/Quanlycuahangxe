@@ -1,4 +1,5 @@
-﻿import React, { useState, useEffect } from 'react';
+import { useBranches } from '../hooks/useBranches';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Save, Building2, Hash, DollarSign, Package, Clock, User, List, Settings } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -25,6 +26,7 @@ const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
   onSuccess,
   services,
 }) => {
+  const branches = useBranches();
   const { nhanVien } = useAuth();
   const [formData, setFormData] = useState<Partial<InventoryRecord>>({});
   const [showBranchWarning, setShowBranchWarning] = useState(false);
@@ -215,8 +217,7 @@ const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
                 <option value="" disabled>
                   -- Chọn cơ sở --
                 </option>
-                <option value="Cơ sở Bắc Giang">Cơ sở Bắc Giang</option>
-                <option value="Cơ sở Bắc Ninh">Cơ sở Bắc Ninh</option>
+                {branches.map(branch => <option key={branch} value={branch}>{branch}</option>)}
               </select>
               {showBranchWarning && (
                 <p className="text-[12px] font-bold text-red-600">Vui lòng chọn cơ sở trước khi lập phiếu.</p>

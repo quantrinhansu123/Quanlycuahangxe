@@ -1,3 +1,4 @@
+import { useBranches } from '../../../hooks/useBranches';
 import { clsx } from 'clsx';
 import {
   Briefcase,
@@ -19,7 +20,6 @@ import { createPortal } from 'react-dom';
 import type { CandidateDocument, CandidateFormState, FilterOption } from '../types';
 import DatePickerVi from '../../../components/ui/DatePickerVi';
 
-const BRANCH_OPTIONS = ['Cơ sở Bắc Giang', 'Cơ sở Bắc Ninh'] as const;
 
 interface Props {
   isOpen: boolean;
@@ -44,7 +44,7 @@ const AddEditCandidateDialog: React.FC<Props> = ({
   onSave,
   isSaving,
 }) => {
-  if (!isOpen && !isClosing) return null;
+  const BRANCH_OPTIONS = useBranches();
 
   const {
     formName, formEmail, formPhone, formPassword, formAddress, formBirthDate,
@@ -64,6 +64,7 @@ const AddEditCandidateDialog: React.FC<Props> = ({
         .filter(Boolean),
     [formAddress]
   );
+  if (!isOpen && !isClosing) return null;
 
   const toggleBranch = (branch: string) => {
     const next = selectedBranches.includes(branch)
@@ -410,7 +411,5 @@ const AddEditCandidateDialog: React.FC<Props> = ({
 };
 
 export default AddEditCandidateDialog;
-
-
 
 

@@ -1,3 +1,4 @@
+import { useBranches } from '../hooks/useBranches';
 import { useState } from 'react';
 import { X, Save, Loader2 } from 'lucide-react';
 import type { ThanhPhanLuong } from '../data/salaryComponentData';
@@ -12,6 +13,7 @@ interface Props {
 }
 
 const SalaryComponentFormModal: React.FC<Props> = ({ isOpen, onClose, onSave, initialData }) => {
+  const branches = useBranches();
   const [formData, setFormData] = useState<Partial<ThanhPhanLuong>>(
     initialData || {
       ten: '',
@@ -91,8 +93,7 @@ const SalaryComponentFormModal: React.FC<Props> = ({ isOpen, onClose, onSave, in
                 onChange={e => setFormData({ ...formData, co_so: e.target.value || null })}
               >
                 <option value="">Tất cả đơn vị</option>
-                <option value="Cơ sở Bắc Ninh">Cơ sở Bắc Ninh</option>
-                <option value="Cơ sở Bắc Giang">Cơ sở Bắc Giang</option>
+                {branches.map(branch => <option key={branch} value={branch}>{branch}</option>)}
               </select>
             </div>
             <div className="space-y-2">

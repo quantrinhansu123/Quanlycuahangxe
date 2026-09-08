@@ -1,3 +1,5 @@
+import { useBranches } from '../hooks/useBranches';
+import { getBranchOptions } from '../lib/branchCatalog';
 import { clsx } from 'clsx';
 import {
   ArrowLeft,
@@ -29,19 +31,15 @@ import {
   getServicesPaginated,
   formatServiceSaveError,
   SERVICE_BRANCH_MAIN,
-  SERVICE_BRANCH_OPTIONS,
   upsertService
 } from '../data/serviceData';
 
-const BRANCH_OPTIONS = [...SERVICE_BRANCH_OPTIONS];
 
 function resolveStaffBranch(coSo: string | null | undefined): string | null {
   if (!coSo?.trim()) return null;
   const v = coSo.trim().toLowerCase();
-  if (v.includes('bắc giang') || v.includes('bac giang')) return 'Cơ sở Bắc Giang';
-  if (v.includes('bắc ninh') || v.includes('bac ninh')) return 'Cơ sở Bắc Ninh';
-  if (v.includes('chính') || v.includes('chinh')) return SERVICE_BRANCH_MAIN;
-  const exact = BRANCH_OPTIONS.find((b) => b.toLowerCase() === v);
+  if (v === 'cơ sở chính' || v === 'chính' || v === 'chinh') return SERVICE_BRANCH_MAIN;
+  const exact = getBranchOptions().find((b) => b.toLowerCase() === v);
   return exact ?? coSo.trim();
 }
 
@@ -340,6 +338,8 @@ const ServiceBranchSection: React.FC<ServiceBranchSectionProps> = ({
 };
 
 const ServiceManagementPage: React.FC = () => {
+  const branches = useBranches();
+  const BRANCH_OPTIONS = useMemo(() => [...branches, SERVICE_BRANCH_MAIN], [branches]);
   const navigate = useNavigate();
   const location = useLocation();
   const { isAdmin, nhanVien, isTechnician, hasViewAccess } = useAuth();
@@ -354,7 +354,7 @@ const ServiceManagementPage: React.FC = () => {
       return [staffBranch];
     }
     return [...BRANCH_OPTIONS];
-  }, [isAdmin, nhanVien?.co_so]);
+  }, [isAdmin, nhanVien?.co_so, BRANCH_OPTIONS]);
 
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');

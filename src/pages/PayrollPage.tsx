@@ -1,3 +1,4 @@
+import { useBranches } from '../hooks/useBranches';
 import { useCallback, useState, useEffect, useRef } from 'react';
 import { 
   Search, Settings2, Download, Send, BadgeDollarSign, 
@@ -28,6 +29,7 @@ import {
 
 
 const PayrollPage: React.FC = () => {
+  const branches = useBranches();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { isAdmin } = useAuth();
@@ -848,8 +850,7 @@ const PayrollPage: React.FC = () => {
                className="w-full pl-10 pr-10 py-2.5 bg-white border border-slate-200 rounded-xl font-bold text-xs outline-none focus:ring-2 focus:ring-primary/20 appearance-none transition-all shadow-sm"
              >
                <option value="Tất cả cơ sở">Tất cả đơn vị</option>
-               <option>Cơ sở Bắc Ninh</option>
-               <option>Cơ sở Bắc Giang</option>
+               {branches.map(branch => <option key={branch} value={branch}>{branch}</option>)}
              </select>
              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={14} />
           </div>
