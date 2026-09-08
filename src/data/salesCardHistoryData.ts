@@ -1,3 +1,5 @@
+import type { SalesCardFormData } from './salesCardData';
+import type { SalesCardCT } from './salesCardCTData';
 import { supabase } from '../lib/supabase';
 
 export interface FieldChange {
@@ -31,16 +33,16 @@ const FIELD_LABELS: Record<string, string> = {
 const TRACKED_FIELDS = Object.keys(FIELD_LABELS);
 
 export function computeChanges(
-  oldData: Record<string, any>,
-  newData: Record<string, any>,
-  oldItems: any[] = [],
-  newItems: any[] = []
+  oldData: SalesCardFormData,
+  newData: SalesCardFormData,
+  oldItems: Partial<SalesCardCT>[] = [],
+  newItems: Partial<SalesCardCT & { ten_dich_vu: string }>[] = []
 ): FieldChange[] {
   const changes: FieldChange[] = [];
 
   for (const field of TRACKED_FIELDS) {
-    const oldVal = oldData[field] ?? null;
-    const newVal = newData[field] ?? null;
+    const oldVal = oldData[field as keyof SalesCardFormData] ?? null;
+    const newVal = newData[field as keyof SalesCardFormData] ?? null;
 
     const oldStr = String(oldVal ?? '');
     const newStr = String(newVal ?? '');
@@ -49,8 +51,8 @@ export function computeChanges(
       changes.push({
         field,
         label: FIELD_LABELS[field] || field,
-        old_value: oldVal,
-        new_value: newVal,
+        old_value: typeof oldVal === 'number' ? oldVal : oldVal == null ? null : String(oldVal),
+        new_value: typeof newVal === 'number' ? newVal : newVal == null ? null : String(newVal),
       });
     }
   }

@@ -11,7 +11,7 @@
     "preview": "vite preview",
     "security:zalo": "node scripts/check-zalo-secrets.mjs",
     "test": "node scripts/test-sales-data.mjs && node scripts/test-sales-helpers.mjs",
-    "test:ui": "node scripts/test-branches-ui.mjs",
+    "test:ui": "node scripts/test-branches-ui.mjs && node scripts/test-forms-ui.mjs",
     "typecheck": "tsc -b --pretty false"
   },
   "dependencies": {

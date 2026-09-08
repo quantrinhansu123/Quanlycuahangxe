@@ -347,7 +347,7 @@ async function attachPersonnel(cards: SalesCard[]) {
   const staffIds = [...new Set(allStaffIdsRaw.flatMap(id => id.split(',').map(s => s.trim())))];
   if (staffIds.length > 0) {
     const chunks = chunkArray(staffIds, 50);
-    const allPersonnel: any[] = [];
+    const allPersonnel: Pick<NhanSu, 'ho_ten' | 'id_nhan_su' | 'vi_tri' | 'co_so'>[] = [];
 
     await Promise.all(chunks.map(async (chunk) => {
       const { data: personnel } = await supabase
@@ -895,7 +895,7 @@ export const bulkUpsertSalesCards = async (cards: Partial<SalesCard>[]): Promise
     if (error) { console.error('Error upserting sales cards:', error); throw error; }
   }
   if (toInsert.length > 0) {
-    const cleanInserts = toInsert.map(({ id, ...rest }) => rest);
+    const cleanInserts = toInsert.map(row => { const copy = { ...row }; delete copy.id; return copy; });
     const { error } = await supabase.from('the_ban_hang').insert(cleanInserts);
     if (error) { console.error('Error inserting sales cards:', error); throw error; }
   }

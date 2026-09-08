@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle2, Copy, Loader2, XCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useToast } from '../context/ToastContext';
+import { useToast } from '../context/toast';
 import { exchangeOauthCode } from '../data/znsData';
 
 const ZALO_APP_ID = import.meta.env.VITE_ZALO_APP_ID as string | undefined;

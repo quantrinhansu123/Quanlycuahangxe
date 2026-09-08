@@ -1,4 +1,5 @@
 import { useBranches } from '../hooks/useBranches';
+import { getErrorDetails } from '../lib/errorDetails';
 import { clsx } from 'clsx';
 import {
   ArrowLeft,
@@ -16,7 +17,7 @@ import {
   User
 } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { useAuth } from '../context/AuthContext';
 import Pagination from '../components/Pagination';
@@ -64,7 +65,6 @@ const PersonnelManagementPage: React.FC = () => {
   const BRANCH_OPTIONS = useBranches();
   const { isAdmin, nhanVien, signOut } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
   const branchOptions = [...BRANCH_OPTIONS];
   const positionOptions = ['Kỹ thuật viên', 'Quản lý', 'Admin', 'Kế toán', 'Bán hàng'];
 
@@ -132,7 +132,7 @@ const PersonnelManagementPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [pageByBranch, pageSize, debouncedSearch, selectedPositions, location.pathname, BRANCH_OPTIONS]);
+  }, [pageByBranch, pageSize, debouncedSearch, selectedPositions, BRANCH_OPTIONS]);
 
   useEffect(() => {
     loadData();
@@ -252,12 +252,12 @@ const PersonnelManagementPage: React.FC = () => {
         const bstr = evt.target?.result;
         const wb = XLSX.read(bstr, { type: 'binary' });
         const ws = wb.Sheets[wb.SheetNames[0]];
-        const data = XLSX.utils.sheet_to_json(ws) as any[];
+        const data = XLSX.utils.sheet_to_json<Record<string, string | number | undefined>>(ws);
         console.log('Raw Excel Data (Row 1):', data[0]);
 
         const formattedData: Partial<NhanSu>[] = data.map(item => {
           // Normalize keys (trim whitespace for robustness)
-          const norm: any = {};
+          const norm: Record<string, string | number | undefined> = {};
           Object.keys(item).forEach(k => {
             norm[String(k).trim()] = item[k];
           });
@@ -333,9 +333,9 @@ const PersonnelManagementPage: React.FC = () => {
             await loadData();
             const newCount = formattedData.length - updatedCount;
             alert(`✅ Hoàn tất: ${newCount} bản ghi mới, ${updatedCount} bản ghi cập nhật.`);
-          } catch (err: any) {
+          } catch (err) {
             console.error('Full Error Object:', err);
-            alert(`Lỗi khi lưu dữ liệu: ${err.message || 'Kiểm tra console để biết chi tiết'}`);
+            alert(`Lỗi khi lưu dữ liệu: ${getErrorDetails(err).message || 'Kiểm tra console để biết chi tiết'}`);
           }
         }
       } catch (error) {
@@ -358,7 +358,7 @@ const PersonnelManagementPage: React.FC = () => {
           return;
         }
         await loadData();
-      } catch (error) {
+      } catch {
         alert('Lỗi: Không thể xóa nhân viên.');
       }
     }

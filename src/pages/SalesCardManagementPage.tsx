@@ -1,4 +1,5 @@
 import type { DailySalesSummary } from '../data/salesQueryData';
+import { getErrorDetails } from '../lib/errorDetails';
 import { useBranches } from '../hooks/useBranches';
 import { salesAmount } from '../lib/salesAmount';
 import {
@@ -28,7 +29,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import Pagination from '../components/Pagination';
 import { useAuth } from '../context/AuthContext';
-import { useToast } from '../context/ToastContext';
+import { useToast } from '../context/toast';
 import type { KhachHang } from '../data/customerData';
 import { getCustomersForSelect, upsertCustomer } from '../data/customerData';
 import type { ThuChi } from '../data/financialData';
@@ -509,7 +510,7 @@ const SalesCardManagementPage: React.FC = () => {
 
   // Capture pending ID immediately on first render (before any async work)
   if (pendingCustomerRef.current === null) {
-    const state = location.state as any;
+    const state = location.state as { pendingCustomerData?: KhachHang; pendingMaKhachHang?: string; pendingCustomerId?: string } | null;
     const pendingData = state?.pendingCustomerData;
     const id = pendingData
       ? (pendingData.ma_khach_hang || pendingData.id)
@@ -653,7 +654,7 @@ const SalesCardManagementPage: React.FC = () => {
       }
 
       const mappedServiceItems = mergeServiceLineItems(
-        (card as any).the_ban_hang_ct || [],
+        card.the_ban_hang_ct || [],
         freshServices,
         freshLookup
       );
@@ -665,7 +666,7 @@ const SalesCardManagementPage: React.FC = () => {
         dich_vu_ids: mappedIds,
         service_items: mappedServiceItems,
         co_so_khach: resolveOrderBranchFromCard(card),
-      } as any);
+      });
     } else {
       setEditingCard(null);
 
@@ -721,7 +722,7 @@ const SalesCardManagementPage: React.FC = () => {
     }
 
     const mappedServiceItems = mergeServiceLineItems(
-      (card as any).the_ban_hang_ct || [],
+      card.the_ban_hang_ct || [],
       freshServices,
       freshLookup
     );
@@ -733,7 +734,7 @@ const SalesCardManagementPage: React.FC = () => {
       dich_vu_ids: mappedIds,
       service_items: mappedServiceItems,
       co_so_khach: resolveOrderBranchFromCard(card),
-    } as any);
+    });
     setIsModalOpen(true);
   };
 
@@ -795,18 +796,11 @@ const SalesCardManagementPage: React.FC = () => {
         return;
       }
       // Exclude all virtual/joined fields that don't exist in the database
-      const {
-        khach_hang,
-        nhan_su,
-        nhan_su_list,
-        dich_vu,
-        dich_vu_ids,
-        service_items,
-        the_ban_hang_ct,
-        thu_chi,
-        co_so_khach,
-        ...cleanData
-      } = formDataHeader as any;
+      const { dich_vu_ids, co_so_khach } = formDataHeader;
+      const cleanData = { ...formDataHeader };
+      for (const key of ['khach_hang', 'nhan_su', 'nhan_su_list', 'dich_vu', 'dich_vu_ids', 'service_items', 'the_ban_hang_ct', 'thu_chi', 'co_so_khach'] as const) {
+        delete cleanData[key];
+      }
 
       const foundForBranch = cleanData.khach_hang_id
         ? customers.find(
@@ -858,7 +852,7 @@ const SalesCardManagementPage: React.FC = () => {
 
       // Deferred Save execution: if there is a pending new customer and it's the one selected
       if (pendingNewCustomer && (cleanData.khach_hang_id === pendingNewCustomer.ma_khach_hang || cleanData.khach_hang_id === pendingNewCustomer.id)) {
-        const dataToSave: any = {
+        const dataToSave: Partial<KhachHang> = {
           ...pendingNewCustomer,
           ...(orderBranch ? { dia_chi_hien_tai: orderBranch } : {}),
         };
@@ -877,7 +871,8 @@ const SalesCardManagementPage: React.FC = () => {
           setPendingNewCustomer(null);
           // Also update local list to remove the "[MỚI]" prefix and update IDs
           setCustomers(prev => prev.map(c => c.ma_khach_hang === pendingNewCustomer.ma_khach_hang ? { ...savedCustomer } : c));
-        } catch (err: any) {
+        } catch (cause) {
+          const err = getErrorDetails(cause);
           if (err?.code === '42501') {
             // RLS không cho ghi bảng khách hàng: vẫn cho phép lưu phiếu bán hàng để không chặn thao tác.
             cleanData.khach_hang_id = pendingNewCustomer.ma_khach_hang || pendingNewCustomer.id || '';
@@ -1055,24 +1050,25 @@ const SalesCardManagementPage: React.FC = () => {
       } else {
         void reloadAfterMutation();
       }
-    } catch (error: any) {
+    } catch (cause) {
+      const error = getErrorDetails(cause);
       console.error('Save sales card failed:', {
         message: error?.message,
         code: error?.code,
         details: error?.details,
         hint: error?.hint,
-        raw: error,
+        raw: cause,
       });
       showToast(`Lỗi lưu phiếu: ${error?.message || 'Không thể lưu phiếu bán hàng.'}`, 'error');
     }
   };
 
-  const handleCollectPayment = async (data: any, method: string = 'Tiền mặt') => {
+  const handleCollectPayment = async (data: SalesCardFormData, method: string = 'Tiền mặt') => {
     if (!editingCard) return;
 
     try {
       const items = (data.service_items && data.service_items.length > 0) ? data.service_items : (data.the_ban_hang_ct || []);
-      const totalAmount = items.reduce((sum: number, item: any) => sum + ((item.gia_ban || 0) * (item.so_luong || 1)), 0);
+      const totalAmount = items.reduce((sum: number, item) => sum + ((item.gia_ban || 0) * (item.so_luong || 1)), 0);
 
       if (totalAmount <= 0) {
         alert('Cảnh báo: Đơn hàng chưa có dịch vụ hoặc tổng tiền bằng 0.');
@@ -1144,9 +1140,9 @@ const SalesCardManagementPage: React.FC = () => {
         const bstr = evt.target?.result;
         const wb = XLSX.read(bstr, { type: 'binary' });
         const ws = wb.Sheets[wb.SheetNames[0]];
-        const data = XLSX.utils.sheet_to_json(ws) as any[];
+        const data = XLSX.utils.sheet_to_json<Record<string, string | number | undefined>>(ws);
 
-        const formatExcelDate = (val: any) => {
+        const formatExcelDate = (val: string | number | undefined | null) => {
           if (val === undefined || val === null || val === '') return undefined;
           if (typeof val === 'number' && val > 40000) {
             const d = new Date(Math.round((val - 25569) * 86400 * 1000));
@@ -1169,7 +1165,7 @@ const SalesCardManagementPage: React.FC = () => {
           return s || undefined;
         };
 
-        const formatExcelTime = (val: any) => {
+        const formatExcelTime = (val: string | number | undefined | null) => {
           if (val === undefined || val === null || val === '') return null;
           if (typeof val === 'number') {
             const totalSeconds = Math.round(val * 24 * 3600);
@@ -1226,7 +1222,7 @@ const SalesCardManagementPage: React.FC = () => {
 
         for (let i = 0; i < data.length; i++) {
           const row = data[i];
-          const norm: any = {};
+          const norm: Record<string, string | number | undefined> = {};
           Object.keys(row).forEach(k => { norm[String(k).trim().toLowerCase().replace(/\s+/g, ' ')] = row[k]; });
 
           const getValue = (keys: string[]) => {
@@ -1278,7 +1274,7 @@ const SalesCardManagementPage: React.FC = () => {
         const { data: salesCards } = await supabase.from('the_ban_hang').select('id, id_bh');
 
         const formattedData = data.map((row, rowIndex) => {
-          const norm: any = {};
+          const norm: Record<string, string | number | undefined> = {};
           // Normalize keys: trim, lower case and replace multiple spaces with single space
           Object.keys(row).forEach(k => {
             const cleanKey = String(k).trim().toLowerCase().replace(/\s+/g, ' ');
@@ -1302,7 +1298,7 @@ const SalesCardManagementPage: React.FC = () => {
           let gio = formatExcelTime(getValue(['giờ', 'thời gian', 'gio', 'time', 'tiết đi']));
           if (!gio) gio = "00:00:00";
 
-          const cardToUpdate = (salesCards || []).find((c: any) => {
+          const cardToUpdate = (salesCards || []).find((c) => {
             if (!rawSalesId) return false;
             const cleanRawId = rawSalesId.replace(/[-\s]/g, '').toLowerCase();
             const cleanDbId = c.id.replace(/[-\s]/g, '').toLowerCase();
@@ -1313,7 +1309,7 @@ const SalesCardManagementPage: React.FC = () => {
           const tenKH = String(getValue(['tên kh', 'tên khách hàng', 'khách hàng', 'tên']) || '').trim();
           const sdtRaw = String(getValue(['sđt', 'số điện thoại', 'điện thoại']) || '').trim();
 
-          const res: any = {
+          const res: Partial<SalesCard> = {
             ngay,
             gio,
             id_bh: rawSalesId || undefined,
@@ -1366,7 +1362,7 @@ const SalesCardManagementPage: React.FC = () => {
           deleteInventoryExportsByOrderId(id, orderCode),
         ]);
         await reloadAfterMutation();
-      } catch (error) {
+      } catch {
         alert('Lỗi: Không thể xóa phiếu.');
       }
     }
@@ -1743,7 +1739,7 @@ const SalesCardManagementPage: React.FC = () => {
 
                 <div className="space-y-4">
                   {group.items.map(card => {
-                    const items = (card as any).the_ban_hang_ct || [];
+                    const items = card.the_ban_hang_ct || [];
                     const totalAmount = salesAmount(card);
                     const branch = items.length > 0 ? items[0].co_so : (card.dich_vu?.co_so || 'Cơ sở chính');
 
@@ -1949,8 +1945,8 @@ const SalesCardManagementPage: React.FC = () => {
                     </td>
                     <td className="px-4 py-4 border-b border-slate-100 align-top">
                       <div className="flex flex-wrap gap-1.5">
-                        {(card as any).the_ban_hang_ct && (card as any).the_ban_hang_ct.length > 0 ? (
-                          (card as any).the_ban_hang_ct.map((ct: any, idx: number) => (
+                        {card.the_ban_hang_ct && card.the_ban_hang_ct.length > 0 ? (
+                          card.the_ban_hang_ct.map((ct, idx: number) => (
                             <span key={idx} className="px-2.5 py-1 rounded-md bg-violet-50 text-violet-700 font-bold text-[11px] flex items-center gap-1.5 w-fit border border-violet-100">
                               {ct.ten_dich_vu || ct.san_pham}{(ct.so_luong || 1) > 1 && <span className="opacity-60 font-bold">×{ct.so_luong}</span>}
                             </span>

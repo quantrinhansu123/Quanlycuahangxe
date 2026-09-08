@@ -151,7 +151,7 @@ export const bulkUpsertInventoryRecords = async (records: (Partial<InventoryReco
     }
   }
   if (toInsert.length > 0) {
-    const cleanInserts = toInsert.map(({ id, ...rest }) => rest);
+    const cleanInserts = toInsert.map(row => { const copy = { ...row }; delete copy.id; return copy; });
     const { error } = await supabase.from('nhap_xuat_kho').insert(cleanInserts);
     if (error) {
       console.error('Error inserting inventory:', error);

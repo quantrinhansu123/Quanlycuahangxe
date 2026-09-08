@@ -107,7 +107,7 @@ const FinancialManagementPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, pageSize, debouncedSearch, selectedBranches, selectedTypes, filterDateFrom, filterDateTo, location.pathname]);
+  }, [currentPage, pageSize, debouncedSearch, selectedBranches, selectedTypes, filterDateFrom, filterDateTo]);
 
   useEffect(() => {
     loadData();
@@ -211,7 +211,7 @@ const FinancialManagementPage: React.FC = () => {
       }
 
       if (mappedKhId) {
-        let c = customers.find(x => x.id === mappedKhId || x.ma_khach_hang === mappedKhId);
+        const c = customers.find(x => x.id === mappedKhId || x.ma_khach_hang === mappedKhId);
         if (c) mappedKhId = c.ma_khach_hang || c.id;
       }
 
@@ -221,7 +221,7 @@ const FinancialManagementPage: React.FC = () => {
       setEditingTransaction(null);
       setFormData({
         loai_phieu: 'phiếu thu',
-        co_so: 'Cơ sở Bắc Giang',
+        co_so: branchOptions[0] || '',
         so_tien: 0,
         trang_thai: 'Hoàn thành',
         ngay: now.toISOString().split('T')[0],
@@ -249,7 +249,7 @@ const FinancialManagementPage: React.FC = () => {
       await upsertTransaction(formDataToSave);
       await loadData();
       handleCloseModal();
-    } catch (error) {
+    } catch {
       alert('Lỗi: Không thể lưu thông tin giao dịch.');
     }
   };
@@ -286,7 +286,7 @@ const FinancialManagementPage: React.FC = () => {
         await deleteAllTransactions();
         await loadData();
         alert('Đã xóa toàn bộ dữ liệu.');
-      } catch (error) {
+      } catch {
         alert('Lỗi: Không thể xóa toàn bộ dữ liệu.');
       } finally {
         setLoading(false);
@@ -323,10 +323,10 @@ const FinancialManagementPage: React.FC = () => {
         const bstr = evt.target?.result;
         const wb = XLSX.read(bstr, { type: 'binary' });
         const ws = wb.Sheets[wb.SheetNames[0]];
-        const data = XLSX.utils.sheet_to_json(ws) as any[];
+        const data = XLSX.utils.sheet_to_json<Record<string, string | number | undefined>>(ws);
 
         const formattedData: Partial<ThuChi>[] = data.map(item => {
-          const norm: any = {};
+          const norm: Record<string, string | number | undefined> = {};
           Object.keys(item).forEach(k => {
             norm[String(k).trim().toLowerCase().replace(/\s+/g, ' ')] = item[k];
           });
@@ -336,7 +336,7 @@ const FinancialManagementPage: React.FC = () => {
             return k ? norm[k.toLowerCase().replace(/\s+/g, ' ')] : undefined;
           };
 
-          const formatExcelDate = (val: any) => {
+          const formatExcelDate = (val: string | number | undefined | null) => {
             if (!val) return null;
             if (typeof val === 'number') {
               const date = new Date((val - 25569) * 86400 * 1000);
@@ -349,7 +349,7 @@ const FinancialManagementPage: React.FC = () => {
             return String(val).split('T')[0];
           };
 
-          const formatExcelTime = (val: any) => {
+          const formatExcelTime = (val: string | number | undefined | null) => {
              if (!val) return "08:00";
              if (typeof val === 'number') {
                 const totalSeconds = Math.round(val * 86400);
@@ -364,16 +364,16 @@ const FinancialManagementPage: React.FC = () => {
             ngay: formatExcelDate(getValue(['Ngày', 'ngày', 'date'])) || new Date().toISOString().split('T')[0],
             gio: formatExcelTime(getValue(['Giờ', 'giờ', 'time'])),
             loai_phieu: String(getValue(['Loại phiếu', 'loại', 'type']) || 'phiếu thu').toLowerCase(),
-            co_so: getValue(['Cơ sở', 'cơ sở', 'chi nhánh', 'branch']) || 'Cơ sở Bắc Giang',
+            co_so: String(getValue(['Cơ sở', 'cơ sở', 'chi nhánh', 'branch']) || 'Cơ sở Bắc Giang'),
             so_tien: Math.round(Number(getValue(['Số tiền', 'số tiền', 'tiền', 'amount', 'tổng'])) || 0),
-            danh_muc: getValue(['Danh mục', 'danh mục', 'category', 'phân loại']) || '',
-            trang_thai: getValue(['Trạng thái', 'trạng thái', 'status']) || 'Hoàn thành',
+            danh_muc: String(getValue(['Danh mục', 'danh mục', 'category', 'phân loại']) || ''),
+            trang_thai: String(getValue(['Trạng thái', 'trạng thái', 'status']) || 'Hoàn thành'),
             id_don: String(getValue(['id đơn', 'ID đơn', 'order_id', 'mã đơn']) || '').trim(),
             id_khach_hang: String(getValue(['id khách hàng', 'ID khách hàng', 'customer_id', 'Mã KH']) || '').trim(),
-            nguoi_chi: getValue(['Người chi', 'người chi', 'nguoi_chi', 'payer', 'người nộp']) || '',
-            nguoi_nhan: getValue(['Người nhận', 'người nhận', 'nguoi_nhan', 'recipient']) || '',
-            ghi_chu: getValue(['Ghi chú', 'ghi chú', 'note']) || '',
-            anh: getValue(['ảnh', 'Ảnh', 'image', 'hình ảnh']) || null
+            nguoi_chi: String(getValue(['Người chi', 'người chi', 'nguoi_chi', 'payer', 'người nộp']) || ''),
+            nguoi_nhan: String(getValue(['Người nhận', 'người nhận', 'nguoi_nhan', 'recipient']) || ''),
+            ghi_chu: String(getValue(['Ghi chú', 'ghi chú', 'note']) || ''),
+            anh: String(getValue(['ảnh', 'Ảnh', 'image', 'hình ảnh']) || '') || null
           };
 
           const rawId = String(getValue(['id', 'ID', 'uuid', 'mã']) || '').trim();
@@ -428,7 +428,7 @@ const FinancialManagementPage: React.FC = () => {
       try {
         await deleteTransaction(id);
         await loadData();
-      } catch (error) {
+      } catch {
         alert('Lỗi: Không thể xóa giao dịch.');
       }
     }

@@ -4,6 +4,7 @@ import { salesAmount } from '../src/lib/salesAmount.ts';
 import { findExistingCustomer, normalizePlate } from '../src/lib/customerIdentity.ts';
 import { digitsOnly, samePhoneCore } from '../src/lib/phoneUtils.ts';
 import { branchKey, branchLabel, getBranchOptions, setBranchOptions, subscribeBranches } from '../src/lib/branchCatalog.ts';
+import { getErrorDetails } from '../src/lib/errorDetails.ts';
 
 test('frontend amount respects server amount and valid zero/discount detail', () => {
   assert.equal(salesAmount({ resolved_amount: 0, tong_tien: 100 }), 0);
@@ -12,6 +13,14 @@ test('frontend amount respects server amount and valid zero/discount detail', ()
   assert.equal(salesAmount({ the_ban_hang_ct: [{ gia_ban: 100, so_luong: 0 }] }), 0);
   assert.equal(salesAmount({ tong_tien: 123 }), 123);
   assert.equal(salesAmount({ dich_vu: { gia_ban: 345 } }), 345);
+});
+
+test('error messages preserve Supabase plain objects and ordinary Error instances', () => {
+  assert.equal(getErrorDetails({ code: '23505', message: 'Trùng dữ liệu' }).message, 'Trùng dữ liệu');
+  assert.equal(getErrorDetails({ code: '42501' }).code, '42501');
+  assert.equal(getErrorDetails(new Error('Mất kết nối')).message, 'Mất kết nối');
+  assert.deepEqual(getErrorDetails(null), {});
+  assert.equal(getErrorDetails({ message: { unexpected: true } }).message, undefined);
 });
 test('legacy numeric phone and normalized plates', () => {
   assert.equal(digitsOnly(392251537), '392251537');

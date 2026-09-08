@@ -129,17 +129,14 @@ const NavGroup = React.memo(
       [subItems]
     );
     const visibleChildren = (subItems ?? []).filter((c) => !c.viewKey || hasViewAccess(c.viewKey));
-    const childPathKey = useMemo(() => childPaths.join('|'), [childPaths]);
 
     const isChildActive = isPathUnderGroup(location.pathname, childPaths);
     const [expanded, setExpanded] = useState(isChildActive);
-    const prevPath = useRef(location.pathname);
-
-    useEffect(() => {
-      const inGroup = (p: string) => isPathUnderGroup(p, childPaths);
-      if (inGroup(location.pathname) && !inGroup(prevPath.current)) setExpanded(true);
-      prevPath.current = location.pathname;
-    }, [location.pathname, childPathKey, childPaths]);
+    const [previousPath, setPreviousPath] = useState(location.pathname);
+    if (previousPath !== location.pathname) {
+      setPreviousPath(location.pathname);
+      if (isChildActive && !isPathUnderGroup(previousPath, childPaths)) setExpanded(true);
+    }
 
     const [flyoutOpen, setFlyoutOpen] = useState(false);
     const flyoutRef = useRef<HTMLDivElement>(null);

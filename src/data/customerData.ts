@@ -146,7 +146,7 @@ export const bulkUpsertCustomers = async (customers: Partial<KhachHang>[]): Prom
 
   if (toInsert.length > 0) {
     // Remove id field entirely to let DB auto-generate
-    const cleanInserts = toInsert.map(({ id, ...rest }) => rest);
+    const cleanInserts = toInsert.map(row => { const copy = { ...row }; delete copy.id; return copy; });
     const { error } = await supabase.from('khach_hang').insert(cleanInserts);
     if (error) {
       console.error('Error inserting new customers:', error);

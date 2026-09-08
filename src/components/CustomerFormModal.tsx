@@ -1,4 +1,6 @@
 import { useBranches } from '../hooks/useBranches';
+import { branchLabel } from '../lib/branchCatalog';
+import { getErrorDetails } from '../lib/errorDetails';
 import { normalizePlate } from '../lib/customerIdentity';
 import {
   AlertCircle,
@@ -27,14 +29,14 @@ import type { KhachHang } from '../data/customerData';
 import { getCustomerByPhone, getCustomerByPlate, uploadCustomerImage, upsertCustomer } from '../data/customerData';
 import { computeCustomerChanges, getCustomerEditHistory, saveCustomerEditHistory, type CustomerEditHistory } from '../data/customerHistoryData';
 import { formatDateTime24h } from '../utils/datetimeFormat';
-import { useToast } from '../context/ToastContext';
+import { useToast } from '../context/toast';
 import { normalizeBranchLabel } from '../constants/customerBranches';
 import BranchCreateButton from './BranchCreateButton';
 
 function resolveStaffBranch(coSo?: string | null): string {
   const v = (coSo || '').trim();
   if (!v) return '';
-  return normalizeBranchLabel(v);
+  return branchLabel(v);
 }
 
 interface CustomerFormModalProps {
@@ -171,7 +173,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent, shouldOrder: boolean = false) => {
+  const handleSubmit = async (e: React.SyntheticEvent, shouldOrder: boolean = false) => {
     e.preventDefault();
     if (uploadingImage || isSubmitting) return;
 
@@ -227,7 +229,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
 
         // LƯU LỊCH SỬ CHỈNH SỬA
         if (customer) {
-          const changes = computeCustomerChanges(customer as any, dataToSave);
+          const changes = computeCustomerChanges(customer, dataToSave);
           if (changes.length > 0) {
             void saveCustomerEditHistory(customer.id, nhanVien?.ho_ten || 'Hệ thống', changes);
           }
@@ -238,8 +240,8 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
         onSuccess(savedCustomer, shouldOrder, false);
         onClose();
       }
-    } catch (error: any) {
-      alert(`Lỗi: ${error.message || 'Không thể lưu.'}`);
+    } catch (error) {
+      alert(`Lỗi: ${getErrorDetails(error).message || 'Không thể lưu.'}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -358,7 +360,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
               <button
                 type="button"
                 disabled={uploadingImage}
-                onClick={(e) => handleSubmit(e as any, true)}
+                onClick={(e) => handleSubmit(e, true)}
                 className={clsx(
                   "flex-1 sm:flex-none px-6 py-2.5 rounded-xl text-sm font-bold text-white shadow-lg transition-all flex items-center justify-center gap-2 active:scale-95",
                   uploadingImage ? "bg-emerald-500/50 cursor-not-allowed" : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200"
@@ -463,13 +465,16 @@ const InputField: React.FC<{
       {type === 'select' ? (
         <select
           name={name}
-          value={value ?? ''}
+          value={type === 'select' && name === 'dia_chi_hien_tai' ? normalizeBranchLabel(String(value ?? '')) : value ?? ''}
           onChange={onChange}
           disabled={disabled}
           required={required}
           className={clsx("w-full px-4 py-2.5 bg-background border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-[14px]", disabled && "opacity-60 cursor-not-allowed bg-muted/20")}
         >
           <option value="" disabled hidden>{placeholder || '-- Chọn --'}</option>
+          {name === 'dia_chi_hien_tai' && value && !options?.includes(normalizeBranchLabel(String(value))) && (
+            <option value={normalizeBranchLabel(String(value))}>{String(value)}</option>
+          )}
           {options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
         </select>
       ) : (
@@ -484,6 +489,6 @@ const InputField: React.FC<{
   );
 };
 
-const clsx = (...classes: any[]) => classes.filter(Boolean).join(' ');
+const clsx = (...classes: (string | boolean | undefined)[]) => classes.filter(Boolean).join(' ');
 
 export default CustomerFormModal;

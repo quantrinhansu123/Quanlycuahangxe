@@ -23,7 +23,7 @@ const PersonnelDailyStatsModal: React.FC<PersonnelDailyStatsModalProps> = ({
   const [startDateStr, setStartDateStr] = useState<string>(firstDay.toISOString().split('T')[0]);
   const [endDateStr, setEndDateStr] = useState<string>(todayDate.toISOString().split('T')[0]);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<Awaited<ReturnType<typeof getPersonnelDailyStats>> | null>(null);
   const [activeTab, setActiveTab] = useState<'orders' | 'attendance'>('orders');
 
   useEffect(() => {
@@ -201,7 +201,7 @@ const PersonnelDailyStatsModal: React.FC<PersonnelDailyStatsModalProps> = ({
                     </div>
                   ) : (
                     <div className="grid gap-3">
-                      {stats.salesCards.map((card: any, idx: number) => (
+                      {stats.salesCards.map((card, idx: number) => (
                         <div key={card.id || idx} className="bg-card rounded-lg p-3 border border-border flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
                           <div>
                             <p className="font-bold text-sm text-foreground">
@@ -209,7 +209,7 @@ const PersonnelDailyStatsModal: React.FC<PersonnelDailyStatsModalProps> = ({
                             </p>
                             <div className="flex flex-wrap gap-1 mt-2">
                               {card.the_ban_hang_ct && card.the_ban_hang_ct.length > 0 ? (
-                                card.the_ban_hang_ct.map((ct: any, i: number) => (
+                                card.the_ban_hang_ct.map((ct, i: number) => (
                                   <span key={i} className="px-2 py-0.5 rounded bg-muted text-muted-foreground text-[11px] font-medium border border-border/50">
                                     {ct.san_pham} (SL: {ct.so_luong || 1})
                                   </span>
@@ -225,7 +225,7 @@ const PersonnelDailyStatsModal: React.FC<PersonnelDailyStatsModalProps> = ({
                             <p className="text-xs text-muted-foreground mb-1">Doanh số</p>
                             <p className="font-black text-sm text-foreground">
                               {formatCurrency(
-                                (card.the_ban_hang_ct || []).reduce((sum: number, c: any) => sum + (c.gia_ban * (c.so_luong || 1)), 0) || (card.dich_vu?.gia_ban || 0)
+                                (card.the_ban_hang_ct || []).reduce((sum: number, c) => sum + (c.gia_ban * (c.so_luong || 1)), 0) || (card.dich_vu?.gia_ban || 0)
                               )}
                             </p>
                           </div>
@@ -242,7 +242,7 @@ const PersonnelDailyStatsModal: React.FC<PersonnelDailyStatsModalProps> = ({
                     </div>
                   ) : (
                     <div className="grid gap-3">
-                      {stats.attendance.map((att: any, idx: number) => (
+                      {stats.attendance.map((att, idx: number) => (
                         <div key={att.id || idx} className="bg-card rounded-lg p-3 border border-border flex flex-col sm:flex-row gap-4 sm:items-center justify-between shadow-sm">
                           <div className="flex items-center gap-4">
                             <div className="w-14 h-14 rounded bg-muted overflow-hidden shrink-0 border border-border">

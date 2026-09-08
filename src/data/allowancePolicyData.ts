@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase';
 
 export interface ChinhSachPhuCap {
   id: string;
+  thanh_phan_luong?: { id: string; ten: string } | null;
   co_so: string;
   thanh_phan_luong_id: string;
   ten_chinh_sach: string;
@@ -27,7 +28,7 @@ export const getAllowancePolicies = async (coSo?: string): Promise<ChinhSachPhuC
     console.error('Error fetching allowance policies:', error);
     throw error;
   }
-  return data as any[];
+  return data as ChinhSachPhuCap[];
 };
 
 export const upsertAllowancePolicy = async (policy: Partial<ChinhSachPhuCap>): Promise<ChinhSachPhuCap> => {

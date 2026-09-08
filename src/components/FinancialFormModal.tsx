@@ -42,14 +42,13 @@ const FinancialFormModal: React.FC<FinancialFormModalProps> = React.memo(({
     }
   }, [isOpen]);
 
-  if (!isOpen) return null;
 
   // Robust Fallback: Inject a customer if formData.id_khach_hang exists but is missing from the list.
   const extendedCustomerOptions = React.useMemo(() => {
     let options = [...customerOptions];
     if (formData.id_khach_hang && !options.find(o => o.value === formData.id_khach_hang)) {
       const fallbackName = 
-         (initialData as any)?.khach_hang?.ho_va_ten || 
+         initialData?.khach_hang?.ho_va_ten ||
          'Khách hàng (Chưa tải dữ liệu)';
       
       options = [
@@ -63,6 +62,8 @@ const FinancialFormModal: React.FC<FinancialFormModalProps> = React.memo(({
     }
     return options;
   }, [customerOptions, formData.id_khach_hang, initialData]);
+
+  if (!isOpen) return null;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -214,7 +215,7 @@ const InputField: React.FC<{
   label: string, 
   name: string, 
   value?: string | number, 
-  onChange: (e: any) => void, 
+  onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void,
   icon: React.ElementType,
   type?: 'text' | 'date' | 'time' | 'select' | 'textarea',
   options?: string[],

@@ -27,7 +27,7 @@ import * as XLSX from 'xlsx';
 import CustomerDetailsModal from '../components/CustomerDetailsModal';
 import CustomerFormModal from '../components/CustomerFormModal';
 import Pagination from '../components/Pagination';
-import { useToast } from '../context/ToastContext';
+import { useToast } from '../context/toast';
 import { useAuth } from '../context/AuthContext';
 import type { KhachHang } from '../data/customerData';
 import {
@@ -59,6 +59,21 @@ function displayCustomerKm(
   return st?.latestSoKm ?? customer.so_km ?? 0;
 }
 
+
+const allColumns = [
+    { id: 'anh', label: 'Ảnh' },
+    { id: 'ho_va_ten', label: 'Họ và tên' },
+    { id: 'so_dien_thoai', label: 'Số điện thoại' },
+    { id: 'dia_chi_hien_tai', label: 'Địa chỉ' },
+    { id: 'bien_so_xe', label: 'Biển số' },
+    { id: 'total_revenue', label: 'Tổng doanh số' },
+    { id: 'visit_count', label: 'Số lần ghé' },
+    { id: 'ngay_dang_ky', label: 'Ngày đăng ký' },
+
+    { id: 'so_km', label: 'Số KM' },
+    { id: 'actions', label: 'Thao tác' }
+
+  ];
 
 const CustomerManagementPage: React.FC = () => {
   const CUSTOMER_BRANCH_OPTIONS = useBranches();
@@ -110,20 +125,7 @@ const CustomerManagementPage: React.FC = () => {
   ]);
 
 
-  const allColumns = [
-    { id: 'anh', label: 'Ảnh' },
-    { id: 'ho_va_ten', label: 'Họ và tên' },
-    { id: 'so_dien_thoai', label: 'Số điện thoại' },
-    { id: 'dia_chi_hien_tai', label: 'Địa chỉ' },
-    { id: 'bien_so_xe', label: 'Biển số' },
-    { id: 'total_revenue', label: 'Tổng doanh số' },
-    { id: 'visit_count', label: 'Số lần ghé' },
-    { id: 'ngay_dang_ky', label: 'Ngày đăng ký' },
 
-    { id: 'so_km', label: 'Số KM' },
-    { id: 'actions', label: 'Thao tác' }
-
-  ];
 
   const toggleColumn = useCallback((colId: string) => {
     setVisibleColumns(prev =>
@@ -180,7 +182,7 @@ const CustomerManagementPage: React.FC = () => {
   }, []);
 
   // Load data from Supabase with pagination
-  const loadCustomers = async () => {
+  const loadCustomers = useCallback(async () => {
     try {
       setLoading(true);
       setFetchError(null);
@@ -217,7 +219,7 @@ const CustomerManagementPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, pageSize, debouncedSearch, canUseDataFilters, selectedDepts, loadCustomerStats, showToast]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -233,7 +235,7 @@ const CustomerManagementPage: React.FC = () => {
 
   useEffect(() => {
     loadCustomers();
-  }, [currentPage, pageSize, debouncedSearch, selectedDepts]);
+  }, [loadCustomers]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -399,9 +401,9 @@ const CustomerManagementPage: React.FC = () => {
         const wb = XLSX.read(bstr, { type: 'binary' });
         const wsname = wb.SheetNames[0];
         const ws = wb.Sheets[wsname];
-        const data = XLSX.utils.sheet_to_json(ws) as any[];
+        const data = XLSX.utils.sheet_to_json<Record<string, string | number | undefined>>(ws);
 
-        const formatExcelDate = (val: any) => {
+        const formatExcelDate = (val: string | number | undefined | null) => {
           if (!val) return undefined;
           if (typeof val === 'number') {
             const date = new Date((val - 25569) * 86400 * 1000);
@@ -416,7 +418,7 @@ const CustomerManagementPage: React.FC = () => {
 
         const formattedData: Partial<KhachHang>[] = data.map(row => {
           // Normalize keys
-          const normalizedRow: any = {};
+          const normalizedRow: Record<string, string | number | undefined> = {};
           Object.keys(row).forEach(key => {
             normalizedRow[key.trim().toLowerCase()] = row[key];
           });
@@ -432,7 +434,7 @@ const CustomerManagementPage: React.FC = () => {
           const res: Partial<KhachHang> = {
             ho_va_ten: String(getValue(['họ và tên', 'tên', 'tên khách hàng', 'họ tên']) || '').trim(),
             so_dien_thoai: String(getValue(['số điện thoại', 'sđt', 'phone']) || '').trim(),
-            anh: getValue(['ảnh', 'hình ảnh', 'image', 'avatar']) || '',
+            anh: String(getValue(['ảnh', 'hình ảnh', 'image', 'avatar']) || ''),
             dia_chi_hien_tai: String(getValue(['địa chỉ lưu trú hiện tại', 'địa chỉ hiện tại', 'địa chỉ lưu trú', 'địa chỉ', 'address', 'cơ sở', 'chi nhánh']) || '').trim(),
             bien_so_xe: String(getValue(['biển số xe', 'biển số', 'plate']) || '').trim(),
             ngay_dang_ky: formatExcelDate(getValue(['ngày đăng ký', 'ngay dang ky'])),
@@ -482,7 +484,7 @@ const CustomerManagementPage: React.FC = () => {
       try {
         await deleteCustomer(id);
         await loadCustomers();
-      } catch (error) {
+      } catch {
         showToast('Lỗi: Không thể xóa khách hàng.', 'error');
       }
     }

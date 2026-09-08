@@ -95,7 +95,7 @@ export const bulkUpsertSalesCardCTs = async (items: Partial<SalesCardCT>[]): Pro
     if (error) { console.error('Error upserting sales card CTs:', error); throw error; }
   }
   if (toInsert.length > 0) {
-    const cleanInserts = toInsert.map(({ id, ...rest }) => rest);
+    const cleanInserts = toInsert.map(row => { const copy = { ...row }; delete copy.id; return copy; });
     const { error } = await supabase.from('the_ban_hang_ct').insert(cleanInserts);
     if (error) { console.error('Error inserting sales card CTs:', error); throw error; }
   }

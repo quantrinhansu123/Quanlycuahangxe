@@ -155,7 +155,7 @@ const PayrollAttendanceReconciliationPage: React.FC = () => {
 
   useEffect(() => {
     // The selected period is external input; reload payroll and attendance together.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+
     void loadData();
   }, [loadData]);
 

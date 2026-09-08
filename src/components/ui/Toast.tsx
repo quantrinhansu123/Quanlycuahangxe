@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, AlertTriangle, Info, XCircle, X } from 'lucide-react';
-import { useToast } from '../../context/ToastContext';
+import { useToast } from '../../context/toast';
 import { cn } from '../../lib/utils';
 
 const icons = {

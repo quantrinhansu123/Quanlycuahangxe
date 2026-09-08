@@ -203,7 +203,7 @@ const InventoryManagementPage: React.FC = () => {
         await deleteAllInventoryRecords();
         await loadRecords();
         alert('Đã xóa toàn bộ lịch sử kho.');
-      } catch (error) {
+      } catch {
         alert('Lỗi: Không thể xóa toàn bộ dữ liệu.');
       } finally {
         setLoading(false);
@@ -221,13 +221,13 @@ const InventoryManagementPage: React.FC = () => {
         const bstr = evt.target?.result;
         const wb = XLSX.read(bstr, { type: 'binary' });
         const ws = wb.Sheets[wb.SheetNames[0]];
-        const data = XLSX.utils.sheet_to_json(ws) as any[];
+        const data = XLSX.utils.sheet_to_json<Record<string, string | number | undefined>>(ws);
 
         const services = await getServices();
         const serviceMap = new Map(services.map(s => [s.id_dich_vu?.trim().toLowerCase(), s.ten_dich_vu]));
 
         const formattedData: (Omit<InventoryRecord, 'id' | 'created_at'> & { id?: string })[] = data.map(item => {
-          const norm: any = {};
+          const norm: Record<string, string | number | undefined> = {};
           Object.keys(item).forEach(k => {
             norm[String(k).trim().toLowerCase().replace(/\s+/g, ' ')] = item[k];
           });
@@ -237,7 +237,7 @@ const InventoryManagementPage: React.FC = () => {
             return k ? norm[k.toLowerCase().replace(/\s+/g, ' ')] : undefined;
           };
 
-          const formatExcelDate = (val: any) => {
+          const formatExcelDate = (val: string | number | undefined | null) => {
             if (!val) return null;
             if (typeof val === 'number') {
               const date = new Date((val - 25569) * 86400 * 1000);
@@ -250,7 +250,7 @@ const InventoryManagementPage: React.FC = () => {
             return String(val).split('T')[0];
           };
 
-          const formatExcelTime = (val: any) => {
+          const formatExcelTime = (val: string | number | undefined | null) => {
              if (!val) return "08:00";
              if (typeof val === 'number') {
                 const totalSeconds = Math.round(val * 86400);
@@ -271,19 +271,19 @@ const InventoryManagementPage: React.FC = () => {
           const lookupName = rawItemValue ? serviceMap.get(rawItemValue.toLowerCase()) : null;
           const ten_mat_hang = lookupName || rawItemValue || 'Mặt hàng mới';
 
-          const record: any = {
+          const record: Omit<InventoryRecord, 'id' | 'created_at'> & { id?: string } = {
             id_xuat_nhap_kho: String(getValue(['id', 'ID', 'uuid', 'mã', 'Mã Phiếu']) || '').trim(),
             ngay: formatExcelDate(getValue(['Ngày', 'ngày', 'date'])) || new Date().toISOString().split('T')[0],
             gio: formatExcelTime(getValue(['Giờ', 'giờ', 'time'])),
-            loai_phieu: getValue(['Loại phiếu', 'loại', 'type']) || 'Nhập kho',
+            loai_phieu: String(getValue(['Loại phiếu', 'loại', 'type']) || 'Nhập kho'),
             id_don_hang: String(getValue(['id đơn hàng', 'ID đơn hàng', 'order_id', 'mã đơn']) || '').trim(),
-            co_so: getValue(['Cơ sở', 'cơ sở', 'chi nhánh', 'branch']) || 'Cơ sở Bắc Giang',
+            co_so: String(getValue(['Cơ sở', 'cơ sở', 'chi nhánh', 'branch']) || 'Cơ sở Bắc Giang'),
             ten_mat_hang,
             ton_dau_ky,
             so_luong,
             gia,
             tong_tien,
-            nguoi_thuc_hien: getValue(['Người thực hiện', 'nhân viên', 'performer']) || ''
+            nguoi_thuc_hien: String(getValue(['Người thực hiện', 'nhân viên', 'performer']) || '')
           };
 
           const rawId = String(getValue(['id', 'ID', 'uuid', 'mã']) || '').trim();
@@ -300,7 +300,7 @@ const InventoryManagementPage: React.FC = () => {
           // Check trùng: fetch danh sách hiện có và gán ID nếu tìm thấy bản ghi trùng
           const existingRecords = await getInventoryRecords();
           let updatedCount = 0;
-          formattedData.forEach((rec: any) => {
+          formattedData.forEach((rec) => {
             const existing = existingRecords.find(e => {
               // So sánh theo id_xuat_nhap_kho
               if (rec.id_xuat_nhap_kho && e.id_xuat_nhap_kho && rec.id_xuat_nhap_kho === e.id_xuat_nhap_kho) return true;
@@ -338,7 +338,7 @@ const InventoryManagementPage: React.FC = () => {
       try {
         await deleteInventoryRecord(id);
         await loadRecords();
-      } catch (error) {
+      } catch {
         alert('Lỗi: Không thể xóa bản ghi.');
       }
     }

@@ -112,7 +112,7 @@ const PayrollSettingsPage: React.FC = () => {
         {tabs.map(tab => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
+            onClick={() => setActiveTab(tab.id as typeof activeTab)}
             className={cn(
               "pb-3 text-sm transition-all relative",
               activeTab === tab.id 

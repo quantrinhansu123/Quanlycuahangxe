@@ -428,7 +428,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
     const s = loadSheet(nam, thang);
     const periodKey = `${nam}-${thang}`;
     // The selected period is external input; replace the editable sheet atomically.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+
     setPhanTramHoaHongKy(s.phanTramHoaHongKy);
     setDonGiaTienAnKy(s.donGiaTienAnKy);
     setDonGiaTienAnDaChot(s.donGiaTienAnKy);
@@ -602,7 +602,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
   useEffect(() => {
     if (nhanTheoChuanTen.size === 0) return;
     // Personnel arrives asynchronously, so only hydrate blank fields once it is available.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+
     setRows((prev) => {
       let changed = false;
       const next = prev.map((r) => {

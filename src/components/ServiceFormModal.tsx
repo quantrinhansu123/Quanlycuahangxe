@@ -354,7 +354,7 @@ const InputField: React.FC<{
   label: string, 
   name: string, 
   value?: string | number, 
-  onChange: (e: any) => void, 
+  onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void,
   icon: React.ElementType,
   type?: 'text' | 'date' | 'time' | 'select' | 'textarea',
   options?: string[],

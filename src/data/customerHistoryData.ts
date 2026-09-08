@@ -1,3 +1,4 @@
+import type { KhachHang } from './customerData';
 import { supabase } from '../lib/supabase';
 
 export interface FieldChange {
@@ -31,14 +32,14 @@ const CUSTOMER_FIELD_LABELS: Record<string, string> = {
 const TRACKED_FIELDS = Object.keys(CUSTOMER_FIELD_LABELS);
 
 export function computeCustomerChanges(
-  oldData: Record<string, any>,
-  newData: Record<string, any>
+  oldData: Partial<KhachHang>,
+  newData: Partial<KhachHang>
 ): FieldChange[] {
   const changes: FieldChange[] = [];
 
   for (const field of TRACKED_FIELDS) {
-    const oldVal = oldData[field] ?? null;
-    const newVal = newData[field] ?? null;
+    const oldVal = oldData[field as keyof KhachHang] ?? null;
+    const newVal = newData[field as keyof KhachHang] ?? null;
 
     const oldStr = String(oldVal ?? '').trim();
     const newStr = String(newVal ?? '').trim();
@@ -47,8 +48,8 @@ export function computeCustomerChanges(
       changes.push({
         field,
         label: CUSTOMER_FIELD_LABELS[field] || field,
-        old_value: oldVal,
-        new_value: newVal,
+        old_value: typeof oldVal === 'number' ? oldVal : oldVal == null ? null : String(oldVal),
+        new_value: typeof newVal === 'number' ? newVal : newVal == null ? null : String(newVal),
       });
     }
   }

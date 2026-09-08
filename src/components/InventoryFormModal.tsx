@@ -19,7 +19,7 @@ interface InventoryFormModalProps {
   services: DichVu[];
 }
 
-const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
+const InventoryForm: React.FC<InventoryFormModalProps> = ({
   isOpen,
   onClose,
   record,
@@ -28,22 +28,8 @@ const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
 }) => {
   const branches = useBranches();
   const { nhanVien } = useAuth();
-  const [formData, setFormData] = useState<Partial<InventoryRecord>>({});
-  const [showBranchWarning, setShowBranchWarning] = useState(false);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    setShowBranchWarning(false);
-
-    if (record) {
-      setFormData({ ...record });
-      return;
-    }
-
-    const fetchAutoId = async () => {
-      const autoId = await getNextInventoryId();
-      setFormData({
-        id_xuat_nhap_kho: autoId,
+  const [formData, setFormData] = useState<Partial<InventoryRecord>>(() => record ? { ...record } : {
+        id_xuat_nhap_kho: '',
         loai_phieu: 'Nhập kho',
         id_don_hang: '',
         co_so: '',
@@ -55,10 +41,16 @@ const InventoryFormModal: React.FC<InventoryFormModalProps> = ({
         gio: formatTime24h(new Date(), false),
         nguoi_thuc_hien: nhanVien?.ho_ten || '',
       });
-    };
+  const [showBranchWarning, setShowBranchWarning] = useState(false);
 
-    fetchAutoId();
-  }, [isOpen, record, nhanVien?.ho_ten]);
+  useEffect(() => {
+    if (record) return;
+    let cancelled = false;
+    void getNextInventoryId().then(id => {
+      if (!cancelled) setFormData(prev => ({ ...prev, id_xuat_nhap_kho: id }));
+    }).catch(error => console.error('Không lấy được mã phiếu kho:', error));
+    return () => { cancelled = true; };
+  }, [record]);
 
   const branch = (formData.co_so || '').trim();
 
@@ -314,4 +306,6 @@ const InputField: React.FC<{
   </div>
 );
 
-export default InventoryFormModal;
+export default function InventoryFormModal(props: InventoryFormModalProps) {
+  return props.isOpen ? <InventoryForm key={props.record?.id ?? 'new'} {...props} /> : null;
+}

@@ -62,7 +62,7 @@ export const bulkUpsertTransactions = async (transactions: Partial<ThuChi>[]): P
     if (error) { console.error('Error upserting transactions:', error); throw error; }
   }
   if (toInsert.length > 0) {
-    const cleanInserts = toInsert.map(({ id, ...rest }) => rest);
+    const cleanInserts = toInsert.map(row => { const copy = { ...row }; delete copy.id; return copy; });
     const { error } = await supabase.from('thu_chi').insert(cleanInserts);
     if (error) { console.error('Error inserting transactions:', error); throw error; }
   }
@@ -179,8 +179,15 @@ export interface TransactionFilters {
 }
 
 /** Same filters for list, count, and batched sum (PostgREST default row cap ~1000 break naive "fetch all"). */
-function applyTransactionFilters(
-  query: any,
+interface TransactionFiltersQuery<Q> {
+  or(filters: string): Q;
+  in(column: string, values: readonly string[]): Q;
+  gte(column: string, value: string): Q;
+  lte(column: string, value: string): Q;
+}
+
+function applyTransactionFilters<Q extends TransactionFiltersQuery<Q>>(
+  query: Q,
   searchQuery: string | undefined,
   filters: TransactionFilters | undefined
 ) {
@@ -214,7 +221,7 @@ async function sumTransactionTotalsForFilters(
   let totalExpense = 0;
   let lastId: string | null = null;
   for (;;) {
-    let q: any = supabase.from('thu_chi').select('id, so_tien, loai_phieu, trang_thai');
+    let q = supabase.from('thu_chi').select('id, so_tien, loai_phieu, trang_thai');
     q = applyTransactionFilters(q, searchQuery, filters);
     if (lastId) q = q.gt('id', lastId);
     const { data: batch, error } = await q
@@ -247,7 +254,7 @@ export const getTransactionsPaginated = async (
   const to = from + pageSize - 1;
 
   const paged = (async () => {
-    let dataQuery: any = supabase.from('thu_chi').select('*', { count: 'exact' });
+    let dataQuery = supabase.from('thu_chi').select('*', { count: 'exact' });
     dataQuery = applyTransactionFilters(dataQuery, searchQuery, filters);
     return dataQuery
       .order('ngay', { ascending: false })
@@ -306,7 +313,7 @@ export const syncTransactionsFromSalesOrders = async (): Promise<{ created: numb
   }
 
   const detailTotals = new Map<string, { total: number; coSo: string }>();
-  (details || []).forEach((row: any) => {
+  (details || []).forEach((row) => {
     const ref = String(row.id_don_hang || '').trim().toLowerCase();
     if (!ref) return;
     const amount = Number(row.thanh_tien ?? (Number(row.gia_ban || 0) * Number(row.so_luong || 1)));
@@ -316,7 +323,7 @@ export const syncTransactionsFromSalesOrders = async (): Promise<{ created: numb
     detailTotals.set(ref, prev);
   });
 
-  const orderIds = (orders || []).map((o: any) => o.id).filter(Boolean);
+  const orderIds = (orders || []).map((o) => o.id).filter(Boolean);
   const existingByOrder = new Map<string, ThuChi>();
   for (const chunk of chunkArray(orderIds, 200)) {
     const { data: existing, error: txErr } = await supabase
@@ -324,7 +331,7 @@ export const syncTransactionsFromSalesOrders = async (): Promise<{ created: numb
       .select('*')
       .in('id_don', chunk);
     if (txErr) throw txErr;
-    (existing || []).forEach((tx: any) => {
+    (existing || []).forEach((tx) => {
       if (tx.id_don) existingByOrder.set(String(tx.id_don), tx as ThuChi);
     });
   }
@@ -334,7 +341,7 @@ export const syncTransactionsFromSalesOrders = async (): Promise<{ created: numb
   let skipped = 0;
   const payload: Partial<ThuChi>[] = [];
 
-  (orders || []).forEach((order: any) => {
+  (orders || []).forEach((order) => {
     const byId = detailTotals.get(String(order.id || '').toLowerCase())?.total || 0;
     const byBh = detailTotals.get(String(order.id_bh || '').toLowerCase())?.total || 0;
     const total = Math.max(byId, byBh);
@@ -381,7 +388,7 @@ export const getTransactionStats = async (): Promise<{ income: number; expense: 
   let expense = 0;
   let lastId: string | null = null;
   for (;;) {
-    let q: any = supabase
+    let q = supabase
       .from('thu_chi')
       .select('id, so_tien, loai_phieu')
       .eq('trang_thai', 'Hoàn thành')

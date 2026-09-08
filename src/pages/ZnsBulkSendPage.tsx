@@ -17,7 +17,7 @@ import {
   Users,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useToast } from '../context/ToastContext';
+import { useToast } from '../context/toast';
 import { getCustomersForSelect } from '../data/customerData';
 import {
   getServiceUsageDatesMap,
@@ -456,7 +456,7 @@ const ZnsBulkSendPage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [oaStatus?.connected]);
 
   const handleTemplateChange = async (value: string) => {

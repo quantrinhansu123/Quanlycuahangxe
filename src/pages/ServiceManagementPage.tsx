@@ -16,7 +16,7 @@ import {
   Wrench
 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import Pagination from '../components/Pagination';
 import ServiceFormModal from '../components/ServiceFormModal';
@@ -341,7 +341,6 @@ const ServiceManagementPage: React.FC = () => {
   const branches = useBranches();
   const BRANCH_OPTIONS = useMemo(() => [...branches, SERVICE_BRANCH_MAIN], [branches]);
   const navigate = useNavigate();
-  const location = useLocation();
   const { isAdmin, nhanVien, isTechnician, hasViewAccess } = useAuth();
   const canManageServices = (isAdmin || hasViewAccess('dich-vu')) && !isTechnician;
   const showGiaNhap = !isTechnician;
@@ -407,7 +406,7 @@ const ServiceManagementPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [visibleBranches, branchPages, pageSize, debouncedSearch, location.pathname]);
+  }, [visibleBranches, branchPages, pageSize, debouncedSearch]);
 
   useEffect(() => {
     loadData();

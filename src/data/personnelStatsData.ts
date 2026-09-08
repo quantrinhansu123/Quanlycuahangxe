@@ -1,12 +1,13 @@
 import { supabase } from '../lib/supabase';
-import { enrichSalesCards } from './salesCardData';
+import type { AttendanceRecord } from './attendanceData';
+import { enrichSalesCards, type SalesCard } from './salesCardData';
 
 export interface PersonnelDailyStats {
   date: string;
   totalOrders: number;
   totalSales: number;
-  salesCards: any[];
-  attendance: any | null;
+  salesCards: SalesCard[];
+  attendance: AttendanceRecord[];
 }
 
 export const getPersonnelDailyStats = async (
@@ -26,16 +27,16 @@ export const getPersonnelDailyStats = async (
 
     if (salesError) throw salesError;
 
-    const validSales = salesData || [];
+    const validSales = (salesData || []) as SalesCard[];
     await enrichSalesCards(validSales);
     
     const totalOrders = validSales.length;
 
     let totalSalesValue = 0;
-    validSales.forEach((card: any) => {
+    validSales.forEach((card) => {
       // Check if there are detail items
       if (card.the_ban_hang_ct && card.the_ban_hang_ct.length > 0) {
-        card.the_ban_hang_ct.forEach((ct: any) => {
+        card.the_ban_hang_ct.forEach((ct) => {
           totalSalesValue += (ct.gia_ban || 0) * (ct.so_luong || 1);
         });
       } else if (card.dich_vu) {

@@ -1,5 +1,5 @@
 import { useBranches } from '../hooks/useBranches';
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Building2, Calculator, Package, Save, X } from 'lucide-react';
 import type { SalesCardCT } from '../data/salesCardCTData';
@@ -20,7 +20,7 @@ interface SalesCardCTFormModalProps {
   onSuccess: () => Promise<void>;
 }
 
-const SalesCardCTFormModal: React.FC<SalesCardCTFormModalProps> = React.memo(({
+const SalesCardCTForm: React.FC<SalesCardCTFormModalProps> = React.memo(({
   isOpen,
   editingItem,
   salesCards,
@@ -29,7 +29,19 @@ const SalesCardCTFormModal: React.FC<SalesCardCTFormModalProps> = React.memo(({
   onSuccess,
 }) => {
   const branchOptions = useBranches();
-  const [formData, setFormData] = useState<Partial<SalesCardCT>>({});
+  const [formData, setFormData] = useState<Partial<SalesCardCT>>(() => editingItem ? { ...editingItem } : {
+          id_ban_hang_ct: 'CT-' + Math.random().toString(36).substring(2, 9).toUpperCase(),
+          id_don_hang: '',
+          ten_don_hang: '',
+          san_pham: '',
+          co_so: '',
+          ghi_chu: '',
+          gia_ban: 0,
+          gia_von: 0,
+          so_luong: 1,
+          chi_phi: 0,
+          ngay: new Date().toISOString().split('T')[0]
+        });
 
 
   const salesCardOptions = React.useMemo(() => {
@@ -61,27 +73,7 @@ const SalesCardCTFormModal: React.FC<SalesCardCTFormModalProps> = React.memo(({
     }));
   };
 
-  useEffect(() => {
-    if (isOpen) {
-      if (editingItem) {
-        setFormData({ ...editingItem });
-      } else {
-        setFormData({
-          id_ban_hang_ct: 'CT-' + Math.random().toString(36).substring(2, 9).toUpperCase(),
-          id_don_hang: '',
-          ten_don_hang: '',
-          san_pham: '',
-          co_so: 'Cơ sở Bắc Giang',
-          ghi_chu: '',
-          gia_ban: 0,
-          gia_von: 0,
-          so_luong: 1,
-          chi_phi: 0,
-          ngay: new Date().toISOString().split('T')[0]
-        });
-      }
-    }
-  }, [isOpen, editingItem]);
+
 
   // Update id_don_hang text when a UUID order is selected - No longer needed as we use id_don_hang directly
 
@@ -101,11 +93,13 @@ const SalesCardCTFormModal: React.FC<SalesCardCTFormModalProps> = React.memo(({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const { thanh_tien, lai, ...cleanData } = formData as any;
+      const cleanData = { ...formData };
+      delete cleanData.thanh_tien;
+      delete cleanData.lai;
       await upsertSalesCardCT(cleanData);
       await onSuccess();
       onClose();
-    } catch (error) {
+    } catch {
       alert('Lỗi: Không thể lưu chi tiết phiếu.');
     }
   };
@@ -190,6 +184,8 @@ const SalesCardCTFormModal: React.FC<SalesCardCTFormModalProps> = React.memo(({
                   name="co_so" value={formData.co_so || ''} onChange={handleInputChange} required
                   className="w-full px-4 py-2 bg-background border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary/20 text-[14px]"
                 >
+                  <option value="" disabled>Chọn cơ sở...</option>
+                  {formData.co_so && !branchOptions.includes(formData.co_so) && <option value={formData.co_so}>{formData.co_so}</option>}
                   {branchOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                 </select>
               </div>
@@ -276,4 +272,6 @@ const SalesCardCTFormModal: React.FC<SalesCardCTFormModalProps> = React.memo(({
   );
 });
 
-export default SalesCardCTFormModal;
+export default function SalesCardCTFormModal(props: SalesCardCTFormModalProps) {
+  return props.isOpen ? <SalesCardCTForm key={props.editingItem?.id ?? 'new'} {...props} /> : null;
+}

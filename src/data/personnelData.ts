@@ -107,7 +107,7 @@ export const bulkUpsertPersonnel = async (personnel: Partial<NhanSu>[]): Promise
     }
   }
   if (toInsert.length > 0) {
-    const cleanInserts = toInsert.map(({ id, ...rest }) => rest);
+    const cleanInserts = toInsert.map(row => { const copy = { ...row }; delete copy.id; return copy; });
     const { error } = await supabase.from('nhan_su').insert(cleanInserts);
     if (error) {
       console.error('Error inserting personnel (bulk insert):', formatPostgrestErr(error), {

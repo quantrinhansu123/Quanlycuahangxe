@@ -14,13 +14,13 @@ import { useAuth } from '../context/AuthContext';
 import { formatDateTime24h } from '../utils/datetimeFormat';
 
 // Helper for dynamic classes
-const clsx = (...classes: any[]) => classes.filter(Boolean).join(' ');
+const clsx = (...classes: (string | boolean | undefined)[]) => classes.filter(Boolean).join(' ');
 
 const InputField: React.FC<{
   label: string,
   name: string,
   value?: string | number,
-  onChange: (e: any) => void,
+  onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void,
   icon: React.ElementType,
   type?: 'text' | 'date' | 'time' | 'select',
   options?: string[],
@@ -68,12 +68,12 @@ const SalesCardFormModal: React.FC<{
   isOpen: boolean;
   editingCard: SalesCard | null;
   initialData: SalesCardFormData;
-  customerOptions: any[];
+  customerOptions: { value: string; label: string; searchKey?: string; dia_chi_hien_tai?: string }[];
   personnel: NhanSu[];
   services: DichVu[];
   onClose: () => void;
   onSubmit: (data: SalesCardFormData) => Promise<void>;
-  onCollectPayment?: (data: any, method: string) => Promise<void>;
+  onCollectPayment?: (data: SalesCardFormData, method: string) => Promise<void>;
   isReadOnly?: boolean;
 }> = React.memo(({ isOpen, editingCard, initialData, customerOptions, personnel, services, onClose, onSubmit, isReadOnly, onCollectPayment }) => {
   const CUSTOMER_BRANCH_OPTIONS = useBranches();
@@ -111,9 +111,9 @@ const SalesCardFormModal: React.FC<{
     if (formData.khach_hang_id && !options.find(o => o.value === formData.khach_hang_id)) {
       const fallbackName = 
          initialData?.khach_hang?.ho_va_ten || 
-         (initialData as any)?.ten_khach_hang || 
+         initialData?.ten_khach_hang ||
          'Khách hàng (Chưa tải dữ liệu)';
-      const fallbackPhone = initialData?.khach_hang?.so_dien_thoai || (initialData as any)?.so_dien_thoai || '';
+      const fallbackPhone = initialData?.khach_hang?.so_dien_thoai || initialData?.so_dien_thoai || '';
       
       options = [
         {
@@ -179,7 +179,7 @@ const SalesCardFormModal: React.FC<{
         setFormData(prev => ({ ...prev, service_items: [] }));
       }
     }
-  }, [formData.dich_vu_ids, servicesForBranch, services]);
+  }, [formData.dich_vu_ids, formData.dich_vu_id, formData.service_items, servicesForBranch, services]);
 
   // Note: id_bh is now managed by the parent component (SalesCardManagementPage)
   // to ensure sequential and unique values via getNextSalesCardCode()
@@ -308,7 +308,7 @@ const SalesCardFormModal: React.FC<{
 
     const opt = extendedCustomerOptions.find((o) => o.value === formData.khach_hang_id);
     return (opt as { bien_so_xe?: string })?.bien_so_xe || '';
-  }, [extendedCustomerOptions, formData.khach_hang_id, formData, initialData]);
+  }, [extendedCustomerOptions, formData, initialData]);
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -337,7 +337,7 @@ const SalesCardFormModal: React.FC<{
       customerBranchFromProfile;
     if (!coSo) {
       setShowBranchWarning(true);
-      alert('Vui lòng chọn cơ sở (Bắc Giang hoặc Bắc Ninh) trước khi lập phiếu.');
+      alert('Vui lòng chọn cơ sở trước khi lập phiếu.');
       return;
     }
 
@@ -466,13 +466,13 @@ const SalesCardFormModal: React.FC<{
                 </label>
                 {isReadOnly ? (
                   <div className="space-y-2 p-3 bg-muted/30 rounded-xl border border-border">
-                    {(formData.the_ban_hang_ct || formData.service_items || []).map((item: any, idx) => (
+                    {(formData.the_ban_hang_ct || formData.service_items || []).map((item, idx) => (
                       <div key={idx} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 py-2 sm:py-1.5 border-b border-border/50 last:border-0">
                         <div className="flex items-center gap-2.5 min-w-0">
                           <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary shrink-0">
                             {idx + 1}
                           </div>
-                          <span className="font-bold text-[13px] sm:text-[14px] text-foreground break-words">{item.san_pham || item.ten_dich_vu}</span>
+                          <span className="font-bold text-[13px] sm:text-[14px] text-foreground break-words">{('san_pham' in item ? item.san_pham : '') || item.ten_dich_vu}</span>
                         </div>
                         <div className="flex items-center gap-1.5 pl-8 sm:pl-0 shrink-0">
                           <span className="font-mono text-[13px] font-bold text-primary">{(item.gia_ban || 0).toLocaleString()}đ</span>

@@ -10,7 +10,7 @@ import {
   Upload
 } from 'lucide-react';
 import React, { useCallback, useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import * as XLSX from 'xlsx';
 import Pagination from '../components/Pagination';
@@ -30,7 +30,7 @@ const SalesCardCTManagementPage: React.FC = () => {
   const [services, setServices] = useState<DichVu[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const location = useLocation();
+  const [debouncedSearch, setDebouncedSearch] = useState('');
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -45,7 +45,7 @@ const SalesCardCTManagementPage: React.FC = () => {
     try {
       setLoading(true);
       const [ctsResult, cards, servs] = await Promise.all([
-        getSalesCardCTsPaginated(currentPage, pageSize, searchQuery),
+        getSalesCardCTsPaginated(currentPage, pageSize, debouncedSearch),
         getSalesCards(),
         getServices()
       ]);
@@ -58,7 +58,7 @@ const SalesCardCTManagementPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, pageSize, searchQuery, location.pathname]);
+  }, [currentPage, pageSize, debouncedSearch]);
 
   useEffect(() => {
     loadData();
@@ -66,8 +66,8 @@ const SalesCardCTManagementPage: React.FC = () => {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (currentPage !== 1) setCurrentPage(1);
-      else loadData();
+      setCurrentPage(1);
+      setDebouncedSearch(searchQuery);
     }, 500);
     return () => clearTimeout(timer);
   }, [searchQuery]);
@@ -118,9 +118,9 @@ const SalesCardCTManagementPage: React.FC = () => {
         const bstr = evt.target?.result;
         const wb = XLSX.read(bstr, { type: 'binary' });
         const ws = wb.Sheets[wb.SheetNames[0]];
-        const data = XLSX.utils.sheet_to_json(ws) as any[];
+        const data = XLSX.utils.sheet_to_json<Record<string, string | number | undefined>>(ws);
 
-        const formatExcelDate = (val: any) => {
+        const formatExcelDate = (val: string | number | undefined | null) => {
           if (val === undefined || val === null || val === '') return undefined;
           if (typeof val === 'number' && val > 40000) {
             const d = new Date(Math.round((val - 25569) * 86400 * 1000));
@@ -142,7 +142,7 @@ const SalesCardCTManagementPage: React.FC = () => {
         const latestServices = await getServices();
 
         const formattedData: Partial<SalesCardCT>[] = data.map((item) => {
-          const norm: any = {};
+          const norm: Record<string, string | number | undefined> = {};
           // Normalize keys: trim and replace multiple spaces with single space
           Object.keys(item).forEach(k => {
             const cleanKey = String(k).trim().toLowerCase().replace(/\s+/g, ' ');
@@ -180,19 +180,19 @@ const SalesCardCTManagementPage: React.FC = () => {
           const soLuong = Math.round(Number(getValue(['Số lượng'])) || 1);
           const chiPhi = Math.round(Number(getValue(['Chi phí'])) || 0);
 
-          const res: any = {
+          const res: Partial<SalesCardCT> = {
             id_ban_hang_ct: rawIdCT || null,
             id_don_hang: rawDonHangId || null,
             ngay,
             // Lấy chính xác nội dung từ Excel, không thêm bớt
             ten_don_hang: (tenDonHangExcel !== undefined && tenDonHangExcel !== null) ? String(tenDonHangExcel).trim() : '',
             san_pham: productName || 'Sản phẩm lẻ',
-            co_so: getValue(['Cơ sở']) || 'Cơ sở Bắc Giang',
+            co_so: String(getValue(['Cơ sở']) || 'Cơ sở Bắc Giang'),
             gia_ban: giaBan,
             gia_von: giaVon,
             so_luong: soLuong,
             chi_phi: chiPhi,
-            ghi_chu: getValue(['Ghi chú']) || ''
+            ghi_chu: String(getValue(['Ghi chú']) || '')
           };
 
           const rawId = String(getValue(['uuid', 'mã hệ thống']) || '').trim();
@@ -208,8 +208,8 @@ const SalesCardCTManagementPage: React.FC = () => {
           const claimedIds = new Set<string>();
           let updatedCount = 0;
 
-          formattedData.forEach((rec: any) => {
-            const existing = existingCTs.find((e: any) => {
+          formattedData.forEach((rec) => {
+            const existing = existingCTs.find((e) => {
               if (claimedIds.has(e.id)) return false;
               // So sánh theo id_ban_hang_ct
               if (rec.id_ban_hang_ct && e.id_ban_hang_ct && rec.id_ban_hang_ct === e.id_ban_hang_ct) return true;
@@ -250,7 +250,7 @@ const SalesCardCTManagementPage: React.FC = () => {
         await deleteAllSalesCardCTs();
         await loadData();
         alert('Đã xóa toàn bộ dữ liệu.');
-      } catch (error) {
+      } catch {
         alert('Lỗi: Không thể xóa toàn bộ dữ liệu.');
       } finally {
         setLoading(false);
@@ -263,7 +263,7 @@ const SalesCardCTManagementPage: React.FC = () => {
       try {
         await deleteSalesCardCT(id);
         await loadData();
-      } catch (error) {
+      } catch {
         alert('Lỗi: Không thể xóa hạng mục.');
       }
     }

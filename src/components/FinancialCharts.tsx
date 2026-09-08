@@ -139,27 +139,6 @@ const FinancialCharts: React.FC<FinancialChartsProps> = ({ transactions, dateRan
     return value.toString();
   };
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-white p-3 border border-border rounded-lg shadow-xl text-[12px] animate-in zoom-in-95 duration-100">
-          <p className="font-bold mb-2 text-black">{label}</p>
-          {payload.map((entry: any, index: number) => (
-            <div key={index} className="flex items-center justify-between gap-4 py-1">
-              <span className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color || entry.payload.fill }}></div>
-                <span className="text-black">{entry.name}:</span>
-              </span>
-              <span className="font-bold text-black font-mono">
-                {new Intl.NumberFormat('vi-VN').format(entry.value)}
-              </span>
-            </div>
-          ))}
-        </div>
-      );
-    }
-    return null;
-  };
 
   return (
     <div className="space-y-6 pb-12 animate-in fade-in duration-700">
@@ -368,6 +347,39 @@ const KPIItem: React.FC<{
       </div>
     </div>
   );
+};
+
+interface FinancialTooltipProps {
+  active?: boolean;
+  label?: string | number;
+  payload?: readonly {
+    color?: string;
+    name?: string | number;
+    value?: number | string | (number | string)[];
+    payload?: { fill?: string };
+  }[];
+}
+
+const CustomTooltip = ({ active, payload, label }: FinancialTooltipProps) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white p-3 border border-border rounded-lg shadow-xl text-[12px] animate-in zoom-in-95 duration-100">
+        <p className="font-bold mb-2 text-black">{label}</p>
+        {payload.map((entry, index: number) => (
+          <div key={index} className="flex items-center justify-between gap-4 py-1">
+            <span className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color || entry.payload?.fill }}></div>
+              <span className="text-black">{entry.name}:</span>
+            </span>
+            <span className="font-bold text-black font-mono">
+              {new Intl.NumberFormat('vi-VN').format(Number(entry.value ?? 0))}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return null;
 };
 
 export default FinancialCharts;

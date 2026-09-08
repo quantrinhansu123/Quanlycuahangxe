@@ -1,3 +1,4 @@
+import type { SalesCard } from '../data/salesCardData';
 import { salesAmount as sumCardAmountVnd } from '../lib/salesAmount';
 import { clsx } from 'clsx';
 import { Calendar, Check, Clock, Gauge, History, Info, Loader2, MapPin, MessageSquare, Phone, ShoppingCart, User, X } from 'lucide-react';
@@ -23,7 +24,7 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
    const [endDateStr, setEndDateStr] = useState('');
    const [loading, setLoading] = useState(true);
    const [historyError, setHistoryError] = useState('');
-   const [history, setHistory] = useState<any[]>([]);
+   const [history, setHistory] = useState<SalesCard[]>([]);
    const [activeTab, setActiveTab] = useState<'history' | 'km_history' | 'info'>('history');
    const navigate = useNavigate();
    const [copySuccess, setCopySuccess] = useState(false);
@@ -110,7 +111,7 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
       } else {
          history.slice(0, 5).forEach((record) => {
             const date = formatDate(record.ngay);
-            const items = record.the_ban_hang_ct?.map((ct: any) => ct.ten_dich_vu || ct.san_pham).join(', ') || record.dich_vu?.ten_dich_vu || 'Dịch vụ';
+            const items = record.the_ban_hang_ct?.map((ct) => ct.ten_dich_vu || ct.san_pham).join(', ') || record.dich_vu?.ten_dich_vu || 'Dịch vụ';
             const price = sumCardAmountVnd(record);
             msg += `• ${date}: ${items} — ${formatCurrency(price)}\n`;
          });
@@ -312,7 +313,7 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
 
                                           <div className="grid gap-1.5 sm:gap-2">
                                              {card.the_ban_hang_ct && card.the_ban_hang_ct.length > 0 ? (
-                                                card.the_ban_hang_ct.map((ct: any, i: number) => (
+                                                card.the_ban_hang_ct.map((ct, i: number) => (
                                                    <div key={i} className="flex items-center justify-between text-[11px] sm:text-[13px]">
                                                       <span className="font-bold text-foreground">📦 {ct.ten_dich_vu || ct.san_pham}</span>
                                                       <span className="text-muted-foreground font-medium">
@@ -429,7 +430,7 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
 };
 
 interface InfoRowProps {
-   icon: any;
+   icon: React.ElementType;
    label: string;
    value: string | number;
    valueClass?: string;

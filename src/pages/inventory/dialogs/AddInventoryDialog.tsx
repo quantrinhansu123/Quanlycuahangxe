@@ -37,7 +37,7 @@ const AddInventoryDialog: React.FC<AddInventoryDialogProps> = ({ isOpen, onClose
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.ten_mat_hang) {
-      setError('Vui lÃ²ng nháº­p tÃªn máº·t hÃ ng');
+      setError('Vui lÃ²ng nháº­p tÃªn máº·t hÃ ng');
       return;
     }
 
@@ -121,9 +121,9 @@ const AddInventoryDialog: React.FC<AddInventoryDialogProps> = ({ isOpen, onClose
               </select>
             </div>
 
-            {/* ID Ä‘Æ¡n hÃ ng */}
+            {/* ID Ä‘Æ¡n hÃ ng */}
             <div className="space-y-2">
-              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">ID ÄÆ¡n hÃ ng</label>
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">ID ÄÆ¡n hÃ ng</label>
               <input
                 type="text"
                 placeholder="VÃ­ dá»¥: ÄH-001"
@@ -133,9 +133,9 @@ const AddInventoryDialog: React.FC<AddInventoryDialogProps> = ({ isOpen, onClose
               />
             </div>
 
-            {/* TÃªn máº·t hÃ ng */}
+            {/* TÃªn máº·t hÃ ng */}
             <div className="space-y-2">
-              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">TÃªn máº·t hÃ ng</label>
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">TÃªn máº·t hÃ ng</label>
               <input
                 type="text"
                 placeholder="Nháº­p tÃªn sáº£n pháº©m..."
@@ -170,9 +170,9 @@ const AddInventoryDialog: React.FC<AddInventoryDialogProps> = ({ isOpen, onClose
               />
             </div>
 
-            {/* NgÃ y */}
+            {/* NgÃ y */}
             <div className="space-y-2">
-              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">NgÃ y</label>
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-1">NgÃ y</label>
               <input
                 type="date"
                 className="w-full bg-background border border-border rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-sm"

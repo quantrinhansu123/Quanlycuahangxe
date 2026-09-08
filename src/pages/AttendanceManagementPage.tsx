@@ -1,5 +1,6 @@
 // Attendance Management Page
 import { clsx } from 'clsx';
+import { getErrorDetails } from '../lib/errorDetails';
 import {
   ArrowLeft,
   Calendar,
@@ -484,9 +485,9 @@ const AttendanceManagementPage: React.FC = () => {
 
       // If editing existing record, track history
       if (originalRecord) {
-        const changes: { truong: string; gia_tri_cu: any; gia_tri_moi: any }[] = [];
+        const changes: { truong: string; gia_tri_cu: string | number | null; gia_tri_moi: string | number | null }[] = [];
         
-        const fieldsToTrack: { key: keyof AttendanceRecord; label: string }[] = [
+        const fieldsToTrack: { key: 'nhan_su' | 'ngay' | 'checkin' | 'checkout' | 'vi_tri'; label: string }[] = [
           { key: 'nhan_su', label: 'Nhân sự' },
           { key: 'ngay', label: 'Ngày' },
           { key: 'checkin', label: 'Giờ vào' },
@@ -556,7 +557,7 @@ const AttendanceManagementPage: React.FC = () => {
         const wb = XLSX.read(bstr, { type: 'binary' });
         console.log('Attendance Sheet Names:', wb.SheetNames);
         const ws = wb.Sheets[wb.SheetNames[0]];
-        const data = XLSX.utils.sheet_to_json(ws) as any[];
+        const data = XLSX.utils.sheet_to_json<Record<string, string | number | undefined>>(ws);
 
         if (data.length > 0) {
           console.log('First Row Keys:', Object.keys(data[0]));
@@ -564,7 +565,7 @@ const AttendanceManagementPage: React.FC = () => {
         }
 
         // Helper to convert Excel date/time serial numbers
-        const formatExcelTime = (val: any) => {
+        const formatExcelTime = (val: string | number | undefined | null) => {
           if (val === undefined || val === null || val === '') return null;
           if (typeof val === 'number') {
             const totalSeconds = Math.round(val * 24 * 3600);
@@ -601,7 +602,7 @@ const AttendanceManagementPage: React.FC = () => {
           return str;
         };
 
-        const formatExcelDate = (val: any) => {
+        const formatExcelDate = (val: string | number | undefined | null) => {
           if (val === undefined || val === null || val === '') return null;
           if (typeof val === 'number' && val > 40000) {
             const d = new Date(Math.round((val - 25569) * 86400 * 1000));
@@ -613,7 +614,7 @@ const AttendanceManagementPage: React.FC = () => {
 
         const formattedData: Partial<AttendanceRecord>[] = data.map(item => {
           // Normalize keys (trim whitespace)
-          const norm: any = {};
+          const norm: Record<string, string | number | undefined> = {};
           Object.keys(item).forEach(k => {
             norm[String(k).trim()] = item[k];
           });
@@ -683,9 +684,9 @@ const AttendanceManagementPage: React.FC = () => {
             await loadRecords(false);
             const newCount = formattedData.length - updatedCount;
             alert(`✅ Hoàn tất: ${newCount} bản ghi mới, ${updatedCount} bản ghi cập nhật.`);
-          } catch (err: any) {
+          } catch (err) {
             console.error('Database Error details:', err);
-            alert(`Lỗi khi lưu dữ liệu chấm công: ${err.message || 'Lỗi DB'}`);
+            alert(`Lỗi khi lưu dữ liệu chấm công: ${getErrorDetails(err).message || 'Lỗi DB'}`);
           }
         } else {
           alert("Không tìm thấy dữ liệu chấm công hợp lệ.");
@@ -709,7 +710,7 @@ const AttendanceManagementPage: React.FC = () => {
       try {
         await deleteAttendanceRecord(id);
         await loadRecords(false);
-      } catch (error) {
+      } catch {
         alert('Lỗi: Không thể xóa bản ghi.');
       }
     }
@@ -1054,7 +1055,7 @@ const AttendanceManagementPage: React.FC = () => {
                     </tr>
                     {dateRecords.map(record => {
                   const status = calculateAttendanceStatus(record.checkin, record.checkout);
-                  const isMockAbsent = (record as any).isMockAbsent;
+                  const isMockAbsent = ('isMockAbsent' in record && record.isMockAbsent);
                   const phutTangCaNgay = isMockAbsent
                     ? 0
                     : (tangCaPhutTrongNgay.get(tangCaKey(record)) ?? 0);
@@ -1226,7 +1227,7 @@ const AttendanceManagementPage: React.FC = () => {
                     <div className="divide-y divide-border/50">
                       {dateRecords.map(record => {
                         const status = calculateAttendanceStatus(record.checkin, record.checkout);
-                  const isMockAbsent = (record as any).isMockAbsent;
+                  const isMockAbsent = ('isMockAbsent' in record && record.isMockAbsent);
                   const phutTangCaNgay = isMockAbsent
                     ? 0
                     : (tangCaPhutTrongNgay.get(tangCaKey(record)) ?? 0);

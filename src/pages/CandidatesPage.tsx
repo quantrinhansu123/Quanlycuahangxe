@@ -526,7 +526,7 @@ const CandidatesPage: React.FC = () => {
                 position: viTri,
                 positionId: viTri,
                 id_ung_vien: formState.formCandidateCode.trim() || undefined,
-                status: formState.formStatus as any,
+                status: formState.formStatus as Candidate['status'],
                 source: formState.formSource,
                 latestInterview: formState.formLatestInterview,
                 latestResult: formState.formLatestResult,

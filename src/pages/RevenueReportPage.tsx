@@ -885,8 +885,8 @@ function DailyRevenueChartBlock({
   const personnelItems = useMemo(() => personnelData.map((item) => item.nhan_vien_name), [personnelData]);
   const [selectedServices, setSelectedServices] = useState<Set<string> | null>(null);
   const [selectedPersonnel, setSelectedPersonnel] = useState<Set<string> | null>(null);
-  const effectiveSelectedServices = selectedServices ?? new Set(serviceItems);
-  const effectiveSelectedPersonnel = selectedPersonnel ?? new Set(personnelItems);
+  const effectiveSelectedServices = useMemo(() => selectedServices ?? new Set(serviceItems), [selectedServices, serviceItems]);
+  const effectiveSelectedPersonnel = useMemo(() => selectedPersonnel ?? new Set(personnelItems), [selectedPersonnel, personnelItems]);
 
   const filteredServices = useMemo(
     () =>
@@ -1158,7 +1158,7 @@ function BranchDailyChartBlock({
   const [branchKeyword, setBranchKeyword] = useState('');
   const branchItems = useMemo(() => branchData.map((b) => b.co_so), [branchData]);
   const [selectedBranches, setSelectedBranches] = useState<Set<string> | null>(null);
-  const effectiveSelected = selectedBranches ?? new Set(branchItems);
+  const effectiveSelected = useMemo(() => selectedBranches ?? new Set(branchItems), [selectedBranches, branchItems]);
 
   const filteredBranches = useMemo(
     () =>

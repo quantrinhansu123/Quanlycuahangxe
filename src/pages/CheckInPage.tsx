@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { 
+import { getErrorDetails } from '../lib/errorDetails';
+import {
   MapPin, Clock, User, 
   CheckCircle2, AlertCircle, ArrowLeft, Loader2,
   Calendar
@@ -87,7 +88,7 @@ const CheckInPage: React.FC = () => {
       alert(`${type === 'in' ? 'Check-in' : 'Check-out'} thành công cho ${selectedStaff.ho_ten}`);
       loadData();
     } catch (error) {
-      alert("Lỗi khi chấm công: " + (error as any).message);
+      alert("Lỗi khi chấm công: " + (getErrorDetails(error).message || 'Không thể chấm công'));
     } finally {
       setSubmitting(false);
     }

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Loader2, Search, Send, Trash2, Users, X } from 'lucide-react';
-import { useToast } from '../../context/ToastContext';
+import { useToast } from '../../context/toast';
 import {
   approveOrderMessages,
   deleteFailedOrderMessage,
@@ -39,7 +39,7 @@ export const OrderMessageApprovalPanel: React.FC = () => {
   const [showBulkDeleteConfirmation, setShowBulkDeleteConfirmation] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const load = async () => {
+  const load = React.useCallback(async () => {
     setLoading(true);
     try {
       setRows(await listOrderMessageQueue());
@@ -48,9 +48,9 @@ export const OrderMessageApprovalPanel: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [showToast]);
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(); }, [load]);
 
   const displayedRows = useMemo(() => {
     const keyword = searchTerm.trim().toLowerCase();
@@ -182,16 +182,6 @@ export const OrderMessageApprovalPanel: React.FC = () => {
                   onChange={(event) => setDateFilter(event.target.value)}
                   className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none focus:border-primary"
                 />
-                {false && dateFilter ? (
-                  <button
-                    type="button"
-                    onClick={() => setDateFilter('')}
-                    title="Xem tất cả ngày"
-                    className="shrink-0 rounded-lg border border-border px-2 py-2 text-xs text-muted-foreground hover:bg-muted"
-                  >
-                    <X size={14} />
-                  </button>
-                ) : null}
               </div>
             </label>
           </div>

@@ -84,8 +84,8 @@ const AllowancePolicyPage: React.FC = () => {
   const uniqueComponents = Array.from(
     new Map(
       policies
-        .filter(p => (p as any).thanh_phan_luong)
-        .map(p => [(p as any).thanh_phan_luong.id, (p as any).thanh_phan_luong.ten])
+        .filter(p => p.thanh_phan_luong)
+        .map(p => [p.thanh_phan_luong!.id, p.thanh_phan_luong!.ten])
     ).entries()
   );
 
@@ -229,7 +229,7 @@ const AllowancePolicyPage: React.FC = () => {
                             <Wallet size={14} />
                           </div>
                           <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                            {(p as any).thanh_phan_luong?.ten || 'Khoản thu nhập'}
+                            {p.thanh_phan_luong?.ten || 'Khoản thu nhập'}
                           </p>
                         </div>
                       </td>
@@ -295,7 +295,7 @@ const AllowancePolicyPage: React.FC = () => {
                     <span className="font-black text-slate-900 text-[14px] truncate">{p.ten_chinh_sach}</span>
                     <span className="px-2 py-0.5 bg-slate-100 text-[9px] font-black text-slate-600 uppercase rounded shrink-0 ml-2">{p.vi_tri}</span>
                   </div>
-                  <p className="text-[11px] text-slate-400 font-bold">{(p as any).thanh_phan_luong?.ten || 'Khoản thu nhập'}</p>
+                  <p className="text-[11px] text-slate-400 font-bold">{p.thanh_phan_luong?.ten || 'Khoản thu nhập'}</p>
                   <div className="flex items-center gap-2 mt-1 text-[12px] text-slate-500">
                     <MapPin size={12} className="text-slate-400" />
                     <span>{p.co_so}</span>

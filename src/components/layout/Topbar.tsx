@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useTheme } from '../../context/ThemeContext';
+import { useTheme } from '../../context/theme';
 import { useAuth } from '../../context/AuthContext';
 import { moduleData } from '../../data/moduleData';
 import { extraMenuItems, sidebarMenu } from '../../data/sidebarMenu';
@@ -83,35 +83,30 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
   const { nhanVien, signOut, hasViewAccess } = useAuth();
   const canOpenPermissionSettings = hasViewAccess('cai-dat-phan-quyen');
 
-  const loadNotifications = useCallback(async () => {
-    if (!nhanVien?.id || nhanVien.id === 'demo-nv-uuid') {
-      setNotifications([]);
-      return;
-    }
-    try {
-      const rows = await getAppNotifications(nhanVien.id);
-      setNotifications(rows.map((row) => ({
-        id: row.id,
-        title: row.tieu_de,
-        description: row.noi_dung,
-        time: formatRelativeNotificationTime(row.created_at),
-        type: row.loai,
-        isRead: Boolean(row.da_doc_luc),
-        route: row.duong_dan,
-      })));
-    } catch (error) {
-      console.error('Không thể tải thông báo:', error);
-    }
-  }, [nhanVien?.id]);
+  const notificationUserId = nhanVien?.id;
+  const loadNotifications = useCallback(async (): Promise<Notification[]> => {
+    if (!notificationUserId || notificationUserId === 'demo-nv-uuid') return [];
+    const rows = await getAppNotifications(notificationUserId);
+    return rows.map(row => ({
+      id: row.id, title: row.tieu_de, description: row.noi_dung,
+      time: formatRelativeNotificationTime(row.created_at), type: row.loai,
+      isRead: Boolean(row.da_doc_luc), route: row.duong_dan,
+    }));
+  }, [notificationUserId]);
 
   useEffect(() => {
-    void loadNotifications();
-    const interval = window.setInterval(() => void loadNotifications(), 30_000);
-    const onFocus = () => void loadNotifications();
-    window.addEventListener('focus', onFocus);
+    let cancelled = false;
+    const refresh = () => {
+      void loadNotifications().then(rows => { if (!cancelled) setNotifications(rows); })
+        .catch(error => console.error('Không thể tải thông báo:', error));
+    };
+    refresh();
+    const interval = window.setInterval(refresh, 30_000);
+    window.addEventListener('focus', refresh);
     return () => {
+      cancelled = true;
       window.clearInterval(interval);
-      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('focus', refresh);
     };
   }, [loadNotifications]);
 
@@ -214,7 +209,7 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
         await markAllAppNotificationsRead(nhanVien.id);
       } catch (error) {
         console.error('Không thể đánh dấu đã đọc:', error);
-        void loadNotifications();
+        void loadNotifications().then(setNotifications).catch(error => console.error('Không thể tải thông báo:', error));
       }
     }
   };
@@ -226,7 +221,7 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
         await clearAppNotifications(nhanVien.id);
       } catch (error) {
         console.error('Không thể xóa thông báo:', error);
-        void loadNotifications();
+        void loadNotifications().then(setNotifications).catch(error => console.error('Không thể tải thông báo:', error));
       }
     }
   };
