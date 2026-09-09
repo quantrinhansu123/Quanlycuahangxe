@@ -7,6 +7,8 @@ import {
 import * as XLSX from 'xlsx';
 import { useLocation } from 'react-router-dom';
 import { clsx } from 'clsx';
+import { format } from 'date-fns';
+import { getErrorDetails } from '../lib/errorDetails';
 import { 
   getTransactions,
   getTransactionsPaginated, 
@@ -39,14 +41,17 @@ const FinancialManagementPage: React.FC = () => {
   const [salesCards, setSalesCards] = useState<SalesCard[]>([]);
   const [stats, setStats] = useState({ income: 0, expense: 0, balance: 0 });
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [lookupError, setLookupError] = useState('');
+  const loadVersion = useRef({ value: 0 });
   const [activeTab, setActiveTab] = useState<'list' | 'charts'>(isSoQuyPage ? 'list' : 'list');
   const [listViewMode, setListViewMode] = useState<'standard' | 'cashbook'>(isSoQuyPage ? 'cashbook' : 'standard');
   const [allTransactions, setAllTransactions] = useState<ThuChi[]>([]);
   const [filterDateFrom, setFilterDateFrom] = useState(() => {
     const t = new Date();
-    return new Date(t.getFullYear(), t.getMonth(), 1).toISOString().slice(0, 10);
+    return format(new Date(t.getFullYear(), t.getMonth(), 1), 'yyyy-MM-dd');
   });
-  const [filterDateTo, setFilterDateTo] = useState(() => new Date().toISOString().slice(0, 10));
+  const [filterDateTo, setFilterDateTo] = useState(() => format(new Date(), 'yyyy-MM-dd'));
   const [openingBalance, setOpeningBalance] = useState(0);
   const [openingBalanceInput, setOpeningBalanceInput] = useState('0');
   
@@ -81,18 +86,17 @@ const FinancialManagementPage: React.FC = () => {
 
   // Load data from Supabase
   const loadData = React.useCallback(async () => {
+    const version = ++loadVersion.current.value;
     try {
       setLoading(true);
-      const [transactionsData, customersData, salesCardsData] = await Promise.all([
-        getTransactionsPaginated(currentPage, pageSize, debouncedSearch, {
+      setLoadError('');
+      const transactionsData = await getTransactionsPaginated(currentPage, pageSize, debouncedSearch, {
           branches: selectedBranches,
           types: selectedTypes,
           dateFrom: filterDateFrom,
           dateTo: filterDateTo,
-        }),
-        getCustomers(),
-        getSalesCards()
-      ]);
+        });
+      if (version !== loadVersion.current.value) return;
       setTransactions(transactionsData.data);
       setTotalCount(transactionsData.totalCount);
       setStats({
@@ -100,18 +104,31 @@ const FinancialManagementPage: React.FC = () => {
         expense: transactionsData.totalExpense,
         balance: transactionsData.totalIncome - transactionsData.totalExpense
       });
-      setCustomers(customersData);
-      setSalesCards(salesCardsData);
     } catch (error) {
+      if (version !== loadVersion.current.value) return;
+      setLoadError(getErrorDetails(error).message || 'Không tải được dữ liệu thu chi.');
       console.error(error);
     } finally {
-      setLoading(false);
+      if (version === loadVersion.current.value) setLoading(false);
     }
   }, [currentPage, pageSize, debouncedSearch, selectedBranches, selectedTypes, filterDateFrom, filterDateTo]);
 
   useEffect(() => {
+    const sequence = loadVersion.current;
     loadData();
+    return () => { sequence.value++; };
   }, [loadData]);
+
+  // Lookup data must not block the cashbook or reload on every filter/page change.
+  useEffect(() => {
+    let cancelled = false;
+    const failed = () => {
+      if (!cancelled) setLookupError('Chưa tải được thông tin khách hàng hoặc đơn hàng liên quan. Các phiếu thu chi vẫn hiển thị.');
+    };
+    void getCustomers().then(data => { if (!cancelled) setCustomers(data); }).catch(failed);
+    void getSalesCards().then(data => { if (!cancelled) setSalesCards(data); }).catch(failed);
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     if (isSoQuyPage) {
@@ -465,6 +482,13 @@ const FinancialManagementPage: React.FC = () => {
   return (
     <div className="w-full h-full flex flex-col p-4 lg:p-6 animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-y-auto pt-8">
       <div className="w-full space-y-6">
+        {loadError && (
+          <div role="alert" className="rounded-xl border border-red-300 p-4 text-red-700">
+            Không tải được dữ liệu thu chi: {loadError}
+            <button type="button" onClick={() => void loadData()} className="ml-3 font-bold underline">Thử lại</button>
+          </div>
+        )}
+        {lookupError && <p role="status" className="text-amber-700">{lookupError}</p>}
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-black text-foreground tracking-tight flex items-center gap-3">
             <div className={clsx(
@@ -584,12 +608,12 @@ const FinancialManagementPage: React.FC = () => {
               {isSoQuyPage && (
                 <StatCard title="Tồn đầu kỳ" amount={openingBalance} color="text-indigo-600" bgColor="bg-indigo-50/50" icon={Wallet} />
               )}
-              <StatCard title="Tổng Thu" amount={stats.income} color="text-emerald-600" bgColor="bg-emerald-50/50" icon={BadgeDollarSign} />
-              <StatCard title="Tổng Chi" amount={stats.expense} color="text-rose-600" bgColor="bg-rose-50/50" icon={Wallet} />
+              <StatCard title="Tổng Thu" amount={loading || loadError ? null : stats.income} color="text-emerald-600" bgColor="bg-emerald-50/50" icon={BadgeDollarSign} />
+              <StatCard title="Tổng Chi" amount={loading || loadError ? null : stats.expense} color="text-rose-600" bgColor="bg-rose-50/50" icon={Wallet} />
               <div className={clsx(isSoQuyPage ? 'col-span-2 md:col-span-1' : 'col-span-2 md:col-span-1')}>
                 <StatCard
                   title={isSoQuyPage ? 'Tồn cuối kỳ' : 'Số dư hiện tại'}
-                  amount={isSoQuyPage ? closingBalance : stats.balance}
+                  amount={loading || loadError ? null : (isSoQuyPage ? closingBalance : stats.balance)}
                   color="text-amber-600"
                   bgColor="bg-amber-50/50"
                   icon={Wallet}
@@ -1095,14 +1119,14 @@ const FinancialManagementPage: React.FC = () => {
   );
 };
 
-const StatCard: React.FC<{ title: string, amount: number, color: string, bgColor: string, icon: React.ElementType }> = ({ title, amount, color, bgColor, icon: Icon }) => (
+const StatCard: React.FC<{ title: string, amount: number | null, color: string, bgColor: string, icon: React.ElementType }> = ({ title, amount, color, bgColor, icon: Icon }) => (
   <div className="bg-card p-3 rounded-xl border border-border shadow-sm flex items-center gap-3">
     <div className={clsx("w-10 h-10 rounded-lg flex items-center justify-center shrink-0", bgColor, color)}>
       <Icon size={20} />
     </div>
     <div className="min-w-0 flex-1">
       <p className="text-[10px] font-bold text-muted-foreground uppercase truncate">{title}</p>
-      <p className={clsx("text-lg font-black truncate", color)}>{new Intl.NumberFormat('vi-VN').format(amount)} <span className="text-[10px] font-normal">đ</span></p>
+      <p className={clsx("text-lg font-black truncate", color)}>{amount === null ? 'Ch?a t?i ???c' : new Intl.NumberFormat('vi-VN').format(amount)} <span className="text-[10px] font-normal">đ</span></p>
     </div>
   </div>
 );
