@@ -1,3 +1,4 @@
+import { readRequest } from '../lib/readRequest';
 import type { PostgrestError } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import type { NhanSu } from './personnelData';
@@ -67,6 +68,7 @@ export function getStaffAttendanceNameVariants(
   add(me?.ho_ten);
   add(nhanVien.id_nhan_su);
   add(me?.id_nhan_su);
+  add(me?.id);
   return Array.from(names);
 }
 
@@ -85,7 +87,7 @@ export function attendanceRecordBelongsToUser(
 
 function escapePostgrestFilterValue(value: string): string {
   if (/[,()"\\]/.test(value) || /\s/.test(value)) {
-    return `"${value.replace(/"/g, '""')}"`;
+    return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
   }
   return value;
 }
@@ -161,29 +163,9 @@ export const normalizeAttendanceForDb = <T extends Partial<AttendanceRecord>>(re
  * Mã CC tiếp theo: tìm số lớn nhất trong mọi bản ghi dạng CC-#### (sắp xếp theo chuỗi không đúng số thứ tự thực).
  */
 export const getNextAttendanceId = async (): Promise<string> => {
-  let maxNum = 0;
-  let lastRowId: string | null = null;
-  for (;;) {
-    let q = supabase.from('cham_cong').select('id, id_cham_cong');
-    q = q.not('id_cham_cong', 'is', null);
-    if (lastRowId) q = q.gt('id', lastRowId);
-    const { data, error } = await q
-      .order('id', { ascending: true })
-      .limit(1000);
-    if (error) {
-      logPostgrestError('getNextAttendanceId', error);
-      return 'CC-0001';
-    }
-    if (!data?.length) break;
-    for (const row of data) {
-      const m = String(row.id_cham_cong || '').match(/CC-(\d+)/i);
-      if (m) maxNum = Math.max(maxNum, parseInt(m[1], 10));
-    }
-    lastRowId = data[data.length - 1].id;
-    if (data.length < 1000) break;
-  }
-  if (maxNum === 0) return 'CC-0001';
-  return `CC-${String(maxNum + 1).padStart(4, '0')}`;
+  const { data, error } = await supabase.rpc('next_attendance_code');
+  if (error) throw error;
+  return data as string;
 };
 
 export interface AttendanceRecord {
@@ -196,6 +178,9 @@ export interface AttendanceRecord {
   vi_tri: string | null;
   nhan_su: string;
   created_at?: string;
+  ghi_chu?: string | null;
+  bo_sung_boi?: string | null;
+  bo_sung_luc?: string | null;
   lich_su_sua?: {
     thoi_gian: string;
     nguoi_sua: string;
@@ -252,21 +237,7 @@ export async function getChamCongTrongKhoang(
 export const getAttendanceRecords = async (
   staffName?: StaffNameFilter
 ): Promise<AttendanceRecord[]> => {
-  let query = supabase
-    .from('cham_cong')
-    .select('*')
-    .order('ngay', { ascending: false })
-    .order('created_at', { ascending: false });
-
-  query = applyStaffNameFilter(query, staffName);
-
-  const { data, error } = await query;
-
-  if (error) {
-    console.error('Error fetching attendance records:', error);
-    throw error;
-  }
-  return data as AttendanceRecord[];
+  return getAllAttendanceRecords(staffName);
 };
 
 export const upsertAttendanceRecord = async (record: Partial<AttendanceRecord>): Promise<AttendanceRecord> => {
@@ -319,14 +290,14 @@ export const bulkUpsertAttendanceRecords = async (records: Partial<AttendanceRec
   if (toUpdate.length > 0) {
     // Deduplicate by ID: if multiple items have the same ID, take the last one
     const uniqueRecords = Array.from(new Map(toUpdate.map(item => [item.id, item])).values());
-    const { error } = await supabase.from('cham_cong').upsert(uniqueRecords);
+    const { error } = await supabase.from('cham_cong').upsert(uniqueRecords.map(normalizeAttendanceForDb));
     if (error) { logPostgrestError('Error upserting attendance (bulk)', error); throw error; }
   }
   if (toInsert.length > 0) {
     const cleanInserts = toInsert.map((record) => {
       const cleanRecord = { ...record };
       delete cleanRecord.id;
-      return cleanRecord;
+      return normalizeAttendanceForDb(cleanRecord);
     });
     const { error } = await supabase.from('cham_cong').insert(cleanInserts);
     if (error) { logPostgrestError('Error inserting attendance (bulk)', error); throw error; }
@@ -357,20 +328,23 @@ export const getAttendancePaginated = async (
   pageSize: number,
   staffName?: StaffNameFilter,
   searchQuery?: string,
-  filters?: AttendanceFilters
+  filters?: AttendanceFilters,
+  signal?: AbortSignal,
+  countRows = true
 ): Promise<{ data: AttendanceRecord[], totalCount: number }> => {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
   let query = supabase
     .from('cham_cong')
-    .select('*', { count: 'exact' });
+    .select('*', countRows ? { count: 'exact' } : {});
 
   // RBAC: chỉ bản ghi của một nhân sự (họ tên / mã NV, không phân biệt hoa thường)
   query = applyStaffNameFilter(query, staffName);
 
   if (searchQuery && !staffName) {
-    query = query.or(`nhan_su.ilike.%${searchQuery}%,vi_tri.ilike.%${searchQuery}%`);
+    const term = escapePostgrestFilterValue(`%${searchQuery}%`);
+    query = query.or(`nhan_su.ilike.${term},vi_tri.ilike.${term}`);
   } else if (searchQuery && staffName) {
     query = query.ilike('vi_tri', `%${searchQuery}%`);
   }
@@ -389,10 +363,11 @@ export const getAttendancePaginated = async (
     query = query.lte('ngay', filters.endDate);
   }
 
-  const { data, count, error } = await query
+  const { data, count, error } = await readRequest('attendance_page', s => query
     .order('ngay', { ascending: false })
     .order('created_at', { ascending: false })
-    .range(from, to);
+    .order('id', { ascending: false })
+    .range(from, to).abortSignal(s), signal);
 
   if (error) {
     console.error('Error fetching paginated attendance:', error);
@@ -412,9 +387,11 @@ export const getAttendancePaginated = async (
 export const getAllAttendanceRecords = async (
   staffName?: StaffNameFilter,
   searchQuery?: string,
-  filters?: AttendanceFilters
+  filters?: AttendanceFilters,
+  signal?: AbortSignal
 ): Promise<AttendanceRecord[]> => {
-  const chunkSize = 500;
+  const chunkSize = 1000;
+  let expected = Infinity;
   const allRows: AttendanceRecord[] = [];
 
   for (let page = 1; ; page += 1) {
@@ -423,14 +400,14 @@ export const getAllAttendanceRecords = async (
       chunkSize,
       staffName,
       searchQuery,
-      filters
+      filters, signal, page === 1
     );
+    if (page === 1) expected = result.totalCount;
     allRows.push(...result.data);
 
     if (
       result.data.length === 0 ||
-      result.totalCount === 0 ||
-      allRows.length >= result.totalCount
+      allRows.length >= expected
     ) {
       break;
     }
@@ -438,3 +415,15 @@ export const getAllAttendanceRecords = async (
 
   return allRows;
 };
+
+export async function addManualAttendance(input: {
+  person: string; day: string; shift: 'morning' | 'afternoon' | 'full';
+  start: string; end: string; note: string;
+}): Promise<AttendanceRecord[]> {
+  const { data, error } = await supabase.rpc('add_manual_attendance', {
+    p_person: input.person, p_day: input.day, p_shift: input.shift,
+    p_start: input.start, p_end: input.end, p_note: input.note,
+  });
+  if (error) throw error;
+  return data as AttendanceRecord[];
+}

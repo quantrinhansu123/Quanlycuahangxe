@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import type { DongChamBuaNhap } from '../data/payrollAttendanceSalary';
 import { formatDateVi } from '../utils/datetimeFormat';
 import {
+  workDaysForDayShifts,
   calculateAttendanceStatus,
   formatMinutesToHours,
   overtimeMinutesForDayShifts,
@@ -75,7 +76,7 @@ const PersonnelAttendanceDetailsModal: React.FC<PersonnelAttendanceDetailsModalP
 
   if (!isOpen) return null;
 
-  const workDays = days.filter((day) => day.hasCheckin).length;
+  const workDays = days.reduce((sum, day) => sum + workDaysForDayShifts(day.rows), 0);
   const missingCheckoutDays = days.filter((day) => day.hasMissingCheckout).length;
   const overtimeMinutes = days.reduce((sum, day) => sum + day.overtimeMinutes, 0);
 
@@ -126,6 +127,7 @@ const PersonnelAttendanceDetailsModal: React.FC<PersonnelAttendanceDetailsModalP
                   <th className="px-3 py-2.5 font-semibold">Ngày</th>
                   <th className="px-3 py-2.5 font-semibold">Giờ vào</th>
                   <th className="px-3 py-2.5 font-semibold">Giờ ra</th>
+                  <th className="px-3 py-2.5 font-semibold">Công</th>
                   <th className="px-3 py-2.5 font-semibold">Kết quả</th>
                   <th className="px-3 py-2.5 text-right font-semibold">Đi muộn</th>
                   <th className="px-3 py-2.5 text-right font-semibold">Tăng ca</th>
@@ -143,6 +145,8 @@ const PersonnelAttendanceDetailsModal: React.FC<PersonnelAttendanceDetailsModalP
                       <TimeList icon={LogOut} tone="orange" values={day.rows.map((row) => formatTime(row.checkout))} />
                     </td>
                     <td className="px-3 py-3">
+                      {workDaysForDayShifts(day.rows)}
+                    </td><td className="px-3 py-3">
                       {!day.hasCheckin ? (
                         <StatusBadge tone="slate" label="Không tính công" />
                       ) : day.hasMissingCheckout ? (

@@ -480,8 +480,9 @@ export const getSalesCardsForExport = async (searchQuery?: string, startDate?: s
   return cards;
 };
 
-export const getSalesCardsPaginated = async (page: number, pageSize: number, searchQuery?: string, startDate?: string, endDate?: string, staffId?: string, branch?: string) => {
-  const result = await querySales(salesFilters(searchQuery, startDate, endDate, staffId, branch), page, pageSize);
+export const getSalesCardsPaginated = async (page: number, pageSize: number, searchQuery?: string, startDate?: string, endDate?: string, staffId?: string, branch?: string, signal?: AbortSignal) => {
+  const result = await querySales(salesFilters(searchQuery, startDate, endDate, staffId, branch), page, pageSize, signal);
+  signal?.throwIfAborted();
   await enrichSalesCards(result.data);
   return result;
 };

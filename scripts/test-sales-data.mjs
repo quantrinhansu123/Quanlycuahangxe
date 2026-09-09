@@ -5,6 +5,7 @@ import { PGlite } from '@electric-sql/pglite';
 
 const migration = await readFile(new URL('../supabase/migrations/202609080001_sales_customer_queries.sql', import.meta.url), 'utf8');
 const timeoutMigration = await readFile(new URL('../supabase/migrations/202609090001_query_timeout_fix.sql', import.meta.url), 'utf8');
+const dateMigration = await readFile(new URL('../supabase/migrations/202609090004_sales_date_scope.sql', import.meta.url), 'utf8');
 const db = new PGlite();
 // Use the actual table definitions, excluding unrelated policies/triggers.
 for (const file of ['khach_hang', 'the_ban_hang', 'the_ban_hang_ct', 'dich_vu', 'nhan_su']) {
@@ -29,6 +30,7 @@ await db.exec(`
 `);
 await db.exec(migration);
 await db.exec(timeoutMigration);
+await db.exec(dateMigration);
 const sales = async (args = {}) => {
   const keys = Object.keys(args);
   const { rows } = await db.query(`SELECT sales_query(${keys.map((k, i) => `${k} => $${i + 1}`).join(', ')}) result`, Object.values(args));
@@ -231,7 +233,8 @@ test('bulk-data optimization preserves results, images and existing rows; can be
     const before = await sales({ p_branch: 'Cơ sở Kiểm thử', p_page: 3 });
     const oldMs = performance.now() - start;
     await db.exec(timeoutMigration);
-    await db.exec(timeoutMigration);
+    await db.exec(dateMigration);
+    await db.exec(dateMigration);
     const optimizedStart = performance.now();
     const after = await sales({ p_branch: 'Cơ sở Kiểm thử', p_page: 3 });
     const newMs = performance.now() - optimizedStart;
@@ -239,6 +242,17 @@ test('bulk-data optimization preserves results, images and existing rows; can be
     assert.equal(after.totalCount, 2400);
     assert.equal(after.summary.totalAmount, 240000);
     assert.equal(after.summary.totalCustomers, 1200);
+    await db.exec(migration);
+    await db.exec(timeoutMigration);
+    const dateStart = performance.now();
+    const dateBefore = await sales({ p_start: '2026-09-07', p_end: '2026-09-07' });
+    const dateBeforeMs = performance.now() - dateStart;
+    await db.exec(dateMigration);
+    const dateAfterStart = performance.now();
+    const dateAfter = await sales({ p_start: '2026-09-07', p_end: '2026-09-07' });
+    const dateAfterMs = performance.now() - dateAfterStart;
+    assert.deepEqual(dateAfter, dateBefore);
+    console.log(`Date filter current baseline ${Math.round(dateBeforeMs)}ms -> scoped ${Math.round(dateAfterMs)}ms (local PGlite)`);
     const result = await customers({ p_scope: 'Cơ sở Kiểm thử' });
     assert.equal(result.totalCount, 1200);
     assert.equal(result.data[0].anh, undefined);
@@ -251,6 +265,7 @@ test('bulk-data optimization preserves results, images and existing rows; can be
 
 test('RPC respects caller RLS for page, summary and history', async () => {
   await db.exec(timeoutMigration);
+  await db.exec(dateMigration);
   await db.exec(`CREATE ROLE sales_test_reader;
     GRANT USAGE ON SCHEMA public TO sales_test_reader;
     GRANT SELECT ON ALL TABLES IN SCHEMA public TO sales_test_reader;

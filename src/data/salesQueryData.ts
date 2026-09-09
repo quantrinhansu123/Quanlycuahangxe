@@ -1,3 +1,4 @@
+import { readRequest } from '../lib/readRequest';
 import { supabase } from '../lib/supabase';
 import type { SalesCard } from './salesCardData';
 import type { KhachHang } from './customerData';
@@ -26,10 +27,10 @@ export type SalesQueryFilters = {
   p_reference?: string | null;
 };
 
-export async function querySales(filters: SalesQueryFilters, page = 1, limit = 20): Promise<SalesQueryResult> {
-  const { data, error } = await supabase.rpc('sales_query', {
-    ...filters, p_page: page, p_limit: limit,
-  });
+export async function querySales(filters: SalesQueryFilters, page = 1, limit = 20, signal?: AbortSignal): Promise<SalesQueryResult> {
+  const { data, error } = await readRequest('sales_query', s => supabase.rpc('sales_query', {
+    ...filters, p_start: filters.p_start || null, p_end: filters.p_end || null, p_page: page, p_limit: limit,
+  }).abortSignal(s), signal);
   // Do not silently replace a failed server summary with totals from a page.
   if (error) throw error;
   return data as SalesQueryResult;
@@ -52,8 +53,8 @@ export type CustomerQueryFilters = {
   p_plate?: string | null;
   p_phone?: string | null;
 };
-export async function queryCustomers(filters: CustomerQueryFilters, page = 1, limit = 50): Promise<{ data: KhachHang[]; totalCount: number }> {
-  const { data, error } = await supabase.rpc('customers_query', { ...filters, p_page: page, p_limit: limit });
+export async function queryCustomers(filters: CustomerQueryFilters, page = 1, limit = 50, signal?: AbortSignal): Promise<{ data: KhachHang[]; totalCount: number }> {
+  const { data, error } = await readRequest('customers_query', s => supabase.rpc('customers_query', { ...filters, p_page: page, p_limit: limit }).abortSignal(s), signal);
   if (error) throw error;
   return data;
 }

@@ -5,6 +5,28 @@ import { findExistingCustomer, normalizePlate } from '../src/lib/customerIdentit
 import { digitsOnly, samePhoneCore } from '../src/lib/phoneUtils.ts';
 import { branchKey, branchLabel, getBranchOptions, setBranchOptions, subscribeBranches } from '../src/lib/branchCatalog.ts';
 import { getErrorDetails } from '../src/lib/errorDetails.ts';
+import { readRequest } from '../src/lib/readRequest.ts';
+
+test('read timeout aborts the underlying request and reports the slow-server message', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let aborted = false;
+  const request = readRequest('test_read_timeout', signal => new Promise(resolve => {
+    signal.addEventListener('abort', () => { aborted = true; resolve({ error: 'aborted' }); });
+  }));
+  const rejection = assert.rejects(request, /Máy chủ phản hồi chậm\. Vui lòng thử lại\./);
+  t.mock.timers.tick(8000);
+  await rejection;
+  assert.equal(aborted, true);
+});
+
+test('caller cancellation aborts a superseded read', async () => {
+  const controller = new AbortController();
+  const request = readRequest('test_read_cancel', signal => new Promise(resolve => {
+    signal.addEventListener('abort', () => resolve('cancelled'));
+  }), controller.signal);
+  controller.abort();
+  assert.equal(await request, 'cancelled');
+});
 
 test('frontend amount respects server amount and valid zero/discount detail', () => {
   assert.equal(salesAmount({ resolved_amount: 0, tong_tien: 100 }), 0);

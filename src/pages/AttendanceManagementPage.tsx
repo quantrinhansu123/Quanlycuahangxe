@@ -1,3 +1,4 @@
+import ManualAttendanceModal from '../components/ManualAttendanceModal';
 // Attendance Management Page
 import { clsx } from 'clsx';
 import { getErrorDetails } from '../lib/errorDetails';
@@ -42,6 +43,7 @@ import { getPersonnel, type NhanSu } from '../data/personnelData';
 import { formatDateTime24h, formatDateVi, formatLocalIsoDate } from '../utils/datetimeFormat';
 import DateInputVi from '../components/ui/DateInputVi';
 import {
+  workDaysForDayShifts,
   calculateAttendanceStatus,
   formatMinutesToHours,
   GIO_RA_CHUAN_LABEL,
@@ -60,7 +62,7 @@ interface DailyAttendanceStat {
 const attendancePersonnelKey = (name: string, personnel: NhanSu[]): string => {
   const matched = personnel.find(
     (p) =>
-      staffNamesMatch(name, p.ho_ten) ||
+      staffNamesMatch(name, p.id) || staffNamesMatch(name, p.ho_ten) ||
       (p.id_nhan_su != null && staffNamesMatch(name, p.id_nhan_su))
   );
   return matched ? `personnel:${matched.id}` : `name:${name.trim().toLowerCase()}`;
@@ -80,7 +82,7 @@ const AttendanceManagementPage: React.FC = () => {
     isTechnician ||
     (!isAdmin && hasViewAccess('cham-cong') && !hasViewAccess('nhan-su'));
   const navigate = useNavigate();
-  const [records, setRecords] = useState<AttendanceRecord[]>([]);
+  const [allRecords, setAllRecords] = useState<AttendanceRecord[]>([]);
   const [personnel, setPersonnel] = useState<NhanSu[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -91,11 +93,16 @@ const AttendanceManagementPage: React.FC = () => {
   const [pageSize, setPageSize] = useState(20);
   const [totalCount, setTotalCount] = useState(0);
 
+  const safePage = Math.min(currentPage, Math.max(1, Math.ceil(allRecords.length / pageSize)));
+  const records = React.useMemo(() => allRecords.slice((safePage - 1) * pageSize, safePage * pageSize), [allRecords, safePage, pageSize]);
+  const attendanceRequest = useRef(0);
+  const attendanceAbort = useRef<AbortController | null>(null);
+  const [loadError, setLoadError] = useState('');
   // Filter states
   const [selectedStaff, setSelectedStaff] = useState<string>('');
-  const [startDate, setStartDate] = useState<string>('');
-  const [endDate, setEndDate] = useState<string>('');
-  const [selectedMonth, setSelectedMonth] = useState<string>('');
+  const [startDate, setStartDate] = useState<string>(() => formatLocalIsoDate().slice(0, 7) + '-01');
+  const [endDate, setEndDate] = useState<string>(() => { const d = new Date(); return formatLocalIsoDate(new Date(d.getFullYear(), d.getMonth() + 1, 0)); });
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => formatLocalIsoDate().slice(0, 7));
   const [summaryStats, setSummaryStats] = useState({
     tongCong: 0,
     tongPhutMuon: 0,
@@ -106,6 +113,7 @@ const AttendanceManagementPage: React.FC = () => {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  const [manualDraft, setManualDraft] = useState<{ person?: string; day?: string } | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isNewRecord, setIsNewRecord] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -156,9 +164,14 @@ const AttendanceManagementPage: React.FC = () => {
   }, [searchQuery]);
 
   const loadRecords = React.useCallback(async (showLoading = true) => {
+    const request = ++attendanceRequest.current;
+    attendanceAbort.current?.abort();
+    const controller = new AbortController(); attendanceAbort.current = controller;
     try {
+      setLoadError('');
       if (showLoading) setLoading(true);
       const personnelData = await getPersonnel();
+      if (request !== attendanceRequest.current) return;
       const selfStaffNames = getStaffAttendanceNameVariants(nhanVien, personnelData);
       const staffScope = restrictToSelf
         ? selfStaffNames
@@ -168,16 +181,19 @@ const AttendanceManagementPage: React.FC = () => {
       const selectedPersonnel = selectedStaff
         ? personnelData.find((p) => staffNamesMatch(p.ho_ten, selectedStaff))
         : undefined;
+      const searchedPersonnel = debouncedSearch ? personnelData.filter(p =>
+        p.ho_ten.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        p.id_nhan_su?.toLowerCase().includes(debouncedSearch.toLowerCase())) : [];
       const staffFilter = restrictToSelf
         ? undefined
         : selectedStaff
-          ? [selectedStaff, selectedPersonnel?.id_nhan_su].filter(
+          ? [selectedStaff, selectedPersonnel?.id_nhan_su, selectedPersonnel?.id].filter(
               (value): value is string => Boolean(value)
             )
-          : undefined;
+          : searchedPersonnel.length ? searchedPersonnel.flatMap(p => [p.ho_ten, p.id, p.id_nhan_su || p.id]) : undefined;
 
       if (restrictToSelf && selfStaffNames.length === 0) {
-        setRecords([]);
+        setAllRecords([]);
         setTotalCount(0);
         setSummaryStats({ tongCong: 0, tongPhutMuon: 0, tongBuoiNghi: 0 });
         setDailyAttendanceStats({});
@@ -189,13 +205,14 @@ const AttendanceManagementPage: React.FC = () => {
       // bản ghi mới sẽ chiếm chỗ và làm người ở cuối trang bị hiểu nhầm là vắng.
       const summaryRows = await getAllAttendanceRecords(
         staffScope,
-        debouncedSearch,
+        !restrictToSelf && searchedPersonnel.length ? '' : debouncedSearch,
         {
           nhan_su: staffFilter,
           startDate,
           endDate,
-        }
+        }, controller.signal
       );
+      if (request !== attendanceRequest.current) return;
 
       let datesToProcess: string[] = [];
       if (summaryRows.length > 0) {
@@ -228,7 +245,7 @@ const AttendanceManagementPage: React.FC = () => {
       });
 
       // —— Tổng hợp theo bộ lọc ——
-      const workDayKeys = new Set<string>();
+      let tongCong = 0;
       let tongPhutMuon = 0;
 
       const byPersonDay = new Map<string, AttendanceRecord[]>();
@@ -254,11 +271,7 @@ const AttendanceManagementPage: React.FC = () => {
         if (dayLateMinutes > 0) tongPhutMuon += dayLateMinutes;
       });
 
-      byPersonDay.forEach((dayRows, key) => {
-        if (dayRows.some((r) => r.checkin && String(r.checkin).trim())) {
-          workDayKeys.add(key);
-        }
-      });
+      byPersonDay.forEach((dayRows) => { tongCong += workDaysForDayShifts(dayRows); });
 
       let datesForAbsent: string[] = [];
       if (startDate && endDate) {
@@ -286,7 +299,7 @@ const AttendanceManagementPage: React.FC = () => {
       }
 
       setSummaryStats({
-        tongCong: workDayKeys.size,
+        tongCong,
         tongPhutMuon,
         tongBuoiNghi,
       });
@@ -340,22 +353,17 @@ const AttendanceManagementPage: React.FC = () => {
         nextDailyStats[date] = { present: presentPeople.size, total: totalPeople.size };
       }
 
-      const totalPages = Math.max(1, Math.ceil(finalRecords.length / pageSize));
-      const safePage = Math.min(currentPage, totalPages);
-      const from = (safePage - 1) * pageSize;
-      setRecords(finalRecords.slice(from, from + pageSize));
+      setAllRecords(finalRecords);
       setTotalCount(finalRecords.length);
       setDailyAttendanceStats(nextDailyStats);
       setPersonnel(personnelData);
-      if (safePage !== currentPage) setCurrentPage(safePage);
+
     } catch (error) {
-      console.error(error);
+      if (request === attendanceRequest.current) setLoadError(formatAttendanceSaveError(error));
     } finally {
-      if (showLoading) setLoading(false);
+      if (request === attendanceRequest.current) setLoading(false);
     }
   }, [
-    currentPage,
-    pageSize,
     debouncedSearch,
     selectedStaff,
     startDate,
@@ -366,7 +374,8 @@ const AttendanceManagementPage: React.FC = () => {
   ]);
 
   useEffect(() => {
-    loadRecords(true);
+    void loadRecords(true);
+    return () => { attendanceRequest.current++; attendanceAbort.current?.abort(); };
   }, [loadRecords]);
 
   useEffect(() => {
@@ -391,6 +400,11 @@ const AttendanceManagementPage: React.FC = () => {
       return;
     }
     const isMockAbsent = (record as AttendanceRecord & { isMockAbsent?: boolean }).isMockAbsent;
+    if (isMockAbsent && isAdmin) {
+      const person = personnel.find(p => staffNamesMatch(p.ho_ten, record.nhan_su) || staffNamesMatch(p.id_nhan_su, record.nhan_su));
+      setManualDraft({ person: person?.id, day: record.ngay });
+      return;
+    }
     if (isMockAbsent) {
       setIsNewRecord(true);
       setOriginalRecord(null);
@@ -668,9 +682,11 @@ const AttendanceManagementPage: React.FC = () => {
                 if (claimedIds.has(e.id)) return false;
                 // So sánh theo id_cham_cong
                 if (rec.id_cham_cong && e.id_cham_cong && rec.id_cham_cong === e.id_cham_cong) return true;
-                // So sánh theo nhan_su + ngay (1 người chỉ có 1 bản ghi/ngày)
+                // Cùng nhân viên/ngày vẫn có thể có hai ca; chỉ ghép đúng giờ vào.
                 if (rec.nhan_su && e.nhan_su && rec.ngay && e.ngay) {
-                  return rec.nhan_su.toLowerCase() === e.nhan_su.toLowerCase() && rec.ngay === e.ngay;
+                  return attendancePersonnelKey(rec.nhan_su, personnel) === attendancePersonnelKey(e.nhan_su, personnel)
+                    && rec.ngay === e.ngay && Boolean(rec.checkin)
+                    && parseTimeStringToMinutes(rec.checkin) === parseTimeStringToMinutes(e.checkin);
                 }
                 return false;
               });
@@ -767,6 +783,17 @@ const AttendanceManagementPage: React.FC = () => {
   const tableColSpan = 1 + visibleColumns.length;
 
   const selfDisplayName = resolveStaffNameForUser(nhanVien, personnel);
+  const displayStaffName = (value: string) => personnel.find(p =>
+    [p.id, p.id_nhan_su, p.ho_ten].some(token => staffNamesMatch(value, token)))?.ho_ten || value;
+  const dailyCredits = React.useMemo(() => {
+    const groups = new Map<string, AttendanceRecord[]>();
+    for (const row of allRecords) {
+      const key = `${row.ngay}|${attendancePersonnelKey(row.nhan_su, personnel)}`;
+      groups.set(key, [...(groups.get(key) || []), row]);
+    }
+    return new Map([...groups].map(([key, rows]) => [key, workDaysForDayShifts(rows)]));
+  }, [allRecords, personnel]);
+  const dayCredit = (row: AttendanceRecord) => dailyCredits.get(`${row.ngay}|${attendancePersonnelKey(row.nhan_su, personnel)}`) || 0;
 
   const handleMonthChange = (monthStr: string) => {
     setSelectedMonth(monthStr);
@@ -802,9 +829,11 @@ const AttendanceManagementPage: React.FC = () => {
           </div>
         )}
 
+        {loadError && <p role="alert" className="text-red-600">{loadError} <button onClick={() => void loadRecords(true)} className="underline">Thử lại</button></p>}
         {/* Toolbar */}
         <div className="bg-card p-3 rounded-lg border border-border shadow-sm flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3 flex-1 flex-wrap">
+            {isAdmin && <button onClick={() => setManualDraft({})} className="px-3 py-2 rounded bg-primary text-primary-foreground text-sm">Bổ sung chấm công</button>}
             <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors">
               <ArrowLeft size={18} /> Quay lại
             </button>
@@ -1079,8 +1108,10 @@ const AttendanceManagementPage: React.FC = () => {
                           </div>
                         </td>
                       )}
-                      {visibleColumns.includes('nhan_su') && <td className="px-4 py-4 font-semibold text-foreground whitespace-nowrap">{record.nhan_su}</td>}
-                      {visibleColumns.includes('ngay') && <td className="px-4 py-4 text-muted-foreground whitespace-nowrap">{formatDateForDisplay(record.ngay)}</td>}
+                      {visibleColumns.includes('nhan_su') && <td className="px-4 py-4 font-semibold text-foreground whitespace-nowrap">{displayStaffName(record.nhan_su)}
+                        {record.ghi_chu && <p className="text-xs font-normal whitespace-normal">Bổ sung: {record.ghi_chu} — {displayStaffName(record.bo_sung_boi || '')}</p>}
+                      </td>}
+                      {visibleColumns.includes('ngay') && <td className="px-4 py-4 text-muted-foreground whitespace-nowrap">{formatDateForDisplay(record.ngay)}<p className="text-xs">Công ngày: {dayCredit(record)}</p></td>}
                       
                       {visibleColumns.includes('trang_thai') && (
                         <td className="px-4 py-4">
@@ -1251,11 +1282,12 @@ const AttendanceManagementPage: React.FC = () => {
                               {record.id_cham_cong}
                             </span>
                           )}
-                          <span className="font-semibold text-foreground text-[14px] truncate">{record.nhan_su}</span>
+                          <span className="font-semibold text-foreground text-[14px] truncate">{displayStaffName(record.nhan_su)}</span>
                         </div>
                         <span className="text-[11px] text-muted-foreground shrink-0 ml-2">{formatDateForDisplay(record.ngay)}</span>
                       </div>
                       
+                      <p className="text-xs">Công ngày: {dayCredit(record)}{record.ghi_chu ? ` · Bổ sung: ${record.ghi_chu}` : ''}</p>
                       <div className="flex items-center gap-2 mb-1.5">
                         {isMockAbsent ? (
                           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-100/80 text-red-700 text-[11px] font-bold border border-red-200">
@@ -1344,7 +1376,7 @@ const AttendanceManagementPage: React.FC = () => {
           </div>
 
           <Pagination
-            currentPage={currentPage}
+            currentPage={safePage}
             pageSize={pageSize}
             totalCount={totalCount}
             onPageChange={setCurrentPage}
@@ -1354,6 +1386,8 @@ const AttendanceManagementPage: React.FC = () => {
         </div>
       </div>
 
+      {isAdmin && manualDraft && <ManualAttendanceModal personnel={personnel} initialPerson={manualDraft.person}
+        initialDay={manualDraft.day} onClose={() => setManualDraft(null)} onSaved={() => loadRecords(false)} />}
       {/* Modal - Add/Edit Attendance */}
       {isModalOpen && createPortal(
         <div className="fixed inset-0 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" style={{ zIndex: 9999999 }}>

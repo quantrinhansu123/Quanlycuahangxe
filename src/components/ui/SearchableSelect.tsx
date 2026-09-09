@@ -3,6 +3,7 @@ import * as React from "react"
 import { createPortal } from "react-dom"
 
 import { cn, normalizeForCompare } from "../../lib/utils"
+import { getErrorDetails } from "../../lib/errorDetails"
 
 interface Option {
   value: string
@@ -23,6 +24,7 @@ interface SearchableSelectProps {
   className?: string
   optionClassName?: string
   disabled?: boolean
+  loadOptions?: (search: string, signal: AbortSignal) => Promise<Option[]>
 }
 
 const MAX_VISIBLE_ITEMS = 50;
@@ -40,9 +42,26 @@ export const SearchableSelect = React.memo(function SearchableSelect({
   className,
   optionClassName,
   disabled = false,
+  loadOptions,
 }: SearchableSelectProps) {
   const [open, setOpen] = React.useState(false)
   const [search, setSearch] = React.useState("")
+  const [remoteOptions, setRemoteOptions] = React.useState<Option[]>([])
+  const [remoteError, setRemoteError] = React.useState('')
+  const [searching, setSearching] = React.useState(false)
+  React.useEffect(() => {
+    if (!open || !loadOptions) return;
+    const controller = new AbortController();
+    setSearching(true); setRemoteError(''); setRemoteOptions([]);
+    const timer = setTimeout(() => {
+      loadOptions(search, controller.signal).then(rows => {
+        if (!controller.signal.aborted) setRemoteOptions(rows);
+      }).catch(error => {
+        if (!controller.signal.aborted) setRemoteError(getErrorDetails(error).message || 'Không tải được khách hàng. Vui lòng thử lại.');
+      }).finally(() => { if (!controller.signal.aborted) setSearching(false); });
+    }, 300);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [open, search, loadOptions]);
   const inputRef = React.useRef<HTMLInputElement>(null)
   const triggerRef = React.useRef<HTMLButtonElement>(null)
   const [dropdownPos, setDropdownPos] = React.useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 })
@@ -93,20 +112,22 @@ export const SearchableSelect = React.memo(function SearchableSelect({
   }, []);
 
   const filteredOptions = React.useMemo(() => {
+    if (loadOptions) return remoteOptions;
     if (!search) return uniqueOptions.slice(0, MAX_VISIBLE_ITEMS);
     const q = normalizeForCompare(search);
     if (!q) return uniqueOptions.slice(0, MAX_VISIBLE_ITEMS);
     const matched = uniqueOptions.filter((o) => matchOption(o, q));
     return matched.slice(0, MAX_VISIBLE_ITEMS);
-  }, [uniqueOptions, search, matchOption]);
+  }, [uniqueOptions, search, matchOption, loadOptions, remoteOptions]);
 
   const remainingCount = React.useMemo(() => {
+    if (loadOptions) return 0;
     if (!search) return Math.max(0, uniqueOptions.length - MAX_VISIBLE_ITEMS);
     const q = normalizeForCompare(search);
     if (!q) return Math.max(0, uniqueOptions.length - MAX_VISIBLE_ITEMS);
     const totalMatched = uniqueOptions.filter((o) => matchOption(o, q)).length;
     return Math.max(0, totalMatched - MAX_VISIBLE_ITEMS);
-  }, [uniqueOptions, search, matchOption]);
+  }, [uniqueOptions, search, matchOption, loadOptions]);
 
   const [isMobile, setIsMobile] = React.useState(false);
 
@@ -178,7 +199,7 @@ export const SearchableSelect = React.memo(function SearchableSelect({
           <div className="flex-1 overflow-y-auto p-1">
             {filteredOptions.length === 0 ? (
               <div className="py-6 text-center text-[12px] text-muted-foreground">
-                {emptyMessage}
+                {searching ? 'Đang tìm…' : remoteError || emptyMessage}
               </div>
             ) : (
               <>
@@ -237,7 +258,7 @@ export const SearchableSelect = React.memo(function SearchableSelect({
           <div className="max-h-60 overflow-y-auto p-1">
             {filteredOptions.length === 0 ? (
               <div className="py-6 text-center text-[12px] text-muted-foreground">
-                {emptyMessage}
+                {searching ? 'Đang tìm…' : remoteError || emptyMessage}
               </div>
             ) : (
               <>

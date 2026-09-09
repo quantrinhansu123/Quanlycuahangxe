@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { getErrorDetails } from '../lib/errorDetails';
 import {
   MapPin, Clock, User, 
@@ -8,7 +8,8 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { getPersonnel } from '../data/personnelData';
 import type { NhanSu } from '../data/personnelData';
-import { upsertAttendanceRecord, getAttendanceRecords } from '../data/attendanceData';
+import { upsertAttendanceRecord, getAllAttendanceRecords, staffNamesMatch } from '../data/attendanceData';
+import { workDaysForDayShifts } from '../utils/timekeeping';
 import type { AttendanceRecord } from '../data/attendanceData';
 import { clsx } from 'clsx';
 import { formatDateVi, formatLocalIsoDate, formatTime24h } from '../utils/datetimeFormat';
@@ -20,6 +21,7 @@ const CheckInPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [selectedStaff, setSelectedStaff] = useState<NhanSu | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const saving = useRef(false);
   const [location, setLocation] = useState<{lat: number, lng: number} | null>(null);
   const [posError, setPosError] = useState<string | null>(null);
 
@@ -28,7 +30,7 @@ const CheckInPage: React.FC = () => {
       setLoading(true);
       const [pData, aData] = await Promise.all([
         getPersonnel(),
-        getAttendanceRecords()
+        getAllAttendanceRecords(undefined, '', { startDate: formatLocalIsoDate().slice(0, 7) + '-01', endDate: formatLocalIsoDate() })
       ]);
       setPersonnel(pData);
       setAttendance(aData);
@@ -59,7 +61,8 @@ const CheckInPage: React.FC = () => {
   }, []);
 
   const handleCheckAction = async (type: 'in' | 'out') => {
-    if (!selectedStaff) return;
+    if (!selectedStaff || saving.current) return;
+    saving.current = true;
     
     try {
       setSubmitting(true);
@@ -68,7 +71,10 @@ const CheckInPage: React.FC = () => {
       const locationStr = location ? `${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}` : 'Không có tọa độ';
 
       // Check if record exists for today and staff
-      const existingRecord = attendance.find((r: AttendanceRecord) => r.ngay === today && r.nhan_su === selectedStaff.ho_ten);
+      const todayRows = attendance.filter(r => r.ngay === today && belongsToStaff(r, selectedStaff.ho_ten));
+      const existingRecord = todayRows.find(r => r.checkin && !r.checkout);
+      if (type === 'in' && existingRecord) throw new Error('Ca hiện tại chưa chấm ra.');
+      if (type === 'out' && !existingRecord) throw new Error('Chưa có ca đang làm để chấm ra.');
 
       const record: Partial<AttendanceRecord> = existingRecord 
         ? { ...existingRecord } 
@@ -86,26 +92,32 @@ const CheckInPage: React.FC = () => {
 
       await upsertAttendanceRecord(record);
       alert(`${type === 'in' ? 'Check-in' : 'Check-out'} thành công cho ${selectedStaff.ho_ten}`);
-      loadData();
+      await loadData();
     } catch (error) {
       alert("Lỗi khi chấm công: " + (getErrorDetails(error).message || 'Không thể chấm công'));
     } finally {
+      saving.current = false;
       setSubmitting(false);
     }
   };
 
+  const belongsToStaff = (row: AttendanceRecord, staffName: string) => {
+    const staff = personnel.find(p => staffNamesMatch(p.ho_ten, staffName));
+    return [staffName, staff?.id, staff?.id_nhan_su].some(token => token && staffNamesMatch(row.nhan_su, token));
+  };
   const getTodayStatus = (staffName: string) => {
     const today = formatLocalIsoDate();
-    return attendance.find((r: AttendanceRecord) => r.ngay === today && r.nhan_su === staffName);
+    return attendance.find((r: AttendanceRecord) => r.ngay === today && belongsToStaff(r, staffName));
   };
 
   const getMonthlyWorkedDays = (staffName: string) => {
     const currentMonthPrefix = formatLocalIsoDate().substring(0, 7);
-    return attendance.filter((r: AttendanceRecord) => 
-      r.nhan_su === staffName && 
-      r.ngay.startsWith(currentMonthPrefix) && 
-      r.checkin != null
-    ).length;
+    const byDay = new Map<string, AttendanceRecord[]>();
+    for (const r of attendance) {
+      if (!belongsToStaff(r, staffName) || !r.ngay.startsWith(currentMonthPrefix)) continue;
+      byDay.set(r.ngay, [...(byDay.get(r.ngay) || []), r]);
+    }
+    return [...byDay.values()].reduce((sum, rows) => sum + workDaysForDayShifts(rows), 0);
   };
 
   return (

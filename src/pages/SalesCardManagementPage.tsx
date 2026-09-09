@@ -1,3 +1,4 @@
+import { queryCustomers } from '../data/salesQueryData';
 import type { DailySalesSummary } from '../data/salesQueryData';
 import { getErrorDetails } from '../lib/errorDetails';
 import { useBranches } from '../hooks/useBranches';
@@ -31,7 +32,7 @@ import Pagination from '../components/Pagination';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/toast';
 import type { KhachHang } from '../data/customerData';
-import { getCustomersForSelect, upsertCustomer } from '../data/customerData';
+import { upsertCustomer } from '../data/customerData';
 import type { ThuChi } from '../data/financialData';
 import { deleteTransactionByOrderId, getTransactionByOrderId, upsertTransaction } from '../data/financialData';
 import type { NhanSu } from '../data/personnelData';
@@ -208,9 +209,7 @@ const SalesCardManagementPage: React.FC = () => {
     } catch (error) {
       console.error('Error loading reference data:', error);
     }
-    void getCustomersForSelect()
-      .then((custData) => setCustomers(custData as KhachHang[]))
-      .catch((error) => console.error('Error loading customers for select:', error));
+
   }, []);
 
   /** Tải lại danh sách dịch vụ từ DB (sau khi sửa trang /dich-vu). */
@@ -226,10 +225,14 @@ const SalesCardManagementPage: React.FC = () => {
   }, []);
 
   const salesRequest = useRef(0);
+  const salesAbort = useRef<AbortController | null>(null);
   const [dailySummaries, setDailySummaries] = useState<Record<string, DailySalesSummary>>({});
 
   const loadSalesCards = useCallback(async () => {
     const request = ++salesRequest.current;
+    salesAbort.current?.abort();
+    const controller = new AbortController();
+    salesAbort.current = controller;
     try {
       setLoading(true);
       const staffFilter = isAdmin && selectedStaff ? selectedStaff : undefined;
@@ -245,7 +248,8 @@ const SalesCardManagementPage: React.FC = () => {
         dateStart,
         dateEnd,
         staffFilter,
-        branchFilter
+        branchFilter,
+        controller.signal
       );
 
       if (request !== salesRequest.current) return;
@@ -265,7 +269,7 @@ const SalesCardManagementPage: React.FC = () => {
       setTotalCustomers(0);
       setDailySummaries({});
       console.error('Error loading sales cards:', error);
-      showToast('Không tải được danh sách phiếu bán hàng. Kiểm tra kết nối hoặc thử xóa bộ lọc.', 'error');
+      showToast(error instanceof Error ? error.message : 'Không tải được danh sách phiếu bán hàng. Vui lòng thử lại.', 'error');
     } finally {
       if (request === salesRequest.current) setLoading(false);
     }
@@ -281,9 +285,22 @@ const SalesCardManagementPage: React.FC = () => {
     await loadSalesCards();
   }, [loadReferenceData, loadSalesCards]);
 
+  useEffect(() => { void loadReferenceData(); }, [loadReferenceData]);
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    void loadSalesCards();
+    return () => { salesRequest.current++; salesAbort.current?.abort(); };
+  }, [loadSalesCards]);
+
+  const searchCustomersForForm = useCallback(async (search: string, signal: AbortSignal) => {
+    const result = await queryCustomers({ p_search: search }, 1, 50, signal);
+    if (signal.aborted) return [];
+    setCustomers(previous => Array.from(new Map([...previous, ...result.data].map(c => [c.id, c])).values()));
+    return result.data.map(c => ({
+      value: c.ma_khach_hang || c.id,
+      label: `${c.ho_va_ten || 'Chưa có tên'} - ${c.so_dien_thoai || ''} - ${c.bien_so_xe || ''}`,
+      searchKey: `${c.ho_va_ten} ${c.so_dien_thoai} ${c.bien_so_xe}`,
+    }));
+  }, []);
 
   const summaryLoading = loading;
 
@@ -2065,6 +2082,7 @@ const SalesCardManagementPage: React.FC = () => {
             editingCard={editingCard}
             initialData={formData}
             customerOptions={customerOptions}
+            onCustomerSearch={searchCustomersForForm}
             personnel={personnel}
             services={services}
             onClose={handleCloseModal}

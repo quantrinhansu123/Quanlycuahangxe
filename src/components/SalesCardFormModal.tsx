@@ -69,13 +69,14 @@ const SalesCardFormModal: React.FC<{
   editingCard: SalesCard | null;
   initialData: SalesCardFormData;
   customerOptions: { value: string; label: string; searchKey?: string; dia_chi_hien_tai?: string }[];
+  onCustomerSearch?: (search: string, signal: AbortSignal) => Promise<{ value: string; label: string; searchKey?: string }[]>;
   personnel: NhanSu[];
   services: DichVu[];
   onClose: () => void;
   onSubmit: (data: SalesCardFormData) => Promise<void>;
   onCollectPayment?: (data: SalesCardFormData, method: string) => Promise<void>;
   isReadOnly?: boolean;
-}> = React.memo(({ isOpen, editingCard, initialData, customerOptions, personnel, services, onClose, onSubmit, isReadOnly, onCollectPayment }) => {
+}> = React.memo(({ isOpen, editingCard, initialData, customerOptions, onCustomerSearch, personnel, services, onClose, onSubmit, isReadOnly, onCollectPayment }) => {
   const CUSTOMER_BRANCH_OPTIONS = useBranches();
   const { nhanVien } = useAuth();
   const [formData, setFormData] = useState<SalesCardFormData>(initialData);
@@ -393,6 +394,7 @@ const SalesCardFormModal: React.FC<{
                 </label>
                 <SearchableSelect
                   options={extendedCustomerOptions}
+                  loadOptions={onCustomerSearch}
                   value={formData.khach_hang_id || undefined}
                   onValueChange={(val: string) => !isReadOnly && setFormData(prev => ({ ...prev, khach_hang_id: val }))}
                   placeholder="-- Chọn hoặc tìm khách hàng --"

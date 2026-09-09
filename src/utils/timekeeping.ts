@@ -38,19 +38,48 @@ export function parseTimeStringToMinutes(timeStr: string | null | undefined): nu
   if (afterT) {
     const hh = parseInt(afterT[1], 10);
     const mm = parseInt(afterT[2], 10);
-    if (Number.isNaN(hh) || Number.isNaN(mm)) return null;
+    if (Number.isNaN(hh) || Number.isNaN(mm) || hh > 23 || mm > 59) return null;
     return hh * 60 + mm;
   }
   const m = t.match(/^(\d{1,2}):(\d{1,2})(?::(\d{2}))?/);
   if (!m) return null;
   const hh = parseInt(m[1], 10);
   const mm = parseInt(m[2], 10);
-  if (Number.isNaN(hh) || Number.isNaN(mm)) return null;
+  if (Number.isNaN(hh) || Number.isNaN(mm) || hh > 23 || mm > 59) return null;
   return hh * 60 + mm;
 }
 
 const timeToMinutes = (timeStr: string | null | undefined): number =>
   parseTimeStringToMinutes(timeStr) ?? 0;
+
+export const ATTENDANCE_SHIFTS = {
+  morning: { start: '07:30', end: '11:30' },
+  afternoon: { start: '14:00', end: '19:30' },
+} as const;
+
+/** Union of completed intervals: duplicates never increase credit. Missing times earn no credit. */
+export function workDaysForDayShifts(rows: { checkin: string | null; checkout: string | null }[]): number {
+  const preciseMinutes = (value: string | null) => {
+    const minutes = parseTimeStringToMinutes(value);
+    const seconds = value?.match(/(?:T|^)\d{1,2}:\d{2}:(\d{2}(?:\.\d+)?)/)?.[1];
+    if (minutes == null || (seconds != null && Number(seconds) >= 60)) return null;
+    return minutes + Number(seconds || 0) / 60;
+  };
+  const intervals = rows.flatMap(r => {
+    const start = preciseMinutes(r.checkin);
+    const end = preciseMinutes(r.checkout);
+    return start != null && end != null && end > start ? [[start, end]] : [];
+  }).sort((a, b) => a[0] - b[0]);
+  return Object.values(ATTENDANCE_SHIFTS).reduce((credit, shift) => {
+    let covered = parseTimeStringToMinutes(shift.start)!;
+    const end = parseTimeStringToMinutes(shift.end)!;
+    for (const [a, b] of intervals) {
+      if (a > covered) break;
+      covered = Math.max(covered, b);
+    }
+    return credit + (covered >= end ? 0.5 : 0);
+  }, 0);
+}
 
 /** Các dòng chấm công cùng một ngày: tăng ca = theo **giờ ra muộn nhất** (một lần / ngày). */
 export function overtimeMinutesForDayShifts(

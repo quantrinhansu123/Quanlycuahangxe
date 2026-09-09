@@ -3,7 +3,7 @@
  */
 
 import { removeVietnameseTones } from '../lib/utils';
-import { MOC_TANG_CA_TINH_TU, overtimeMinutesForDayShifts, parseTimeStringToMinutes } from '../utils/timekeeping';
+import { workDaysForDayShifts, MOC_TANG_CA_TINH_TU, overtimeMinutesForDayShifts, parseTimeStringToMinutes } from '../utils/timekeeping';
 
 export const ATTENDANCE_SALARY = {
   NGAY_LAM_TRONG_THANG: 28,
@@ -244,8 +244,7 @@ export function demSoBuaAnTachTheoDongCham(
 }
 
 /**
- * Số **ngày công** trong tháng: các ngày (không trùng) có ít nhất một bản ghi
- * có giờ vào, khớp tên/id như chỉ số "Tổng công" của bảng chấm công.
+ * Tổng các ca đủ giờ: sáng 0.5, chiều 0.5, tối đa 1 công mỗi ngày.
  */
 export function demSoNgayCongTheoDongCham(
   cacDong: DongChamBuaNhap[],
@@ -263,9 +262,7 @@ export function demSoNgayCongTheoDongCham(
   }
   let soNgay = 0;
   for (const [, dongsCuaMNgay] of theoNgay) {
-    if (dongsCuaMNgay.some((d) => d.checkin && String(d.checkin).trim() !== '')) {
-      soNgay += 1;
-    }
+    soNgay += workDaysForDayShifts(dongsCuaMNgay);
   }
   return soNgay;
 }

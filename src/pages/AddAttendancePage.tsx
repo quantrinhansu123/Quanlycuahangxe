@@ -8,6 +8,7 @@ import {
   formatAttendanceSaveError,
   createAttendanceRecord,
   getAttendancePaginated,
+  getAllAttendanceRecords,
   getNextAttendanceId,
   getStaffAttendanceNameVariants,
   resolveStaffNameForUser,
@@ -22,6 +23,7 @@ import {
 } from '../data/personnelData';
 import { logGeolocationError } from '../lib/geolocationError';
 import {
+  workDaysForDayShifts,
   calculateAttendanceStatus,
   formatMinutesToHours,
   overtimeMinutesForDayShifts,
@@ -86,7 +88,7 @@ const AddAttendancePage: React.FC = () => {
         const monthStart = formatLocalIsoDate(new Date(now.getFullYear(), now.getMonth(), 1));
         const monthEnd = formatLocalIsoDate(new Date(now.getFullYear(), now.getMonth() + 1, 0));
 
-        const { data: monthData } = await getAttendancePaginated(1, 100, staffNames, '', {
+        const monthData = await getAllAttendanceRecords(staffNames, '', {
           startDate: monthStart,
           endDate: monthEnd
         });
@@ -201,7 +203,6 @@ const AddAttendancePage: React.FC = () => {
       } else {
         // First press: update the current record
         const updatedData = { ...formData, [type]: now };
-        setFormData(updatedData);
 
         const dbPayload = {
           ...updatedData,
@@ -212,6 +213,7 @@ const AddAttendancePage: React.FC = () => {
         };
 
         const savedRecord = await upsertAttendanceRecord(dbPayload);
+        setFormData(savedRecord);
 
         // Update local stats list (replace old one if exists or add new)
         setMonthlyRecords(prev => {
@@ -290,7 +292,7 @@ const AddAttendancePage: React.FC = () => {
     });
 
     return {
-      totalDays: uniqueDates.length,
+      totalDays: Object.values(recordsByDate).reduce((sum, rows) => sum + workDaysForDayShifts(rows), 0),
       lateCount,
       totalOvertimeMinutes,
       overtimeFormatted: formatMinutesToHours(totalOvertimeMinutes),
