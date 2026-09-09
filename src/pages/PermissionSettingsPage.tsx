@@ -54,7 +54,8 @@ const PermissionSettingsPage: React.FC = () => {
     }
   });
 
-  const [phongBan, setPhongBan] = useState<string>(DEPARTMENT_OPTIONS[0]);
+  // The branch catalog loads asynchronously and may legitimately be empty.
+  const [phongBan, setPhongBan] = useState<string>(WILDCARD_DEPARTMENT);
   const [viTri, setViTri] = useState<string>(POSITION_OPTIONS[0]);
   const [moduleSearch, setModuleSearch] = useState('');
   const [departmentOptions, setDepartmentOptions] = useState<string[]>([...DEPARTMENT_OPTIONS]);

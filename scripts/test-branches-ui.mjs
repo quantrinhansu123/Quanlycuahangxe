@@ -16,6 +16,8 @@ try {
     let failCustomerQuery = false;
     const salesRequests = [];
     const branches = [{ id: '1', ten_co_so: 'Cơ sở Bắc Giang' }, { id: '2', ten_co_so: 'Cơ sở Bắc Ninh' }];
+    let releaseBranches;
+    const branchGate = new Promise(resolve => { releaseBranches = resolve; });
     page.on('pageerror', error => pageErrors.push(error.message));
     await context.addInitScript(() => { if (!localStorage.getItem('demo_role')) localStorage.setItem('demo_role', 'admin'); });
     await context.route('**/*', async route => {
@@ -40,6 +42,7 @@ try {
           branches.push(row); writes.push('co_so');
           return json(row);
         }
+        await branchGate;
         return json(branches);
       }
       if (url.pathname.endsWith('/customers_query')) {
@@ -71,6 +74,20 @@ try {
       if (request.method() === 'POST' && !url.pathname.includes('/rpc/')) writes.push(url.pathname);
       return json([]);
     });
+    await page.goto(`${base}/cai-dat/phan-quyen`);
+    await page.getByRole('heading', { name: 'Cài đặt phân quyền', exact: true }).waitFor({ timeout: 5000 });
+    assert.equal(await page.locator('select').first().inputValue(), '*');
+    releaseBranches();
+    await page.locator('select').first().selectOption('Cơ sở Bắc Ninh');
+    await page.getByRole('button', { name: 'Bỏ chọn tất cả', exact: true }).click();
+    page.once('dialog', dialog => dialog.accept());
+    await page.getByRole('button', { name: 'Lưu', exact: true }).click();
+    await page.reload();
+    await page.locator('select').first().selectOption('Cơ sở Bắc Ninh');
+    assert.equal(await page.getByRole('checkbox').filter({ visible: true }).count() > 0, true);
+    assert.equal(await page.locator('input[type="checkbox"]:checked').count(), 0);
+    assert.deepEqual(pageErrors, []);
+    console.log(`PASS ${viewport.width}px: permissions cold load before branches arrive, select/save/reload`);
     await page.goto(`${base}/cai-dat/co-so`);
     await page.getByRole('heading', { name: 'Quản lý cơ sở' }).waitFor();
     await page.getByRole('button', { name: 'Tạo cơ sở', exact: true }).click();
