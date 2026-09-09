@@ -182,6 +182,34 @@ test('branch catalog: create, legacy data, customer/save filters, normalized dup
   assert.equal((await db.query(`SELECT count(*) n FROM co_so WHERE app_branch(ten_co_so) = 'ha noi'`)).rows[0].n, 1);
 });
 
+test('branch deletion: manager only, unused only, normalized legacy references and RLS-hidden rows protected', async () => {
+  const migration = await readFile(new URL('../supabase/migrations/202609090002_delete_unused_branch.sql', import.meta.url), 'utf8');
+  await db.exec(migration);
+  await db.exec(migration);
+  const manager = (await db.query(`SELECT id FROM nhan_su WHERE id_nhan_su = 'NV1'`)).rows[0].id;
+  const technician = (await db.query(`SELECT id FROM nhan_su WHERE id_nhan_su = 'NV2'`)).rows[0].id;
+  await db.exec(`INSERT INTO co_so(ten_co_so) VALUES ('Cơ sở Xóa thử'), ('Cơ sở Có dữ liệu ẩn');
+    CREATE TABLE branch_delete_test_reference(co_so text);
+    INSERT INTO branch_delete_test_reference VALUES ('  có dữ liệu ẩn ');
+    ALTER TABLE branch_delete_test_reference ENABLE ROW LEVEL SECURITY;
+    GRANT SELECT ON branch_delete_test_reference TO anon;`);
+  await db.query(`SELECT set_config('app.test_user', $1, false)`, [technician]);
+  await db.exec('SET ROLE anon');
+  await assert.rejects(db.query(`SELECT delete_unused_branch($1)`, ['Cơ sở Xóa thử']), { code: '42501' });
+  await db.exec('RESET ROLE');
+  await db.query(`SELECT set_config('app.test_user', $1, false)`, [manager]);
+  await db.exec('SET ROLE anon');
+  assert.equal((await db.query('SELECT count(*) n FROM branch_delete_test_reference')).rows[0].n, 0);
+  await assert.rejects(db.query(`SELECT delete_unused_branch($1)`, ['Cơ sở Có dữ liệu ẩn']), { code: '23503' });
+  await assert.rejects(db.query(`SELECT delete_unused_branch($1)`, ['Cơ sở Bắc Ninh']), { code: '23503' });
+  await assert.rejects(db.exec(`DELETE FROM co_so WHERE ten_co_so = 'Cơ sở Xóa thử'`), { code: '42501' });
+  await db.query(`SELECT delete_unused_branch($1)`, [' cơ sở xóa thử ']);
+  assert.equal((await db.query(`SELECT count(*) n FROM co_so WHERE app_branch(ten_co_so) = 'xoa thu'`)).rows[0].n, 0);
+  assert.equal((await db.query(`SELECT count(*) n FROM co_so WHERE app_branch(ten_co_so) = 'bac ninh'`)).rows[0].n, 1);
+  await assert.rejects(db.query(`SELECT delete_unused_branch($1)`, ['Cơ sở Xóa thử']), { code: 'P0002' });
+  await db.exec('RESET ROLE; DROP TABLE branch_delete_test_reference');
+});
+
 test('bulk-data optimization preserves results, images and existing rows; can be rerun', async () => {
   await db.exec('BEGIN');
   try {

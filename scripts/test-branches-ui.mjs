@@ -23,6 +23,13 @@ try {
       const url = new URL(request.url());
       if (url.origin === base) return route.continue();
       const json = body => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body), headers: { 'content-range': '0-0/0' } });
+      if (url.pathname.endsWith('/delete_unused_branch')) {
+        const { p_name } = request.postDataJSON();
+        if (p_name === 'Cơ sở Bắc Giang') return route.fulfill({ status: 409, contentType: 'application/json', body: JSON.stringify({ code: '23503', message: 'Cơ sở đang được dữ liệu sử dụng nên không thể xóa.' }) });
+        const index = branches.findIndex(branch => branch.ten_co_so === p_name);
+        if (index >= 0) branches.splice(index, 1);
+        return json(null);
+      }
       if (url.pathname.endsWith('/co_so')) {
         if (request.method() === 'POST') {
           const input = request.postDataJSON();
@@ -124,6 +131,25 @@ try {
     assert.equal(salesRequests.at(-1).p_page, 1, 'Changing branch resets pagination');
     assert.deepEqual(pageErrors, []);
     console.log(`PASS ${viewport.width}px: page 3 retains whole-day totals and new branch filter reaches API`);
+    await page.goto(`${base}/cai-dat/co-so`);
+    await page.getByRole('button', { name: 'Tạo cơ sở', exact: true }).click();
+    await page.getByLabel('Tên cơ sở', { exact: true }).fill('Xóa thử');
+    await page.getByRole('dialog').getByRole('button', { name: 'Tạo cơ sở', exact: true }).click();
+    const deleteButton = page.getByRole('button', { name: 'Xóa Cơ sở Xóa thử', exact: true });
+    page.once('dialog', dialog => dialog.dismiss());
+    await deleteButton.click();
+    assert.equal(await deleteButton.count(), 1);
+    page.once('dialog', dialog => dialog.accept());
+    await deleteButton.click();
+    await deleteButton.waitFor({ state: 'detached' });
+    await page.reload();
+    await page.getByRole('button', { name: 'Xóa Cơ sở Bắc Giang', exact: true }).waitFor();
+    assert.equal(await deleteButton.count(), 0);
+    page.once('dialog', dialog => dialog.accept());
+    await page.getByRole('button', { name: 'Xóa Cơ sở Bắc Giang', exact: true }).click();
+    await page.getByRole('alert').filter({ hasText: 'đang được dữ liệu sử dụng' }).waitFor();
+    assert.equal(await page.getByRole('button', { name: 'Xóa Cơ sở Bắc Giang', exact: true }).count(), 1);
+    console.log(`PASS ${viewport.width}px: cancel/delete unused branch, persisted removal, used branch rejected`);
     await page.evaluate(() => {
       localStorage.clear();
       localStorage.setItem('demo_role', 'staff');

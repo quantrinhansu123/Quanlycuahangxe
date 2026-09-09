@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { branchLabel, getBranchOptions, setBranchOptions } from '../lib/branchCatalog';
+import { branchKey, branchLabel, getBranchOptions, setBranchOptions } from '../lib/branchCatalog';
 
 let inFlight: Promise<void> | undefined;
 let loadedAt = 0;
@@ -31,4 +31,13 @@ export async function createBranch(name: string): Promise<string> {
   setBranchOptions([...getBranchOptions(), data.ten_co_so]);
   void loadBranches(true).catch(() => {});
   return data.ten_co_so;
+}
+
+export async function deleteBranch(name: string): Promise<void> {
+  const { error } = await supabase.rpc('delete_unused_branch', { p_name: name });
+  if (error?.code === 'PGRST202') throw new Error('Chưa cập nhật chức năng xóa cơ sở trên database. Vui lòng liên hệ quản trị viên.');
+  if (error) throw error;
+  if (inFlight) await inFlight.catch(() => {});
+  setBranchOptions(getBranchOptions().filter(branch => branchKey(branch) !== branchKey(name)));
+  void loadBranches(true).catch(() => {});
 }
