@@ -13,6 +13,7 @@ try {
     const pageErrors = [];
     const writes = [];
     const customers = [];
+    let failCustomerQuery = false;
     const salesRequests = [];
     const branches = [{ id: '1', ten_co_so: 'Cơ sở Bắc Giang' }, { id: '2', ten_co_so: 'Cơ sở Bắc Ninh' }];
     page.on('pageerror', error => pageErrors.push(error.message));
@@ -35,6 +36,7 @@ try {
         return json(branches);
       }
       if (url.pathname.endsWith('/customers_query')) {
+        if (failCustomerQuery) return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ code: '57014', message: 'canceling statement due to statement timeout' }) });
         const filters = request.postDataJSON();
         const rows = filters.p_phone || filters.p_plate ? [] : customers;
         return json({ data: rows, totalCount: rows.length });
@@ -100,6 +102,14 @@ try {
     assert.deepEqual(pageErrors, []);
     await page.screenshot({ path: `.build-verification/branches-${viewport.width}.png`, fullPage: true });
     console.log(`PASS ${viewport.width}px: create, duplicate error, inline creation, customer save/reopen, legacy branch edit`);
+    failCustomerQuery = true;
+    await page.reload();
+    await page.getByText('Chưa tải được', { exact: true }).waitFor();
+    assert.equal(await page.getByText(/Hiển thị.*trong tổng số/).count(), 0, 'Failed queries must not display an empty-data pagination count');
+    failCustomerQuery = false;
+    await page.getByRole('button', { name: 'Thử lại', exact: true }).click();
+    await page.getByRole('button', { name: 'Sửa', exact: true }).first().waitFor();
+    console.log(`PASS ${viewport.width}px: timeout shows unavailable count and retry restores customers`);
     await page.goto(`${base}/ban-hang/phieu-ban-hang`);
     await page.getByRole('button', { name: '3', exact: true }).click();
     await page.waitForFunction(() => document.body.innerText.includes('41-43'));

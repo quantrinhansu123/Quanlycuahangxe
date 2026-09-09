@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import { PGlite } from '@electric-sql/pglite';
 
 const migration = await readFile(new URL('../supabase/migrations/202609080001_sales_customer_queries.sql', import.meta.url), 'utf8');
+const timeoutMigration = await readFile(new URL('../supabase/migrations/202609090001_query_timeout_fix.sql', import.meta.url), 'utf8');
 const db = new PGlite();
 // Use the actual table definitions, excluding unrelated policies/triggers.
 for (const file of ['khach_hang', 'the_ban_hang', 'the_ban_hang_ct', 'dich_vu', 'nhan_su']) {
@@ -27,6 +28,7 @@ await db.exec(`
  SELECT CASE WHEN id_bh = 'BH-1' THEN id::text ELSE id_bh END, 'Thay dầu', 'Cơ sở Bắc Ninh', tong_tien, 1, ngay FROM the_ban_hang;
 `);
 await db.exec(migration);
+await db.exec(timeoutMigration);
 const sales = async (args = {}) => {
   const keys = Object.keys(args);
   const { rows } = await db.query(`SELECT sales_query(${keys.map((k, i) => `${k} => $${i + 1}`).join(', ')}) result`, Object.values(args));
@@ -180,7 +182,47 @@ test('branch catalog: create, legacy data, customer/save filters, normalized dup
   assert.equal((await db.query(`SELECT count(*) n FROM co_so WHERE app_branch(ten_co_so) = 'ha noi'`)).rows[0].n, 1);
 });
 
+test('bulk-data optimization preserves results, images and existing rows; can be rerun', async () => {
+  await db.exec('BEGIN');
+  try {
+    await db.exec(`
+      INSERT INTO khach_hang(ma_khach_hang, ho_va_ten, so_dien_thoai, bien_so_xe, dia_chi_hien_tai, anh)
+      SELECT 'PERF-' || n, 'Khách kiểm thử ' || n, '091' || lpad(n::text, 7, '0'), 'TEST-' || n, 'Cơ sở Kiểm thử', repeat('x', 10000)
+      FROM generate_series(1, 1200) n;
+      INSERT INTO dich_vu(id_dich_vu, ten_dich_vu, gia_ban, co_so)
+      SELECT 'PERF-DV-' || n, 'Dịch vụ kiểm thử ' || n, 100, 'Cơ sở Kiểm thử' FROM generate_series(1, 300) n;
+      INSERT INTO the_ban_hang(id_bh, ngay, gio, khach_hang_id, dich_vu_id, tong_tien)
+      SELECT 'PERF-BH-' || n, '2026-09-09', '10:00', 'PERF-' || ((n - 1) % 1200 + 1), 'PERF-DV-' || ((n - 1) % 300 + 1), 100
+      FROM generate_series(1, 2400) n;
+      INSERT INTO the_ban_hang_ct(id_don_hang, san_pham, co_so, gia_ban, so_luong, ngay)
+      SELECT 'PERF-BH-' || n, 'Dịch vụ kiểm thử', 'Cơ sở Kiểm thử', 100, 1, '2026-09-09'
+      FROM generate_series(1, 2400) n;
+    `);
+    await db.exec(migration);
+    const start = performance.now();
+    const before = await sales({ p_branch: 'Cơ sở Kiểm thử', p_page: 3 });
+    const oldMs = performance.now() - start;
+    await db.exec(timeoutMigration);
+    await db.exec(timeoutMigration);
+    const optimizedStart = performance.now();
+    const after = await sales({ p_branch: 'Cơ sở Kiểm thử', p_page: 3 });
+    const newMs = performance.now() - optimizedStart;
+    assert.deepEqual(after, before);
+    assert.equal(after.totalCount, 2400);
+    assert.equal(after.summary.totalAmount, 240000);
+    assert.equal(after.summary.totalCustomers, 1200);
+    const result = await customers({ p_scope: 'Cơ sở Kiểm thử' });
+    assert.equal(result.totalCount, 1200);
+    assert.equal(result.data[0].anh, undefined);
+    assert.equal((await db.query(`SELECT length(anh) n FROM khach_hang WHERE ma_khach_hang = 'PERF-1'`)).rows[0].n, 10000);
+    console.log(`Bulk fixture: previous ${Math.round(oldMs)}ms, optimized ${Math.round(newMs)}ms (local PGlite, not production timing)`);
+  } finally {
+    await db.exec('ROLLBACK');
+  }
+});
+
 test('RPC respects caller RLS for page, summary and history', async () => {
+  await db.exec(timeoutMigration);
   await db.exec(`CREATE ROLE sales_test_reader;
     GRANT USAGE ON SCHEMA public TO sales_test_reader;
     GRANT SELECT ON ALL TABLES IN SCHEMA public TO sales_test_reader;

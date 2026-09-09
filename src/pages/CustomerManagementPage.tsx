@@ -210,7 +210,10 @@ const CustomerManagementPage: React.FC = () => {
       }
     } catch (error) {
       console.error(error);
-      const message = error instanceof Error ? error.message : 'Không tải được danh sách khách hàng.';
+      const timedOut = error && typeof error === 'object' && 'code' in error && error.code === '57014';
+      const message = timedOut
+        ? 'Truy vấn quá thời gian cho phép. Cần cập nhật bản tối ưu database.'
+        : 'Không tải được danh sách khách hàng. Vui lòng thử lại.';
       setFetchError(message);
       setCustomers([]);
       setTotalCount(0);
@@ -497,7 +500,9 @@ const CustomerManagementPage: React.FC = () => {
       <div className="space-y-4">
         {fetchError && (
           <div className="rounded-2xl px-4 py-3 text-sm bg-destructive/10 text-destructive border border-destructive/20">
-            <strong>Không tải được dữ liệu.</strong> {fetchError}
+            <strong>Không tải được dữ liệu.</strong> {fetchError}{' '}
+            <span>Chưa xác định được số khách hàng; đây không phải thông báo dữ liệu đã bị xóa.</span>{' '}
+            <button type="button" disabled={loading} onClick={() => void loadCustomers()} className="font-bold underline disabled:opacity-50">Thử lại</button>
           </div>
         )}
 
@@ -665,7 +670,7 @@ const CustomerManagementPage: React.FC = () => {
             <div className="flex items-center gap-1.5 sm:gap-2 ml-auto shrink-0">
               <span className="text-[11px] sm:text-[13px] font-semibold text-foreground whitespace-nowrap">Số khách hàng</span>
               <span className="text-base sm:text-xl font-black tabular-nums text-primary">
-                {loading ? '…' : totalCount.toLocaleString('vi-VN')}
+                {fetchError ? 'Chưa tải được' : loading ? '…' : totalCount.toLocaleString('vi-VN')}
               </span>
             </div>
           </div>
@@ -917,13 +922,13 @@ const CustomerManagementPage: React.FC = () => {
           </div>
         </div>
 
-        <Pagination
+        {!fetchError && <Pagination
           currentPage={currentPage}
           pageSize={pageSize}
           totalCount={totalCount}
           onPageChange={setCurrentPage}
           onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }}
-        />
+        />}
       </div>
 
       {/* Modal - Add/Edit Customer */}
