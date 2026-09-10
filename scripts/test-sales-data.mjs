@@ -64,7 +64,7 @@ test('short numeric code suffix finds its customer without becoming a phone sear
   try {
     await db.exec(`
       INSERT INTO khach_hang(id, ma_khach_hang, ho_va_ten, so_dien_thoai, bien_so_xe, dia_chi_hien_tai) VALUES
-        ('00000000-0000-0000-0000-000000000010', '99d1-37435', 'Hưng', '0988123456', '99D1-37435', 'Bắc Ninh'),
+        ('00000000-0000-0000-0000-000000000010', '99d1-37435', 'Hưng', '0988123456', '99D1-00002', 'Bắc Ninh'),
         ('00000000-0000-0000-0000-000000000011', 'PHONE-ONLY', 'Số điện thoại', '098837435', '99D1-00001', 'Bắc Ninh');
       INSERT INTO the_ban_hang(id_bh, ngay, khach_hang_id, tong_tien) VALUES
         ('CODE-SUFFIX', '2026-09-10', '99d1-37435', 100),
