@@ -7,6 +7,7 @@ const migration = await readFile(new URL('../supabase/migrations/202609080001_sa
 const timeoutMigration = await readFile(new URL('../supabase/migrations/202609090001_query_timeout_fix.sql', import.meta.url), 'utf8');
 const dateMigration = await readFile(new URL('../supabase/migrations/202609090004_sales_date_scope.sql', import.meta.url), 'utf8');
 const searchMigration = await readFile(new URL('../supabase/migrations/202609100001_sales_search_timeout.sql', import.meta.url), 'utf8');
+const shortNumericSearchMigration = await readFile(new URL('../supabase/migrations/202609100002_short_numeric_sales_search.sql', import.meta.url), 'utf8');
 const db = new PGlite();
 // Use the actual table definitions, excluding unrelated policies/triggers.
 for (const file of ['khach_hang', 'the_ban_hang', 'the_ban_hang_ct', 'dich_vu', 'nhan_su']) {
@@ -33,6 +34,7 @@ await db.exec(migration);
 await db.exec(timeoutMigration);
 await db.exec(dateMigration);
 await db.exec(searchMigration);
+await db.exec(shortNumericSearchMigration);
 const sales = async (args = {}) => {
   const keys = Object.keys(args);
   const { rows } = await db.query(`SELECT sales_query(${keys.map((k, i) => `${k} => $${i + 1}`).join(', ')}) result`, Object.values(args));
@@ -50,8 +52,30 @@ test('search pushdown matches previous RPC for plates, names, phones and empty s
   const baseline = await Promise.all(cases.map(p_search => sales({ p_search })));
   await db.exec(searchMigration);
   await db.exec(searchMigration);
+  await db.exec(shortNumericSearchMigration);
+  await db.exec(shortNumericSearchMigration);
   for (let i = 0; i < cases.length; i++) {
     assert.deepEqual(await sales({ p_search: cases[i] }), baseline[i], String(cases[i]));
+  }
+});
+
+test('short numeric code suffix finds its customer without becoming a phone search', async () => {
+  await db.exec('BEGIN');
+  try {
+    await db.exec(`
+      INSERT INTO khach_hang(id, ma_khach_hang, ho_va_ten, so_dien_thoai, bien_so_xe, dia_chi_hien_tai) VALUES
+        ('00000000-0000-0000-0000-000000000010', '99d1-37435', 'Hưng', '0988123456', '99D1-37435', 'Bắc Ninh'),
+        ('00000000-0000-0000-0000-000000000011', 'PHONE-ONLY', 'Số điện thoại', '098837435', '99D1-00001', 'Bắc Ninh');
+      INSERT INTO the_ban_hang(id_bh, ngay, khach_hang_id, tong_tien) VALUES
+        ('CODE-SUFFIX', '2026-09-10', '99d1-37435', 100),
+        ('PHONE-SUFFIX', '2026-09-10', 'PHONE-ONLY', 200);
+    `);
+    const result = await sales({ p_search: '37435' });
+    assert.equal(result.totalCount, 1);
+    assert.equal(result.data[0].id_bh, 'CODE-SUFFIX');
+    assert.equal((await customers({ p_search: '37435' })).totalCount, 1);
+  } finally {
+    await db.exec('ROLLBACK');
   }
 });
 
@@ -152,6 +176,8 @@ test('migration is idempotent and does not change existing rows', async () => {
   const before = (await db.query('SELECT count(*) n FROM khach_hang')).rows[0].n;
   await db.exec(migration);
   assert.equal((await db.query('SELECT count(*) n FROM khach_hang')).rows[0].n, before);
+  await db.exec(shortNumericSearchMigration);
+  await db.exec(shortNumericSearchMigration);
 });
 test('branch catalog: create, legacy data, customer/save filters, normalized duplicates and role checks', async () => {
   await db.exec(`CREATE ROLE anon; CREATE ROLE authenticated;
@@ -250,6 +276,7 @@ test('bulk-data optimization preserves results, images and existing rows; can be
     await db.exec(searchMigration);
     await db.exec(dateMigration);
     await db.exec(searchMigration);
+    await db.exec(shortNumericSearchMigration);
     const optimizedStart = performance.now();
     const after = await sales({ p_branch: 'Cơ sở Kiểm thử', p_page: 3 });
     const newMs = performance.now() - optimizedStart;
@@ -264,6 +291,7 @@ test('bulk-data optimization preserves results, images and existing rows; can be
     const dateBeforeMs = performance.now() - dateStart;
     await db.exec(dateMigration);
     await db.exec(searchMigration);
+    await db.exec(shortNumericSearchMigration);
     const dateAfterStart = performance.now();
     const dateAfter = await sales({ p_start: '2026-09-07', p_end: '2026-09-07' });
     const dateAfterMs = performance.now() - dateAfterStart;
@@ -283,6 +311,7 @@ test('RPC respects caller RLS for page, summary and history', async () => {
   await db.exec(timeoutMigration);
   await db.exec(dateMigration);
   await db.exec(searchMigration);
+  await db.exec(shortNumericSearchMigration);
   await db.exec(`CREATE ROLE sales_test_reader;
     GRANT USAGE ON SCHEMA public TO sales_test_reader;
     GRANT SELECT ON ALL TABLES IN SCHEMA public TO sales_test_reader;
