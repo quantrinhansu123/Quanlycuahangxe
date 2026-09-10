@@ -247,6 +247,7 @@ const FinancialManagementPage: React.FC = () => {
         id_khach_hang: '',
         nguoi_chi: '',
         nguoi_nhan: '',
+        phuong_thuc: 'Tiền mặt',
         danh_muc: '',
         ghi_chu: '',
         anh: ''

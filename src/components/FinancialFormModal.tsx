@@ -137,22 +137,23 @@ const FinancialFormModal: React.FC<FinancialFormModalProps> = React.memo(({
               </div>
 
               <InputField label="Danh mục" name="danh_muc" value={formData.danh_muc || ''} onChange={handleInputChange} icon={Tag} placeholder="Vd: Thu sửa xe, Chi nhập hàng..." tabIndex={3} />
-              <InputField label="Cơ sở" name="co_so" type="select" options={branchOptions} value={formData.co_so || ''} onChange={handleInputChange} icon={Building2} tabIndex={4} />
+              <InputField label="Phương thức thanh toán" name="phuong_thuc" type="select" options={['Tiền mặt', 'Ngân hàng']} value={formData.phuong_thuc || ''} onChange={handleInputChange} icon={BadgeDollarSign} tabIndex={4} />
+              <InputField label="Cơ sở" name="co_so" type="select" options={branchOptions} value={formData.co_so || ''} onChange={handleInputChange} icon={Building2} tabIndex={5} />
               
-              <InputField label="Người chi" name="nguoi_chi" value={formData.nguoi_chi || ''} onChange={handleInputChange} icon={User} placeholder="Tên người chi tiền..." tabIndex={5} />
-              <InputField label="Người nhận" name="nguoi_nhan" value={formData.nguoi_nhan || ''} onChange={handleInputChange} icon={User} placeholder="Tên người nhận tiền..." tabIndex={6} />
+              <InputField label="Người chi" name="nguoi_chi" value={formData.nguoi_chi || ''} onChange={handleInputChange} icon={User} placeholder="Tên người chi tiền..." tabIndex={6} />
+              <InputField label="Người nhận" name="nguoi_nhan" value={formData.nguoi_nhan || ''} onChange={handleInputChange} icon={User} placeholder="Tên người nhận tiền..." tabIndex={7} />
 
-              <InputField label="Ghi chú" name="ghi_chu" type="textarea" value={formData.ghi_chu || ''} onChange={handleInputChange} icon={FileText} placeholder="Thông tin thêm..." tabIndex={7} className="md:col-span-2" />
+              <InputField label="Ghi chú" name="ghi_chu" type="textarea" value={formData.ghi_chu || ''} onChange={handleInputChange} icon={FileText} placeholder="Thông tin thêm..." tabIndex={8} className="md:col-span-2" />
               
               {formData.loai_phieu !== 'phiếu chi' && (
                 <>
-                  <InputField label="ID Đơn hàng" name="id_don" value={formData.id_don || ''} onChange={handleInputChange} icon={FileText} placeholder="Mã đơn hàng liên quan..." tabIndex={8} />
+                  <InputField label="ID Đơn hàng" name="id_don" value={formData.id_don || ''} onChange={handleInputChange} icon={FileText} placeholder="Mã đơn hàng liên quan..." tabIndex={9} />
                   <div className="space-y-1.5 focus-within:ring-2 focus-within:ring-primary/20 rounded-xl transition-all">
                     <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                       <User size={14} className="text-primary/70" />
                       Khách hàng liên kết
                     </label>
-                    <div tabIndex={9}>
+                    <div tabIndex={10}>
                       <SearchableSelect
                         options={extendedCustomerOptions}
                         value={formData.id_khach_hang || undefined}
@@ -165,10 +166,10 @@ const FinancialFormModal: React.FC<FinancialFormModalProps> = React.memo(({
                 </>
               )}
               
-              <InputField label="Ngày" name="ngay" type="date" value={formData.ngay || ''} onChange={handleInputChange} icon={Calendar} tabIndex={10} />
-              <InputField label="Giờ" name="gio" type="time" value={formData.gio || ''} onChange={handleInputChange} icon={Clock} tabIndex={11} />
+              <InputField label="Ngày" name="ngay" type="date" value={formData.ngay || ''} onChange={handleInputChange} icon={Calendar} tabIndex={11} />
+              <InputField label="Giờ" name="gio" type="time" value={formData.gio || ''} onChange={handleInputChange} icon={Clock} tabIndex={12} />
 
-              <InputField label="Trạng thái" name="trang_thai" type="select" options={statusOptions} value={formData.trang_thai || ''} onChange={handleInputChange} icon={BadgeDollarSign} tabIndex={12} className="md:col-span-2" />
+              <InputField label="Trạng thái" name="trang_thai" type="select" options={statusOptions} value={formData.trang_thai || ''} onChange={handleInputChange} icon={BadgeDollarSign} tabIndex={13} className="md:col-span-2" />
               
               <div className="md:col-span-2 flex flex-col items-center gap-2 pt-4">
                 <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider">Ảnh chứng từ / Hóa đơn</label>
@@ -180,7 +181,7 @@ const FinancialFormModal: React.FC<FinancialFormModalProps> = React.memo(({
                   <button 
                     type="button" 
                     onClick={() => fileInputRef.current?.click()}
-                    tabIndex={13}
+                    tabIndex={14}
                     className="absolute -bottom-2 -right-2 w-10 h-10 bg-primary text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-all border-4 border-card focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background"
                   >
                     <Camera size={20} />
@@ -191,8 +192,8 @@ const FinancialFormModal: React.FC<FinancialFormModalProps> = React.memo(({
             </div>
 
             <div className="mt-8 flex items-center justify-end gap-3 pt-6 border-t border-border">
-              <button type="button" onClick={onClose} tabIndex={15} className="px-6 py-2 rounded-xl text-sm font-bold border border-border hover:bg-muted transition-all">Hủy</button>
-              <button type="submit" tabIndex={14} className="px-8 py-2 rounded-xl text-sm font-bold text-white bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 transition-all flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background">
+              <button type="button" onClick={onClose} tabIndex={16} className="px-6 py-2 rounded-xl text-sm font-bold border border-border hover:bg-muted transition-all">Hủy</button>
+              <button type="submit" tabIndex={15} className="px-8 py-2 rounded-xl text-sm font-bold text-white bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 transition-all flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background">
                 <Save size={18} /> <span>{editingTransaction ? 'Lưu thay đổi' : 'Ghi nhận phiếu'}</span>
               </button>
             </div>
