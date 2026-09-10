@@ -1,7 +1,7 @@
 import { useBranches } from '../hooks/useBranches';
 import { branchLabel } from '../lib/branchCatalog';
 import { getErrorDetails } from '../lib/errorDetails';
-import { normalizePlate } from '../lib/customerIdentity';
+import { needsCustomerIdentityCheck, normalizePlate } from '../lib/customerIdentity';
 import {
   AlertCircle,
   Calendar,
@@ -62,6 +62,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
   const { showToast } = useToast();
 
   const [duplicateWarning, setDuplicateWarning] = useState<KhachHang | null>(null);
+  const needsIdentityCheck = needsCustomerIdentityCheck(customer, formData);
   const staffBranch = resolveStaffBranch(nhanVien?.co_so);
 
   const formatDateForInput = (dateStr: string | undefined) => {
@@ -99,7 +100,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
 
   // Duplication Plate Check logic
   useEffect(() => {
-    if (!isOpen || !formData.bien_so_xe || formData.bien_so_xe.trim() === '') return;
+    if (!needsIdentityCheck || !isOpen || !formData.bien_so_xe || formData.bien_so_xe.trim() === '') return;
 
     const timer = setTimeout(async () => {
       try {
@@ -121,11 +122,11 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
     }, 600);
 
     return () => clearTimeout(timer);
-  }, [formData.bien_so_xe, isOpen, customer, navigate, onClose]);
+  }, [formData.bien_so_xe, isOpen, customer, navigate, onClose, needsIdentityCheck]);
 
   // Duplication Phone Check logic
   useEffect(() => {
-    if (!isOpen || !formData.so_dien_thoai || formData.so_dien_thoai.trim() === '') return;
+    if (!needsIdentityCheck || !isOpen || !formData.so_dien_thoai || formData.so_dien_thoai.trim() === '') return;
 
     const timer = setTimeout(async () => {
       try {
@@ -144,7 +145,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
     }, 600);
 
     return () => clearTimeout(timer);
-  }, [formData.so_dien_thoai, formData.bien_so_xe, isOpen, customer, navigate, onClose]);
+  }, [formData.so_dien_thoai, formData.bien_so_xe, isOpen, customer, navigate, onClose, needsIdentityCheck]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -181,7 +182,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
       setIsSubmitting(true);
       // 1. Kiểm tra trùng SĐT trước khi lưu
       const phone = formData.so_dien_thoai?.trim();
-      if (phone && phone.length >= 4) {
+      if (needsIdentityCheck && phone && phone.length >= 4) {
         const existing = await getCustomerByPhone(phone);
         if (existing && existing.id !== (customer ? customer.id : '') && normalizePlate(existing.bien_so_xe) === normalizePlate(formData.bien_so_xe)) {
           const ok = window.confirm(`⚠️ CẢNH BÁO: Số điện thoại "${phone}" đã thuộc về khách hàng "${existing.ho_va_ten}".\n\nBạn có chắc chắn muốn tiếp tục lưu bản ghi trùng này không?`);
@@ -194,7 +195,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
 
       // 2. Kiểm tra trùng Biển số trước khi lưu
       const plate = formData.bien_so_xe?.trim();
-      if (plate && plate.length >= 4 && plate !== 'Xe Chưa Biển') {
+      if (needsIdentityCheck && plate && plate.length >= 4 && plate !== 'Xe Chưa Biển') {
         const existing = await getCustomerByPlate(plate);
         if (existing && existing.id !== (customer ? customer.id : '') && normalizePlate(existing.bien_so_xe) === normalizePlate(formData.bien_so_xe)) {
           const ok = window.confirm(`⚠️ CẢNH BÁO: Biển số "${plate}" đã thuộc về khách hàng "${existing.ho_va_ten}".\n\nBạn có chắc chắn muốn tiếp tục lưu bản ghi trùng này không?`);

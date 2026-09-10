@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { salesAmount } from '../src/lib/salesAmount.ts';
-import { findExistingCustomer, normalizePlate } from '../src/lib/customerIdentity.ts';
+import { findExistingCustomer, needsCustomerIdentityCheck, normalizePlate } from '../src/lib/customerIdentity.ts';
 import { digitsOnly, samePhoneCore } from '../src/lib/phoneUtils.ts';
 import { branchKey, branchLabel, getBranchOptions, setBranchOptions, subscribeBranches } from '../src/lib/branchCatalog.ts';
 import { getErrorDetails } from '../src/lib/errorDetails.ts';
@@ -49,6 +49,16 @@ test('legacy numeric phone and normalized plates', () => {
   assert.ok(samePhoneCore(392251537, '+84 392.251.537'));
   assert.equal(normalizePlate(' 27az-04620 '), normalizePlate('27AZ04620'));
 });
+test('editing a selected legacy customer keeps its identity across formatting changes', () => {
+  const selected = { id: 'selected-id', ma_khach_hang: '0a5e8f54', bien_so_xe: '98B3-54497', so_dien_thoai: '989824193' };
+  assert.equal(needsCustomerIdentityCheck(selected, { ...selected }), false);
+  assert.equal(needsCustomerIdentityCheck(selected, { ...selected, bien_so_xe: ' 98b3 54497 ', so_dien_thoai: '+84 989.824.193' }), false);
+  assert.equal(needsCustomerIdentityCheck(selected, { ...selected, bien_so_xe: '98B3-99999' }), true);
+  assert.equal(needsCustomerIdentityCheck(selected, { ...selected, so_dien_thoai: '0989123456' }), true);
+  assert.equal(needsCustomerIdentityCheck(null, selected), true);
+  assert.equal(needsCustomerIdentityCheck({ ma_khach_hang: '0a5e8f54' }, selected), true);
+});
+
 test('Excel identity prioritizes ID; phone alone never overwrites another vehicle', () => {
   const rows = [
     { id: 'a', ma_khach_hang: 'KH1', so_dien_thoai: '0392251537', bien_so_xe: '27AZ-04620' },
