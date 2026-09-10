@@ -59,21 +59,21 @@ test('search pushdown matches previous RPC for plates, names, phones and empty s
   }
 });
 
-test('short numeric code suffix finds its customer without becoming a phone search', async () => {
+test('four final plate digits find matching sales without becoming a phone search', async () => {
   await db.exec('BEGIN');
   try {
     await db.exec(`
       INSERT INTO khach_hang(id, ma_khach_hang, ho_va_ten, so_dien_thoai, bien_so_xe, dia_chi_hien_tai) VALUES
-        ('00000000-0000-0000-0000-000000000010', '99d1-37435', 'Hưng', '0988123456', '99D1-00002', 'Bắc Ninh'),
+        ('00000000-0000-0000-0000-000000000010', 'KH-TARGET', 'Hưng', '0988123456', '99D1-37435', 'Bắc Ninh'),
         ('00000000-0000-0000-0000-000000000011', 'PHONE-ONLY', 'Số điện thoại', '098837435', '99D1-00001', 'Bắc Ninh');
       INSERT INTO the_ban_hang(id_bh, ngay, khach_hang_id, tong_tien) VALUES
-        ('CODE-SUFFIX', '2026-09-10', '99d1-37435', 100),
+        ('PLATE-SUFFIX', '2026-09-10', 'KH-TARGET', 100),
         ('PHONE-SUFFIX', '2026-09-10', 'PHONE-ONLY', 200);
     `);
-    const result = await sales({ p_search: '37435' });
+    const result = await sales({ p_search: '7435' });
     assert.equal(result.totalCount, 1);
-    assert.equal(result.data[0].id_bh, 'CODE-SUFFIX');
-    assert.equal((await customers({ p_search: '37435' })).totalCount, 1);
+    assert.equal(result.data[0].id_bh, 'PLATE-SUFFIX');
+    assert.equal((await customers({ p_search: '7435' })).totalCount, 1);
   } finally {
     await db.exec('ROLLBACK');
   }

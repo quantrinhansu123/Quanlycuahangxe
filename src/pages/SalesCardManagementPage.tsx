@@ -1512,7 +1512,9 @@ const SalesCardManagementPage: React.FC = () => {
                   setCurrentPage(1);
                 }}
                 className="pl-7 sm:pl-9 pr-3 sm:pr-4 py-1 sm:py-2 bg-muted/50 border-border rounded-lg text-[11px] sm:text-[13px] focus:ring-1 focus:ring-primary focus:border-primary transition-all w-[120px] sm:w-[220px] lg:w-[300px] outline-none"
-                placeholder="Tìm mã phiếu, tên KH, BSX, SĐT..."
+                placeholder="Tìm mã phiếu, tên KH, BSX hoặc 4 số cuối..."
+                title="Có thể nhập 4 số cuối biển số để tìm phiếu"
+                aria-label="Tìm mã phiếu, tên khách, biển số hoặc 4 số cuối biển số"
                 type="text"
               />
             </div>

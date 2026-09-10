@@ -1,4 +1,4 @@
--- A short numeric suffix is commonly part of a customer/order code. Do not
+-- A short numeric suffix is commonly part of a vehicle plate or customer/order code. Do not
 -- treat it as a phone lookup, which otherwise normalizes every phone row.
 BEGIN;
 
