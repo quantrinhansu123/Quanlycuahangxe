@@ -6,6 +6,7 @@ import { PGlite } from '@electric-sql/pglite';
 const migration = await readFile(new URL('../supabase/migrations/202609080001_sales_customer_queries.sql', import.meta.url), 'utf8');
 const timeoutMigration = await readFile(new URL('../supabase/migrations/202609090001_query_timeout_fix.sql', import.meta.url), 'utf8');
 const dateMigration = await readFile(new URL('../supabase/migrations/202609090004_sales_date_scope.sql', import.meta.url), 'utf8');
+const searchMigration = await readFile(new URL('../supabase/migrations/202609100001_sales_search_timeout.sql', import.meta.url), 'utf8');
 const db = new PGlite();
 // Use the actual table definitions, excluding unrelated policies/triggers.
 for (const file of ['khach_hang', 'the_ban_hang', 'the_ban_hang_ct', 'dich_vu', 'nhan_su']) {
@@ -31,6 +32,7 @@ await db.exec(`
 await db.exec(migration);
 await db.exec(timeoutMigration);
 await db.exec(dateMigration);
+await db.exec(searchMigration);
 const sales = async (args = {}) => {
   const keys = Object.keys(args);
   const { rows } = await db.query(`SELECT sales_query(${keys.map((k, i) => `${k} => $${i + 1}`).join(', ')}) result`, Object.values(args));
@@ -41,6 +43,17 @@ const customers = async (args = {}) => {
   const { rows } = await db.query(`SELECT customers_query(${keys.map((k, i) => `${k} => $${i + 1}`).join(', ')}) result`, Object.values(args));
   return rows[0].result;
 };
+
+test('search pushdown matches previous RPC for plates, names, phones and empty searches', async () => {
+  const cases = ['27az04620', '04620', 'dinh thieu', '0392251537', 'KH1', 'BH-1', '(),%_', '', null];
+  await db.exec(dateMigration);
+  const baseline = await Promise.all(cases.map(p_search => sales({ p_search })));
+  await db.exec(searchMigration);
+  await db.exec(searchMigration);
+  for (let i = 0; i < cases.length; i++) {
+    assert.deepEqual(await sales({ p_search: cases[i] }), baseline[i], String(cases[i]));
+  }
+});
 
 test('43 orders: all three pages retain 14,240,000 and complete daily totals (H/I)', async () => {
   for (const [page, count] of [[1, 20], [2, 20], [3, 3]]) {
@@ -234,7 +247,9 @@ test('bulk-data optimization preserves results, images and existing rows; can be
     const oldMs = performance.now() - start;
     await db.exec(timeoutMigration);
     await db.exec(dateMigration);
+    await db.exec(searchMigration);
     await db.exec(dateMigration);
+    await db.exec(searchMigration);
     const optimizedStart = performance.now();
     const after = await sales({ p_branch: 'Cơ sở Kiểm thử', p_page: 3 });
     const newMs = performance.now() - optimizedStart;
@@ -248,6 +263,7 @@ test('bulk-data optimization preserves results, images and existing rows; can be
     const dateBefore = await sales({ p_start: '2026-09-07', p_end: '2026-09-07' });
     const dateBeforeMs = performance.now() - dateStart;
     await db.exec(dateMigration);
+    await db.exec(searchMigration);
     const dateAfterStart = performance.now();
     const dateAfter = await sales({ p_start: '2026-09-07', p_end: '2026-09-07' });
     const dateAfterMs = performance.now() - dateAfterStart;
@@ -266,6 +282,7 @@ test('bulk-data optimization preserves results, images and existing rows; can be
 test('RPC respects caller RLS for page, summary and history', async () => {
   await db.exec(timeoutMigration);
   await db.exec(dateMigration);
+  await db.exec(searchMigration);
   await db.exec(`CREATE ROLE sales_test_reader;
     GRANT USAGE ON SCHEMA public TO sales_test_reader;
     GRANT SELECT ON ALL TABLES IN SCHEMA public TO sales_test_reader;
