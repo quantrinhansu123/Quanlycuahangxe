@@ -34,6 +34,62 @@ export interface InventoryStockSummaryRow {
   cuoi_ky_gia_tri: number;
 }
 
+export interface ReceiptItemInput {
+  id?: string;
+  san_pham_id?: string | null;
+  ten_san_pham: string;
+  so_luong: number;
+  gia_nhap: number;
+  thanh_tien?: number;
+}
+
+export interface ValidatedReceiptItem {
+  id?: string;
+  san_pham_id?: string | null;
+  ten_san_pham: string;
+  so_luong: number;
+  gia_nhap: number;
+  thanh_tien: number;
+}
+
+/**
+ * Kiểm tra tính hợp lệ của từng dòng hàng trước khi gửi xuống database.
+ * TUYỆT ĐỐI không dùng Math.max để âm thầm sửa số lượng/đơn giá.
+ * Bất kỳ dòng nào sai phạm đều từ chối và ném lỗi rõ ràng theo số thứ tự dòng.
+ */
+export function validateReceiptItems(items: ReceiptItemInput[]): ValidatedReceiptItem[] {
+  if (!items || items.length === 0) {
+    throw new Error('Phiếu nhập phải có ít nhất một mặt hàng.');
+  }
+
+  return items.map((it, idx) => {
+    const rowNum = idx + 1;
+    const name = String(it.ten_san_pham || '').trim();
+    if (!name) {
+      throw new Error(`Dòng ${rowNum}: Vui lòng chọn hoặc nhập tên mặt hàng.`);
+    }
+
+    const qty = Number(it.so_luong);
+    if (it.so_luong === undefined || it.so_luong === null || isNaN(qty) || qty <= 0) {
+      throw new Error(`Dòng ${rowNum} (${name}): Số lượng phải lớn hơn 0.`);
+    }
+
+    const price = Number(it.gia_nhap);
+    if (it.gia_nhap === undefined || it.gia_nhap === null || isNaN(price) || price < 0) {
+      throw new Error(`Dòng ${rowNum} (${name}): Giá nhập không được âm.`);
+    }
+
+    return {
+      id: it.id,
+      san_pham_id: it.san_pham_id || null,
+      ten_san_pham: name,
+      so_luong: qty,
+      gia_nhap: price,
+      thanh_tien: qty * price,
+    };
+  });
+}
+
 /** Nhận diện loại phiếu có phải là nhập hàng/nhập kho hay không (hỗ trợ cả tiếng Việt có dấu và không dấu). */
 export const isNhapRecord = (loai: string | null | undefined): boolean => {
   const normalized = String(loai || '').trim().toLowerCase();

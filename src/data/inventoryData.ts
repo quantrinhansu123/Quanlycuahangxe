@@ -114,14 +114,25 @@ export const addInventoryRecord = async (record: Omit<InventoryRecord, 'id' | 'c
 
   const productName = String(record.ten_mat_hang || '').trim();
   if (productName) {
-    const { error: productError } = await supabase
+    // Chỉ tạo sản phẩm nếu chưa có trong danh mục (với tồn đầu kỳ mặc định = 0).
+    // TUYỆT ĐỐI không cập nhật lại ton_dau_ky của sản phẩm đã có.
+    const { data: existing } = await supabase
       .from('ds_san_pham')
-      .upsert(
-        { ten_san_pham: productName, ton_dau_ky: Number(record.ton_dau_ky || 0) },
-        { onConflict: 'ten_san_pham' }
-      );
-    if (productError) {
-      console.error('Error syncing product after add inventory record:', productError);
+      .select('id')
+      .eq('ten_san_pham', productName)
+      .maybeSingle();
+
+    if (!existing) {
+      const { error: insertError } = await supabase
+        .from('ds_san_pham')
+        .insert({
+          ten_san_pham: productName,
+          ton_dau_ky: 0,
+          gia: Math.max(0, Math.round(Number(record.gia || 0))),
+        });
+      if (insertError && insertError.code !== '23505') {
+        console.error('Error inserting product after add inventory record:', insertError);
+      }
     }
   }
 
@@ -379,30 +390,45 @@ export const getProductRecords = async (): Promise<ProductRecord[]> => {
   return (data as ProductRecord[]) || [];
 };
 
+/**
+ * Đảm bảo các sản phẩm từ lịch sử kho xuất hiện trong ds_san_pham nếu chưa có.
+ * QUY TẮC BẢO VỆ BASELINE:
+ * - Sản phẩm mới: ton_dau_ky = 0
+ * - Sản phẩm đã tồn tại: TUYỆT ĐỐI không ghi đè ton_dau_ky.
+ */
 export const upsertProductsFromInventory = async (
-  records: Array<Pick<InventoryRecord, 'ten_mat_hang' | 'ton_dau_ky'>>
+  records: Array<{ ten_mat_hang: string; ton_dau_ky?: number }>
 ): Promise<void> => {
-  const byName = new Map<string, number>();
-  records.forEach((r) => {
-    const name = String(r.ten_mat_hang || '').trim();
-    if (!name) return;
-    if (!byName.has(name)) byName.set(name, Number(r.ton_dau_ky || 0));
-  });
+  const names = [...new Set(records.map((r) => String(r.ten_mat_hang || '').trim()).filter(Boolean))];
+  if (names.length === 0) return;
 
-  if (byName.size === 0) return;
-
-  const payload = Array.from(byName.entries()).map(([ten_san_pham, ton_dau_ky]) => ({
-    ten_san_pham,
-    ton_dau_ky,
-  }));
-
-  const { error } = await supabase
+  // Lấy các sản phẩm đã có trong ds_san_pham
+  const { data: existing, error: fetchErr } = await supabase
     .from('ds_san_pham')
-    .upsert(payload, { onConflict: 'ten_san_pham' });
+    .select('ten_san_pham')
+    .in('ten_san_pham', names);
 
-  if (error) {
-    console.error('Error upserting product records:', error);
-    throw error;
+  if (fetchErr) {
+    console.error('Error checking existing products:', fetchErr);
+    return;
+  }
+
+  const existingSet = new Set((existing || []).map((p) => String(p.ten_san_pham || '').trim()));
+  const missingNames = names.filter((name) => !existingSet.has(name));
+
+  if (missingNames.length > 0) {
+    const payload = missingNames.map((ten_san_pham) => ({
+      ten_san_pham,
+      ton_dau_ky: 0, // Baseline mặc định cho sản phẩm mới sinh ra từ movement
+    }));
+
+    const { error: insertErr } = await supabase
+      .from('ds_san_pham')
+      .insert(payload);
+
+    if (insertErr && insertErr.code !== '23505') {
+      console.error('Error inserting missing products from inventory:', insertErr);
+    }
   }
 };
 

@@ -316,7 +316,7 @@ const InventoryManagementPage: React.FC = () => {
             }
           });
           await bulkUpsertInventoryRecords(formattedData);
-          await upsertProductsFromInventory(formattedData.map(r => ({ ten_mat_hang: r.ten_mat_hang, ton_dau_ky: r.ton_dau_ky || 0 })));
+          await upsertProductsFromInventory(formattedData.map(r => ({ ten_mat_hang: r.ten_mat_hang })));
           await loadRecords();
           await loadProducts();
           const newCount = formattedData.length - updatedCount;
