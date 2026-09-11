@@ -225,10 +225,29 @@ export const PurchaseReceiptFormModal: React.FC<PurchaseReceiptFormModalProps> =
       return;
     }
 
-    const validItems = items.filter((it) => it.ten_san_pham.trim() && (it.so_luong || 0) > 0);
-    if (validItems.length === 0) {
-      setErrorMessage('Vui lòng thêm ít nhất một mặt hàng hợp lệ (có tên và số lượng > 0).');
+    if (items.length === 0) {
+      setErrorMessage('Phiếu nhập phải có ít nhất một mặt hàng.');
       return;
+    }
+
+    // Kiểm tra TẤT CẢ các dòng, không âm thầm bỏ qua bất kỳ dòng lỗi nào
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i];
+      const rowNum = i + 1;
+      if (!it.ten_san_pham || !it.ten_san_pham.trim()) {
+        setErrorMessage(`Dòng ${rowNum}: Vui lòng chọn hoặc nhập tên mặt hàng.`);
+        return;
+      }
+      const qty = Number(it.so_luong);
+      if (isNaN(qty) || qty <= 0) {
+        setErrorMessage(`Dòng ${rowNum} (${it.ten_san_pham}): Số lượng phải lớn hơn 0.`);
+        return;
+      }
+      const price = Number(it.gia_nhap);
+      if (isNaN(price) || price < 0) {
+        setErrorMessage(`Dòng ${rowNum} (${it.ten_san_pham}): Giá nhập không được âm.`);
+        return;
+      }
     }
 
     try {
@@ -244,13 +263,13 @@ export const PurchaseReceiptFormModal: React.FC<PurchaseReceiptFormModalProps> =
         nha_cung_cap: nhaCungCap,
         nguoi_thuc_hien: nguoiThucHien,
         ghi_chu: ghiChu,
-        items: validItems.map((it) => ({
+        items: items.map((it) => ({
           id: it.id,
           san_pham_id: it.san_pham_id,
-          ten_san_pham: it.ten_san_pham,
-          so_luong: it.so_luong,
-          gia_nhap: it.gia_nhap,
-          thanh_tien: it.so_luong * it.gia_nhap,
+          ten_san_pham: it.ten_san_pham.trim(),
+          so_luong: Number(it.so_luong),
+          gia_nhap: Number(it.gia_nhap),
+          thanh_tien: Number(it.so_luong) * Number(it.gia_nhap),
         })),
       };
 

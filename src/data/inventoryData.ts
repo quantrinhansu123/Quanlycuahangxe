@@ -160,10 +160,11 @@ export const bulkUpsertInventoryRecords = async (records: (Partial<InventoryReco
   }
 };
 
-const isNhapRecord = (loai: string | null | undefined): boolean => {
-  const normalized = String(loai || '').trim().toLowerCase();
-  return normalized.includes('nhap') || normalized.includes('nhập');
-};
+import {
+  isNhapRecord,
+  calculateInventoryStockSummary,
+} from '../lib/inventoryCalculations';
+export { isNhapRecord, calculateInventoryStockSummary };
 
 export const LOAI_PHIEU_XUAT_KHO = 'Xuất kho';
 
@@ -414,112 +415,13 @@ export const getInventoryStockSummary = async (
     getInventoryRecords(),
   ]);
 
-  const fromTs = new Date(`${fromDate}T00:00:00`).getTime();
-  const toTs = new Date(`${toDate}T23:59:59`).getTime();
-
-  const byName = new Map<string, InventoryStockSummaryRow>();
-
-  products.forEach((p) => {
-    const name = String(p.ten_san_pham || '').trim();
-    if (!name) return;
-    byName.set(name.toLowerCase(), {
-      id: p.id,
-      ma_hang: p.ma_san_pham || '',
-      ten_hang: name,
-      dvt: p.don_vi_tinh || 'Cái',
-      dau_ky_so_luong: 0,
-      dau_ky_gia_tri: 0,
-      nhap_so_luong: 0,
-      nhap_gia_tri: 0,
-      xuat_so_luong: 0,
-      xuat_gia_tri: 0,
-      cuoi_ky_so_luong: 0,
-      cuoi_ky_gia_tri: 0,
-    });
-  });
-
-  inventoryRows.forEach((r) => {
-    const name = String(r.ten_mat_hang || '').trim();
-    if (!name) return;
-    const key = name.toLowerCase();
-    if (!byName.has(key)) {
-      byName.set(key, {
-        id: r.id,
-        ma_hang: '',
-        ten_hang: name,
-        dvt: 'Cái',
-        dau_ky_so_luong: 0,
-        dau_ky_gia_tri: 0,
-        nhap_so_luong: 0,
-        nhap_gia_tri: 0,
-        xuat_so_luong: 0,
-        xuat_gia_tri: 0,
-        cuoi_ky_so_luong: 0,
-        cuoi_ky_gia_tri: 0,
-      });
-    }
-
-    const row = byName.get(key);
-    if (!row) return;
-
-    const qty = Number(r.so_luong || 0);
-    const amount = Number(r.tong_tien || (Number(r.gia || 0) * qty));
-    const dateMs = new Date(`${r.ngay}T00:00:00`).getTime();
-
-    if (dateMs < fromTs) {
-      row.dau_ky_so_luong += isNhapRecord(r.loai_phieu) ? qty : -qty;
-      row.dau_ky_gia_tri += isNhapRecord(r.loai_phieu) ? amount : -amount;
-      return;
-    }
-
-    if (dateMs > toTs) return;
-
-    if (isNhapRecord(r.loai_phieu)) {
-      row.nhap_so_luong += qty;
-      row.nhap_gia_tri += amount;
-    } else {
-      row.xuat_so_luong += qty;
-      row.xuat_gia_tri += amount;
-    }
-  });
-
-  const result = Array.from(byName.values()).map((r) => {
-    const cuoiSoLuong = r.dau_ky_so_luong + r.nhap_so_luong - r.xuat_so_luong;
-    const cuoiGiaTri = r.dau_ky_gia_tri + r.nhap_gia_tri - r.xuat_gia_tri;
-    return {
-      ...r,
-      cuoi_ky_so_luong: cuoiSoLuong,
-      cuoi_ky_gia_tri: cuoiGiaTri,
-    };
-  });
-
-  result.sort((a, b) => a.ten_hang.localeCompare(b.ten_hang, 'vi'));
-  return result;
+  return calculateInventoryStockSummary(products, inventoryRows, fromDate, toDate);
 };
 
 export const syncProductOpeningStockByDate = async (fromDate: string): Promise<void> => {
-  const [products, inventoryRows] = await Promise.all([getProductRecords(), getInventoryRecords()]);
-  const fromTs = new Date(`${fromDate}T00:00:00`).getTime();
-
-  const qtyByName = new Map<string, number>();
-  inventoryRows.forEach((r) => {
-    const name = String(r.ten_mat_hang || '').trim();
-    if (!name) return;
-    const dateMs = new Date(`${r.ngay}T00:00:00`).getTime();
-    if (dateMs >= fromTs) return;
-    const delta = isNhapRecord(r.loai_phieu) ? Number(r.so_luong || 0) : -Number(r.so_luong || 0);
-    qtyByName.set(name.toLowerCase(), (qtyByName.get(name.toLowerCase()) || 0) + delta);
-  });
-
-  const payload = products.map((p) => ({
-    ten_san_pham: p.ten_san_pham,
-    ton_dau_ky: qtyByName.get(String(p.ten_san_pham || '').trim().toLowerCase()) || 0,
-  }));
-
-  if (payload.length === 0) return;
-  const { error } = await supabase.from('ds_san_pham').upsert(payload, { onConflict: 'ten_san_pham' });
-  if (error) {
-    console.error('Error syncing opening stock by date:', error);
-    throw error;
-  }
+  void fromDate;
+  // Quy ước thống nhất: ds_san_pham.ton_dau_ky là tồn gốc của hệ thống.
+  // calculateInventoryStockSummary() tự động tính toán tồn đầu kỳ động cho bất kỳ ngày nào
+  // mà không ghi đè làm mất dữ liệu gốc của ds_san_pham.
+  return Promise.resolve();
 };

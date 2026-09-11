@@ -53,8 +53,22 @@ export interface PurchaseReceiptFilters {
   toDate?: string;
 }
 
-/** Tự sinh mã phiếu nhập hàng tiếp theo dạng NH-000001, NH-000002... */
+/**
+ * Lấy mã phiếu tiếp theo từ Database Sequence (an toàn khi nhiều người dùng cùng tạo).
+ * Nếu database chưa chạy migration sequence, tự động fallback sang tìm max mã hiện tại.
+ */
 export const getNextPurchaseReceiptCode = async (): Promise<string> => {
+  // 1. Thử gọi PostgreSQL function
+  try {
+    const { data, error } = await supabase.rpc('get_next_purchase_receipt_code');
+    if (!error && data) {
+      return String(data).trim();
+    }
+  } catch {
+    // ignore and fallback
+  }
+
+  // 2. Fallback tìm max từ bảng phieu_nhap_hang
   const { data, error } = await supabase
     .from('phieu_nhap_hang')
     .select('ma_phieu')
@@ -77,14 +91,13 @@ export const getNextPurchaseReceiptCode = async (): Promise<string> => {
   return `NH-${String(maxNum + 1).padStart(6, '0')}`;
 };
 
-/** Xóa toàn bộ bản ghi kho liên quan đến một phiếu nhập hàng cụ thể */
+/** Xóa toàn bộ bản ghi kho liên quan đến đúng phiếu nhập hàng cụ thể (bảo vệ nguồn khác) */
 export const deleteInventoryByPurchaseReceiptId = async (
   receiptId: string,
   receiptCode?: string
 ): Promise<void> => {
   if (!receiptId && !receiptCode) return;
 
-  // Xóa theo source_id (chính xác nhất)
   if (receiptId) {
     const { error: err1 } = await supabase
       .from('nhap_xuat_kho')
@@ -93,21 +106,20 @@ export const deleteInventoryByPurchaseReceiptId = async (
       .eq('source_id', receiptId);
 
     if (err1) {
-      console.warn('Xóa kho theo source_id gặp lỗi (có thể cột chưa được tạo):', err1.message);
+      console.warn('Lỗi khi xóa kho theo source_id:', err1.message);
     }
   }
 
-  // Dự phòng: Xóa theo id_xuat_nhap_kho = receiptCode nếu là loại Nhập kho
+  // Fallback an toàn: CHỈ xóa nếu đúng source_type = 'purchase_receipt'
   if (receiptCode) {
     const { error: err2 } = await supabase
       .from('nhap_xuat_kho')
       .delete()
-      .eq('id_xuat_nhap_kho', receiptCode)
-      .eq('loai_phieu', 'Nhập kho');
+      .eq('source_type', 'purchase_receipt')
+      .eq('id_xuat_nhap_kho', receiptCode);
 
     if (err2) {
-      console.error('Lỗi khi xóa kho theo receiptCode:', err2);
-      throw err2;
+      console.warn('Lỗi khi xóa kho theo receiptCode & source_type:', err2.message);
     }
   }
 };
@@ -157,10 +169,8 @@ export const syncInventoryFromPurchaseReceipt = async (params: {
     source_line_id: it.id || null,
   }));
 
-  // Thử insert kèm source_type, source_id, source_line_id
   const { error } = await supabase.from('nhap_xuat_kho').insert(inventoryRows);
   if (error) {
-    // Nếu db chưa chạy migration thêm 3 cột source_*, fallback sang insert không kèm 3 cột đó
     if (error.message.includes('column') || error.message.includes('source_')) {
       console.warn('Fallback: insert nhap_xuat_kho without source columns pending migration');
       const fallbackRows = inventoryRows.map((r) => {
@@ -187,10 +197,13 @@ export const syncInventoryFromPurchaseReceipt = async (params: {
     gia: it.gia_nhap,
   }));
 
-  try {
-    await supabase.from('ds_san_pham').upsert(productsToUpsert, { onConflict: 'ten_san_pham' });
-  } catch (err) {
-    console.warn('Cập nhật ds_san_pham từ phiếu nhập thất bại (không chặn lưu phiếu):', err);
+  const { error: productError } = await supabase
+    .from('ds_san_pham')
+    .upsert(productsToUpsert, { onConflict: 'ten_san_pham' });
+
+  if (productError) {
+    console.error('Lỗi khi cập nhật ds_san_pham từ phiếu nhập:', productError);
+    throw new Error(`Không thể cập nhật danh mục phụ tùng: ${productError.message}`);
   }
 };
 
@@ -284,7 +297,7 @@ export const getPurchaseReceiptById = async (id: string): Promise<PurchaseReceip
   };
 };
 
-/** Lập phiếu nhập hàng mới */
+/** Lập phiếu nhập hàng mới (ưu tiên Atomic RPC) */
 export const createPurchaseReceipt = async (
   formData: PurchaseReceiptFormData
 ): Promise<PurchaseReceipt> => {
@@ -302,15 +315,63 @@ export const createPurchaseReceipt = async (
     throw new Error('Vui lòng chọn ít nhất một mặt hàng hợp lệ.');
   }
 
-  const totalAmount = cleanItems.reduce((sum, it) => sum + it.thanh_tien, 0);
+  // 1. Thử thực thi Atomic RPC qua save_purchase_receipt
+  try {
+    const { data: rpcData, error: rpcError } = await supabase.rpc('save_purchase_receipt', {
+      p_receipt: {
+        ma_phieu: formData.ma_phieu,
+        ngay: formData.ngay,
+        gio: formData.gio || '00:00',
+        co_so: formData.co_so,
+        nha_cung_cap: formData.nha_cung_cap?.trim() || null,
+        nguoi_thuc_hien: formData.nguoi_thuc_hien?.trim() || null,
+        ghi_chu: formData.ghi_chu?.trim() || null,
+        items: cleanItems,
+      },
+    });
 
-  // Đảm bảo mã phiếu luôn có và không trùng
+    if (!rpcError && rpcData) {
+      const items = (rpcData.items || []) as PurchaseReceiptItem[];
+      return {
+        id: rpcData.id,
+        ma_phieu: rpcData.ma_phieu,
+        ngay: rpcData.ngay,
+        gio: rpcData.gio,
+        co_so: rpcData.co_so,
+        nha_cung_cap: rpcData.nha_cung_cap,
+        nguoi_thuc_hien: rpcData.nguoi_thuc_hien,
+        ghi_chu: rpcData.ghi_chu,
+        tong_tien: Number(rpcData.tong_tien || 0),
+        items,
+        tong_so_luong: items.reduce((sum, it) => sum + Number(it.so_luong || 0), 0),
+      };
+    }
+
+    if (rpcError && rpcError.code === '23505') {
+      // Race condition trùng mã phiếu -> thử lại với mã mới sinh
+      const newCode = await getNextPurchaseReceiptCode();
+      return createPurchaseReceipt({ ...formData, ma_phieu: newCode });
+    }
+
+    // Nếu lỗi không phải do thiếu RPC (42883) thì báo lỗi cụ thể
+    if (rpcError && rpcError.code !== '42883') {
+      console.error('Lỗi RPC save_purchase_receipt:', rpcError);
+      throw new Error(`Lỗi lưu phiếu nhập: ${rpcError.message}`);
+    }
+  } catch (err) {
+    if ((err as Error)?.message?.includes('Lỗi lưu phiếu nhập')) {
+      throw err;
+    }
+    console.warn('RPC save_purchase_receipt chưa khả dụng, chuyển sang fallback client-side');
+  }
+
+  // 2. Fallback client-side (với retry chống trùng mã 23505)
+  const totalAmount = cleanItems.reduce((sum, it) => sum + it.thanh_tien, 0);
   let maPhieu = formData.ma_phieu?.trim();
   if (!maPhieu) {
     maPhieu = await getNextPurchaseReceiptCode();
   }
 
-  // 1. Tạo phiếu master
   const headerPayload = {
     ma_phieu: maPhieu,
     ngay: formData.ngay,
@@ -329,13 +390,16 @@ export const createPurchaseReceipt = async (
     .single();
 
   if (headerError) {
+    if (headerError.code === '23505') {
+      const retryCode = await getNextPurchaseReceiptCode();
+      return createPurchaseReceipt({ ...formData, ma_phieu: retryCode });
+    }
     console.error('Lỗi khi tạo phiếu nhập hàng:', headerError);
-    throw headerError;
+    throw new Error(`Không thể tạo phiếu nhập hàng: ${headerError.message}`);
   }
 
   const receiptId = header.id;
 
-  // 2. Tạo chi tiết phiếu
   const detailPayload = cleanItems.map((it) => ({
     phieu_nhap_id: receiptId,
     san_pham_id: it.san_pham_id,
@@ -352,12 +416,10 @@ export const createPurchaseReceipt = async (
 
   if (detailError) {
     console.error('Lỗi khi lưu chi tiết phiếu nhập hàng:', detailError);
-    // Cố gắng dọn dẹp header vừa tạo để tránh mồ côi
     await supabase.from('phieu_nhap_hang').delete().eq('id', receiptId);
-    throw detailError;
+    throw new Error(`Không thể lưu chi tiết phiếu nhập: ${detailError.message}`);
   }
 
-  // 3. Đồng bộ sang kho
   const finalItems = (insertedItems as PurchaseReceiptItem[]) || cleanItems;
   await syncInventoryFromPurchaseReceipt({
     receiptId,
@@ -376,7 +438,7 @@ export const createPurchaseReceipt = async (
   };
 };
 
-/** Cập nhật phiếu nhập hàng */
+/** Cập nhật phiếu nhập hàng (ưu tiên Atomic RPC) */
 export const updatePurchaseReceipt = async (
   id: string,
   formData: PurchaseReceiptFormData
@@ -395,9 +457,53 @@ export const updatePurchaseReceipt = async (
     throw new Error('Vui lòng chọn ít nhất một mặt hàng hợp lệ.');
   }
 
+  // 1. Thử gọi Atomic RPC
+  try {
+    const { data: rpcData, error: rpcError } = await supabase.rpc('save_purchase_receipt', {
+      p_receipt: {
+        id,
+        ma_phieu: formData.ma_phieu,
+        ngay: formData.ngay,
+        gio: formData.gio || '00:00',
+        co_so: formData.co_so,
+        nha_cung_cap: formData.nha_cung_cap?.trim() || null,
+        nguoi_thuc_hien: formData.nguoi_thuc_hien?.trim() || null,
+        ghi_chu: formData.ghi_chu?.trim() || null,
+        items: cleanItems,
+      },
+    });
+
+    if (!rpcError && rpcData) {
+      const items = (rpcData.items || []) as PurchaseReceiptItem[];
+      return {
+        id: rpcData.id,
+        ma_phieu: rpcData.ma_phieu,
+        ngay: rpcData.ngay,
+        gio: rpcData.gio,
+        co_so: rpcData.co_so,
+        nha_cung_cap: rpcData.nha_cung_cap,
+        nguoi_thuc_hien: rpcData.nguoi_thuc_hien,
+        ghi_chu: rpcData.ghi_chu,
+        tong_tien: Number(rpcData.tong_tien || 0),
+        items,
+        tong_so_luong: items.reduce((sum, it) => sum + Number(it.so_luong || 0), 0),
+      };
+    }
+
+    if (rpcError && rpcError.code !== '42883') {
+      console.error('Lỗi RPC update save_purchase_receipt:', rpcError);
+      throw new Error(`Lỗi cập nhật phiếu: ${rpcError.message}`);
+    }
+  } catch (err) {
+    if ((err as Error)?.message?.includes('Lỗi cập nhật phiếu')) {
+      throw err;
+    }
+    console.warn('RPC chưa khả dụng, thực hiện update qua client fallback');
+  }
+
+  // 2. Fallback client-side
   const totalAmount = cleanItems.reduce((sum, it) => sum + it.thanh_tien, 0);
 
-  // 1. Cập nhật header
   const headerPayload = {
     ngay: formData.ngay,
     gio: formData.gio || '00:00',
@@ -418,10 +524,9 @@ export const updatePurchaseReceipt = async (
 
   if (headerError) {
     console.error('Lỗi khi cập nhật phiếu nhập hàng:', headerError);
-    throw headerError;
+    throw new Error(`Lỗi cập nhật phiếu: ${headerError.message}`);
   }
 
-  // 2. Xóa các chi tiết cũ và thêm lại danh sách mới
   const { error: deleteOldError } = await supabase
     .from('phieu_nhap_hang_ct')
     .delete()
@@ -429,7 +534,7 @@ export const updatePurchaseReceipt = async (
 
   if (deleteOldError) {
     console.error('Lỗi khi dọn dẹp chi tiết cũ:', deleteOldError);
-    throw deleteOldError;
+    throw new Error(`Lỗi dọn chi tiết cũ: ${deleteOldError.message}`);
   }
 
   const detailPayload = cleanItems.map((it) => ({
@@ -448,10 +553,9 @@ export const updatePurchaseReceipt = async (
 
   if (detailError) {
     console.error('Lỗi khi lưu chi tiết mới:', detailError);
-    throw detailError;
+    throw new Error(`Lỗi lưu chi tiết mới: ${detailError.message}`);
   }
 
-  // 3. Đồng bộ lại kho (tự động dọn kho cũ và ghi lại kho mới)
   const finalItems = (insertedItems as PurchaseReceiptItem[]) || cleanItems;
   await syncInventoryFromPurchaseReceipt({
     receiptId: id,
@@ -470,15 +574,31 @@ export const updatePurchaseReceipt = async (
   };
 };
 
-/** Xóa phiếu nhập hàng và xóa sạch các bản ghi kho tương ứng */
+/** Xóa phiếu nhập hàng (ưu tiên Atomic RPC) */
 export const deletePurchaseReceipt = async (id: string, maPhieu?: string): Promise<void> => {
-  // 1. Xóa các dòng kho tương ứng trước
+  // 1. Thử gọi Atomic RPC
+  try {
+    const { error: rpcError } = await supabase.rpc('delete_purchase_receipt', {
+      p_receipt_id: id,
+    });
+    if (!rpcError) return;
+    if (rpcError.code !== '42883') {
+      console.error('Lỗi RPC delete_purchase_receipt:', rpcError);
+      throw new Error(`Lỗi xóa phiếu nhập: ${rpcError.message}`);
+    }
+  } catch (err) {
+    if ((err as Error)?.message?.includes('Lỗi xóa phiếu nhập')) {
+      throw err;
+    }
+    console.warn('RPC delete chưa khả dụng, thực hiện delete qua client fallback');
+  }
+
+  // 2. Fallback client-side
   await deleteInventoryByPurchaseReceiptId(id, maPhieu);
 
-  // 2. Xóa phiếu master (cascade sẽ xóa phieu_nhap_hang_ct)
   const { error } = await supabase.from('phieu_nhap_hang').delete().eq('id', id);
   if (error) {
     console.error('Lỗi khi xóa phiếu nhập hàng:', error);
-    throw error;
+    throw new Error(`Lỗi xóa phiếu nhập: ${error.message}`);
   }
 };
