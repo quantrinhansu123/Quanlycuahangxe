@@ -33,22 +33,20 @@ import {
 const PurchaseReceiptManagementPage: React.FC = () => {
   const navigate = useNavigate();
   const branches = useBranches();
-  const { nhanVien, isAdmin, isTechnician } = useAuth();
+  const { nhanVien, isTechnician } = useAuth();
 
   // Helper check xem user co quyen quan ly phieu nhap khong (admin/kho/ke toan)
   const canManage = useMemo(() => {
-    if (isAdmin) return true;
     if (isTechnician) return false;
     const vt = (nhanVien?.vi_tri || '').toLowerCase().trim();
     return /admin|quản trị|quản lý|quan ly|chủ cửa|kho|kế toán/.test(vt) || vt === 'ql';
-  }, [isAdmin, isTechnician, nhanVien?.vi_tri]);
+  }, [isTechnician, nhanVien?.vi_tri]);
 
   // Chi role thuc su global moi duoc phep cross-branch (Admin, Quan tri, Chu cua hang)
   const isGlobalRole = useMemo(() => {
-    if (isAdmin) return true;
     const vt = (nhanVien?.vi_tri || '').toLowerCase().trim();
     return /admin|quản trị|chủ cửa/.test(vt);
-  }, [isAdmin, nhanVien?.vi_tri]);
+  }, [nhanVien?.vi_tri]);
 
   // Kiem tra co so hop le cua nhan su branch-scoped (khong chap nhan null, blank, hay label tat ca/all/*)
   const hasValidAssignedBranch = useMemo(() => {

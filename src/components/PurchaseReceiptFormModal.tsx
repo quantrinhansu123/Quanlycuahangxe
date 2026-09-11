@@ -54,13 +54,12 @@ export const PurchaseReceiptFormModal: React.FC<PurchaseReceiptFormModalProps> =
   isReadOnly = false,
 }) => {
   const branches = useBranches();
-  const { nhanVien, isAdmin } = useAuth();
+  const { nhanVien } = useAuth();
 
   const isGlobalManager = useMemo(() => {
-    if (isAdmin) return true;
     const vt = (nhanVien?.vi_tri || '').toLowerCase().trim();
     return /admin|quản trị|chủ cửa/.test(vt);
-  }, [isAdmin, nhanVien?.vi_tri]);
+  }, [nhanVien?.vi_tri]);
 
   const userAssignedBranch = useMemo(() => {
     if (isGlobalManager || !nhanVien?.co_so) return null;
