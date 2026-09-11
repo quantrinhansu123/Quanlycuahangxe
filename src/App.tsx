@@ -1,4 +1,4 @@
-﻿import { lazy, Suspense } from 'react';
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import MainLayout from './components/layout/MainLayout';
 import TopProgressBar from './components/ui/TopProgressBar';
@@ -32,6 +32,7 @@ const BranchManagementPage = lazy(() => import('./pages/BranchManagementPage'));
 const PersonnelManagementPage = lazy(() => import('./pages/PersonnelManagementPage'));
 const WarehouseStockListPage = lazy(() => import('./pages/WarehouseStockListPage'));
 const SparePartsListPage = lazy(() => import('./pages/SparePartsListPage'));
+const PurchaseReceiptManagementPage = lazy(() => import('./pages/PurchaseReceiptManagementPage'));
 const ZnsBulkSendPage = lazy(() => import('./pages/ZnsBulkSendPage'));
 const ZaloOauthCallbackPage = lazy(() => import('./pages/ZaloOauthCallbackPage'));
 
@@ -86,8 +87,9 @@ function AppRoutes() {
 
             <Route path="/cham-cong" element={<ProtectedRoute viewKey="cham-cong"><CheckInPage /></ProtectedRoute>} />
 
-            {/* Kho váº­n â€” chá»‰ admin */}
+            {/* Kho vận — chỉ admin */}
             <Route path="/kho-van" element={<ProtectedRoute viewKey="kho-van"><ModulePage /></ProtectedRoute>}>
+              <Route path="nhap-hang" element={<ProtectedRoute viewKey="kho-van"><PurchaseReceiptManagementPage /></ProtectedRoute>} />
               <Route path="xuat-nhap-kho" element={<ProtectedRoute viewKey="kho-van"><InventoryManagementPage /></ProtectedRoute>} />
               <Route path="danh-sach-phu-tung" element={<ProtectedRoute viewKey="kho-van"><SparePartsListPage /></ProtectedRoute>} />
               <Route path="danh-sach-kho" element={<ProtectedRoute viewKey="kho-van"><WarehouseStockListPage /></ProtectedRoute>} />

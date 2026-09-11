@@ -1,4 +1,4 @@
-﻿import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import type { PostgrestError } from '@supabase/supabase-js';
 import { normalizeBranchLabel } from '../constants/customerBranches';
 
@@ -162,7 +162,7 @@ export const bulkUpsertInventoryRecords = async (records: (Partial<InventoryReco
 
 const isNhapRecord = (loai: string | null | undefined): boolean => {
   const normalized = String(loai || '').trim().toLowerCase();
-  return normalized.includes('nhap');
+  return normalized.includes('nhap') || normalized.includes('nhập');
 };
 
 export const LOAI_PHIEU_XUAT_KHO = 'Xuất kho';
