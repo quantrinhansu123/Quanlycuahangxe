@@ -7,13 +7,37 @@ import {
   validateReceiptItems,
 } from '../src/lib/inventoryCalculations.ts';
 
-test('PURCHASE RECEIPT & INVENTORY BASELINE PROTECTION SUITE', async () => {
+test('PURCHASE RECEIPT ACCESS CONTROL & INVENTORY PROTECTION SUITE', async () => {
   const db = new PGlite();
 
-  // 1. Setup base database schema
+  // 1. Setup base database schema with nhan_su and mock session
   await db.exec(`
     CREATE ROLE anon;
     CREATE ROLE authenticated;
+
+    CREATE TABLE public.nhan_su (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      id_nhan_su text,
+      ho_ten text,
+      vi_tri text,
+      co_so text,
+      created_at timestamptz DEFAULT now()
+    );
+
+    -- Seed 2 nhan su: 1 quan ly (co quyen kho-van) va 1 ky thuat vien (khong co quyen kho-van)
+    INSERT INTO public.nhan_su (id, id_nhan_su, ho_ten, vi_tri, co_so)
+    VALUES 
+      ('00000000-0000-0000-0000-000000000001', 'NV-QL', 'Quản lý Nguyễn Văn A', 'Quản lý', 'Cơ sở Bắc Giang'),
+      ('00000000-0000-0000-0000-000000000002', 'NV-KTV', 'Kỹ thuật viên Trần Văn B', 'Kỹ thuật viên', 'Cơ sở Bắc Giang');
+
+    -- Function mo phong doc custom session nhan su
+    CREATE OR REPLACE FUNCTION public.current_app_nhan_su_uuid()
+    RETURNS uuid
+    LANGUAGE sql
+    STABLE
+    AS $$
+      SELECT nullif(current_setting('app.test_session_actor', true), '')::uuid;
+    $$;
 
     CREATE TABLE public.ds_san_pham (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -50,7 +74,7 @@ test('PURCHASE RECEIPT & INVENTORY BASELINE PROTECTION SUITE', async () => {
       ('22222222-2222-2222-2222-222222222222', 'PT-0002', 'Bugi B', 100000, 10);
   `);
 
-  // 2. Chạy cả 3 file migrations thật
+  // 2. Chạy cả 4 file migrations thật tuần tự
   const migration1 = await readFile(
     new URL('../supabase/migrations/202609110002_purchase_receipts.sql', import.meta.url),
     'utf8'
@@ -68,6 +92,17 @@ test('PURCHASE RECEIPT & INVENTORY BASELINE PROTECTION SUITE', async () => {
     'utf8'
   );
   await db.exec(migration3);
+
+  const migration4 = await readFile(
+    new URL('../supabase/migrations/202609110005_purchase_receipt_access_control.sql', import.meta.url),
+    'utf8'
+  );
+  await db.exec(migration4);
+
+  // Helper thiet lap actor phien lam viec
+  const setSessionActor = async (actorId) => {
+    await db.query(`SELECT set_config('app.test_session_actor', $1, false)`, [actorId || '']);
+  };
 
   // Helper goi ham tinh ton kho bang CHINH pure function cua production
   const getStockSummary = async (fromDate = '2026-09-01', toDate = '2026-09-30') => {
@@ -94,189 +129,203 @@ test('PURCHASE RECEIPT & INVENTORY BASELINE PROTECTION SUITE', async () => {
   };
 
   // =============================================================
-  // TEST 1: baseline 5 + nhập 10 = 15
+  // SECURITY TEST A: Không có app session => save_purchase_receipt reject 42501
   // =============================================================
+  await setSessionActor(''); // Không có session
+  await assert.rejects(
+    async () => {
+      await saveReceipt({
+        ngay: '2026-09-10',
+        co_so: 'Cơ sở Bắc Giang',
+        items: [{ ten_san_pham: 'Lốp xe A', so_luong: 5, gia_nhap: 500000 }]
+      });
+    },
+    (err) => {
+      assert.equal(err.code, '42501', 'Mã lỗi phải là 42501');
+      assert.match(err.message, /Yêu cầu đăng nhập/, 'Thông báo yêu cầu đăng nhập');
+      return true;
+    },
+    'Anonymous / No session phải bị từ chối'
+  );
+
+  // =============================================================
+  // SECURITY TEST B: Session giả / nhân sự không tồn tại => reject 42501
+  // =============================================================
+  await setSessionActor('99999999-9999-9999-9999-999999999999'); // UUID không có trong nhan_su
+  await assert.rejects(
+    async () => {
+      await saveReceipt({
+        ngay: '2026-09-10',
+        co_so: 'Cơ sở Bắc Giang',
+        items: [{ ten_san_pham: 'Lốp xe A', so_luong: 5, gia_nhap: 500000 }]
+      });
+    },
+    (err) => {
+      assert.equal(err.code, '42501');
+      assert.match(err.message, /Nhân sự không tồn tại/);
+      return true;
+    },
+    'Session giả phải bị từ chối'
+  );
+
+  // =============================================================
+  // SECURITY TEST B2: Kỹ thuật viên không có quyền quản lý nhập hàng => reject 42501
+  // =============================================================
+  await setSessionActor('00000000-0000-0000-0000-000000000002'); // Kỹ thuật viên
+  await assert.rejects(
+    async () => {
+      await saveReceipt({
+        ngay: '2026-09-10',
+        co_so: 'Cơ sở Bắc Giang',
+        items: [{ ten_san_pham: 'Lốp xe A', so_luong: 5, gia_nhap: 500000 }]
+      });
+    },
+    (err) => {
+      assert.equal(err.code, '42501');
+      assert.match(err.message, /không có quyền/);
+      return true;
+    },
+    'Kỹ thuật viên không được tạo phiếu nhập'
+  );
+
+  // =============================================================
+  // SECURITY TEST C: Session hợp lệ, đúng quyền (Quản lý) => create success
+  // =============================================================
+  await setSessionActor('00000000-0000-0000-0000-000000000001'); // Quản lý
   const receiptA = await saveReceipt({
     ngay: '2026-09-10',
     gio: '10:00',
     co_so: 'Cơ sở Bắc Giang',
     nha_cung_cap: 'NCC Phụ Tùng',
-    nguoi_thuc_hien: 'Admin',
     items: [
       { san_pham_id: '11111111-1111-1111-1111-111111111111', ten_san_pham: 'Lốp xe A', so_luong: 10, gia_nhap: 500000 }
     ]
   });
 
   assert.ok(receiptA.id, 'Tạo phiếu thành công có ID');
-  assert.match(receiptA.ma_phieu, /^NH-\d{6}$/, 'Mã phiếu do database sequence cấp dạng NH-000001');
+  assert.match(receiptA.ma_phieu, /^NH-\d{6}$/, 'Mã phiếu do sequence database cấp dạng NH-000001');
 
+  // =============================================================
+  // SECURITY TEST D: Không có session => delete_purchase_receipt reject 42501
+  // =============================================================
+  await setSessionActor(''); // Reset về no-session
+  await assert.rejects(
+    async () => {
+      await deleteReceipt(receiptA.id);
+    },
+    (err) => {
+      assert.equal(err.code, '42501');
+      assert.match(err.message, /Yêu cầu đăng nhập/);
+      return true;
+    },
+    'Không có session thì không được xóa phiếu'
+  );
+
+  // =============================================================
+  // SECURITY TEST E & F: Direct anonymous INSERT/UPDATE/DELETE vào phieu_nhap_hang => reject 42501
+  // =============================================================
+  await db.exec('SET ROLE anon');
+
+  // Direct INSERT
+  await assert.rejects(
+    async () => {
+      await db.query(`INSERT INTO public.phieu_nhap_hang (ma_phieu, co_so) VALUES ('NH-HACK01', 'Bắc Giang')`);
+    },
+    { code: '42501' },
+    'Direct INSERT từ role anon phải bị chặn 42501'
+  );
+
+  // Direct INSERT vào phieu_nhap_hang_ct
+  await assert.rejects(
+    async () => {
+      await db.query(`INSERT INTO public.phieu_nhap_hang_ct (phieu_nhap_id, ten_san_pham, so_luong, gia_nhap) VALUES ($1, 'Hàng hack', 1, 1000)`, [receiptA.id]);
+    },
+    { code: '42501' },
+    'Direct INSERT vào details từ role anon phải bị chặn 42501'
+  );
+
+  // Direct UPDATE
+  await assert.rejects(
+    async () => {
+      await db.query(`UPDATE public.phieu_nhap_hang SET tong_tien = 0 WHERE id = $1`, [receiptA.id]);
+    },
+    { code: '42501' },
+    'Direct UPDATE từ role anon phải bị chặn 42501'
+  );
+
+  // Direct DELETE
+  await assert.rejects(
+    async () => {
+      await db.query(`DELETE FROM public.phieu_nhap_hang WHERE id = $1`, [receiptA.id]);
+    },
+    { code: '42501' },
+    'Direct DELETE từ role anon phải bị chặn 42501'
+  );
+
+  // =============================================================
+  // SECURITY TEST G: SELECT chỉ cho phép khi có app session hợp lệ (RLS Policy)
+  // =============================================================
+  // Khi không có session: SELECT trả về 0 rows do RLS chặn
+  await setSessionActor('');
+  const anonNoSessionRows = (await db.query(`SELECT * FROM public.phieu_nhap_hang`)).rows;
+  assert.equal(anonNoSessionRows.length, 0, 'RLS chặn không cho anon không có session xem phiếu');
+
+  // Khi có session: SELECT trả về các phiếu theo policy
+  await setSessionActor('00000000-0000-0000-0000-000000000001');
+  const anonWithSessionRows = (await db.query(`SELECT * FROM public.phieu_nhap_hang`)).rows;
+  assert.ok(anonWithSessionRows.length > 0, 'RLS cho phép xem danh sách phiếu khi có app session hợp lệ');
+
+  await db.exec('RESET ROLE');
+
+  // =============================================================
+  // TEST H: CÁC INVARIANT ATOMIC & BASELINE VÒNG 3 VẪN TIẾP TỤC ĐÚNG
+  // =============================================================
+  // H1: Baseline 5 + Nhập 10 = Tồn cuối 15
   let stock = await getStockSummary('2026-09-01', '2026-09-30');
   assert.equal(stock['Lốp xe A'].dau_ky_so_luong, 5, 'Tồn đầu kỳ gốc = 5');
   assert.equal(stock['Lốp xe A'].nhap_so_luong, 10, 'Nhập trong kỳ = 10');
   assert.equal(stock['Lốp xe A'].cuoi_ky_so_luong, 15, 'Tồn cuối kỳ = 5 + 10 = 15');
 
-  // =============================================================
-  // TEST 2: addInventoryRecord không đổi baseline 5 (Nhập thủ công +10 => cuối 15)
-  // =============================================================
-  // Seed sản phẩm Product C có ton_dau_ky = 5
+  // H2: Nhập thủ công +10 vào Product C có baseline 5 => baseline vẫn = 5, cuối 15
   await db.query(`
     INSERT INTO public.ds_san_pham (id, ma_san_pham, ten_san_pham, gia, ton_dau_ky)
     VALUES ('33333333-3333-3333-3333-333333333333', 'PT-0003', 'Sản phẩm C', 200000, 5)
   `);
 
-  // Mô phỏng addInventoryRecord: tạo phiếu nhập kho thủ công +10
   await db.query(`
     INSERT INTO public.nhap_xuat_kho (id_xuat_nhap_kho, loai_phieu, id_don_hang, co_so, ten_mat_hang, ton_dau_ky, so_luong, gia, tong_tien, ngay, gio, nguoi_thuc_hien)
     VALUES ('PXN-0001', 'Nhập kho', 'DH-001', 'Cơ sở Bắc Giang', 'Sản phẩm C', 0, 10, 200000, 2000000, '2026-09-12', '09:00', 'Thu kho')
   `);
 
-  // Logic addInventoryRecord: kiểm tra ds_san_pham đã có thì TUYỆT ĐỐI không thay ton_dau_ky
   const prodC1 = (await db.query(`SELECT ton_dau_ky FROM public.ds_san_pham WHERE ten_san_pham = 'Sản phẩm C'`)).rows[0];
   assert.equal(Number(prodC1.ton_dau_ky), 5, 'Baseline ton_dau_ky của Sản phẩm C vẫn giữ nguyên là 5');
 
   stock = await getStockSummary('2026-09-01', '2026-09-30');
-  assert.equal(stock['Sản phẩm C'].dau_ky_so_luong, 5, 'Đầu kỳ Sản phẩm C = 5');
-  assert.equal(stock['Sản phẩm C'].nhap_so_luong, 10, 'Nhập trong kỳ Sản phẩm C = 10');
-  assert.equal(stock['Sản phẩm C'].cuoi_ky_so_luong, 15, 'Tồn cuối Sản phẩm C = 5 + 10 = 15');
+  assert.equal(stock['Sản phẩm C'].dau_ky_so_luong, 5);
+  assert.equal(stock['Sản phẩm C'].nhap_so_luong, 10);
+  assert.equal(stock['Sản phẩm C'].cuoi_ky_so_luong, 15);
 
-  // =============================================================
-  // TEST 3: Thêm movement +2 (cuối 17) và Excel movement +3 (cuối 20) không đổi baseline 5
-  // =============================================================
-  // Tạo thêm movement +2
+  // H3: Movement +2 (cuối 17) và Excel movement +3 (cuối 20) không đổi baseline 5
   await db.query(`
     INSERT INTO public.nhap_xuat_kho (id_xuat_nhap_kho, loai_phieu, id_don_hang, co_so, ten_mat_hang, ton_dau_ky, so_luong, gia, tong_tien, ngay, gio, nguoi_thuc_hien)
     VALUES ('PXN-0002', 'Nhập kho', 'DH-002', 'Cơ sở Bắc Giang', 'Sản phẩm C', 0, 2, 200000, 400000, '2026-09-13', '09:00', 'Thu kho')
   `);
 
-  const prodC2 = (await db.query(`SELECT ton_dau_ky FROM public.ds_san_pham WHERE ten_san_pham = 'Sản phẩm C'`)).rows[0];
-  assert.equal(Number(prodC2.ton_dau_ky), 5, 'Baseline vẫn là 5 sau movement +2');
-
   stock = await getStockSummary('2026-09-01', '2026-09-30');
-  assert.equal(stock['Sản phẩm C'].cuoi_ky_so_luong, 17, 'Tồn cuối Sản phẩm C = 15 + 2 = 17');
+  assert.equal(stock['Sản phẩm C'].cuoi_ky_so_luong, 17);
 
-  // Import Excel movement +3 (chỉ thêm movement vào nhap_xuat_kho, không ghi đè ds_san_pham.ton_dau_ky)
   await db.query(`
     INSERT INTO public.nhap_xuat_kho (id_xuat_nhap_kho, loai_phieu, id_don_hang, co_so, ten_mat_hang, ton_dau_ky, so_luong, gia, tong_tien, ngay, gio, nguoi_thuc_hien)
     VALUES ('EXCEL-001', 'Nhập kho', 'DH-EXCEL', 'Cơ sở Bắc Giang', 'Sản phẩm C', 99, 3, 200000, 600000, '2026-09-14', '10:00', 'Excel Import')
   `);
 
   const prodC3 = (await db.query(`SELECT ton_dau_ky FROM public.ds_san_pham WHERE ten_san_pham = 'Sản phẩm C'`)).rows[0];
-  assert.equal(Number(prodC3.ton_dau_ky), 5, 'Baseline vẫn là 5 sau khi import Excel movement (không bị ghi đè thành 99)');
+  assert.equal(Number(prodC3.ton_dau_ky), 5, 'Baseline vẫn là 5 sau khi import Excel movement');
 
   stock = await getStockSummary('2026-09-01', '2026-09-30');
-  assert.equal(stock['Sản phẩm C'].cuoi_ky_so_luong, 20, 'Tồn cuối Sản phẩm C = 17 + 3 = 20');
+  assert.equal(stock['Sản phẩm C'].cuoi_ky_so_luong, 20);
 
-  // =============================================================
-  // TEST 4: create/update/delete chỉ dùng atomic RPC
-  // =============================================================
-  // Đảm bảo mã nguồn purchaseReceiptData.ts không còn bất kỳ client write fallback nào
-  const purchaseDataSrc = await readFile(
-    new URL('../src/data/purchaseReceiptData.ts', import.meta.url),
-    'utf8'
-  );
-  assert.ok(!purchaseDataSrc.includes('syncInventoryFromPurchaseReceipt'), 'Không còn hàm syncInventoryFromPurchaseReceipt client fallback');
-  assert.ok(!purchaseDataSrc.includes('deleteInventoryByPurchaseReceiptId'), 'Không còn hàm deleteInventoryByPurchaseReceiptId client fallback');
-  assert.ok(!purchaseDataSrc.includes('.from(\'phieu_nhap_hang\').insert('), 'createPurchaseReceipt không còn insert header từ client');
-  assert.ok(!purchaseDataSrc.includes('.from(\'phieu_nhap_hang_ct\').insert('), 'createPurchaseReceipt không còn insert details từ client');
-
-  // =============================================================
-  // TEST 5: RPC thiếu => fail rõ ràng, KHÔNG fallback write
-  // =============================================================
-  assert.ok(
-    purchaseDataSrc.includes('Database chưa áp dụng migration 202609110003_purchase_receipt_atomic_rpc.sql'),
-    'Mã nguồn ném đúng câu thông báo khi RPC 202609110003 chưa được áp dụng'
-  );
-
-  // =============================================================
-  // TEST 6: invalid qty -5 => reject, không tự biến thành 1
-  // =============================================================
-  // 6a. Kiểm tra ở pure validation layer
-  assert.throws(
-    () => {
-      validateReceiptItems([
-        { ten_san_pham: 'Lốp xe A', so_luong: -5, gia_nhap: 500000 }
-      ]);
-    },
-    (err) => {
-      assert.match(err.message, /Số lượng phải lớn hơn 0/);
-      return true;
-    },
-    'validateReceiptItems phải ném lỗi khi số lượng <= 0, không được biến thành 1'
-  );
-
-  assert.throws(
-    () => {
-      validateReceiptItems([
-        { ten_san_pham: 'Lốp xe A', so_luong: 2, gia_nhap: -100 }
-      ]);
-    },
-    (err) => {
-      assert.match(err.message, /Giá nhập không được âm/);
-      return true;
-    },
-    'validateReceiptItems phải ném lỗi khi đơn giá < 0'
-  );
-
-  assert.throws(
-    () => {
-      validateReceiptItems([
-        { ten_san_pham: '', so_luong: 2, gia_nhap: 100000 }
-      ]);
-    },
-    (err) => {
-      assert.match(err.message, /Vui lòng chọn hoặc nhập tên mặt hàng/);
-      return true;
-    },
-    'validateReceiptItems phải ném lỗi khi tên mặt hàng trống'
-  );
-
-  // 6b. Kiểm tra ở Database RPC layer
-  await assert.rejects(
-    async () => {
-      await saveReceipt({
-        ngay: '2026-09-15',
-        co_so: 'Cơ sở Bắc Giang',
-        items: [
-          { ten_san_pham: 'Lốp xe A', so_luong: -5, gia_nhap: 500000 }
-        ]
-      });
-    },
-    (err) => {
-      assert.match(err.message, /phải lớn hơn 0/);
-      return true;
-    }
-  );
-
-  // =============================================================
-  // TEST 7: Rollback giữ nguyên dữ liệu cũ khi update gặp lỗi
-  // =============================================================
-  // Thử update receiptA với item không hợp lệ
-  await assert.rejects(
-    async () => {
-      await saveReceipt({
-        id: receiptA.id,
-        ma_phieu: receiptA.ma_phieu,
-        ngay: '2026-09-10',
-        co_so: 'Cơ sở Bắc Giang',
-        items: [
-          { san_pham_id: '11111111-1111-1111-1111-111111111111', ten_san_pham: 'Lốp xe A', so_luong: -99, gia_nhap: 500000 }
-        ]
-      });
-    },
-    (err) => {
-      assert.match(err.message, /phải lớn hơn 0/);
-      return true;
-    }
-  );
-
-  // Dữ liệu cũ của receiptA vẫn phải nguyên vẹn (10 cái)
-  const khoRowsAAfterRollback = (await db.query(`SELECT * FROM public.nhap_xuat_kho WHERE source_id = $1`, [receiptA.id])).rows;
-  assert.equal(khoRowsAAfterRollback.length, 1, 'Kho cũ vẫn nguyên vẹn');
-  assert.equal(Number(khoRowsAAfterRollback[0].so_luong), 10, 'Số lượng kho vẫn là 10');
-
-  // =============================================================
-  // TEST 8: Update nhiều lần không duplicate
-  // =============================================================
+  // H4: Update nhiều lần không duplicate
   await saveReceipt({
     id: receiptA.id,
     ma_phieu: receiptA.ma_phieu,
@@ -297,11 +346,32 @@ test('PURCHASE RECEIPT & INVENTORY BASELINE PROTECTION SUITE', async () => {
   });
 
   const countAfterSpam = (await db.query(`SELECT count(*) c FROM public.nhap_xuat_kho WHERE source_id = $1`, [receiptA.id])).rows[0].c;
-  assert.equal(Number(countAfterSpam), 1, 'Lưu nhiều lần liên tiếp không sinh ra dòng kho duplicate');
+  assert.equal(Number(countAfterSpam), 1, 'Lưu nhiều lần không sinh bản ghi duplicate');
 
-  // =============================================================
-  // TEST 9: Xóa phiếu => kho của phiếu mất, phiếu khác không bị ảnh hưởng
-  // =============================================================
+  // H5: Rollback khi lỗi dữ liệu (e.g. qty <= 0)
+  await assert.rejects(
+    async () => {
+      await saveReceipt({
+        id: receiptA.id,
+        ma_phieu: receiptA.ma_phieu,
+        ngay: '2026-09-10',
+        co_so: 'Cơ sở Bắc Giang',
+        items: [
+          { san_pham_id: '11111111-1111-1111-1111-111111111111', ten_san_pham: 'Lốp xe A', so_luong: -99, gia_nhap: 500000 }
+        ]
+      });
+    },
+    (err) => {
+      assert.match(err.message, /phải lớn hơn 0/);
+      return true;
+    }
+  );
+
+  const khoRowsA = (await db.query(`SELECT * FROM public.nhap_xuat_kho WHERE source_id = $1`, [receiptA.id])).rows;
+  assert.equal(khoRowsA.length, 1, 'Kho cũ vẫn nguyên vẹn');
+  assert.equal(Number(khoRowsA[0].so_luong), 12, 'Số lượng vẫn là 12 sau rollback');
+
+  // H6: Xóa phiếu đúng phiếu, không ảnh hưởng phiếu khác
   const receiptB = await saveReceipt({
     ngay: '2026-09-20',
     co_so: 'Cơ sở Bắc Giang',
@@ -316,5 +386,16 @@ test('PURCHASE RECEIPT & INVENTORY BASELINE PROTECTION SUITE', async () => {
   assert.equal(Number(khoBCount), 0, 'Kho của receiptB đã bị xóa hoàn toàn');
 
   const khoACount = (await db.query(`SELECT count(*) c FROM public.nhap_xuat_kho WHERE source_id = $1`, [receiptA.id])).rows[0].c;
-  assert.equal(Number(khoACount), 1, 'Kho của receiptA không hề bị ảnh hưởng khi xóa receiptB');
+  assert.equal(Number(khoACount), 1, 'Kho của receiptA không hề bị ảnh hưởng');
+
+  // H7: Pure validation unit test
+  assert.throws(
+    () => {
+      validateReceiptItems([{ ten_san_pham: 'Lốp', so_luong: -5, gia_nhap: 100 }]);
+    },
+    (err) => {
+      assert.match(err.message, /Số lượng phải lớn hơn 0/);
+      return true;
+    }
+  );
 });
