@@ -7,6 +7,7 @@ import type { DichVu } from './serviceData';
 import type { ThuChi } from './financialData';
 import { getTransactionsByOrderIds } from './financialData';
 import { touchCustomerLastOrderAt } from '../lib/customerActivity';
+import { readRequest } from '../lib/readRequest';
 export { phoneLookupVariants } from '../lib/phoneUtils';
 
 type ServiceLookupRow = {
@@ -164,18 +165,45 @@ const SERVICE_LOOKUP_TTL_MS = 60_000;
 let serviceLookupCache: { rows: ServiceLookupRow[]; at: number } | null = null;
 let serviceLookupInFlight: Promise<ServiceLookupRow[]> | null = null;
 
+function abortReason(signal: AbortSignal): unknown {
+  if (signal.reason) return signal.reason;
+  const error = new Error('The operation was aborted');
+  error.name = 'AbortError';
+  return error;
+}
+
+/** Let each caller stop waiting without cancelling a shared cache fill. */
+function awaitWithAbort<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return promise;
+  if (signal.aborted) return Promise.reject(abortReason(signal));
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(abortReason(signal));
+    const cleanup = () => signal.removeEventListener('abort', onAbort);
+    signal.addEventListener('abort', onAbort, { once: true });
+    promise.then(
+      (value) => { cleanup(); resolve(value); },
+      (error) => { cleanup(); reject(error); },
+    );
+  });
+}
+
 /** Xoá cache tra tên dịch vụ (gọi sau khi thêm/sửa dịch vụ). */
 export function invalidateServiceLookupCache() {
   serviceLookupCache = null;
   serviceLookupInFlight = null;
 }
 
-async function fetchAllServicesForLookup(): Promise<ServiceLookupRow[]> {
+async function fetchAllServicesForLookup(signal?: AbortSignal): Promise<ServiceLookupRow[]> {
+  throwIfAborted(signal);
   if (serviceLookupCache && Date.now() - serviceLookupCache.at < SERVICE_LOOKUP_TTL_MS) {
     return serviceLookupCache.rows;
   }
-  if (serviceLookupInFlight) return serviceLookupInFlight;
+  if (serviceLookupInFlight) {
+    return await awaitWithAbort(serviceLookupInFlight, signal);
+  }
 
+  // The in-flight request is intentionally independent of this caller's
+  // signal. A debounced request must not abort a newer caller sharing it.
   serviceLookupInFlight = fetchAllServicesForLookupUncached()
     .then((rows) => {
       if (rows.length > 0) serviceLookupCache = { rows, at: Date.now() };
@@ -184,25 +212,28 @@ async function fetchAllServicesForLookup(): Promise<ServiceLookupRow[]> {
     .finally(() => {
       serviceLookupInFlight = null;
     });
-  return serviceLookupInFlight;
+  return await awaitWithAbort(serviceLookupInFlight, signal);
 }
 
-async function fetchAllServicesForLookupUncached(): Promise<ServiceLookupRow[]> {
+async function fetchAllServicesForLookupUncached(signal?: AbortSignal): Promise<ServiceLookupRow[]> {
   const all: ServiceLookupRow[] = [];
   let offset = 0;
   const pageSize = 1000;
   for (;;) {
-    const { data, error } = await supabase
+    throwIfAborted(signal);
+    const serviceQuery = supabase
       .from('dich_vu')
       .select('id, id_dich_vu, ten_dich_vu, gia_ban, gia_nhap, co_so')
       .order('id', { ascending: true })
       .range(offset, offset + pageSize - 1);
+    const { data, error } = await (signal ? serviceQuery.abortSignal(signal) : serviceQuery);
     if (error) {
       console.error('Error loading dich_vu for name lookup:', error);
       return all.length ? all : [];
     }
     const batch = (data || []) as ServiceLookupRow[];
     all.push(...batch);
+    throwIfAborted(signal);
     if (batch.length < pageSize) break;
     offset += pageSize;
   }
@@ -256,19 +287,27 @@ export type SalesCardFormData = Partial<SalesCard> & {
   co_so_khach?: string;
 };
 
-export async function enrichSalesCards(cards: SalesCard[]) {
-  await Promise.all([
-    attachDetails(cards),
-    attachCustomer(cards),
-    attachPersonnel(cards),
-    attachService(cards),
-    attachFinancialRecord(cards)
-  ]);
+function throwIfAborted(signal?: AbortSignal) {
+  signal?.throwIfAborted();
 }
 
-async function attachDetails(cards: SalesCard[]) {
-  const bhIds = [...new Set(cards.map(c => c.id_bh).filter(Boolean))] as string[];
-  const uuids = [...new Set(cards.map(c => c.id))];
+export async function enrichSalesCards(cards: SalesCard[], signal?: AbortSignal) {
+  throwIfAborted(signal);
+  await Promise.all([
+    attachDetails(cards, signal),
+    attachCustomer(cards, signal),
+    attachPersonnel(cards, signal),
+    attachService(cards, signal),
+    attachFinancialRecord(cards, signal)
+  ]);
+  throwIfAborted(signal);
+}
+
+async function attachDetails(cards: SalesCard[], signal?: AbortSignal) {
+  throwIfAborted(signal);
+  const missing = cards.filter(c => c.the_ban_hang_ct === undefined);
+  const bhIds = [...new Set(missing.map(c => c.id_bh).filter(Boolean))] as string[];
+  const uuids = [...new Set(missing.map(c => c.id))];
 
   const allSearchIds = [...new Set([...bhIds, ...uuids])];
 
@@ -277,16 +316,21 @@ async function attachDetails(cards: SalesCard[]) {
     const allDetails: SalesCardCT[] = [];
 
     await Promise.all(chunks.map(async (chunk) => {
+      throwIfAborted(signal);
       for (let from = 0; ; from += 1000) {
-        const { data: details, error } = await supabase.rpc('sales_details', { p_refs: chunk }).range(from, from + 999);
+        throwIfAborted(signal);
+        const detailsQuery = supabase.rpc('sales_details', { p_refs: chunk }).range(from, from + 999);
+        const { data: details, error } = await (signal ? detailsQuery.abortSignal(signal) : detailsQuery);
         if (error) throw error;
         allDetails.push(...(details || []));
+        throwIfAborted(signal);
         if ((details || []).length < 1000) break;
       }
     }));
 
     if (allDetails.length > 0) {
-      const allServices = await fetchAllServicesForLookup();
+      throwIfAborted(signal);
+      const allServices = await fetchAllServicesForLookup(signal);
       const codeToName = buildServiceNameLookup(allServices);
 
       const detailMap = new Map<string, SalesCardCT[]>();
@@ -314,7 +358,8 @@ async function attachDetails(cards: SalesCard[]) {
           detailMap.set(lowerId, list);
         }
       });
-      cards.forEach(card => {
+      throwIfAborted(signal);
+      missing.forEach(card => {
         // Try linking by id_bh first, then by internal UUID
         const detailsForBh = card.id_bh ? detailMap.get(card.id_bh.trim().toLowerCase()) : null;
         const detailsForUuid = detailMap.get(card.id.toLowerCase());
@@ -324,12 +369,15 @@ async function attachDetails(cards: SalesCard[]) {
   }
 }
 
-async function attachCustomer(cards: SalesCard[]) {
+async function attachCustomer(cards: SalesCard[], signal?: AbortSignal) {
+  throwIfAborted(signal);
   // Rows from sales_query already use the canonical customer resolver.
   const missing = cards.filter(c => c.khach_hang === undefined);
   if (!missing.length) return;
-  const { data, error } = await supabase.rpc('sales_lookup', { p_ids: missing.map(c => c.id) });
+  const customerQuery = supabase.rpc('sales_lookup', { p_ids: missing.map(c => c.id) });
+  const { data, error } = await (signal ? customerQuery.abortSignal(signal) : customerQuery);
   if (error) throw error;
+  throwIfAborted(signal);
   const lookup = new Map((data as SalesCard[]).map(c => [c.id, c]));
   for (const card of missing) {
     const resolved = lookup.get(card.id);
@@ -342,7 +390,8 @@ async function attachCustomer(cards: SalesCard[]) {
   }
 }
 
-async function attachPersonnel(cards: SalesCard[]) {
+async function attachPersonnel(cards: SalesCard[], signal?: AbortSignal) {
+  throwIfAborted(signal);
   const allStaffIdsRaw = cards.map(c => c.nhan_vien_id).filter(Boolean) as string[];
   const staffIds = [...new Set(allStaffIdsRaw.flatMap(id => id.split(',').map(s => s.trim())))];
   if (staffIds.length > 0) {
@@ -350,10 +399,14 @@ async function attachPersonnel(cards: SalesCard[]) {
     const allPersonnel: Pick<NhanSu, 'ho_ten' | 'id_nhan_su' | 'vi_tri' | 'co_so'>[] = [];
 
     await Promise.all(chunks.map(async (chunk) => {
-      const { data: personnel } = await supabase
+      throwIfAborted(signal);
+      const personnelQuery = supabase
         .from('nhan_su')
         .select('ho_ten, id_nhan_su, vi_tri, co_so')
         .or(`ho_ten.in.(${chunk.map(id => `"${id}"`).join(',')}),id_nhan_su.in.(${chunk.map(id => `"${id}"`).join(',')})`);
+      const { data: personnel, error } = await (signal ? personnelQuery.abortSignal(signal) : personnelQuery);
+      if (error) throw error;
+      throwIfAborted(signal);
       if (personnel) allPersonnel.push(...personnel);
     }));
 
@@ -390,10 +443,12 @@ async function attachPersonnel(cards: SalesCard[]) {
   }
 }
 
-async function attachService(cards: SalesCard[]) {
+async function attachService(cards: SalesCard[], signal?: AbortSignal) {
+  throwIfAborted(signal);
   const serviceIds = [...new Set(cards.map(c => c.dich_vu_id).filter(Boolean))] as string[];
   if (serviceIds.length > 0) {
-    const allServices = await fetchAllServicesForLookup();
+    const allServices = await fetchAllServicesForLookup(signal);
+    throwIfAborted(signal);
     const lookup = buildServiceNameLookup(allServices);
     const serviceById = new Map(allServices.map(s => [s.id.toLowerCase(), s]));
     const serviceByIdDichVu = new Map(
@@ -430,14 +485,17 @@ async function attachService(cards: SalesCard[]) {
   }
 }
 
-async function attachFinancialRecord(cards: SalesCard[]) {
+async function attachFinancialRecord(cards: SalesCard[], signal?: AbortSignal) {
+  throwIfAborted(signal);
   const ids = cards.map(c => c.id).filter(Boolean);
   if (ids.length > 0) {
     const chunks = chunkArray(ids, 50);
     const allFinancials: ThuChi[] = [];
     
     await Promise.all(chunks.map(async (chunk) => {
-      const records = await getTransactionsByOrderIds(chunk);
+      throwIfAborted(signal);
+      const records = await getTransactionsByOrderIds(chunk, signal);
+      throwIfAborted(signal);
       if (records && records.length > 0) allFinancials.push(...records);
     }));
 
@@ -461,12 +519,16 @@ export const getSalesCards = async (staffId?: string): Promise<SalesCard[]> => {
 };
 
 /** Tải đúng một phiếu theo mã BH hoặc UUID để mở trực tiếp từ trang rà soát. */
-export const getSalesCardByReference = async (reference: string): Promise<SalesCard | null> => {
+export const getSalesCardByReference = async (reference: string, signal?: AbortSignal): Promise<SalesCard | null> => {
   if (!reference.trim()) return null;
-  const result = await querySales({ p_reference: reference.trim() }, 1, 1);
+  const result = await querySales({ p_reference: reference.trim() }, 1, 1, signal);
   const card = result.data[0];
   if (!card) return null;
-  await enrichSalesCards([card]);
+  await readRequest(
+    'sales_card_enrich',
+    requestSignal => enrichSalesCards([card], requestSignal),
+    signal,
+  );
   return card;
 };
 
@@ -474,16 +536,24 @@ function salesFilters(searchQuery?: string, startDate?: string, endDate?: string
   return { p_search: searchQuery?.trim() || null, p_start: startDate || null, p_end: endDate || null, p_staff: staffId || null, p_branch: branch || null };
 }
 
-export const getSalesCardsForExport = async (searchQuery?: string, startDate?: string, endDate?: string, staffId?: string, branch?: string): Promise<SalesCard[]> => {
-  const cards = await queryAllSales(salesFilters(searchQuery, startDate, endDate, staffId, branch));
-  await enrichSalesCards(cards);
+export const getSalesCardsForExport = async (searchQuery?: string, startDate?: string, endDate?: string, staffId?: string, branch?: string, signal?: AbortSignal): Promise<SalesCard[]> => {
+  const cards = await queryAllSales(salesFilters(searchQuery, startDate, endDate, staffId, branch), signal);
+  await readRequest(
+    'sales_cards_enrich_export',
+    requestSignal => enrichSalesCards(cards, requestSignal),
+    signal,
+  );
   return cards;
 };
 
 export const getSalesCardsPaginated = async (page: number, pageSize: number, searchQuery?: string, startDate?: string, endDate?: string, staffId?: string, branch?: string, signal?: AbortSignal) => {
   const result = await querySales(salesFilters(searchQuery, startDate, endDate, staffId, branch), page, pageSize, signal);
+  await readRequest(
+    'sales_cards_enrich_page',
+    requestSignal => enrichSalesCards(result.data, requestSignal),
+    signal,
+  );
   signal?.throwIfAborted();
-  await enrichSalesCards(result.data);
   return result;
 };
 
@@ -494,10 +564,14 @@ export async function getSalesCardsSummaryTotals(searchQuery?: string, startDate
 }
 
 export const getSalesCardsByCustomer = async (
-  customer: { id: string; ma_khach_hang?: string | null; so_dien_thoai?: string | null }, startDate?: string, endDate?: string
+  customer: { id: string; ma_khach_hang?: string | null; so_dien_thoai?: string | null }, startDate?: string, endDate?: string, signal?: AbortSignal
 ): Promise<SalesCard[]> => {
-  const cards = await queryAllSales({ p_customer: customer.id || customer.ma_khach_hang, p_start: startDate || null, p_end: endDate || null });
-  await enrichSalesCards(cards);
+  const cards = await queryAllSales({ p_customer: customer.id || customer.ma_khach_hang, p_start: startDate || null, p_end: endDate || null }, signal);
+  await readRequest(
+    'sales_cards_enrich_customer',
+    requestSignal => enrichSalesCards(cards, requestSignal),
+    signal,
+  );
   return cards;
 };
 

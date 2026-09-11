@@ -4,8 +4,59 @@ import { salesAmount } from '../src/lib/salesAmount.ts';
 import { findExistingCustomer, needsCustomerIdentityCheck, normalizePlate } from '../src/lib/customerIdentity.ts';
 import { digitsOnly, samePhoneCore } from '../src/lib/phoneUtils.ts';
 import { branchKey, branchLabel, getBranchOptions, setBranchOptions, subscribeBranches } from '../src/lib/branchCatalog.ts';
-import { getErrorDetails } from '../src/lib/errorDetails.ts';
+import { getErrorDetails, getReadErrorMessage, isAbortError } from '../src/lib/errorDetails.ts';
 import { readRequest } from '../src/lib/readRequest.ts';
+import {
+  buildShortNumericCustomerSearchOrConditions,
+  buildTargetedCustomerSearchOrConditions,
+  buildTargetedSalesSearchOrConditions,
+  isShortNumericSearch,
+  isPlateLikeSearch,
+  isTargetedVehicleSearch,
+  normalizeVehicleSearch,
+  targetedCustomerRowMatches,
+  vehicleNumericSuffix,
+} from '../src/lib/shortNumericSearch.ts';
+
+test('short numeric search uses only customer code and plate fields', () => {
+  assert.equal(isShortNumericSearch('37435'), true);
+  assert.equal(isShortNumericSearch(' 37435 '), true);
+  assert.equal(isShortNumericSearch('123'), false);
+  assert.equal(isShortNumericSearch('12345678'), false);
+  assert.equal(isShortNumericSearch('37A35'), false);
+  assert.deepEqual(buildShortNumericCustomerSearchOrConditions('37435'), [
+    'ma_khach_hang.ilike.%37435%',
+    'bien_so_xe.ilike.%37435%',
+  ]);
+});
+
+test('plate-like searches normalize separators and stay on plate/code fields', () => {
+  assert.equal(isPlateLikeSearch('99d1-37435'), true);
+  assert.equal(isPlateLikeSearch('99D1 37435'), true);
+  assert.equal(isPlateLikeSearch('99D1 374.35'), true);
+  assert.equal(isPlateLikeSearch('29A-12345'), true);
+  assert.equal(isTargetedVehicleSearch('99d137435'), true);
+  assert.equal(vehicleNumericSuffix('99D1 374.35'), '37435');
+  assert.equal(isPlateLikeSearch('0988123456'), false);
+  assert.equal(isTargetedVehicleSearch('Nguyễn Văn Hưng'), false);
+  assert.equal(isTargetedVehicleSearch('37435%'), false);
+  assert.equal(isTargetedVehicleSearch('99d1,37435'), false);
+  assert.deepEqual(buildTargetedCustomerSearchOrConditions('37435%'), []);
+  assert.deepEqual(buildTargetedCustomerSearchOrConditions('99d1,37435'), []);
+  assert.equal(normalizeVehicleSearch(' 99D1-37435 '), '99d137435');
+  assert.equal(targetedCustomerRowMatches({ bien_so_xe: '99D1-37435' }, '99d1 37435'), true);
+  assert.equal(targetedCustomerRowMatches({ bien_so_xe: '99D1-00001' }, '37435'), false);
+  assert.deepEqual(buildTargetedCustomerSearchOrConditions('99d1-37435'), [
+    'bien_so_xe.ilike.%99d137435%',
+    'bien_so_xe.ilike.%37435%',
+    'ma_khach_hang.ilike.%99d137435%',
+    'ma_khach_hang.ilike.%37435%',
+  ]);
+  assert.deepEqual(buildTargetedSalesSearchOrConditions('99D1 374.35'), [
+    'id_bh.ilike.%99d137435%,khach_hang_id.ilike.%99d137435%',
+    'id_bh.ilike.%37435%,khach_hang_id.ilike.%37435%',
+  ]);
+});
 
 test('read timeout aborts the underlying request and reports the slow-server message', async t => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
@@ -43,6 +94,24 @@ test('error messages preserve Supabase plain objects and ordinary Error instance
   assert.equal(getErrorDetails(new Error('Mất kết nối')).message, 'Mất kết nối');
   assert.deepEqual(getErrorDetails(null), {});
   assert.equal(getErrorDetails({ message: { unexpected: true } }).message, undefined);
+});
+
+test('read errors classify abort, timeout, network and fallback consistently', () => {
+  const abort = new Error('The operation was aborted');
+  abort.name = 'AbortError';
+  assert.equal(isAbortError(abort), true);
+  assert.equal(isAbortError({ name: 'AbortError', message: 'cancelled' }), true);
+  assert.equal(isAbortError({ code: '20', message: 'aborted' }), true);
+
+  const fallback = 'Không tải được danh sách.';
+  assert.equal(getReadErrorMessage({ code: '57014', message: 'canceling statement due to statement timeout' }, fallback), 'Máy chủ phản hồi chậm. Vui lòng thử lại.');
+  assert.equal(getReadErrorMessage({ code: 57014, details: 'statement timeout' }, fallback), 'Máy chủ phản hồi chậm. Vui lòng thử lại.');
+  assert.equal(getReadErrorMessage({ message: 'statement timeout' }, fallback), 'Máy chủ phản hồi chậm. Vui lòng thử lại.');
+  assert.equal(getReadErrorMessage({ message: 'Failed to fetch' }, fallback), 'Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.');
+  assert.equal(getReadErrorMessage({ message: 'Network error' }, fallback), 'Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.');
+  assert.equal(getReadErrorMessage(new TypeError('Network request failed'), fallback), 'Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.');
+  assert.equal(getReadErrorMessage({ code: '42501', message: 'permission denied' }, fallback), 'permission denied');
+  assert.equal(getReadErrorMessage({}, fallback), fallback);
 });
 test('legacy numeric phone and normalized plates', () => {
   assert.equal(digitsOnly(392251537), '392251537');

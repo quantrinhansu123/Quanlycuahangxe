@@ -114,18 +114,20 @@ export const getTransactionByOrderId = async (orderId: string): Promise<ThuChi |
   return data as ThuChi | null;
 };
 
-export const getTransactionsByOrderIds = async (orderIds: string[]): Promise<ThuChi[]> => {
+export const getTransactionsByOrderIds = async (orderIds: string[], signal?: AbortSignal): Promise<ThuChi[]> => {
   if (!orderIds || orderIds.length === 0) return [];
   
   // Use chunking if needed for very large lists, using a helper or just running directly 
   // if length is likely small. For safety, let's just query up to 50 items safely.
-  const { data, error } = await supabase
+  const transactionQuery = supabase
     .from('thu_chi')
     .select('*')
     .in('id_don', orderIds)
     .eq('trang_thai', 'Hoàn thành');
+  const { data, error } = await (signal ? transactionQuery.abortSignal(signal) : transactionQuery);
 
   if (error) {
+    if (signal?.aborted) throw error;
     console.error('Error fetching transactions by order IDs:', error);
     return [];
   }

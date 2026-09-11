@@ -1,6 +1,6 @@
 import { queryCustomers } from '../data/salesQueryData';
 import type { DailySalesSummary } from '../data/salesQueryData';
-import { getErrorDetails } from '../lib/errorDetails';
+import { getErrorDetails, getReadErrorMessage, isAbortError } from '../lib/errorDetails';
 import { useBranches } from '../hooks/useBranches';
 import { salesAmount } from '../lib/salesAmount';
 import {
@@ -263,13 +263,21 @@ const SalesCardManagementPage: React.FC = () => {
       setDailySummaries(Object.fromEntries(cardsResult.groupedSummary.map(d => [d.date, d])));
     } catch (error) {
       if (request !== salesRequest.current) return;
+      // A superseded/unmounted request is normal during debounce, tab changes,
+      // and navigation. It must not clear the last successful result or toast.
+      if (controller.signal.aborted || isAbortError(error)) return;
       setSalesCards([]);
       setTotalCount(0);
       setTotalAmount(0);
       setTotalCustomers(0);
+      setNewCustomersCount(0);
+      setReturningCustomersCount(0);
       setDailySummaries({});
       console.error('Error loading sales cards:', error);
-      showToast(error instanceof Error ? error.message : 'Không tải được danh sách phiếu bán hàng. Vui lòng thử lại.', 'error');
+      showToast(
+        getReadErrorMessage(error, 'Không tải được danh sách phiếu bán hàng. Vui lòng thử lại.'),
+        'error'
+      );
     } finally {
       if (request === salesRequest.current) setLoading(false);
     }
@@ -288,7 +296,9 @@ const SalesCardManagementPage: React.FC = () => {
   useEffect(() => { void loadReferenceData(); }, [loadReferenceData]);
   useEffect(() => {
     void loadSalesCards();
-    return () => { salesRequest.current++; salesAbort.current?.abort(); };
+    const requestRef = salesRequest;
+    const abortRef = salesAbort;
+    return () => { requestRef.current++; abortRef.current?.abort(); };
   }, [loadSalesCards]);
 
   const searchCustomersForForm = useCallback(async (search: string, signal: AbortSignal) => {
@@ -704,21 +714,31 @@ const SalesCardManagementPage: React.FC = () => {
   };
 
   const modalRequest = useRef(0);
+  const modalAbort = useRef<AbortController | null>(null);
+  useEffect(() => () => {
+    modalRequest.current++;
+    modalAbort.current?.abort();
+  }, []);
   const handleViewCard = async (selected: SalesCard) => {
     const request = ++modalRequest.current;
+    modalAbort.current?.abort();
+    const controller = new AbortController();
+    modalAbort.current = controller;
     let card: SalesCard | null;
     try {
-      card = await getSalesCardByReference(selected.id);
-    } catch {
-      if (request === modalRequest.current) showToast('Không tải được phiếu bán hàng.', 'error');
+      card = await getSalesCardByReference(selected.id, controller.signal);
+    } catch (error) {
+      if (request === modalRequest.current && !controller.signal.aborted && !isAbortError(error)) {
+        showToast(getReadErrorMessage(error, 'Không tải được phiếu bán hàng.'), 'error');
+      }
       return;
     }
-    if (request !== modalRequest.current) return;
+    if (request !== modalRequest.current || controller.signal.aborted) return;
     if (!card) { showToast('Phiếu bán hàng không còn tồn tại.', 'error'); return; }
     setIsReadOnlyModal(true);
 
     const freshServices = await reloadServices();
-    if (request !== modalRequest.current) return;
+    if (request !== modalRequest.current || controller.signal.aborted) return;
     setEditingCard(card);
     const freshLookup = buildServiceNameLookup(freshServices);
 
@@ -795,6 +815,7 @@ const SalesCardManagementPage: React.FC = () => {
 
   const handleCloseModal = () => {
     modalRequest.current++;
+    modalAbort.current?.abort();
     setIsModalOpen(false);
     setIsReadOnlyModal(false);
     setEditingCard(null);
