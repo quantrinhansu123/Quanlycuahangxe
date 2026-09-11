@@ -18,6 +18,7 @@ import {
 import { clsx } from 'clsx';
 import { useBranches } from '../hooks/useBranches';
 import { useAuth } from '../context/AuthContext';
+import { branchKey } from '../lib/branchCatalog';
 import { SearchableSelect } from './ui/SearchableSelect';
 import { getProductRecords, type ProductRecord } from '../data/inventoryData';
 import {
@@ -53,7 +54,18 @@ export const PurchaseReceiptFormModal: React.FC<PurchaseReceiptFormModalProps> =
   isReadOnly = false,
 }) => {
   const branches = useBranches();
-  const { nhanVien } = useAuth();
+  const { nhanVien, isAdmin } = useAuth();
+
+  const isGlobalManager = useMemo(() => {
+    if (isAdmin) return true;
+    const userCoSo = (nhanVien?.co_so || '').trim();
+    return !userCoSo || ['tất cả', 'tat ca', 'toàn hệ thống', 'toan he thong', 'all', '*'].includes(userCoSo.toLowerCase());
+  }, [isAdmin, nhanVien?.co_so]);
+
+  const userAssignedBranch = useMemo(() => {
+    if (isGlobalManager || !nhanVien?.co_so) return null;
+    return branches.find((b) => branchKey(b) === branchKey(nhanVien.co_so)) || nhanVien.co_so;
+  }, [isGlobalManager, nhanVien?.co_so, branches]);
 
   const [products, setProducts] = useState<ProductRecord[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
@@ -120,7 +132,7 @@ export const PurchaseReceiptFormModal: React.FC<PurchaseReceiptFormModalProps> =
       // Đơn mới
       setNgay(new Date().toISOString().split('T')[0]);
       setGio(formatTime24h(new Date(), false));
-      setCoSo(branches[0] || '');
+      setCoSo(userAssignedBranch || branches[0] || '');
       setNhaCungCap('');
       setNguoiThucHien(nhanVien?.ho_ten || '');
       setGhiChu('');
@@ -133,7 +145,7 @@ export const PurchaseReceiptFormModal: React.FC<PurchaseReceiptFormModalProps> =
           setMaPhieu('NH-000001');
         });
     }
-  }, [isOpen, receipt, nhanVien, branches]);
+  }, [isOpen, receipt, nhanVien, branches, userAssignedBranch]);
 
   // Chuẩn bị options cho SearchableSelect
   const productOptions = useMemo(() => {
@@ -384,16 +396,26 @@ export const PurchaseReceiptFormModal: React.FC<PurchaseReceiptFormModalProps> =
 
               {/* Cơ sở */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                  <Building2 size={14} className="text-primary/70" />
-                  Cơ sở <span className="text-red-500">*</span>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Building2 size={14} className="text-primary/70" />
+                    Cơ sở <span className="text-red-500">*</span>
+                  </span>
+                  {!isGlobalManager && userAssignedBranch && (
+                    <span className="text-[11px] font-normal text-muted-foreground lowercase">
+                      (theo cơ sở của bạn)
+                    </span>
+                  )}
                 </label>
                 <select
                   value={coSo}
                   onChange={(e) => setCoSo(e.target.value)}
-                  disabled={isReadOnly}
+                  disabled={isReadOnly || (!isGlobalManager && !!userAssignedBranch)}
                   required
-                  className="w-full px-3.5 py-2.5 bg-background border border-border rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                  className={clsx(
+                    'w-full px-3.5 py-2.5 bg-background border border-border rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20',
+                    !isGlobalManager && !!userAssignedBranch && 'opacity-80 bg-muted/30 cursor-not-allowed'
+                  )}
                 >
                   <option value="">-- Chọn cơ sở --</option>
                   {branches.map((b) => (

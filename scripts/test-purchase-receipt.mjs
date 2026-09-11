@@ -7,7 +7,7 @@ import {
   validateReceiptItems,
 } from '../src/lib/inventoryCalculations.ts';
 
-test('PURCHASE RECEIPT ACCESS CONTROL & INVENTORY PROTECTION SUITE', async () => {
+test('PURCHASE RECEIPT ACCESS CONTROL & INVENTORY PROTECTION SUITE (VÒNG 5 FINAL)', async () => {
   const db = new PGlite();
 
   // 1. Setup base database schema with nhan_su and mock session
@@ -24,11 +24,19 @@ test('PURCHASE RECEIPT ACCESS CONTROL & INVENTORY PROTECTION SUITE', async () =>
       created_at timestamptz DEFAULT now()
     );
 
-    -- Seed 2 nhan su: 1 quan ly (co quyen kho-van) va 1 ky thuat vien (khong co quyen kho-van)
+    -- Seed 5 nhan su:
+    -- 1. Quản lý chi nhánh Bắc Giang
+    -- 2. Kỹ thuật viên (không có quyền kho vận)
+    -- 3. Admin toàn hệ thống (co_so IS NULL)
+    -- 4. Nhân viên kho chi nhánh Bắc Giang (Branch A)
+    -- 5. Nhân viên kho chi nhánh Bắc Ninh (Branch B)
     INSERT INTO public.nhan_su (id, id_nhan_su, ho_ten, vi_tri, co_so)
     VALUES 
       ('00000000-0000-0000-0000-000000000001', 'NV-QL', 'Quản lý Nguyễn Văn A', 'Quản lý', 'Cơ sở Bắc Giang'),
-      ('00000000-0000-0000-0000-000000000002', 'NV-KTV', 'Kỹ thuật viên Trần Văn B', 'Kỹ thuật viên', 'Cơ sở Bắc Giang');
+      ('00000000-0000-0000-0000-000000000002', 'NV-KTV', 'Kỹ thuật viên Trần Văn B', 'Kỹ thuật viên', 'Cơ sở Bắc Giang'),
+      ('00000000-0000-0000-0000-000000000003', 'NV-ADMIN', 'Admin Hệ Thống', 'Admin', NULL),
+      ('00000000-0000-0000-0000-000000000004', 'NV-KHO-A', 'Thủ kho Bắc Giang', 'Nhân viên kho', 'Cơ sở Bắc Giang'),
+      ('00000000-0000-0000-0000-000000000005', 'NV-KHO-B', 'Thủ kho Bắc Ninh', 'Nhân viên kho', 'Cơ sở Bắc Ninh');
 
     -- Function mo phong doc custom session nhan su
     CREATE OR REPLACE FUNCTION public.current_app_nhan_su_uuid()
@@ -74,7 +82,7 @@ test('PURCHASE RECEIPT ACCESS CONTROL & INVENTORY PROTECTION SUITE', async () =>
       ('22222222-2222-2222-2222-222222222222', 'PT-0002', 'Bugi B', 100000, 10);
   `);
 
-  // 2. Chạy cả 4 file migrations thật tuần tự
+  // 2. Chạy cả 5 file migrations thật tuần tự (002 -> 003 -> 004 -> 005 -> 006)
   const migration1 = await readFile(
     new URL('../supabase/migrations/202609110002_purchase_receipts.sql', import.meta.url),
     'utf8'
@@ -98,6 +106,12 @@ test('PURCHASE RECEIPT ACCESS CONTROL & INVENTORY PROTECTION SUITE', async () =>
     'utf8'
   );
   await db.exec(migration4);
+
+  const migration5 = await readFile(
+    new URL('../supabase/migrations/202609110006_purchase_receipt_scope_hardening.sql', import.meta.url),
+    'utf8'
+  );
+  await db.exec(migration5);
 
   // Helper thiet lap actor phien lam viec
   const setSessionActor = async (actorId) => {
@@ -129,69 +143,9 @@ test('PURCHASE RECEIPT ACCESS CONTROL & INVENTORY PROTECTION SUITE', async () =>
   };
 
   // =============================================================
-  // SECURITY TEST A: Không có app session => save_purchase_receipt reject 42501
+  // TEST CASE PRE-SEED: Tạo trước 1 phiếu cơ sở Bắc Giang bằng Quản lý
   // =============================================================
-  await setSessionActor(''); // Không có session
-  await assert.rejects(
-    async () => {
-      await saveReceipt({
-        ngay: '2026-09-10',
-        co_so: 'Cơ sở Bắc Giang',
-        items: [{ ten_san_pham: 'Lốp xe A', so_luong: 5, gia_nhap: 500000 }]
-      });
-    },
-    (err) => {
-      assert.equal(err.code, '42501', 'Mã lỗi phải là 42501');
-      assert.match(err.message, /Yêu cầu đăng nhập/, 'Thông báo yêu cầu đăng nhập');
-      return true;
-    },
-    'Anonymous / No session phải bị từ chối'
-  );
-
-  // =============================================================
-  // SECURITY TEST B: Session giả / nhân sự không tồn tại => reject 42501
-  // =============================================================
-  await setSessionActor('99999999-9999-9999-9999-999999999999'); // UUID không có trong nhan_su
-  await assert.rejects(
-    async () => {
-      await saveReceipt({
-        ngay: '2026-09-10',
-        co_so: 'Cơ sở Bắc Giang',
-        items: [{ ten_san_pham: 'Lốp xe A', so_luong: 5, gia_nhap: 500000 }]
-      });
-    },
-    (err) => {
-      assert.equal(err.code, '42501');
-      assert.match(err.message, /Nhân sự không tồn tại/);
-      return true;
-    },
-    'Session giả phải bị từ chối'
-  );
-
-  // =============================================================
-  // SECURITY TEST B2: Kỹ thuật viên không có quyền quản lý nhập hàng => reject 42501
-  // =============================================================
-  await setSessionActor('00000000-0000-0000-0000-000000000002'); // Kỹ thuật viên
-  await assert.rejects(
-    async () => {
-      await saveReceipt({
-        ngay: '2026-09-10',
-        co_so: 'Cơ sở Bắc Giang',
-        items: [{ ten_san_pham: 'Lốp xe A', so_luong: 5, gia_nhap: 500000 }]
-      });
-    },
-    (err) => {
-      assert.equal(err.code, '42501');
-      assert.match(err.message, /không có quyền/);
-      return true;
-    },
-    'Kỹ thuật viên không được tạo phiếu nhập'
-  );
-
-  // =============================================================
-  // SECURITY TEST C: Session hợp lệ, đúng quyền (Quản lý) => create success
-  // =============================================================
-  await setSessionActor('00000000-0000-0000-0000-000000000001'); // Quản lý
+  await setSessionActor('00000000-0000-0000-0000-000000000001'); // NV-QL (Bắc Giang)
   const receiptA = await saveReceipt({
     ngay: '2026-09-10',
     gio: '10:00',
@@ -201,92 +155,278 @@ test('PURCHASE RECEIPT ACCESS CONTROL & INVENTORY PROTECTION SUITE', async () =>
       { san_pham_id: '11111111-1111-1111-1111-111111111111', ten_san_pham: 'Lốp xe A', so_luong: 10, gia_nhap: 500000 }
     ]
   });
-
   assert.ok(receiptA.id, 'Tạo phiếu thành công có ID');
-  assert.match(receiptA.ma_phieu, /^NH-\d{6}$/, 'Mã phiếu do sequence database cấp dạng NH-000001');
+  assert.match(receiptA.ma_phieu, /^NH-\d{6}$/, 'Mã phiếu dạng NH-000001');
 
   // =============================================================
-  // SECURITY TEST D: Không có session => delete_purchase_receipt reject 42501
+  // TEST A: Kỹ thuật viên có session hợp lệ SELECT purchase receipt
+  //         => 0 rows trả về (RLS chặn vì không có quyền Kho vận)
+  //         => Ghi phiếu qua RPC bị reject 42501
   // =============================================================
-  await setSessionActor(''); // Reset về no-session
-  await assert.rejects(
-    async () => {
-      await deleteReceipt(receiptA.id);
-    },
-    (err) => {
-      assert.equal(err.code, '42501');
-      assert.match(err.message, /Yêu cầu đăng nhập/);
-      return true;
-    },
-    'Không có session thì không được xóa phiếu'
-  );
-
-  // =============================================================
-  // SECURITY TEST E & F: Direct anonymous INSERT/UPDATE/DELETE vào phieu_nhap_hang => reject 42501
-  // =============================================================
+  await setSessionActor('00000000-0000-0000-0000-000000000002'); // NV-KTV
   await db.exec('SET ROLE anon');
 
-  // Direct INSERT
+  const ktvReceipts = (await db.query(`SELECT * FROM public.phieu_nhap_hang`)).rows;
+  assert.equal(ktvReceipts.length, 0, 'Kỹ thuật viên SELECT phieu_nhap_hang phải trả về 0 rows');
+
+  const ktvReceiptItems = (await db.query(`SELECT * FROM public.phieu_nhap_hang_ct`)).rows;
+  assert.equal(ktvReceiptItems.length, 0, 'Kỹ thuật viên SELECT phieu_nhap_hang_ct phải trả về 0 rows');
+
+  await db.exec('RESET ROLE');
+
+  // KTV gọi RPC save_purchase_receipt => reject 42501
   await assert.rejects(
     async () => {
-      await db.query(`INSERT INTO public.phieu_nhap_hang (ma_phieu, co_so) VALUES ('NH-HACK01', 'Bắc Giang')`);
+      await saveReceipt({
+        ngay: '2026-09-10',
+        co_so: 'Cơ sở Bắc Giang',
+        items: [{ ten_san_pham: 'Lốp xe A', so_luong: 1, gia_nhap: 500000 }]
+      });
     },
-    { code: '42501' },
-    'Direct INSERT từ role anon phải bị chặn 42501'
+    (err) => {
+      assert.equal(err.code, '42501', 'Kỹ thuật viên ghi phiếu phải bị reject 42501');
+      assert.match(err.message, /không có quyền/i, 'Thông báo lỗi quyền vị trí');
+      return true;
+    },
+    'Kỹ thuật viên không được tạo phiếu'
   );
 
-  // Direct INSERT vào phieu_nhap_hang_ct
+  // KTV gọi get_next_purchase_receipt_code => reject 42501
   await assert.rejects(
     async () => {
-      await db.query(`INSERT INTO public.phieu_nhap_hang_ct (phieu_nhap_id, ten_san_pham, so_luong, gia_nhap) VALUES ($1, 'Hàng hack', 1, 1000)`, [receiptA.id]);
+      await db.query(`SELECT public.get_next_purchase_receipt_code()`);
     },
     { code: '42501' },
-    'Direct INSERT vào details từ role anon phải bị chặn 42501'
+    'Kỹ thuật viên không được lấy mã phiếu'
   );
 
-  // Direct UPDATE
+  // =============================================================
+  // TEST B: Nhân viên Kho cơ sở A (Bắc Giang) create receipt cơ sở A => SUCCESS
+  // =============================================================
+  await setSessionActor('00000000-0000-0000-0000-000000000004'); // NV-KHO-A (Bắc Giang)
+  const receiptKhoA = await saveReceipt({
+    ngay: '2026-09-11',
+    gio: '09:30',
+    co_so: 'Cơ sở Bắc Giang',
+    nha_cung_cap: 'NCC Phụ Tùng A',
+    items: [
+      { ten_san_pham: 'Lốp xe A', so_luong: 2, gia_nhap: 500000 }
+    ]
+  });
+  assert.ok(receiptKhoA.id, 'Nhân viên Kho cơ sở A tạo phiếu cơ sở A thành công');
+
+  // =============================================================
+  // TEST C: Nhân viên Kho cơ sở A create receipt cơ sở B (Bắc Ninh) => REJECT 42501
+  // =============================================================
+  await setSessionActor('00000000-0000-0000-0000-000000000004'); // NV-KHO-A (Bắc Giang)
+  await assert.rejects(
+    async () => {
+      await saveReceipt({
+        ngay: '2026-09-11',
+        gio: '10:00',
+        co_so: 'Cơ sở Bắc Ninh',
+        items: [
+          { ten_san_pham: 'Bugi B', so_luong: 5, gia_nhap: 100000 }
+        ]
+      });
+    },
+    (err) => {
+      assert.equal(err.code, '42501', 'Kho A tạo phiếu cơ sở B phải bị reject 42501');
+      assert.match(err.message, /Không có quyền tạo hoặc chỉnh sửa phiếu nhập hàng tại cơ sở/);
+      return true;
+    },
+    'Kho A tạo phiếu cơ sở B phải bị từ chối'
+  );
+
+  // =============================================================
+  // TEST D: Nhân viên Kho cơ sở A update/delete receipt cơ sở B => REJECT 42501
+  // =============================================================
+  // Tạo phiếu tại cơ sở B bằng Thủ kho cơ sở B
+  await setSessionActor('00000000-0000-0000-0000-000000000005'); // NV-KHO-B (Bắc Ninh)
+  const receiptB = await saveReceipt({
+    ngay: '2026-09-11',
+    gio: '10:30',
+    co_so: 'Cơ sở Bắc Ninh',
+    nha_cung_cap: 'NCC Bắc Ninh',
+    items: [
+      { ten_san_pham: 'Bugi B', so_luong: 5, gia_nhap: 100000 }
+    ]
+  });
+  assert.ok(receiptB.id, 'Kho B tạo phiếu cơ sở B thành công');
+
+  // Đổi sang actor Kho A để thử thao tác lên receiptB của cơ sở B
+  await setSessionActor('00000000-0000-0000-0000-000000000004'); // NV-KHO-A (Bắc Giang)
+
+  // 1. Kho A thử update receiptB (giữ nguyên co_so Bắc Ninh) => reject 42501
+  await assert.rejects(
+    async () => {
+      await saveReceipt({
+        id: receiptB.id,
+        ngay: '2026-09-11',
+        co_so: 'Cơ sở Bắc Ninh',
+        items: [{ ten_san_pham: 'Bugi B', so_luong: 6, gia_nhap: 100000 }]
+      });
+    },
+    (err) => {
+      assert.equal(err.code, '42501', 'Kho A update phiếu cơ sở B phải bị reject 42501');
+      assert.match(err.message, /Không có quyền.*chỉnh sửa/i);
+      return true;
+    }
+  );
+
+  // 2. Kho A thử update receiptB đổi co_so sang Bắc Giang => reject 42501 (vì phiếu gốc là cơ sở B)
+  await assert.rejects(
+    async () => {
+      await saveReceipt({
+        id: receiptB.id,
+        ngay: '2026-09-11',
+        co_so: 'Cơ sở Bắc Giang',
+        items: [{ ten_san_pham: 'Bugi B', so_luong: 6, gia_nhap: 100000 }]
+      });
+    },
+    (err) => {
+      assert.equal(err.code, '42501', 'Kho A đổi cơ sở phiếu B sang A phải bị reject 42501');
+      return true;
+    }
+  );
+
+  // 3. Kho A thử delete receiptB => reject 42501
+  await assert.rejects(
+    async () => {
+      await deleteReceipt(receiptB.id);
+    },
+    (err) => {
+      assert.equal(err.code, '42501', 'Kho A xóa phiếu cơ sở B phải bị reject 42501');
+      assert.match(err.message, /Không có quyền xóa phiếu nhập hàng của cơ sở/);
+      return true;
+    }
+  );
+
+  // 4. Kiểm tra RLS SELECT của Kho A: chỉ thấy phiếu cơ sở Bắc Giang, KHÔNG thấy phiếu cơ sở Bắc Ninh
+  await db.exec('SET ROLE anon');
+  const khoAVisibleRows = (await db.query(`SELECT co_so FROM public.phieu_nhap_hang`)).rows;
+  assert.ok(khoAVisibleRows.length > 0, 'Kho A thấy được phiếu cơ sở mình');
+  for (const r of khoAVisibleRows) {
+    assert.match(r.co_so, /Bắc Giang/i, 'Kho A chỉ được thấy phiếu Bắc Giang');
+  }
+  await db.exec('RESET ROLE');
+
+  // =============================================================
+  // TEST E: Admin/global role cross-branch => SUCCESS
+  // =============================================================
+  await setSessionActor('00000000-0000-0000-0000-000000000003'); // NV-ADMIN (toàn hệ thống)
+
+  // 1. Admin tạo phiếu ở cơ sở Bắc Ninh => success
+  const adminReceiptBN = await saveReceipt({
+    ngay: '2026-09-12',
+    gio: '08:00',
+    co_so: 'Cơ sở Bắc Ninh',
+    nha_cung_cap: 'NCC Admin',
+    items: [{ ten_san_pham: 'Bugi B', so_luong: 3, gia_nhap: 100000 }]
+  });
+  assert.ok(adminReceiptBN.id, 'Admin tạo phiếu cơ sở Bắc Ninh thành công');
+
+  // 2. Admin cập nhật phiếu ở cơ sở Bắc Ninh => success
+  const adminUpdateBN = await saveReceipt({
+    id: adminReceiptBN.id,
+    ngay: '2026-09-12',
+    gio: '08:15',
+    co_so: 'Cơ sở Bắc Ninh',
+    items: [{ ten_san_pham: 'Bugi B', so_luong: 4, gia_nhap: 100000 }]
+  });
+  assert.ok(adminUpdateBN.id, 'Admin cập nhật phiếu cơ sở Bắc Ninh thành công');
+
+  // 3. Admin SELECT thấy toàn bộ phiếu của TẤT CẢ các cơ sở
+  await db.exec('SET ROLE anon');
+  const adminVisibleRows = (await db.query(`SELECT DISTINCT co_so FROM public.phieu_nhap_hang`)).rows;
+  const adminBranches = adminVisibleRows.map((r) => r.co_so);
+  assert.ok(adminBranches.some((b) => b.includes('Bắc Giang')), 'Admin thấy được cơ sở Bắc Giang');
+  assert.ok(adminBranches.some((b) => b.includes('Bắc Ninh')), 'Admin thấy được cơ sở Bắc Ninh');
+  await db.exec('RESET ROLE');
+
+  // 4. Admin xóa phiếu ở cơ sở Bắc Ninh => success
+  const deleteResult = await deleteReceipt(adminReceiptBN.id);
+  assert.equal(deleteResult, true, 'Admin xóa phiếu cross-branch thành công');
+
+  // =============================================================
+  // TEST F: No session => SELECT / write vẫn bị chặn
+  // =============================================================
+  await setSessionActor(''); // Không có session
+
+  // SELECT bị RLS trả 0 rows
+  await db.exec('SET ROLE anon');
+  const noSessionRows = (await db.query(`SELECT * FROM public.phieu_nhap_hang`)).rows;
+  assert.equal(noSessionRows.length, 0, 'No-session SELECT phải trả về 0 rows');
+
+  const noSessionDetailRows = (await db.query(`SELECT * FROM public.phieu_nhap_hang_ct`)).rows;
+  assert.equal(noSessionDetailRows.length, 0, 'No-session SELECT details phải trả về 0 rows');
+
+  // Direct table writes bị chặn 42501
+  await assert.rejects(
+    async () => {
+      await db.query(`INSERT INTO public.phieu_nhap_hang (ma_phieu, co_so) VALUES ('NH-HACK', 'Cơ sở Bắc Giang')`);
+    },
+    { code: '42501' },
+    'Direct INSERT bị chặn'
+  );
   await assert.rejects(
     async () => {
       await db.query(`UPDATE public.phieu_nhap_hang SET tong_tien = 0 WHERE id = $1`, [receiptA.id]);
     },
     { code: '42501' },
-    'Direct UPDATE từ role anon phải bị chặn 42501'
+    'Direct UPDATE bị chặn'
   );
-
-  // Direct DELETE
   await assert.rejects(
     async () => {
       await db.query(`DELETE FROM public.phieu_nhap_hang WHERE id = $1`, [receiptA.id]);
     },
     { code: '42501' },
-    'Direct DELETE từ role anon phải bị chặn 42501'
+    'Direct DELETE bị chặn'
+  );
+  await db.exec('RESET ROLE');
+
+  // RPC writes không có session bị chặn 42501
+  await assert.rejects(
+    async () => {
+      await saveReceipt({
+        ngay: '2026-09-10',
+        co_so: 'Cơ sở Bắc Giang',
+        items: [{ ten_san_pham: 'Lốp xe A', so_luong: 1, gia_nhap: 500000 }]
+      });
+    },
+    { code: '42501' },
+    'RPC saveReceipt không có session bị chặn 42501'
+  );
+
+  await assert.rejects(
+    async () => {
+      await deleteReceipt(receiptA.id);
+    },
+    { code: '42501' },
+    'RPC deleteReceipt không có session bị chặn 42501'
+  );
+
+  await assert.rejects(
+    async () => {
+      await db.query(`SELECT public.get_next_purchase_receipt_code()`);
+    },
+    { code: '42501' },
+    'RPC get_next_purchase_receipt_code không có session bị chặn 42501'
   );
 
   // =============================================================
-  // SECURITY TEST G: SELECT chỉ cho phép khi có app session hợp lệ (RLS Policy)
+  // TEST G: CÁC INVARIANT ATOMIC & BASELINE (5 + 10 = 15, +2 = 17, +3 = 20)
   // =============================================================
-  // Khi không có session: SELECT trả về 0 rows do RLS chặn
-  await setSessionActor('');
-  const anonNoSessionRows = (await db.query(`SELECT * FROM public.phieu_nhap_hang`)).rows;
-  assert.equal(anonNoSessionRows.length, 0, 'RLS chặn không cho anon không có session xem phiếu');
-
-  // Khi có session: SELECT trả về các phiếu theo policy
+  // Đặt session actor Quản lý Bắc Giang cho các test tính tồn kho
   await setSessionActor('00000000-0000-0000-0000-000000000001');
-  const anonWithSessionRows = (await db.query(`SELECT * FROM public.phieu_nhap_hang`)).rows;
-  assert.ok(anonWithSessionRows.length > 0, 'RLS cho phép xem danh sách phiếu khi có app session hợp lệ');
 
-  await db.exec('RESET ROLE');
-
-  // =============================================================
-  // TEST H: CÁC INVARIANT ATOMIC & BASELINE VÒNG 3 VẪN TIẾP TỤC ĐÚNG
-  // =============================================================
-  // H1: Baseline 5 + Nhập 10 = Tồn cuối 15
+  // G1: Baseline 5 + Nhập 10 = Tồn cuối 15
   let stock = await getStockSummary('2026-09-01', '2026-09-30');
   assert.equal(stock['Lốp xe A'].dau_ky_so_luong, 5, 'Tồn đầu kỳ gốc = 5');
-  assert.equal(stock['Lốp xe A'].nhap_so_luong, 10, 'Nhập trong kỳ = 10');
-  assert.equal(stock['Lốp xe A'].cuoi_ky_so_luong, 15, 'Tồn cuối kỳ = 5 + 10 = 15');
+  assert.equal(stock['Lốp xe A'].nhap_so_luong, 12, 'Nhập trong kỳ = 10 (từ receiptA) + 2 (từ receiptKhoA)');
+  assert.equal(stock['Lốp xe A'].cuoi_ky_so_luong, 17, 'Tồn cuối kỳ = 5 + 12 = 17');
 
-  // H2: Nhập thủ công +10 vào Product C có baseline 5 => baseline vẫn = 5, cuối 15
+  // G2: Nhập thủ công +10 vào Product C có baseline 5 => baseline vẫn = 5, cuối 15
   await db.query(`
     INSERT INTO public.ds_san_pham (id, ma_san_pham, ten_san_pham, gia, ton_dau_ky)
     VALUES ('33333333-3333-3333-3333-333333333333', 'PT-0003', 'Sản phẩm C', 200000, 5)
@@ -305,7 +445,7 @@ test('PURCHASE RECEIPT ACCESS CONTROL & INVENTORY PROTECTION SUITE', async () =>
   assert.equal(stock['Sản phẩm C'].nhap_so_luong, 10);
   assert.equal(stock['Sản phẩm C'].cuoi_ky_so_luong, 15);
 
-  // H3: Movement +2 (cuối 17) và Excel movement +3 (cuối 20) không đổi baseline 5
+  // G3: Movement +2 (cuối 17) và Excel movement +3 (cuối 20) không đổi baseline 5
   await db.query(`
     INSERT INTO public.nhap_xuat_kho (id_xuat_nhap_kho, loai_phieu, id_don_hang, co_so, ten_mat_hang, ton_dau_ky, so_luong, gia, tong_tien, ngay, gio, nguoi_thuc_hien)
     VALUES ('PXN-0002', 'Nhập kho', 'DH-002', 'Cơ sở Bắc Giang', 'Sản phẩm C', 0, 2, 200000, 400000, '2026-09-13', '09:00', 'Thu kho')
@@ -325,7 +465,7 @@ test('PURCHASE RECEIPT ACCESS CONTROL & INVENTORY PROTECTION SUITE', async () =>
   stock = await getStockSummary('2026-09-01', '2026-09-30');
   assert.equal(stock['Sản phẩm C'].cuoi_ky_so_luong, 20);
 
-  // H4: Update nhiều lần không duplicate
+  // G4: Update nhiều lần không duplicate
   await saveReceipt({
     id: receiptA.id,
     ma_phieu: receiptA.ma_phieu,
@@ -348,7 +488,7 @@ test('PURCHASE RECEIPT ACCESS CONTROL & INVENTORY PROTECTION SUITE', async () =>
   const countAfterSpam = (await db.query(`SELECT count(*) c FROM public.nhap_xuat_kho WHERE source_id = $1`, [receiptA.id])).rows[0].c;
   assert.equal(Number(countAfterSpam), 1, 'Lưu nhiều lần không sinh bản ghi duplicate');
 
-  // H5: Rollback khi lỗi dữ liệu (e.g. qty <= 0)
+  // G5: Rollback khi lỗi dữ liệu (e.g. qty <= 0)
   await assert.rejects(
     async () => {
       await saveReceipt({
@@ -371,8 +511,8 @@ test('PURCHASE RECEIPT ACCESS CONTROL & INVENTORY PROTECTION SUITE', async () =>
   assert.equal(khoRowsA.length, 1, 'Kho cũ vẫn nguyên vẹn');
   assert.equal(Number(khoRowsA[0].so_luong), 12, 'Số lượng vẫn là 12 sau rollback');
 
-  // H6: Xóa phiếu đúng phiếu, không ảnh hưởng phiếu khác
-  const receiptB = await saveReceipt({
+  // G6: Xóa phiếu đúng phiếu, không ảnh hưởng phiếu khác
+  const receiptC = await saveReceipt({
     ngay: '2026-09-20',
     co_so: 'Cơ sở Bắc Giang',
     items: [
@@ -380,15 +520,15 @@ test('PURCHASE RECEIPT ACCESS CONTROL & INVENTORY PROTECTION SUITE', async () =>
     ]
   });
 
-  await deleteReceipt(receiptB.id);
+  await deleteReceipt(receiptC.id);
 
-  const khoBCount = (await db.query(`SELECT count(*) c FROM public.nhap_xuat_kho WHERE source_id = $1`, [receiptB.id])).rows[0].c;
-  assert.equal(Number(khoBCount), 0, 'Kho của receiptB đã bị xóa hoàn toàn');
+  const khoCCount = (await db.query(`SELECT count(*) c FROM public.nhap_xuat_kho WHERE source_id = $1`, [receiptC.id])).rows[0].c;
+  assert.equal(Number(khoCCount), 0, 'Kho của receiptC đã bị xóa hoàn toàn');
 
   const khoACount = (await db.query(`SELECT count(*) c FROM public.nhap_xuat_kho WHERE source_id = $1`, [receiptA.id])).rows[0].c;
   assert.equal(Number(khoACount), 1, 'Kho của receiptA không hề bị ảnh hưởng');
 
-  // H7: Pure validation unit test
+  // G7: Pure validation unit test
   assert.throws(
     () => {
       validateReceiptItems([{ ten_san_pham: 'Lốp', so_luong: -5, gia_nhap: 100 }]);

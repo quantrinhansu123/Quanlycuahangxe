@@ -15,6 +15,9 @@ import {
   Receipt
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { clsx } from 'clsx';
+import { useAuth } from '../context/AuthContext';
+import { branchKey } from '../lib/branchCatalog';
 import { useBranches } from '../hooks/useBranches';
 import Pagination from '../components/Pagination';
 import { PurchaseReceiptFormModal } from '../components/PurchaseReceiptFormModal';
@@ -30,6 +33,29 @@ import {
 const PurchaseReceiptManagementPage: React.FC = () => {
   const navigate = useNavigate();
   const branches = useBranches();
+  const { nhanVien, isAdmin, isTechnician } = useAuth();
+
+  // Helper check xem user co quyen quan ly phieu nhap khong (admin/kho/ke toan)
+  const canManage = useMemo(() => {
+    if (isAdmin) return true;
+    if (isTechnician) return false;
+    const vt = (nhanVien?.vi_tri || '').toLowerCase().trim();
+    return /admin|quản trị|quản lý|quan ly|chủ cửa|kho|kế toán/.test(vt) || vt === 'ql';
+  }, [isAdmin, isTechnician, nhanVien?.vi_tri]);
+
+  // Helper check quyen voi tung phieu cu the theo pham vi co so
+  const canManageReceipt = useCallback(
+    (receipt: PurchaseReceipt) => {
+      if (!canManage) return false;
+      if (isAdmin) return true;
+      const userCoSo = (nhanVien?.co_so || '').trim();
+      if (!userCoSo || ['tất cả', 'tat ca', 'toàn hệ thống', 'toan he thong', 'all', '*'].includes(userCoSo.toLowerCase())) {
+        return true;
+      }
+      return branchKey(userCoSo) === branchKey(receipt.co_so || '');
+    },
+    [canManage, isAdmin, nhanVien?.co_so]
+  );
 
   const [receipts, setReceipts] = useState<PurchaseReceipt[]>([]);
   const [loading, setLoading] = useState(true);
@@ -163,12 +189,14 @@ const PurchaseReceiptManagementPage: React.FC = () => {
           </div>
         </div>
 
-        <button
-          onClick={handleOpenCreate}
-          className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground font-bold text-sm rounded-xl hover:opacity-90 active:scale-95 transition-all shadow-md"
-        >
-          <Plus size={18} /> Lập phiếu nhập hàng
-        </button>
+        {canManage && (
+          <button
+            onClick={handleOpenCreate}
+            className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground font-bold text-sm rounded-xl hover:opacity-90 active:scale-95 transition-all shadow-md"
+          >
+            <Plus size={18} /> Lập phiếu nhập hàng
+          </button>
+        )}
       </div>
 
       {/* Stats Cards */}
@@ -299,74 +327,94 @@ const PurchaseReceiptManagementPage: React.FC = () => {
                     <div className="flex flex-col items-center justify-center gap-2">
                       <Package size={32} className="opacity-40" />
                       <span className="font-medium">Chưa có phiếu nhập hàng nào</span>
-                      <button
-                        onClick={handleOpenCreate}
-                        className="mt-2 text-xs font-bold text-primary hover:underline"
-                      >
-                        + Lập phiếu nhập đầu tiên
-                      </button>
+                      {canManage && (
+                        <button
+                          onClick={handleOpenCreate}
+                          className="mt-2 text-xs font-bold text-primary hover:underline"
+                        >
+                          + Lập phiếu nhập đầu tiên
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
               ) : (
-                receipts.map((r) => (
-                  <tr key={r.id} className="hover:bg-muted/30 transition-colors">
-                    <td className="py-3.5 px-4 font-mono font-bold text-primary">
-                      {r.ma_phieu}
-                    </td>
-                    <td className="py-3.5 px-4 text-xs font-medium">
-                      <div>{r.ngay}</div>
-                      {r.gio && <div className="text-[11px] text-muted-foreground">{r.gio}</div>}
-                    </td>
-                    <td className="py-3.5 px-4 font-medium text-xs sm:text-sm">
-                      {r.co_so}
-                    </td>
-                    <td className="py-3.5 px-4 text-muted-foreground text-xs sm:text-sm">
-                      {r.nha_cung_cap || '—'}
-                    </td>
-                    <td className="py-3.5 px-4 text-center font-mono font-bold text-xs">
-                      <span className="px-2 py-0.5 bg-muted/60 rounded-md">
-                        {r.tong_so_luong || 0}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-right font-mono font-bold text-sm text-foreground">
-                      {Number(r.tong_tien || 0).toLocaleString('vi-VN')} đ
-                    </td>
-                    <td className="py-3.5 px-4 text-xs font-medium text-muted-foreground">
-                      {r.nguoi_thuc_hien || '—'}
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          onClick={() => handleOpenView(r)}
-                          className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
-                          title="Xem chi tiết"
-                        >
-                          <Eye size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleOpenEdit(r)}
-                          className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                          title="Chỉnh sửa"
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(r)}
-                          disabled={deletingId === r.id}
-                          className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors"
-                          title="Xóa phiếu"
-                        >
-                          {deletingId === r.id ? (
-                            <Loader2 size={16} className="animate-spin text-red-500" />
-                          ) : (
-                            <Trash2 size={16} />
+                receipts.map((r) => {
+                  const allowedToManage = canManageReceipt(r);
+                  return (
+                    <tr key={r.id} className="hover:bg-muted/30 transition-colors">
+                      <td className="py-3.5 px-4 font-mono font-bold text-primary">
+                        {r.ma_phieu}
+                      </td>
+                      <td className="py-3.5 px-4 text-xs font-medium">
+                        <div>{r.ngay}</div>
+                        {r.gio && <div className="text-[11px] text-muted-foreground">{r.gio}</div>}
+                      </td>
+                      <td className="py-3.5 px-4 font-medium text-xs sm:text-sm">
+                        {r.co_so}
+                      </td>
+                      <td className="py-3.5 px-4 text-muted-foreground text-xs sm:text-sm">
+                        {r.nha_cung_cap || '—'}
+                      </td>
+                      <td className="py-3.5 px-4 text-center font-mono font-bold text-xs">
+                        <span className="px-2 py-0.5 bg-muted/60 rounded-md">
+                          {r.tong_so_luong || 0}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-mono font-bold text-sm text-foreground">
+                        {Number(r.tong_tien || 0).toLocaleString('vi-VN')} đ
+                      </td>
+                      <td className="py-3.5 px-4 text-xs font-medium text-muted-foreground">
+                        {r.nguoi_thuc_hien || '—'}
+                      </td>
+                      <td className="py-3.5 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => handleOpenView(r)}
+                            className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
+                            title="Xem chi tiết"
+                          >
+                            <Eye size={16} />
+                          </button>
+                          {canManage && (
+                            <>
+                              <button
+                                onClick={() => allowedToManage && handleOpenEdit(r)}
+                                disabled={!allowedToManage}
+                                className={clsx(
+                                  'p-1.5 rounded-lg transition-colors',
+                                  allowedToManage
+                                    ? 'text-muted-foreground hover:text-primary hover:bg-primary/10'
+                                    : 'text-muted-foreground/30 cursor-not-allowed'
+                                )}
+                                title={allowedToManage ? 'Chỉnh sửa' : 'Chỉ có thể chỉnh sửa phiếu thuộc cơ sở của bạn'}
+                              >
+                                <Edit2 size={16} />
+                              </button>
+                              <button
+                                onClick={() => allowedToManage && handleDelete(r)}
+                                disabled={deletingId === r.id || !allowedToManage}
+                                className={clsx(
+                                  'p-1.5 rounded-lg transition-colors',
+                                  allowedToManage && deletingId !== r.id
+                                    ? 'text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30'
+                                    : 'text-muted-foreground/30 cursor-not-allowed'
+                                )}
+                                title={allowedToManage ? 'Xóa phiếu' : 'Chỉ có thể xóa phiếu thuộc cơ sở của bạn'}
+                              >
+                                {deletingId === r.id ? (
+                                  <Loader2 size={16} className="animate-spin text-red-500" />
+                                ) : (
+                                  <Trash2 size={16} />
+                                )}
+                              </button>
+                            </>
                           )}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
