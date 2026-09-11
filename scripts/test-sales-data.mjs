@@ -8,6 +8,7 @@ const timeoutMigration = await readFile(new URL('../supabase/migrations/20260909
 const dateMigration = await readFile(new URL('../supabase/migrations/202609090004_sales_date_scope.sql', import.meta.url), 'utf8');
 const searchMigration = await readFile(new URL('../supabase/migrations/202609100001_sales_search_timeout.sql', import.meta.url), 'utf8');
 const shortNumericSearchMigration = await readFile(new URL('../supabase/migrations/202609100002_short_numeric_sales_search.sql', import.meta.url), 'utf8');
+const customerSearchMigration = await readFile(new URL('../supabase/migrations/202609110001_customer_search_timeout.sql', import.meta.url), 'utf8');
 const db = new PGlite();
 // Use the actual table definitions, excluding unrelated policies/triggers.
 for (const file of ['khach_hang', 'the_ban_hang', 'the_ban_hang_ct', 'dich_vu', 'nhan_su']) {
@@ -35,6 +36,7 @@ await db.exec(timeoutMigration);
 await db.exec(dateMigration);
 await db.exec(searchMigration);
 await db.exec(shortNumericSearchMigration);
+await db.exec(customerSearchMigration);
 const sales = async (args = {}) => {
   const keys = Object.keys(args);
   const { rows } = await db.query(`SELECT sales_query(${keys.map((k, i) => `${k} => $${i + 1}`).join(', ')}) result`, Object.values(args));
@@ -178,6 +180,8 @@ test('migration is idempotent and does not change existing rows', async () => {
   assert.equal((await db.query('SELECT count(*) n FROM khach_hang')).rows[0].n, before);
   await db.exec(shortNumericSearchMigration);
   await db.exec(shortNumericSearchMigration);
+  await db.exec(customerSearchMigration);
+  await db.exec(customerSearchMigration);
 });
 test('branch catalog: create, legacy data, customer/save filters, normalized duplicates and role checks', async () => {
   await db.exec(`CREATE ROLE anon; CREATE ROLE authenticated;
