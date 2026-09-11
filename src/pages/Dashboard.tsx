@@ -1,4 +1,4 @@
-import { BarChart2, BookOpen, Box, FileText, ShieldCheck, Users, Wallet, Wrench, BadgeDollarSign, Send } from 'lucide-react';
+import { BarChart2, BookOpen, Box, FileText, ShieldCheck, Users, Wallet, Wrench, BadgeDollarSign, Send, Truck } from 'lucide-react';
 import React from 'react';
 import { useOutletContext } from 'react-router-dom';
 
@@ -17,6 +17,13 @@ const dashboardModules: ActionCardProps[] = [
     description: 'Quản lý đơn hàng và phiếu bán hàng CT.',
     href: '/ban-hang',
     colorScheme: 'orange'
+  },
+  {
+    icon: Truck,
+    title: 'Nhập hàng',
+    description: 'Lập phiếu nhập hàng và tự động cập nhật nhập — xuất — tồn.',
+    href: '/kho-van/nhap-hang',
+    colorScheme: 'emerald'
   },
   {
     icon: Wallet,
