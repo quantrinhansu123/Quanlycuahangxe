@@ -43,18 +43,44 @@ const PurchaseReceiptManagementPage: React.FC = () => {
     return /admin|quản trị|quản lý|quan ly|chủ cửa|kho|kế toán/.test(vt) || vt === 'ql';
   }, [isAdmin, isTechnician, nhanVien?.vi_tri]);
 
+  // Chi role thuc su global moi duoc phep cross-branch (Admin, Quan tri, Chu cua hang)
+  const isGlobalRole = useMemo(() => {
+    if (isAdmin) return true;
+    const vt = (nhanVien?.vi_tri || '').toLowerCase().trim();
+    return /admin|quản trị|chủ cửa/.test(vt);
+  }, [isAdmin, nhanVien?.vi_tri]);
+
+  // Kiem tra co so hop le cua nhan su branch-scoped (khong chap nhan null, blank, hay label tat ca/all/*)
+  const hasValidAssignedBranch = useMemo(() => {
+    const userCoSo = (nhanVien?.co_so || '').trim();
+    if (!userCoSo) return false;
+    if (['tất cả', 'tat ca', 'toàn hệ thống', 'toan he thong', 'all', '*'].includes(userCoSo.toLowerCase())) {
+      return false;
+    }
+    return Boolean(branchKey(userCoSo));
+  }, [nhanVien?.co_so]);
+
+  // Quyen tao phieu moi:
+  // - Global role: luon duoc phep
+  // - Branch-scoped: bat buoc phai co co_so hop le duoc phan cong
+  const canCreate = useMemo(() => {
+    if (isTechnician) return false;
+    if (!canManage) return false;
+    if (isGlobalRole) return true;
+    return hasValidAssignedBranch;
+  }, [isTechnician, canManage, isGlobalRole, hasValidAssignedBranch]);
+
   // Helper check quyen voi tung phieu cu the theo pham vi co so
   const canManageReceipt = useCallback(
     (receipt: PurchaseReceipt) => {
       if (!canManage) return false;
-      if (isAdmin) return true;
+      if (isGlobalRole) return true;
+      // Nhan su branch-scoped thieu co_so hop le => DENY, khong the sua/xoa bat ky phieu nao
+      if (!hasValidAssignedBranch) return false;
       const userCoSo = (nhanVien?.co_so || '').trim();
-      if (!userCoSo || ['tất cả', 'tat ca', 'toàn hệ thống', 'toan he thong', 'all', '*'].includes(userCoSo.toLowerCase())) {
-        return true;
-      }
       return branchKey(userCoSo) === branchKey(receipt.co_so || '');
     },
-    [canManage, isAdmin, nhanVien?.co_so]
+    [canManage, isGlobalRole, hasValidAssignedBranch, nhanVien?.co_so]
   );
 
   const [receipts, setReceipts] = useState<PurchaseReceipt[]>([]);
@@ -189,7 +215,7 @@ const PurchaseReceiptManagementPage: React.FC = () => {
           </div>
         </div>
 
-        {canManage && (
+        {canCreate && (
           <button
             onClick={handleOpenCreate}
             className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground font-bold text-sm rounded-xl hover:opacity-90 active:scale-95 transition-all shadow-md"
@@ -327,7 +353,7 @@ const PurchaseReceiptManagementPage: React.FC = () => {
                     <div className="flex flex-col items-center justify-center gap-2">
                       <Package size={32} className="opacity-40" />
                       <span className="font-medium">Chưa có phiếu nhập hàng nào</span>
-                      {canManage && (
+                      {canCreate && (
                         <button
                           onClick={handleOpenCreate}
                           className="mt-2 text-xs font-bold text-primary hover:underline"

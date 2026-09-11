@@ -58,13 +58,17 @@ export const PurchaseReceiptFormModal: React.FC<PurchaseReceiptFormModalProps> =
 
   const isGlobalManager = useMemo(() => {
     if (isAdmin) return true;
-    const userCoSo = (nhanVien?.co_so || '').trim();
-    return !userCoSo || ['tất cả', 'tat ca', 'toàn hệ thống', 'toan he thong', 'all', '*'].includes(userCoSo.toLowerCase());
-  }, [isAdmin, nhanVien?.co_so]);
+    const vt = (nhanVien?.vi_tri || '').toLowerCase().trim();
+    return /admin|quản trị|chủ cửa/.test(vt);
+  }, [isAdmin, nhanVien?.vi_tri]);
 
   const userAssignedBranch = useMemo(() => {
     if (isGlobalManager || !nhanVien?.co_so) return null;
-    return branches.find((b) => branchKey(b) === branchKey(nhanVien.co_so)) || nhanVien.co_so;
+    const userCoSo = nhanVien.co_so.trim();
+    if (['tất cả', 'tat ca', 'toàn hệ thống', 'toan he thong', 'all', '*'].includes(userCoSo.toLowerCase())) {
+      return null;
+    }
+    return branches.find((b) => branchKey(b) === branchKey(userCoSo)) || userCoSo;
   }, [isGlobalManager, nhanVien?.co_so, branches]);
 
   const [products, setProducts] = useState<ProductRecord[]>([]);
