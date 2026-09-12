@@ -1,5 +1,5 @@
 import { clsx } from 'clsx';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import type { SidebarItem, SidebarSubItem } from '../../data/sidebarMenu';
@@ -59,6 +59,15 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({ isOpen, setIsOpen }) => {
           isOpen ? "w-64 translate-x-0" : "-translate-x-full lg:translate-x-0 lg:w-[72px]"
         )}
       >
+        <button
+          type="button"
+          onClick={() => setIsOpen(!isOpen)}
+          aria-label={isOpen ? 'Thu gọn thanh điều hướng' : 'Mở rộng thanh điều hướng'}
+          title={isOpen ? 'Thu gọn' : 'Mở rộng'}
+          className="absolute right-[-14px] top-[62px] z-[60] hidden lg:flex h-7 w-7 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-md hover:bg-accent hover:text-foreground"
+        >
+          {isOpen ? <ChevronLeft size={15} /> : <ChevronRight size={15} />}
+        </button>
         {/* Header / Logo */}
         <div className={clsx(
           "h-[55px] flex items-center border-b border-border overflow-hidden shrink-0 transition-all duration-300",
