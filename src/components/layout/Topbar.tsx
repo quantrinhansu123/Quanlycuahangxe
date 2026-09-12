@@ -262,9 +262,9 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
       <div className="flex items-center gap-1 flex-1 min-w-0 overflow-hidden">
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="p-1.5 text-muted-foreground hover:bg-muted border border-border/50 rounded-lg bg-card shadow-sm transition-colors shrink-0"
+          className="p-2.5 text-muted-foreground hover:bg-muted border border-border/50 rounded-lg bg-card shadow-sm transition-colors shrink-0"
         >
-          {sidebarOpen ? <PanelLeftClose size={12} /> : <PanelLeft size={12} />}
+          {sidebarOpen ? <PanelLeftClose size={16} /> : <PanelLeft size={16} />}
         </button>
 
         {/* Unified Title & Switcher Container */}
