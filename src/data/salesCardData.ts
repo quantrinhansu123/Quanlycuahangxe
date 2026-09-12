@@ -8,6 +8,7 @@ import type { ThuChi } from './financialData';
 import { getTransactionsByOrderIds } from './financialData';
 import { touchCustomerLastOrderAt } from '../lib/customerActivity';
 import { readRequest } from '../lib/readRequest';
+import { assertSalesDateNotFuture } from '../utils/datetimeFormat';
 export { phoneLookupVariants } from '../lib/phoneUtils';
 
 type ServiceLookupRow = {
@@ -835,6 +836,7 @@ function salesWritePayload(card: Partial<SalesCard>): Partial<SalesCard> {
     'the_ban_hang_ct', 'thu_chi', 'co_so_khach', 'resolved_amount', 'customer_key', 'order_branches']) {
     delete payload[key];
   }
+  if (typeof payload.ngay === 'string') assertSalesDateNotFuture(payload.ngay);
   return payload as Partial<SalesCard>;
 }
 

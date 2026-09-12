@@ -21,6 +21,7 @@ import type { SalesCard } from '../data/salesCardData';
 import { getSalesCards } from '../data/salesCardData'; // Header cards
 import type { DichVu } from '../data/serviceData';
 import { getServices } from '../data/serviceData';
+import { formatLocalIsoDate, parseExcelDateValue } from '../utils/datetimeFormat';
 
 const SalesCardCTManagementPage: React.FC = () => {
   const { isAdmin } = useAuth();
@@ -120,28 +121,9 @@ const SalesCardCTManagementPage: React.FC = () => {
         const ws = wb.Sheets[wb.SheetNames[0]];
         const data = XLSX.utils.sheet_to_json<Record<string, string | number | undefined>>(ws);
 
-        const formatExcelDate = (val: string | number | undefined | null) => {
-          if (val === undefined || val === null || val === '') return undefined;
-          if (typeof val === 'number' && val > 40000) {
-            const d = new Date(Math.round((val - 25569) * 86400 * 1000));
-            return d.toISOString().split('T')[0];
-          }
-          const s = String(val).trim();
-          const dateMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-          if (dateMatch) {
-            const p1 = parseInt(dateMatch[1]);
-            const p2 = parseInt(dateMatch[2]);
-            const p3 = dateMatch[3];
-            if (p1 > 12) return `${p3}-${String(p2).padStart(2, '0')}-${String(p1).padStart(2, '0')}`;
-            if (p2 > 12) return `${p3}-${String(p1).padStart(2, '0')}-${String(p2).padStart(2, '0')}`;
-            return `${p3}-${String(p2).padStart(2, '0')}-${String(p1).padStart(2, '0')}`;
-          }
-          return s || undefined;
-        };
-
         const latestServices = await getServices();
 
-        const formattedData: Partial<SalesCardCT>[] = data.map((item) => {
+        const formattedData: Partial<SalesCardCT>[] = data.map((item, rowIndex) => {
           const norm: Record<string, string | number | undefined> = {};
           // Normalize keys: trim and replace multiple spaces with single space
           Object.keys(item).forEach(k => {
@@ -172,8 +154,16 @@ const SalesCardCTManagementPage: React.FC = () => {
 
           const productName = serviceMatch ? serviceMatch.ten_dich_vu : rawProductName;
 
-          let ngay = formatExcelDate(getValue(['Ngày']));
-          if (!ngay) ngay = new Date().toISOString().split('T')[0];
+          let ngay: string | undefined;
+          try {
+            ngay = parseExcelDateValue(getValue(['Ngày']), {
+              maxDate: formatLocalIsoDate(),
+              preferNonFutureAmbiguous: true,
+            });
+          } catch (error) {
+            throw new Error(`Dòng Excel ${rowIndex + 2}: ${(error as Error).message}`);
+          }
+          if (!ngay) ngay = formatLocalIsoDate();
 
           const giaBan = Math.round(Number(getValue(['Giá'])) || serviceMatch?.gia_ban || 0);
           const giaVon = Math.round(Number(getValue(['Giá vốn'])) || serviceMatch?.gia_nhap || 0);
@@ -234,7 +224,7 @@ const SalesCardCTManagementPage: React.FC = () => {
         }
       } catch (error) {
         console.error(error);
-        alert("Lỗi khi đọc file Excel.");
+        alert((error as Error)?.message || "Lỗi khi đọc file Excel.");
       } finally {
         setLoading(false);
         if (e.target) e.target.value = '';

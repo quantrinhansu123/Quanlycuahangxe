@@ -11,7 +11,7 @@ import type { DichVu } from '../data/serviceData';
 import { MultiSearchableSelect } from './ui/MultiSearchableSelect';
 import { SearchableSelect } from './ui/SearchableSelect';
 import { useAuth } from '../context/AuthContext';
-import { formatDateTime24h } from '../utils/datetimeFormat';
+import { assertSalesDateNotFuture, formatDateTime24h, formatLocalIsoDate } from '../utils/datetimeFormat';
 
 // Helper for dynamic classes
 const clsx = (...classes: (string | boolean | undefined)[]) => classes.filter(Boolean).join(' ');
@@ -28,7 +28,8 @@ const InputField: React.FC<{
   placeholder?: string,
   disabled?: boolean,
   error?: boolean,
-}> = ({ label, name, value, onChange, icon: Icon, type = 'text', options, required, placeholder, disabled, error }) => (
+  max?: string,
+}> = ({ label, name, value, onChange, icon: Icon, type = 'text', options, required, placeholder, disabled, error, max }) => (
   <div className="space-y-1.5">
     <label className="text-[11px] sm:text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
       <Icon size={14} className="text-primary/70" />
@@ -57,7 +58,7 @@ const InputField: React.FC<{
       <input
         type={type} name={name} value={value ?? ''} onChange={onChange}
         onFocus={(e) => e.target.select()}
-        required={required} placeholder={placeholder} disabled={disabled}
+        required={required} placeholder={placeholder} disabled={disabled} max={max}
         className={clsx("w-full px-4 py-2.5 bg-background border border-border rounded-xl outline-none focus:ring-2 focus:ring-primary/20 text-[14px]", disabled && "bg-muted/30 cursor-not-allowed opacity-80")}
       />
     )}
@@ -314,6 +315,13 @@ const SalesCardFormModal: React.FC<{
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    try {
+      assertSalesDateNotFuture(formData.ngay);
+    } catch (error) {
+      alert((error as Error).message);
+      return;
+    }
+
     const hasServices = (formData.dich_vu_ids || []).some(id => id.trim() !== '');
     if (!hasServices) {
       setShowServiceWarning(true);
@@ -376,7 +384,7 @@ const SalesCardFormModal: React.FC<{
         <form onSubmit={handleFormSubmit} className="overflow-y-auto p-4 sm:p-8 flex-1 custom-scrollbar overscroll-contain">
           <div className="space-y-4 sm:space-y-6">
             <div className="grid grid-cols-2 gap-3 sm:gap-6 [&>*]:min-w-0">
-              <InputField label="Ngày lập" name="ngay" type="date" value={formData.ngay || ''} onChange={handleInputChange} icon={Calendar} required disabled={isReadOnly} />
+              <InputField label="Ngày lập" name="ngay" type="date" value={formData.ngay || ''} onChange={handleInputChange} icon={Calendar} required disabled={isReadOnly} max={formatLocalIsoDate()} />
               <InputField label="Giờ lập" name="gio" type="time" value={formData.gio || ''} onChange={handleInputChange} icon={Clock} required disabled={isReadOnly} />
               {editingCard && (
                 <>

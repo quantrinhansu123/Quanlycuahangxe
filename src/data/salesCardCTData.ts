@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { assertSalesDateNotFuture } from '../utils/datetimeFormat';
 
 export interface SalesCardCT {
   id: string;
@@ -71,6 +72,7 @@ export const getSalesCardCTsPaginated = async (
 };
 
 export const upsertSalesCardCT = async (item: Partial<SalesCardCT>): Promise<SalesCardCT> => {
+  if (item.ngay) assertSalesDateNotFuture(item.ngay);
   const { data, error } = await supabase
     .from('the_ban_hang_ct')
     .upsert(item)
@@ -85,6 +87,9 @@ export const upsertSalesCardCT = async (item: Partial<SalesCardCT>): Promise<Sal
 };
 
 export const bulkUpsertSalesCardCTs = async (items: Partial<SalesCardCT>[]): Promise<void> => {
+  for (const item of items) {
+    if (item.ngay) assertSalesDateNotFuture(item.ngay);
+  }
   const toUpdate = items.filter(i => i.id);
   const toInsert = items.filter(i => !i.id);
 

@@ -63,7 +63,7 @@ import type { DichVu } from '../data/serviceData';
 import { supabase } from '../lib/supabase';
 import { preferCustomerLinkKey } from '../lib/customerOrderLink';
 import { resolveCustomerBranch, resolveOrderBranchFromCard } from '../constants/customerBranches';
-import { formatTime24h } from '../utils/datetimeFormat';
+import { formatLocalIsoDate, formatTime24h, parseExcelDateValue } from '../utils/datetimeFormat';
 
 const SalesCardFormModal = React.lazy(() => import('../components/SalesCardFormModal'));
 
@@ -1180,29 +1180,6 @@ const SalesCardManagementPage: React.FC = () => {
         const ws = wb.Sheets[wb.SheetNames[0]];
         const data = XLSX.utils.sheet_to_json<Record<string, string | number | undefined>>(ws);
 
-        const formatExcelDate = (val: string | number | undefined | null) => {
-          if (val === undefined || val === null || val === '') return undefined;
-          if (typeof val === 'number' && val > 40000) {
-            const d = new Date(Math.round((val - 25569) * 86400 * 1000));
-            return d.toISOString().split('T')[0];
-          }
-          const s = String(val).trim();
-          const dateMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-          if (dateMatch) {
-            const p1 = parseInt(dateMatch[1]);
-            const p2 = parseInt(dateMatch[2]);
-            const p3 = dateMatch[3];
-            if (p1 > 12) {
-              return `${p3}-${String(p2).padStart(2, '0')}-${String(p1).padStart(2, '0')}`;
-            } else if (p2 > 12) {
-              return `${p3}-${String(p1).padStart(2, '0')}-${String(p2).padStart(2, '0')}`;
-            } else {
-              return `${p3}-${String(p2).padStart(2, '0')}-${String(p1).padStart(2, '0')}`;
-            }
-          }
-          return s || undefined;
-        };
-
         const formatExcelTime = (val: string | number | undefined | null) => {
           if (val === undefined || val === null || val === '') return null;
           if (typeof val === 'number') {
@@ -1330,8 +1307,17 @@ const SalesCardManagementPage: React.FC = () => {
 
           const tenDichVu = String(getValue(['dịch vụ sử dụng', 'dịch vụ', 'tên dịch vụ', 'service', ' sản phẩm', 'loại', 'hạng mục']) || '').trim();
 
-          let ngay = formatExcelDate(getValue(['ngày', 'ngày lập', 'ngay', 'date', 'thời gian']));
-          if (!ngay) ngay = new Date().toISOString().split('T')[0];
+          const rawNgay = getValue(['ngày', 'ngày lập', 'ngay', 'date', 'thời gian']);
+          let ngay: string | undefined;
+          try {
+            ngay = parseExcelDateValue(rawNgay, {
+              maxDate: formatLocalIsoDate(),
+              preferNonFutureAmbiguous: true,
+            });
+          } catch (error) {
+            throw new Error(`Dòng Excel ${rowIndex + 2}: ${(error as Error).message}`);
+          }
+          if (!ngay) ngay = formatLocalIsoDate();
 
           let gio = formatExcelTime(getValue(['giờ', 'thời gian', 'gio', 'time', 'tiết đi']));
           if (!gio) gio = "00:00:00";
@@ -1358,7 +1344,7 @@ const SalesCardManagementPage: React.FC = () => {
             so_dien_thoai: sdtRaw || null,
             danh_gia: String(getValue(['đánh giá dịch vụ', 'đánh giá', 'nhận xét', 'danh gia']) || '').trim() || null,
             so_km: Number(getValue(['số km', 'km', 'kilometer', 'số ki lô mét'])) || 0,
-            ngay_nhac_thay_dau: formatExcelDate(getValue(['ngày nhắc thay dầu', 'nhắc thay dầu', 'hạn thay dầu', 'ngay nhac', 'ngày thay', 'hẹn thay dầu', 'thay dầu tiếp']))
+            ngay_nhac_thay_dau: parseExcelDateValue(getValue(['ngày nhắc thay dầu', 'nhắc thay dầu', 'hạn thay dầu', 'ngay nhac', 'ngày thay', 'hẹn thay dầu', 'thay dầu tiếp']))
           };
 
           if (cardToUpdate) {
@@ -1378,7 +1364,7 @@ const SalesCardManagementPage: React.FC = () => {
         }
       } catch (error) {
         console.error(error);
-        alert("Lỗi khi đọc file Excel.");
+        alert((error as Error)?.message || "Lỗi khi đọc file Excel.");
       } finally {
         setLoading(false);
         if (e.target) e.target.value = '';

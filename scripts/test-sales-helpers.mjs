@@ -7,6 +7,10 @@ import { branchKey, branchLabel, getBranchOptions, setBranchOptions, subscribeBr
 import { getErrorDetails, getReadErrorMessage, isAbortError } from '../src/lib/errorDetails.ts';
 import { readRequest } from '../src/lib/readRequest.ts';
 import {
+  assertSalesDateNotFuture,
+  parseExcelDateValue,
+} from '../src/utils/datetimeFormat.ts';
+import {
   buildShortNumericCustomerSearchOrConditions,
   buildTargetedCustomerSearchOrConditions,
   buildTargetedSalesSearchOrConditions,
@@ -28,6 +32,23 @@ test('short numeric search uses only customer code and plate fields', () => {
     'ma_khach_hang.ilike.%37435%',
     'bien_so_xe.ilike.%37435%',
   ]);
+});
+
+test('sales dates correct ambiguous Excel month/day and reject future dates', () => {
+  const importOptions = { maxDate: '2026-09-12', preferNonFutureAmbiguous: true };
+  assert.equal(parseExcelDateValue('7/12/2026', importOptions), '2026-07-12');
+  assert.equal(parseExcelDateValue('6/12/2026', importOptions), '2026-06-12');
+  assert.equal(parseExcelDateValue('12/7/2026', importOptions), '2026-07-12');
+  assert.equal(parseExcelDateValue('13/7/2026', importOptions), '2026-07-13');
+  assert.equal(parseExcelDateValue('7/13/2026', importOptions), '2026-07-13');
+  assert.equal(parseExcelDateValue('7/12/2026'), '2026-12-07');
+  assert.throws(() => parseExcelDateValue('31/2/2026'), /không hợp lệ/);
+  assert.throws(() => parseExcelDateValue('13/12/2026', importOptions), /không được lớn hơn/);
+  assert.doesNotThrow(() => assertSalesDateNotFuture('2026-09-12', '2026-09-12'));
+  assert.throws(
+    () => assertSalesDateNotFuture('2026-09-13', '2026-09-12'),
+    /không được lớn hơn/
+  );
 });
 
 test('plate-like searches normalize separators and stay on plate/code fields', () => {
