@@ -17,6 +17,7 @@ import {
   Trash2,
   User,
   Search
+  ,Sun, Moon
 } from 'lucide-react';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -79,7 +80,7 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
   const userDropdownRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const navigate = useNavigate();
-  const { avatar } = useTheme();
+  const { avatar, theme, setTheme } = useTheme();
   const { nhanVien, signOut, hasViewAccess } = useAuth();
   const canOpenPermissionSettings = hasViewAccess('cai-dat-phan-quyen');
 
@@ -356,6 +357,15 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
         </div>
 
         {/* Notifications */}
+        <button
+          type="button"
+          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+          className="p-2 text-muted-foreground hover:bg-accent rounded-full transition-colors"
+          title={theme === 'dark' ? 'Chuyển sang ban ngày' : 'Chuyển sang ban đêm'}
+          aria-label="Chuyển chế độ sáng tối"
+        >
+          {theme === 'dark' ? <Sun size={19} /> : <Moon size={19} />}
+        </button>
         <div className="relative" ref={notificationDropdownRef}>
           <button
             onClick={() => {
