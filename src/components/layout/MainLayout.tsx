@@ -47,13 +47,13 @@ const MainLayout: React.FC = () => {
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden">
       {/* Sidebar - Hidden on focused data views */}
-      {!isDataView && <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />}
+      <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
 
       {/* Main Content Area */}
       <div 
         className={clsx(
           "flex-1 flex flex-col w-full min-w-0 transition-all duration-300",
-          !isDataView ? (sidebarOpen ? "lg:ml-64" : "lg:ml-[72px]") : "lg:ml-0"
+          sidebarOpen ? "lg:ml-64" : "lg:ml-[72px]"
         )}
       >
         <Topbar 
