@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   X,
@@ -21,8 +21,11 @@ import { useAuth } from '../context/AuthContext';
 import { branchKey } from '../lib/branchCatalog';
 import { SearchableSelect } from './ui/SearchableSelect';
 import { getProductRecords, type ProductRecord } from '../data/inventoryData';
+import { getServices, type DichVu } from '../data/serviceData';
+import { normalizeForCompare } from '../lib/utils';
 import {
   getNextPurchaseReceiptCode,
+  normalizePurchaseReceiptCode,
   type PurchaseReceipt,
   type PurchaseReceiptFormData,
 } from '../data/purchaseReceiptData';
@@ -43,6 +46,14 @@ interface FormItem {
   ten_san_pham: string;
   so_luong: number;
   gia_nhap: number;
+}
+
+interface PurchaseCatalogItem {
+  id: string | null;
+  ma_san_pham: string | null;
+  ten_san_pham: string;
+  gia: number;
+  source: 'product' | 'service';
 }
 
 export const PurchaseReceiptFormModal: React.FC<PurchaseReceiptFormModalProps> = ({
@@ -70,10 +81,14 @@ export const PurchaseReceiptFormModal: React.FC<PurchaseReceiptFormModalProps> =
     return branches.find((b) => branchKey(b) === branchKey(userCoSo)) || userCoSo;
   }, [isGlobalManager, nhanVien?.co_so, branches]);
 
-  const [products, setProducts] = useState<ProductRecord[]>([]);
+  const [products, setProducts] = useState<PurchaseCatalogItem[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
+  const [productLoadError, setProductLoadError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [autoPreviewCode, setAutoPreviewCode] = useState('');
+  const [isManualCode, setIsManualCode] = useState(false);
+  const codeInputDirtyRef = useRef(false);
 
   // Form State
   const [maPhieu, setMaPhieu] = useState('');
@@ -87,31 +102,79 @@ export const PurchaseReceiptFormModal: React.FC<PurchaseReceiptFormModalProps> =
     { ten_san_pham: '', so_luong: 1, gia_nhap: 0 },
   ]);
 
-  // Tải danh mục sản phẩm từ ds_san_pham
+  // Tải toàn bộ catalog sản phẩm + dịch vụ. Dữ liệu product thắng khi cùng
+  // tên (bỏ dấu/gộp khoảng trắng), còn dịch vụ-only luôn giữ san_pham_id=null.
   useEffect(() => {
     if (!isOpen) return;
+    const controller = new AbortController();
     let isMounted = true;
     setLoadingProducts(true);
-    getProductRecords()
-      .then((data) => {
-        if (isMounted) setProducts(data);
+    setProductLoadError(null);
+
+    Promise.all([getProductRecords(controller.signal), getServices()])
+      .then(([productRows, serviceRows]) => {
+        if (!isMounted || controller.signal.aborted) return;
+
+        const merged = new Map<string, PurchaseCatalogItem>();
+        for (const product of productRows as ProductRecord[]) {
+          const name = String(product.ten_san_pham || '').trim();
+          const key = normalizeForCompare(name);
+          if (!key || merged.has(key)) continue;
+          merged.set(key, {
+            id: product.id,
+            ma_san_pham: product.ma_san_pham?.trim() || null,
+            ten_san_pham: name,
+            gia: Number(product.gia || 0),
+            source: 'product',
+          });
+        }
+
+        for (const service of serviceRows as DichVu[]) {
+          const name = String(service.ten_dich_vu || '').trim();
+          const key = normalizeForCompare(name);
+          // An existing ds_san_pham record is authoritative for both ID and price.
+          if (!key || merged.has(key)) continue;
+          merged.set(key, {
+            id: null,
+            ma_san_pham: service.id_dich_vu?.trim() || null,
+            ten_san_pham: name,
+            gia: Number(service.gia_nhap || 0),
+            source: 'service',
+          });
+        }
+
+        setProducts(
+          [...merged.values()].sort((a, b) =>
+            normalizeForCompare(a.ten_san_pham).localeCompare(normalizeForCompare(b.ten_san_pham), 'vi')
+          )
+        );
       })
-      .catch((err) => console.error('Lỗi khi tải danh sách sản phẩm:', err))
+      .catch((err) => {
+        if (isMounted && !controller.signal.aborted) {
+          console.error('Lỗi khi tải danh mục mặt hàng:', err);
+          setProductLoadError((err as Error)?.message || 'Không tải được danh mục mặt hàng.');
+        }
+      })
       .finally(() => {
-        if (isMounted) setLoadingProducts(false);
+        if (isMounted && !controller.signal.aborted) setLoadingProducts(false);
       });
     return () => {
       isMounted = false;
+      controller.abort();
     };
   }, [isOpen]);
 
   // Khởi tạo dữ liệu form khi mở modal
   useEffect(() => {
     if (!isOpen) return;
+    let isMounted = true;
     setErrorMessage(null);
 
     if (receipt) {
       setMaPhieu(receipt.ma_phieu);
+      setAutoPreviewCode(receipt.ma_phieu);
+      setIsManualCode(false);
+      codeInputDirtyRef.current = false;
       setNgay(receipt.ngay);
       setGio(receipt.gio || formatTime24h(new Date(), false));
       setCoSo(receipt.co_so);
@@ -133,6 +196,10 @@ export const PurchaseReceiptFormModal: React.FC<PurchaseReceiptFormModalProps> =
       }
     } else {
       // Đơn mới
+      setAutoPreviewCode('');
+      setIsManualCode(false);
+      codeInputDirtyRef.current = false;
+      setMaPhieu('');
       setNgay(new Date().toISOString().split('T')[0]);
       setGio(formatTime24h(new Date(), false));
       setCoSo(userAssignedBranch || branches[0] || '');
@@ -141,33 +208,94 @@ export const PurchaseReceiptFormModal: React.FC<PurchaseReceiptFormModalProps> =
       setGhiChu('');
       setItems([{ ten_san_pham: '', so_luong: 1, gia_nhap: 0 }]);
 
-      getNextPurchaseReceiptCode()
-        .then((nextCode) => setMaPhieu(nextCode))
+      if (!isReadOnly) getNextPurchaseReceiptCode()
+        .then((nextCode) => {
+          if (!isMounted) return;
+          setAutoPreviewCode(nextCode);
+          if (!codeInputDirtyRef.current) setMaPhieu(nextCode);
+        })
         .catch((err) => {
+          if (!isMounted) return;
           console.error(err);
-          setMaPhieu('NH-000001');
+          setAutoPreviewCode('');
+          if (!codeInputDirtyRef.current) setMaPhieu('');
+          setErrorMessage(
+            `Không tải được mã phiếu preview: ${(err as Error)?.message || 'Vui lòng thử lại hoặc để hệ thống cấp mã khi lưu.'}`
+          );
         });
     }
-  }, [isOpen, receipt, nhanVien, branches, userAssignedBranch]);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, receipt, nhanVien, branches, userAssignedBranch, isReadOnly]);
+
+  // Reconcile historical selections with the canonical catalog spelling after
+  // an async refresh. This keeps the selected value visible and guarantees a
+  // service-only option remains ID-less while preserving the user's quantity
+  // and price edits.
+  useEffect(() => {
+    if (!isOpen || products.length === 0) return;
+    setItems((previous) => {
+      let changed = false;
+      const next = previous.map((item) => {
+        const matched = products.find(
+          (product) => normalizeForCompare(product.ten_san_pham) === normalizeForCompare(item.ten_san_pham)
+        );
+        if (!matched) return item;
+
+        const matchedId = matched.source === 'product' ? matched.id : null;
+        if (item.ten_san_pham === matched.ten_san_pham && item.san_pham_id === matchedId) return item;
+        changed = true;
+        return {
+          ...item,
+          ten_san_pham: matched.ten_san_pham,
+          san_pham_id: matchedId,
+        };
+      });
+      return changed ? next : previous;
+    });
+  }, [isOpen, products]);
 
   // Chuẩn bị options cho SearchableSelect
   const productOptions = useMemo(() => {
-    return products.map((p) => ({
-      value: p.ten_san_pham,
-      label: p.ma_san_pham ? `[${p.ma_san_pham}] ${p.ten_san_pham}` : p.ten_san_pham,
-      searchKey: `${p.ten_san_pham} ${p.ma_san_pham || ''}`,
-    }));
-  }, [products]);
+    const options: Array<{ value: string; label: string; searchKey: string }> = [];
+    const normalizedValues = new Set<string>();
+    for (const p of products) {
+      const key = normalizeForCompare(p.ten_san_pham);
+      if (!key || normalizedValues.has(key)) continue;
+      options.push({
+        value: p.ten_san_pham,
+        label: p.ma_san_pham ? `[${p.ma_san_pham}] ${p.ten_san_pham}` : p.ten_san_pham,
+        searchKey: `${p.ma_san_pham || ''} ${p.ten_san_pham}`,
+      });
+      normalizedValues.add(key);
+    }
+
+    // Keep a previously selected historical name visible if it was removed
+    // from the current catalog while the form was open.
+    for (const item of items) {
+      const name = item.ten_san_pham.trim();
+      const key = normalizeForCompare(name);
+      if (name && key && !normalizedValues.has(key)) {
+        options.push({ value: name, label: name, searchKey: name });
+        normalizedValues.add(key);
+      }
+    }
+    return options;
+  }, [products, items]);
 
   // Xử lý khi chọn một sản phẩm trong dòng
   const handleSelectProduct = (index: number, productName: string) => {
-    const matchedProduct = products.find((p) => p.ten_san_pham === productName);
+    const matchedProduct = products.find(
+      (p) => normalizeForCompare(p.ten_san_pham) === normalizeForCompare(productName)
+    );
     setItems((prev) => {
       const copy = [...prev];
       copy[index] = {
         ...copy[index],
-        san_pham_id: matchedProduct?.id || null,
-        ten_san_pham: productName,
+        san_pham_id: matchedProduct?.source === 'product' ? matchedProduct.id : null,
+        ten_san_pham: matchedProduct?.ten_san_pham || productName,
         gia_nhap: matchedProduct ? Number(matchedProduct.gia || 0) : copy[index].gia_nhap,
       };
       return copy;
@@ -265,13 +393,29 @@ export const PurchaseReceiptFormModal: React.FC<PurchaseReceiptFormModalProps> =
       }
     }
 
+    const isCreate = !receipt;
+    const autoCode =
+      isCreate &&
+      !isManualCode &&
+      (!autoPreviewCode || maPhieu.trim() === autoPreviewCode.trim());
+    let submitCode = maPhieu.trim();
+    if (isCreate && !autoCode) {
+      try {
+        submitCode = normalizePurchaseReceiptCode(maPhieu);
+      } catch (err) {
+        setErrorMessage((err as Error)?.message || 'Mã phiếu thủ công không hợp lệ.');
+        return;
+      }
+    }
+
     try {
       setIsSubmitting(true);
       setErrorMessage(null);
 
       const payload: PurchaseReceiptFormData = {
         id: receipt?.id,
-        ma_phieu: maPhieu,
+        ma_phieu: submitCode,
+        ...(isCreate ? { ma_phieu_tu_dong: autoCode, code_mode: autoCode ? 'auto' as const : 'manual' as const } : {}),
         ngay,
         gio,
         co_so: coSo,
@@ -360,10 +504,27 @@ export const PurchaseReceiptFormModal: React.FC<PurchaseReceiptFormModalProps> =
                 <input
                   type="text"
                   value={maPhieu}
-                  readOnly
-                  disabled
-                  className="w-full px-3.5 py-2.5 bg-muted/40 border border-border rounded-xl text-sm font-mono font-bold text-primary cursor-not-allowed"
+                  onChange={(e) => {
+                    setMaPhieu(e.target.value);
+                    if (!receipt && !isReadOnly) {
+                      codeInputDirtyRef.current = true;
+                      setIsManualCode(true);
+                    }
+                  }}
+                  readOnly={Boolean(receipt) || isReadOnly}
+                  disabled={Boolean(receipt) || isReadOnly}
+                  className={clsx(
+                    'w-full px-3.5 py-2.5 border rounded-xl text-sm font-mono font-bold text-primary',
+                    Boolean(receipt) || isReadOnly
+                      ? 'bg-muted/40 cursor-not-allowed'
+                      : 'bg-background outline-none focus:ring-2 focus:ring-primary/20'
+                  )}
                 />
+                {!receipt && !isReadOnly && (
+                  <p className="text-[11px] text-muted-foreground">
+                    {isManualCode ? 'Đang dùng mã thủ công.' : 'Mã tự động chỉ được cấp khi lưu thành công.'}
+                  </p>
+                )}
               </div>
 
               {/* Ngày nhập */}
@@ -514,14 +675,32 @@ export const PurchaseReceiptFormModal: React.FC<PurchaseReceiptFormModalProps> =
                       {isReadOnly ? (
                         <div className="font-bold text-sm text-foreground py-1">{item.ten_san_pham}</div>
                       ) : (
-                        <SearchableSelect
-                          options={productOptions}
-                          value={item.ten_san_pham}
-                          onValueChange={(val) => handleSelectProduct(idx, val)}
-                          placeholder="-- Chọn hoặc tìm kiếm phụ tùng --"
-                          disabled={loadingProducts}
-                          className="w-full"
-                        />
+                        <>
+                          <SearchableSelect
+                            options={productOptions}
+                            value={item.ten_san_pham}
+                            onValueChange={(val) => handleSelectProduct(idx, val)}
+                            placeholder="-- Chọn hoặc tìm kiếm phụ tùng --"
+                            emptyMessage={
+                              loadingProducts
+                                ? 'Đang tải danh mục mặt hàng…'
+                                : productLoadError || 'Không có mặt hàng phù hợp.'
+                            }
+                            disabled={loadingProducts}
+                            className="w-full"
+                          />
+                          {loadingProducts && (
+                            <p className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground" role="status">
+                              <Loader2 size={12} className="animate-spin" /> Đang tải toàn bộ danh mục mặt hàng…
+                            </p>
+                          )}
+                          {!loadingProducts && productLoadError && (
+                            <p className="mt-1 text-[11px] text-red-600" role="alert">{productLoadError}</p>
+                          )}
+                          {!loadingProducts && !productLoadError && products.length === 0 && (
+                            <p className="mt-1 text-[11px] text-muted-foreground">Danh mục mặt hàng đang trống.</p>
+                          )}
+                        </>
                       )}
                     </div>
 

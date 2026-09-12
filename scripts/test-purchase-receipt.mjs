@@ -6,8 +6,29 @@ import {
   calculateInventoryStockSummary,
   validateReceiptItems,
 } from '../src/lib/inventoryCalculations.ts';
+import {
+  isMissingPurchaseReceiptCodeRpcError,
+  normalizePurchaseReceiptCode,
+} from '../src/lib/purchaseReceiptCode.ts';
 
 test('PURCHASE RECEIPT ACCESS CONTROL & INVENTORY PROTECTION SUITE (HOTFIX SCOPE)', async () => {
+  const modalSource = await readFile(
+    new URL('../src/components/PurchaseReceiptFormModal.tsx', import.meta.url),
+    'utf8'
+  );
+  const inventorySource = await readFile(
+    new URL('../src/data/inventoryData.ts', import.meta.url),
+    'utf8'
+  );
+  assert.match(modalSource, /Promise\.all\(\[getProductRecords\(controller\.signal\), getServices\(\)\]\)/, 'Modal nạp product + service đồng thời');
+  assert.match(modalSource, /source === 'product' \? matchedProduct\.id : null/, 'Service-only không gửi san_pham_id');
+  assert.match(modalSource, /readOnly=\{Boolean\(receipt\) \|\| isReadOnly\}/, 'Mã phiếu edit/read-only bị khóa');
+  assert.match(modalSource, /ma_phieu_tu_dong: autoCode/, 'Modal truyền rõ cờ auto/manual');
+  assert.match(modalSource, /setAutoPreviewCode\(''\)/, 'Preview lỗi để trống thay vì bịa mã');
+  assert.equal(modalSource.includes("setMaPhieu('NH-000001')"), false, 'Modal không gán mã giả khi preview lỗi');
+  assert.match(inventorySource, /const pageSize = 1000/, 'Catalog product có pagination 1000 dòng');
+  assert.match(inventorySource, /abortSignal\(signal\)/, 'Catalog product hỗ trợ hủy request cũ');
+
   const db = new PGlite();
 
   // 1. Setup base database schema with nhan_su and mock session
@@ -86,7 +107,7 @@ test('PURCHASE RECEIPT ACCESS CONTROL & INVENTORY PROTECTION SUITE (HOTFIX SCOPE
       ('22222222-2222-2222-2222-222222222222', 'PT-0002', 'Bugi B', 100000, 10);
   `);
 
-  // 2. Chạy cả 6 file migrations thật tuần tự (002 -> 003 -> 004 -> 005 -> 006 -> 007)
+  // 2. Chạy các migration thật tuần tự (002 -> 003 -> 004 -> 005 -> 006 -> 007 -> 008)
   const migration1 = await readFile(
     new URL('../supabase/migrations/202609110002_purchase_receipts.sql', import.meta.url),
     'utf8'
@@ -123,6 +144,12 @@ test('PURCHASE RECEIPT ACCESS CONTROL & INVENTORY PROTECTION SUITE (HOTFIX SCOPE
   );
   await db.exec(migration6);
 
+  const migration7 = await readFile(
+    new URL('../supabase/migrations/202609120001_purchase_receipt_manual_code.sql', import.meta.url),
+    'utf8'
+  );
+  await db.exec(migration7);
+
   // Helper thiet lap actor phien lam viec
   const setSessionActor = async (actorId) => {
     await db.query(`SELECT set_config('app.test_session_actor', $1, false)`, [actorId || '']);
@@ -153,6 +180,37 @@ test('PURCHASE RECEIPT ACCESS CONTROL & INVENTORY PROTECTION SUITE (HOTFIX SCOPE
   };
 
   // =============================================================
+  // CODE PREVIEW / MANUAL-CODE REGRESSION TESTS
+  // =============================================================
+  await setSessionActor('00000000-0000-0000-0000-000000000001');
+  const sequenceBeforePreview = (await db.query(
+    `SELECT last_value, is_called FROM public.seq_phieu_nhap_hang_code`
+  )).rows[0];
+  const previewBefore = (await db.query(`SELECT public.get_next_purchase_receipt_code() AS code`)).rows[0].code;
+  const previewAgain = (await db.query(`SELECT public.get_next_purchase_receipt_code() AS code`)).rows[0].code;
+  const sequenceAfterPreview = (await db.query(
+    `SELECT last_value, is_called FROM public.seq_phieu_nhap_hang_code`
+  )).rows[0];
+  const previewReceiptCount = (await db.query(`SELECT count(*) AS c FROM public.phieu_nhap_hang`)).rows[0].c;
+  assert.equal(previewBefore, 'NH-000001', 'Preview đầu tiên tính từ mã đã commit');
+  assert.equal(previewAgain, previewBefore, 'Gọi preview lặp lại không cấp mã mới');
+  assert.deepEqual(sequenceAfterPreview, sequenceBeforePreview, 'Preview không chạm sequence cũ');
+  assert.equal(Number(previewReceiptCount), 0, 'Preview/open/cancel analog không ghi phiếu');
+
+  assert.equal(normalizePurchaseReceiptCode('8'), 'NH-000008');
+  assert.equal(normalizePurchaseReceiptCode('000008'), 'NH-000008');
+  assert.equal(normalizePurchaseReceiptCode(' nh-000008 '), 'NH-000008');
+  assert.throws(() => normalizePurchaseReceiptCode('NH-000000'), /lớn hơn 0/);
+  assert.throws(() => normalizePurchaseReceiptCode('NH-1234567'), /1-6 chữ số/);
+  assert.equal(isMissingPurchaseReceiptCodeRpcError({ code: '42883', message: 'undefined function' }), true);
+  assert.equal(isMissingPurchaseReceiptCodeRpcError({ code: 'PGRST202', message: 'schema cache' }), true);
+  assert.equal(isMissingPurchaseReceiptCodeRpcError({
+    code: '42501',
+    message: 'permission denied for function get_next_purchase_receipt_code',
+  }), false, 'Permission error không được fallback');
+  assert.equal(isMissingPurchaseReceiptCodeRpcError(new TypeError('Failed to fetch')), false, 'Network error không được fallback');
+
+  // =============================================================
   // PRE-SEED: Tạo trước 1 phiếu cơ sở Bắc Giang bằng Quản lý
   // =============================================================
   await setSessionActor('00000000-0000-0000-0000-000000000001'); // NV-QL (Bắc Giang)
@@ -167,6 +225,71 @@ test('PURCHASE RECEIPT ACCESS CONTROL & INVENTORY PROTECTION SUITE (HOTFIX SCOPE
   });
   assert.ok(receiptA.id, 'Tạo phiếu thành công có ID');
   assert.match(receiptA.ma_phieu, /^NH-\d{6}$/, 'Mã phiếu dạng NH-000001');
+
+  const previewAfterCreate = (await db.query(`SELECT public.get_next_purchase_receipt_code() AS code`)).rows[0].code;
+  assert.equal(previewAfterCreate, 'NH-000002', 'Create thành công mới làm preview tăng');
+
+  // Mã thủ công được chuẩn hóa; service-only/name mới được upsert trước detail.
+  const manualReceipt = await saveReceipt({
+    ma_phieu: '8',
+    ma_phieu_tu_dong: false,
+    code_mode: 'manual',
+    ngay: '2026-09-10',
+    co_so: 'Cơ sở Bắc Giang',
+    items: [{ ten_san_pham: 'Dịch vụ chỉ có trong catalog', so_luong: 1, gia_nhap: 12345 }]
+  });
+  assert.equal(manualReceipt.ma_phieu, 'NH-000008', 'Mã thủ công 8 được chuẩn hóa');
+  assert.ok(manualReceipt.items[0].san_pham_id, 'Service-only/new name có san_pham_id trong detail');
+  const manualProduct = (await db.query(
+    `SELECT ton_dau_ky, gia FROM public.ds_san_pham WHERE ten_san_pham = $1`,
+    ['Dịch vụ chỉ có trong catalog']
+  )).rows[0];
+  assert.equal(Number(manualProduct.ton_dau_ky), 0, 'Sản phẩm mới giữ baseline 0');
+  assert.equal(Number(manualProduct.gia), 12345, 'Sản phẩm mới nhận giá nhập');
+
+  await assert.rejects(
+    async () => saveReceipt({
+      ma_phieu: 'NH-000008',
+      ma_phieu_tu_dong: false,
+      code_mode: 'manual',
+      co_so: 'Cơ sở Bắc Giang',
+      items: [{ ten_san_pham: 'Lốp xe A', so_luong: 1, gia_nhap: 500000 }]
+    }),
+    (err) => err.code === '23505' && /Mã phiếu/.test(err.message),
+    'Mã thủ công trùng bị từ chối dưới cùng lock'
+  );
+
+  // Mã thủ công cao làm auto tiếp theo đi sau MAX; không dựa vào sequence cũ.
+  const highManual = await saveReceipt({
+    ma_phieu: 'NH-999999',
+    ma_phieu_tu_dong: false,
+    code_mode: 'manual',
+    co_so: 'Cơ sở Bắc Giang',
+    items: [{ san_pham_id: '22222222-2222-2222-2222-222222222222', ten_san_pham: 'Bugi B', so_luong: 1, gia_nhap: 100000 }]
+  });
+  assert.equal(highManual.ma_phieu, 'NH-999999');
+  const autoAfterHigh = await saveReceipt({
+    ma_phieu: 'NH-000002',
+    ma_phieu_tu_dong: true,
+    code_mode: 'auto',
+    co_so: 'Cơ sở Bắc Giang',
+    items: [{ ten_san_pham: 'Auto code probe', so_luong: 1, gia_nhap: 1 }]
+  });
+  assert.equal(autoAfterHigh.ma_phieu, 'NH-1000000', 'Auto sau mã cao đi sau MAX đã commit');
+
+  const previewBeforeRollback = (await db.query(`SELECT public.get_next_purchase_receipt_code() AS code`)).rows[0].code;
+  await assert.rejects(
+    async () => saveReceipt({
+      ma_phieu_tu_dong: true,
+      code_mode: 'auto',
+      co_so: 'Cơ sở Bắc Giang',
+      items: [{ ten_san_pham: 'Rollback item', so_luong: 0, gia_nhap: 1 }]
+    }),
+    /lớn hơn 0/,
+    'Payload lỗi bị rollback trước khi cấp mã'
+  );
+  const previewAfterRollback = (await db.query(`SELECT public.get_next_purchase_receipt_code() AS code`)).rows[0].code;
+  assert.equal(previewAfterRollback, previewBeforeRollback, 'Rollback không tiêu mã auto');
 
   // =============================================================
   // TEST A: Role Kho + co_so NULL => không view/manage bất kỳ branch nào

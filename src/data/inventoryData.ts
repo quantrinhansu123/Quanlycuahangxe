@@ -376,18 +376,38 @@ export const upsertProductRecord = async (
   return data as ProductRecord;
 };
 
-export const getProductRecords = async (): Promise<ProductRecord[]> => {
-  const { data, error } = await supabase
-    .from('ds_san_pham')
-    .select('*')
-    .order('ten_san_pham', { ascending: true });
+/**
+ * Load the complete product catalog in deterministic PostgREST pages.
+ * PostgREST defaults to a 1000-row response cap, so a single select silently
+ * loses the rest of the catalog. An AbortSignal lets modal callers abandon a
+ * stale request when they close/reopen the form.
+ */
+export const getProductRecords = async (signal?: AbortSignal): Promise<ProductRecord[]> => {
+  const all: ProductRecord[] = [];
+  const pageSize = 1000;
 
-  if (error) {
-    console.error('Error fetching product records:', error);
-    throw error;
+  for (let from = 0; ; from += pageSize) {
+    let query = supabase
+      .from('ds_san_pham')
+      .select('*')
+      .order('ten_san_pham', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, from + pageSize - 1);
+
+    if (signal) query = query.abortSignal(signal);
+
+    const { data, error } = await query;
+    if (error) {
+      console.error('Error fetching product records:', error);
+      throw error;
+    }
+
+    const page = (data as ProductRecord[]) || [];
+    all.push(...page);
+    if (page.length < pageSize) break;
   }
 
-  return (data as ProductRecord[]) || [];
+  return all;
 };
 
 /**

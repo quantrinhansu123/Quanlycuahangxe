@@ -1,5 +1,13 @@
 import { supabase } from '../lib/supabase';
 import { normalizeBranchLabel } from '../constants/customerBranches';
+import {
+  isMissingPurchaseReceiptCodeRpcError,
+  normalizePurchaseReceiptCode,
+} from '../lib/purchaseReceiptCode';
+export {
+  isMissingPurchaseReceiptCodeRpcError,
+  normalizePurchaseReceiptCode,
+} from '../lib/purchaseReceiptCode';
 
 export interface PurchaseReceiptItem {
   id?: string;
@@ -31,6 +39,9 @@ export interface PurchaseReceipt {
 export interface PurchaseReceiptFormData {
   id?: string;
   ma_phieu: string;
+  /** Create only: true lets the database assign the next committed code. */
+  ma_phieu_tu_dong?: boolean;
+  code_mode?: 'auto' | 'manual';
   ngay: string;
   gio: string;
   co_so: string;
@@ -53,39 +64,94 @@ export interface PurchaseReceiptFilters {
   toDate?: string;
 }
 
+/** Map common RPC errors to a message that tells the operator what to fix. */
+export function formatPurchaseReceiptRpcError(error: unknown, action = 'lưu phiếu nhập'): string {
+  const rpcError = error as { code?: string; message?: string } | null | undefined;
+  const message = String(rpcError?.message || '').trim();
+  const lower = message.toLowerCase();
+
+  if (
+    rpcError?.code === '23505' ||
+    lower.includes('duplicate key') ||
+    (lower.includes('mã phiếu') && (lower.includes('tồn tại') || lower.includes('duplicate')))
+  ) {
+    return 'Mã phiếu đã tồn tại. Vui lòng chọn mã khác.';
+  }
+
+  if (lower.includes('mã phiếu thủ công') || lower.includes('ma_phieu_tu_dong')) {
+    return message || 'Mã phiếu thủ công không hợp lệ.';
+  }
+
+  if (rpcError?.code === '42501') {
+    return message || 'Bạn không có quyền thao tác phiếu nhập hàng tại cơ sở này.';
+  }
+
+  return message ? `${action}: ${message}` : `Không thể ${action}.`;
+}
+
 /**
- * Lấy mã phiếu tiếp theo từ Database Sequence (an toàn khi nhiều người dùng cùng tạo).
- * Nếu database chưa chạy migration sequence, tự động fallback sang tìm max mã hiện tại.
+ * Lấy mã phiếu preview chỉ đọc từ database.
+ * Việc cấp mã thật chỉ xảy ra bên trong save_purchase_receipt khi create commit.
  */
 export const getNextPurchaseReceiptCode = async (): Promise<string> => {
   // 1. Thử gọi PostgreSQL function
+  let shouldUseFallback = false;
   try {
     const { data, error } = await supabase.rpc('get_next_purchase_receipt_code');
-    if (!error && data) {
-      return String(data).trim();
+    if (error) {
+      if (!isMissingPurchaseReceiptCodeRpcError(error)) {
+        const detail = String(error.message || error.code || 'Lỗi không xác định').trim();
+        throw new Error(`Không thể tải mã phiếu nhập preview: ${detail}`);
+      }
+      shouldUseFallback = true;
+    } else {
+      const code = String(data ?? '').trim();
+      if (!code) {
+        throw new Error('Không thể tải mã phiếu nhập preview: database trả về mã rỗng.');
+      }
+      return code;
     }
-  } catch {
-    // ignore and fallback
+  } catch (error) {
+    if (!isMissingPurchaseReceiptCodeRpcError(error)) throw error;
+    shouldUseFallback = true;
   }
 
-  // 2. Fallback tìm max từ bảng phieu_nhap_hang
-  const { data, error } = await supabase
-    .from('phieu_nhap_hang')
-    .select('ma_phieu')
-    .order('ma_phieu', { ascending: false })
-    .limit(100);
-
-  if (error || !data || data.length === 0) {
-    return 'NH-000001';
+  if (!shouldUseFallback) {
+    throw new Error('Không thể tải mã phiếu nhập preview.');
   }
+
+  // 2. Compatibility fallback for an environment that has not applied the RPC.
+  const allCodes: Array<{ ma_phieu: string | null }> = [];
+  const pageSize = 1000;
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from('phieu_nhap_hang')
+      .select('ma_phieu')
+      .order('created_at', { ascending: true })
+      .range(from, from + pageSize - 1);
+
+    if (error) {
+      const detail = String(error.message || error.code || 'Lỗi không xác định').trim();
+      throw new Error(`Không thể tải mã phiếu nhập preview từ bảng dữ liệu: ${detail}`);
+    }
+    allCodes.push(...((data || []) as Array<{ ma_phieu: string | null }>));
+    if (!data || data.length < pageSize) break;
+  }
+
+  if (allCodes.length === 0) return 'NH-000001';
 
   let maxNum = 0;
-  for (const row of data) {
+  let hasValidCode = false;
+  for (const row of allCodes) {
     const match = String(row.ma_phieu || '').match(/^NH-(\d+)$/i);
     if (match) {
-      const num = parseInt(match[1], 10);
-      if (num > maxNum) maxNum = num;
+      hasValidCode = true;
+      maxNum = Math.max(maxNum, Number(match[1]));
     }
+  }
+
+  if (!hasValidCode) {
+    throw new Error('Không thể tải mã phiếu nhập preview: bảng không có mã NH hợp lệ.');
   }
 
   return `NH-${String(maxNum + 1).padStart(6, '0')}`;
@@ -198,11 +264,19 @@ export const createPurchaseReceipt = async (
 
   // Validate nghiêm ngặt: không Math.max, không filter bỏ row lỗi
   const cleanItems = validateReceiptItems(formData.items);
+  const autoCode = formData.code_mode
+    ? formData.code_mode === 'auto'
+    : formData.ma_phieu_tu_dong !== false;
+  const code = autoCode
+    ? formData.ma_phieu?.trim() || null
+    : normalizePurchaseReceiptCode(formData.ma_phieu);
 
   // Thực thi Atomic RPC qua save_purchase_receipt
   const { data: rpcData, error: rpcError } = await supabase.rpc('save_purchase_receipt', {
     p_receipt: {
-      ma_phieu: formData.ma_phieu?.trim() || null,
+      ma_phieu: code,
+      ma_phieu_tu_dong: autoCode,
+      code_mode: autoCode ? 'auto' : 'manual',
       ngay: formData.ngay,
       gio: formData.gio || '00:00',
       co_so: branch,
@@ -227,7 +301,7 @@ export const createPurchaseReceipt = async (
     }
 
     console.error('Lỗi RPC save_purchase_receipt:', rpcError);
-    throw new Error(`Lỗi lưu phiếu nhập: ${rpcError.message}`);
+    throw new Error(formatPurchaseReceiptRpcError(rpcError, 'lưu phiếu nhập'));
   }
 
   if (!rpcData) {
@@ -297,7 +371,7 @@ export const updatePurchaseReceipt = async (
     }
 
     console.error('Lỗi RPC update save_purchase_receipt:', rpcError);
-    throw new Error(`Lỗi cập nhật phiếu: ${rpcError.message}`);
+    throw new Error(formatPurchaseReceiptRpcError(rpcError, 'cập nhật phiếu'));
   }
 
   if (!rpcData) {
