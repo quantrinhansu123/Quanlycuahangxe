@@ -36,7 +36,12 @@ function getMissingColumnFromErr(err: PostgrestError): string | null {
   return m?.[1] ?? null;
 }
 
+let personnelCache: { rows: NhanSu[]; expires: number } | null = null;
+let personnelRequest: Promise<NhanSu[]> | null = null;
 export const getPersonnel = async (): Promise<NhanSu[]> => {
+  if (personnelCache && personnelCache.expires > Date.now()) return personnelCache.rows;
+  if (personnelRequest) return personnelRequest;
+  personnelRequest = (async () => {
   const { data, error } = await supabase
     .from('nhan_su')
     .select('*')
@@ -46,7 +51,11 @@ export const getPersonnel = async (): Promise<NhanSu[]> => {
     console.error('Error fetching personnel:', error);
     throw error;
   }
-  return data as NhanSu[];
+  const rows = data as NhanSu[];
+  personnelCache = { rows, expires: Date.now() + 15000 };
+  return rows;
+  })();
+  try { return await personnelRequest; } finally { personnelRequest = null; }
 };
 
 export const upsertPersonnel = async (personnel: Partial<NhanSu>): Promise<NhanSu> => {
