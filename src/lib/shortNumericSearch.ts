@@ -26,7 +26,9 @@ export function isPlateLikeSearch(term: string | null | undefined): boolean {
 }
 
 export function isTargetedVehicleSearch(term: string | null | undefined): boolean {
-  return isShortNumericSearch(term) || isPlateLikeSearch(term);
+  // Full plates must use the canonical RPC search: the lightweight PostgREST
+  // path can miss legacy separators/casing (e.g. 19K3-5019).
+  return isShortNumericSearch(term);
 }
 
 /** Normalize separators/case for local matching without changing stored values. */
