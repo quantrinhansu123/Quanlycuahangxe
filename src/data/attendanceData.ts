@@ -323,6 +323,9 @@ export interface AttendanceFilters {
   endDate?: string;
 }
 
+const attendanceReadCache = new Map<string, { rows: AttendanceRecord[]; expires: number }>();
+const attendanceReadPending = new Map<string, Promise<AttendanceRecord[]>>();
+
 export const getAttendancePaginated = async (
   page: number,
   pageSize: number,
@@ -390,6 +393,12 @@ export const getAllAttendanceRecords = async (
   filters?: AttendanceFilters,
   signal?: AbortSignal
 ): Promise<AttendanceRecord[]> => {
+  const cacheKey = JSON.stringify([staffName, searchQuery, filters]);
+  const cached = attendanceReadCache.get(cacheKey);
+  if (cached && cached.expires > Date.now()) return cached.rows;
+  const pending = attendanceReadPending.get(cacheKey);
+  if (pending) return pending;
+  const run = (async (): Promise<AttendanceRecord[]> => {
   const chunkSize = 1000;
   let expected = Infinity;
   const allRows: AttendanceRecord[] = [];
@@ -413,7 +422,11 @@ export const getAllAttendanceRecords = async (
     }
   }
 
+  attendanceReadCache.set(cacheKey, { rows: allRows, expires: Date.now() + 5000 });
   return allRows;
+  })();
+  attendanceReadPending.set(cacheKey, run);
+  try { return await run; } finally { attendanceReadPending.delete(cacheKey); }
 };
 
 export async function addManualAttendance(input: {
