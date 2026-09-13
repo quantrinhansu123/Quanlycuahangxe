@@ -26,7 +26,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import type { KhachHang } from '../data/customerData';
-import { getCustomerByPhone, getCustomerByPlate, uploadCustomerImage, upsertCustomer } from '../data/customerData';
+import { getCustomersByPhone, getCustomersByPlate, uploadCustomerImage, upsertCustomer } from '../data/customerData';
 import { computeCustomerChanges, getCustomerEditHistory, saveCustomerEditHistory, type CustomerEditHistory } from '../data/customerHistoryData';
 import { formatDateTime24h } from '../utils/datetimeFormat';
 import { useToast } from '../context/toast';
@@ -38,6 +38,10 @@ function resolveStaffBranch(coSo?: string | null): string {
   if (!v) return '';
   return branchLabel(v);
 }
+
+type DuplicateWarningState = {
+  matches: KhachHang[];
+};
 
 interface CustomerFormModalProps {
   isOpen: boolean;
@@ -61,7 +65,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { showToast } = useToast();
 
-  const [duplicateWarning, setDuplicateWarning] = useState<KhachHang | null>(null);
+  const [duplicateWarning, setDuplicateWarning] = useState<DuplicateWarningState | null>(null);
   const needsIdentityCheck = needsCustomerIdentityCheck(customer, formData);
   const staffBranch = resolveStaffBranch(nhanVien?.co_so);
 
@@ -98,53 +102,76 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
     }
   }, [isOpen, customer, staffBranch]);
 
+  // Clear a previous warning whenever the user changes the identity fields.
+  useEffect(() => {
+    setDuplicateWarning(null);
+  }, [formData.bien_so_xe, formData.so_dien_thoai, isOpen, customer]);
+
   // Duplication Plate Check logic
   useEffect(() => {
     if (!needsIdentityCheck || !isOpen || !formData.bien_so_xe || formData.bien_so_xe.trim() === '') return;
 
+    let active = true;
     const timer = setTimeout(async () => {
       try {
         const plate = formData.bien_so_xe!.trim();
         if (plate.length < 4) return;
 
-        const existing: KhachHang | null = await getCustomerByPlate(plate);
-        if (existing && existing.id !== (customer ? customer.id : '') && normalizePlate(existing.bien_so_xe) === normalizePlate(formData.bien_so_xe)) {
-          if (!customer) {
-            setDuplicateWarning(existing);
-          } else {
-            // If editing, just warn or log
-            console.warn(`Biển số [${plate}] trùng với khách hàng: ${existing.ho_va_ten}`);
-          }
+        const matches = (await getCustomersByPlate(plate)).filter(existing =>
+          existing.id !== (customer ? customer.id : '')
+          && normalizePlate(existing.bien_so_xe) === normalizePlate(plate)
+        );
+        if (!active || matches.length === 0) return;
+
+        if (!customer) {
+          setDuplicateWarning(prev => {
+            const merged = new Map([...(prev?.matches || []), ...matches].map(existing => [existing.id, existing]));
+            return { matches: [...merged.values()] };
+          });
+        } else {
+          // If editing, just warn or log
+          console.warn(`Biển số [${plate}] trùng với ${matches.length} hồ sơ khách hàng.`);
         }
       } catch (err) {
         console.error('Lỗi kiểm tra biển số:', err);
       }
     }, 600);
 
-    return () => clearTimeout(timer);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
   }, [formData.bien_so_xe, isOpen, customer, navigate, onClose, needsIdentityCheck]);
 
   // Duplication Phone Check logic
   useEffect(() => {
     if (!needsIdentityCheck || !isOpen || !formData.so_dien_thoai || formData.so_dien_thoai.trim() === '') return;
 
+    let active = true;
     const timer = setTimeout(async () => {
       try {
         const phone = formData.so_dien_thoai!.trim();
         if (phone.length < 4) return;
 
-        const existing: KhachHang | null = await getCustomerByPhone(phone);
-        if (existing && existing.id !== (customer ? customer.id : '') && normalizePlate(existing.bien_so_xe) === normalizePlate(formData.bien_so_xe)) {
-          if (!customer) {
-            setDuplicateWarning(existing);
-          }
-        }
+        const matches = (await getCustomersByPhone(phone)).filter(existing =>
+          existing.id !== (customer ? customer.id : '')
+          && normalizePlate(existing.bien_so_xe) === normalizePlate(formData.bien_so_xe)
+        );
+        if (!active || matches.length === 0 || customer) return;
+
+        setDuplicateWarning(prev => {
+          const merged = new Map([...(prev?.matches || []), ...matches].map(existing => [existing.id, existing]));
+          return { matches: [...merged.values()] };
+        });
       } catch (err) {
         console.error('Lỗi kiểm tra SĐT:', err);
       }
     }, 600);
 
-    return () => clearTimeout(timer);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
   }, [formData.so_dien_thoai, formData.bien_so_xe, isOpen, customer, navigate, onClose, needsIdentityCheck]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -174,35 +201,53 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
     }
   };
 
+  const goToExistingCustomer = (existing: KhachHang) => {
+    navigate('/ban-hang/phieu-ban-hang', {
+      state: { pendingCustomerData: existing },
+    });
+    setDuplicateWarning(null);
+    onClose();
+  };
+
   const handleSubmit = async (e: React.SyntheticEvent, shouldOrder: boolean = false) => {
     e.preventDefault();
     if (uploadingImage || isSubmitting) return;
 
     try {
       setIsSubmitting(true);
-      // 1. Kiểm tra trùng SĐT trước khi lưu
+      const duplicateMatches: KhachHang[] = [];
+
+      // 1. Kiểm tra trùng SĐT trước khi lưu. Một SĐT có thể có nhiều xe,
+      // nên chỉ giữ các hồ sơ có cùng biển số với dữ liệu đang nhập.
       const phone = formData.so_dien_thoai?.trim();
       if (needsIdentityCheck && phone && phone.length >= 4) {
-        const existing = await getCustomerByPhone(phone);
-        if (existing && existing.id !== (customer ? customer.id : '') && normalizePlate(existing.bien_so_xe) === normalizePlate(formData.bien_so_xe)) {
-          const ok = window.confirm(`⚠️ CẢNH BÁO: Số điện thoại "${phone}" đã thuộc về khách hàng "${existing.ho_va_ten}".\n\nBạn có chắc chắn muốn tiếp tục lưu bản ghi trùng này không?`);
-          if (!ok) {
-            setIsSubmitting(false);
-            return;
-          }
-        }
+        const existingByPhone = await getCustomersByPhone(phone);
+        duplicateMatches.push(...existingByPhone.filter(existing =>
+          existing.id !== (customer ? customer.id : '')
+          && normalizePlate(existing.bien_so_xe) === normalizePlate(formData.bien_so_xe)
+        ));
       }
 
       // 2. Kiểm tra trùng Biển số trước khi lưu
       const plate = formData.bien_so_xe?.trim();
       if (needsIdentityCheck && plate && plate.length >= 4 && plate !== 'Xe Chưa Biển') {
-        const existing = await getCustomerByPlate(plate);
-        if (existing && existing.id !== (customer ? customer.id : '') && normalizePlate(existing.bien_so_xe) === normalizePlate(formData.bien_so_xe)) {
-          const ok = window.confirm(`⚠️ CẢNH BÁO: Biển số "${plate}" đã thuộc về khách hàng "${existing.ho_va_ten}".\n\nBạn có chắc chắn muốn tiếp tục lưu bản ghi trùng này không?`);
-          if (!ok) {
-            setIsSubmitting(false);
-            return;
-          }
+        const existingByPlate = await getCustomersByPlate(plate);
+        duplicateMatches.push(...existingByPlate.filter(existing =>
+          existing.id !== (customer ? customer.id : '')
+          && normalizePlate(existing.bien_so_xe) === normalizePlate(plate)
+        ));
+      }
+
+      const uniqueDuplicateMatches = [...new Map(duplicateMatches.map(existing => [existing.id, existing])).values()];
+      if (uniqueDuplicateMatches.length > 0) {
+        const first = uniqueDuplicateMatches[0];
+        const duplicateDescription = uniqueDuplicateMatches.length === 1
+          ? `Thông tin này đã thuộc về khách hàng "${first.ho_va_ten}".`
+          : `Thông tin này đang có ${uniqueDuplicateMatches.length} hồ sơ khách hàng trùng nhau.`;
+        const ok = window.confirm(`⚠️ CẢNH BÁO TRÙNG KHÁCH HÀNG\n\n${duplicateDescription}\n\nBạn có chắc chắn muốn tiếp tục lưu bản ghi mới không?`);
+        if (!ok) {
+          setIsSubmitting(false);
+          return;
         }
       }
 
@@ -390,7 +435,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
       {/* Duplicate Warning Modal */}
       {duplicateWarning && (
         <div className="fixed inset-0 flex items-center justify-center p-4 bg-black/40" style={{ zIndex: 10000001 }}>
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-border shadow-2xl max-w-md w-full p-6 animate-in zoom-in-95 duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-border shadow-2xl max-w-xl w-full p-6 animate-in zoom-in-95 duration-200">
             <div className="flex items-start gap-4">
               <div className="flex-shrink-0 w-12 h-12 rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center">
                 <AlertCircle className="w-6 h-6 text-yellow-600 dark:text-yellow-500" />
@@ -398,15 +443,33 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
               <div className="flex-1 min-w-0">
                 <h3 className="text-lg font-bold text-foreground">Khách hàng trùng</h3>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Khách hàng <span className="font-semibold text-foreground">{duplicateWarning.ho_va_ten}</span> đã tồn tại trong hệ thống với:
+                  Đã tìm thấy <span className="font-semibold text-foreground">{duplicateWarning.matches.length} hồ sơ</span> có cùng thông tin biển số/SĐT:
                 </p>
-                <div className="mt-3 space-y-1 text-sm">
-                  {duplicateWarning.so_dien_thoai && (
-                    <p className="text-muted-foreground">📞 <span className="font-mono">{duplicateWarning.so_dien_thoai}</span></p>
-                  )}
-                  {duplicateWarning.bien_so_xe && (
-                    <p className="text-muted-foreground">🚗 <span className="font-mono">{duplicateWarning.bien_so_xe}</span></p>
-                  )}
+                <div className="mt-3 space-y-2 max-h-64 overflow-y-auto pr-1">
+                  {duplicateWarning.matches.map(existing => (
+                    <div key={existing.id} className="rounded-xl border border-border bg-muted/30 p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 text-sm">
+                          <p className="font-semibold text-foreground truncate">{existing.ho_va_ten || 'Chưa có tên'}</p>
+                          <p className="text-muted-foreground">
+                            📞 <span className="font-mono">{existing.so_dien_thoai || '—'}</span>
+                            {' · '}🚗 <span className="font-mono">{existing.bien_so_xe || '—'}</span>
+                          </p>
+                          {existing.ma_khach_hang && (
+                            <p className="text-xs text-muted-foreground">Mã KH: <span className="font-mono">{existing.ma_khach_hang}</span></p>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => goToExistingCustomer(existing)}
+                          className="shrink-0 px-3 py-2 bg-primary text-white text-xs font-semibold rounded-lg hover:bg-primary/90 transition-all flex items-center gap-1.5"
+                        >
+                          <ShoppingCart size={14} />
+                          <span>Sang bán hàng</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -414,25 +477,10 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
             <div className="mt-6 flex gap-3">
               <button
                 type="button"
-                onClick={() => {
-                  if (!duplicateWarning) return;
-                  navigate('/ban-hang/phieu-ban-hang', {
-                    state: { pendingCustomerData: duplicateWarning },
-                  });
-                  setDuplicateWarning(null);
-                  onClose();
-                }}
-                className="flex-1 px-4 py-2.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary/90 transition-all flex items-center justify-center gap-2"
-              >
-                <ShoppingCart size={16} />
-                <span>Sang Bán hàng</span>
-              </button>
-              <button
-                type="button"
                 onClick={() => setDuplicateWarning(null)}
-                className="flex-1 px-4 py-2.5 bg-muted hover:bg-muted/80 text-foreground font-semibold rounded-lg transition-all"
+                className="w-full px-4 py-2.5 bg-muted hover:bg-muted/80 text-foreground font-semibold rounded-lg transition-all"
               >
-                <span>Tiếp tục</span>
+                <span>Đóng cảnh báo</span>
               </button>
             </div>
           </div>

@@ -255,3 +255,17 @@ export const getCustomerByPhone = async (phone: string): Promise<KhachHang | nul
   // Multiple vehicles on the same phone are valid; do not pick an arbitrary one.
   return result.totalCount === 1 ? result.data[0] : null;
 };
+
+/** Return every customer matching a normalized license plate. */
+export const getCustomersByPlate = async (plate: string): Promise<KhachHang[]> => {
+  if (!plate || plate.trim().length < 4) return [];
+  const result = await queryCustomers({ p_plate: plate }, 1, 100);
+  return result.data || [];
+};
+
+/** Return every customer matching a normalized phone number. */
+export const getCustomersByPhone = async (phone: string): Promise<KhachHang[]> => {
+  if (!phone || String(phone).trim().length < 4) return [];
+  const result = await queryCustomers({ p_phone: String(phone) }, 1, 100);
+  return result.data || [];
+};
