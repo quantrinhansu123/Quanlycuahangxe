@@ -358,7 +358,20 @@ const SalesCardManagementPage: React.FC = () => {
     }));
   }, [displayItems, dailySummaries]);
 
-  const salesTableColCount = canViewRevenue ? 12 : 11;
+  const salesCardOrdinalById = useMemo(
+    () => {
+      const ordinals = new Map<string, number>();
+      let ordinal = (currentPage - 1) * pageSize;
+      for (const group of groupedSales) {
+        for (const card of group.items) {
+          ordinals.set(card.id, ++ordinal);
+        }
+      }
+      return ordinals;
+    },
+    [groupedSales, currentPage, pageSize]
+  );
+  const salesTableColCount = canViewRevenue ? 13 : 12;
 
   // Danh sách phiếu hiện ngay, thẻ tổng hợp chạy nền — báo cho người dùng biết đang tính.
   const summarySpinner = summaryLoading
@@ -1773,8 +1786,13 @@ const SalesCardManagementPage: React.FC = () => {
                       <div key={card.id} className="bg-card p-3 rounded-xl border border-border shadow-sm space-y-2.5 relative group hover:border-primary/30 transition-all active:scale-[0.99]">
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1 space-y-1">
-                            <div className="text-[16px] font-black text-foreground leading-tight truncate">
-                              {card.khach_hang?.ho_va_ten || card.ten_khach_hang || 'N/A'}
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="inline-flex min-w-7 h-7 items-center justify-center rounded-md bg-slate-100 px-1.5 text-[11px] font-black text-slate-600 shrink-0">
+                                {salesCardOrdinalById.get(card.id)}
+                              </span>
+                              <div className="text-[16px] font-black text-foreground leading-tight truncate">
+                                {card.khach_hang?.ho_va_ten || card.ten_khach_hang || 'N/A'}
+                              </div>
                             </div>
                             <div className="text-[12px] text-muted-foreground font-medium truncate">
                               {card.khach_hang?.so_dien_thoai || card.so_dien_thoai || 'N/A'}
@@ -1872,9 +1890,10 @@ const SalesCardManagementPage: React.FC = () => {
         {/* Data Table (Desktop View) */}
         <div className="hidden md:block bg-card rounded-lg border border-slate-200 shadow-sm overflow-hidden">
           <div className="overflow-x-auto custom-scrollbar">
-            <table className="w-full min-w-[1410px] text-left border-separate border-spacing-0">
+            <table className="w-full min-w-[1470px] text-left border-separate border-spacing-0">
               <thead className="sticky top-0 z-10">
                 <tr className="bg-slate-100 text-slate-600 text-[12px] font-bold uppercase tracking-wide shadow-[inset_0_-1px_0_#cbd5e1]">
+                  <th className="px-3 py-4 font-bold text-center w-[60px]">STT</th>
                   <th className="px-4 py-4 font-bold text-center w-[112px]">Thời gian</th>
                   <th className="px-4 py-4 font-bold w-[150px]">Khách hàng</th>
                   <th className="px-4 py-4 font-bold w-[130px]">SĐT</th>
@@ -1935,6 +1954,9 @@ const SalesCardManagementPage: React.FC = () => {
                       </tr>
                       {group.items.map(card => (
                   <tr key={card.id} className="bg-white hover:bg-blue-50/40 transition-colors">
+                    <td className="px-3 py-4 text-center font-black text-slate-600 border-b border-slate-100 align-top">
+                      {salesCardOrdinalById.get(card.id)}
+                    </td>
                     <td className="px-4 py-4 text-center border-b border-slate-100 align-top">
                       <div className="font-black text-slate-900 whitespace-nowrap">{new Date(card.ngay).toLocaleDateString('vi-VN')}</div>
                       <div className="text-[11px] text-slate-500 font-mono mt-1">{card.gio}</div>
@@ -2043,7 +2065,7 @@ const SalesCardManagementPage: React.FC = () => {
                 )}
                 {canViewRevenue && !loading && groupedSales.length > 0 && (
                   <tr className="bg-primary/5 font-black border-t-2 border-primary/20">
-                    <td colSpan={6} className="px-4 py-5 text-right">
+                    <td colSpan={7} className="px-4 py-5 text-right">
                       <div className="flex flex-col items-end">
                         <span className="text-muted-foreground text-[11px] tracking-widest uppercase mb-1">Tổng khách (toàn bộ):</span>
                         <div className="flex items-center gap-2">
