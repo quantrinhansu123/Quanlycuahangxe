@@ -12,7 +12,8 @@ import {
   Building2,
   Package,
   DollarSign,
-  Receipt
+  Receipt,
+  CreditCard
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { clsx } from 'clsx';
@@ -26,8 +27,10 @@ import {
   createPurchaseReceipt,
   updatePurchaseReceipt,
   deletePurchaseReceipt,
+  PURCHASE_PAYMENT_METHODS,
   type PurchaseReceipt,
   type PurchaseReceiptFormData,
+  type PurchasePaymentMethod,
 } from '../data/purchaseReceiptData';
 
 const PurchaseReceiptManagementPage: React.FC = () => {
@@ -88,6 +91,7 @@ const PurchaseReceiptManagementPage: React.FC = () => {
 
   // Filters
   const [selectedBranch, setSelectedBranch] = useState<string>('');
+  const [selectedPayment, setSelectedPayment] = useState<PurchasePaymentMethod | ''>('');
   const [fromDate, setFromDate] = useState<string>('');
   const [toDate, setToDate] = useState<string>('');
 
@@ -121,6 +125,7 @@ const PurchaseReceiptManagementPage: React.FC = () => {
         debouncedSearch,
         {
           co_so: selectedBranch ? [selectedBranch] : undefined,
+          phuong_thuc_thanh_toan: selectedPayment ? [selectedPayment] : undefined,
           fromDate: fromDate || undefined,
           toDate: toDate || undefined,
         }
@@ -134,7 +139,7 @@ const PurchaseReceiptManagementPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, pageSize, debouncedSearch, selectedBranch, fromDate, toDate]);
+  }, [currentPage, pageSize, debouncedSearch, selectedBranch, selectedPayment, fromDate, toDate]);
 
   useEffect(() => {
     loadReceipts();
@@ -168,7 +173,7 @@ const PurchaseReceiptManagementPage: React.FC = () => {
   };
 
   const handleDelete = async (receipt: PurchaseReceipt) => {
-    const confirmMsg = `Bạn có chắc chắn muốn xóa phiếu nhập [${receipt.ma_phieu}]?\nToàn bộ các dòng nhập kho tương ứng sẽ tự động bị xóa khỏi kho.`;
+    const confirmMsg = `Bạn có chắc chắn muốn xóa phiếu nhập [${receipt.ma_phieu}]?\nDòng nhập kho và phiếu chi liên kết sẽ tự động bị xóa.`;
     if (!window.confirm(confirmMsg)) return;
 
     try {
@@ -292,6 +297,24 @@ const PurchaseReceiptManagementPage: React.FC = () => {
           </select>
         </div>
 
+        {/* Payment Filter */}
+        <div className="flex items-center gap-2">
+          <CreditCard size={16} className="text-muted-foreground shrink-0" />
+          <select
+            value={selectedPayment}
+            onChange={(e) => {
+              setSelectedPayment(e.target.value as PurchasePaymentMethod | '');
+              setCurrentPage(1);
+            }}
+            className="px-3 py-2 bg-background border border-border rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20"
+          >
+            <option value="">Tất cả thanh toán</option>
+            {PURCHASE_PAYMENT_METHODS.map((method) => (
+              <option key={method} value={method}>{method}</option>
+            ))}
+          </select>
+        </div>
+
         {/* Date Filter */}
         <div className="flex items-center gap-2">
           <Calendar size={16} className="text-muted-foreground shrink-0" />
@@ -331,6 +354,7 @@ const PurchaseReceiptManagementPage: React.FC = () => {
                 <th className="py-3.5 px-4">Nhà cung cấp</th>
                 <th className="py-3.5 px-4 text-center">Số lượng</th>
                 <th className="py-3.5 px-4 text-right">Tổng tiền</th>
+                <th className="py-3.5 px-4">Thanh toán</th>
                 <th className="py-3.5 px-4">Người thực hiện</th>
                 <th className="py-3.5 px-4 text-right">Thao tác</th>
               </tr>
@@ -338,7 +362,7 @@ const PurchaseReceiptManagementPage: React.FC = () => {
             <tbody className="divide-y divide-border">
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-muted-foreground">
+                  <td colSpan={9} className="py-12 text-center text-muted-foreground">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <Loader2 size={24} className="animate-spin text-primary" />
                       <span>Đang tải danh sách phiếu nhập...</span>
@@ -347,7 +371,7 @@ const PurchaseReceiptManagementPage: React.FC = () => {
                 </tr>
               ) : receipts.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-muted-foreground">
+                  <td colSpan={9} className="py-12 text-center text-muted-foreground">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <Package size={32} className="opacity-40" />
                       <span className="font-medium">Chưa có phiếu nhập hàng nào</span>
@@ -365,6 +389,7 @@ const PurchaseReceiptManagementPage: React.FC = () => {
               ) : (
                 receipts.map((r) => {
                   const allowedToManage = canManageReceipt(r);
+                  const paymentMethod = r.phuong_thuc_thanh_toan || 'Chưa thanh toán';
                   return (
                     <tr key={r.id} className="hover:bg-muted/30 transition-colors">
                       <td className="py-3.5 px-4 font-mono font-bold text-primary">
@@ -387,6 +412,16 @@ const PurchaseReceiptManagementPage: React.FC = () => {
                       </td>
                       <td className="py-3.5 px-4 text-right font-mono font-bold text-sm text-foreground">
                         {Number(r.tong_tien || 0).toLocaleString('vi-VN')} đ
+                      </td>
+                      <td className="py-3.5 px-4 text-xs font-semibold">
+                        <span className={clsx(
+                          'inline-flex rounded-full px-2.5 py-1 whitespace-nowrap',
+                          paymentMethod === 'Tiền mặt' && 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
+                          paymentMethod === 'Chuyển khoản' && 'bg-blue-500/10 text-blue-700 dark:text-blue-400',
+                          paymentMethod === 'Chưa thanh toán' && 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
+                        )}>
+                          {paymentMethod}
+                        </span>
                       </td>
                       <td className="py-3.5 px-4 text-xs font-medium text-muted-foreground">
                         {r.nguoi_thuc_hien || '—'}

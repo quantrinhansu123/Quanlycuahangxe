@@ -13,7 +13,8 @@ import {
   Plus,
   Trash2,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  CreditCard
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useBranches } from '../hooks/useBranches';
@@ -26,8 +27,10 @@ import { normalizeForCompare } from '../lib/utils';
 import {
   getNextPurchaseReceiptCode,
   normalizePurchaseReceiptCode,
+  PURCHASE_PAYMENT_METHODS,
   type PurchaseReceipt,
   type PurchaseReceiptFormData,
+  type PurchasePaymentMethod,
 } from '../data/purchaseReceiptData';
 import { formatTime24h } from '../utils/datetimeFormat';
 
@@ -96,6 +99,7 @@ export const PurchaseReceiptFormModal: React.FC<PurchaseReceiptFormModalProps> =
   const [gio, setGio] = useState(formatTime24h(new Date(), false));
   const [coSo, setCoSo] = useState('');
   const [nhaCungCap, setNhaCungCap] = useState('');
+  const [phuongThucThanhToan, setPhuongThucThanhToan] = useState<PurchasePaymentMethod>('Chưa thanh toán');
   const [nguoiThucHien, setNguoiThucHien] = useState('');
   const [ghiChu, setGhiChu] = useState('');
   const [items, setItems] = useState<FormItem[]>([
@@ -179,6 +183,7 @@ export const PurchaseReceiptFormModal: React.FC<PurchaseReceiptFormModalProps> =
       setGio(receipt.gio || formatTime24h(new Date(), false));
       setCoSo(receipt.co_so);
       setNhaCungCap(receipt.nha_cung_cap || '');
+      setPhuongThucThanhToan(receipt.phuong_thuc_thanh_toan || 'Chưa thanh toán');
       setNguoiThucHien(receipt.nguoi_thuc_hien || nhanVien?.ho_ten || '');
       setGhiChu(receipt.ghi_chu || '');
       if (receipt.items && receipt.items.length > 0) {
@@ -204,6 +209,7 @@ export const PurchaseReceiptFormModal: React.FC<PurchaseReceiptFormModalProps> =
       setGio(formatTime24h(new Date(), false));
       setCoSo(userAssignedBranch || branches[0] || '');
       setNhaCungCap('');
+      setPhuongThucThanhToan('Chưa thanh toán');
       setNguoiThucHien(nhanVien?.ho_ten || '');
       setGhiChu('');
       setItems([{ ten_san_pham: '', so_luong: 1, gia_nhap: 0 }]);
@@ -418,6 +424,7 @@ export const PurchaseReceiptFormModal: React.FC<PurchaseReceiptFormModalProps> =
         ...(isCreate ? { ma_phieu_tu_dong: autoCode, code_mode: autoCode ? 'auto' as const : 'manual' as const } : {}),
         ngay,
         gio,
+        phuong_thuc_thanh_toan: phuongThucThanhToan,
         co_so: coSo,
         nha_cung_cap: nhaCungCap,
         nguoi_thuc_hien: nguoiThucHien,
@@ -604,6 +611,32 @@ export const PurchaseReceiptFormModal: React.FC<PurchaseReceiptFormModalProps> =
                   placeholder="Ví dụ: Cty Phụ tùng A..."
                   className="w-full px-3.5 py-2.5 bg-background border border-border rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20"
                 />
+              </div>
+
+              {/* Phương thức thanh toán */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <CreditCard size={14} className="text-primary/70" />
+                  Thanh toán <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={phuongThucThanhToan}
+                  onChange={(e) => setPhuongThucThanhToan(e.target.value as PurchasePaymentMethod)}
+                  disabled={isReadOnly}
+                  required
+                  className="w-full px-3.5 py-2.5 bg-background border border-border rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                >
+                  {PURCHASE_PAYMENT_METHODS.map((method, index) => (
+                    <option key={method} value={method}>
+                      {index + 1}. {method === 'Tiền mặt' ? 'Thanh toán tiền mặt' : method}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-muted-foreground">
+                  {phuongThucThanhToan === 'Chưa thanh toán'
+                    ? 'Chưa trừ dòng tiền; ghi nhận công nợ nhà cung cấp.'
+                    : 'Sẽ tạo phiếu chi và trừ khỏi dòng tiền.'}
+                </p>
               </div>
 
               {/* Người thực hiện */}

@@ -20,12 +20,20 @@ test('PURCHASE RECEIPT ACCESS CONTROL & INVENTORY PROTECTION SUITE (HOTFIX SCOPE
     new URL('../src/data/inventoryData.ts', import.meta.url),
     'utf8'
   );
+  const receiptPageSource = await readFile(
+    new URL('../src/pages/PurchaseReceiptManagementPage.tsx', import.meta.url),
+    'utf8'
+  );
   assert.match(modalSource, /Promise\.all\(\[getProductRecords\(controller\.signal\), getServices\(\)\]\)/, 'Modal nạp product + service đồng thời');
   assert.match(modalSource, /source === 'product' \? matchedProduct\.id : null/, 'Service-only không gửi san_pham_id');
   assert.match(modalSource, /readOnly=\{Boolean\(receipt\) \|\| isReadOnly\}/, 'Mã phiếu edit/read-only bị khóa');
   assert.match(modalSource, /ma_phieu_tu_dong: autoCode/, 'Modal truyền rõ cờ auto/manual');
   assert.match(modalSource, /setAutoPreviewCode\(''\)/, 'Preview lỗi để trống thay vì bịa mã');
   assert.equal(modalSource.includes("setMaPhieu('NH-000001')"), false, 'Modal không gán mã giả khi preview lỗi');
+  assert.match(modalSource, /PURCHASE_PAYMENT_METHODS\.map/, 'Modal hiển thị đủ ba phương thức thanh toán');
+  assert.match(modalSource, /Chưa trừ dòng tiền; ghi nhận công nợ nhà cung cấp/, 'Modal giải thích rõ tác động dòng tiền');
+  assert.match(receiptPageSource, /phuong_thuc_thanh_toan: selectedPayment/, 'Danh sách lọc được theo thanh toán');
+  assert.match(receiptPageSource, /Tất cả thanh toán/, 'Toolbar có bộ lọc thanh toán');
   assert.match(inventorySource, /const pageSize = 1000/, 'Catalog product có pagination 1000 dòng');
   assert.match(inventorySource, /abortSignal\(signal\)/, 'Catalog product hỗ trợ hủy request cũ');
 
@@ -100,6 +108,26 @@ test('PURCHASE RECEIPT ACCESS CONTROL & INVENTORY PROTECTION SUITE (HOTFIX SCOPE
       created_at timestamptz DEFAULT now()
     );
 
+    CREATE TABLE public.thu_chi (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      loai_phieu text NOT NULL,
+      id_don text,
+      co_so text NOT NULL,
+      id_khach_hang text,
+      danh_muc text,
+      ghi_chu text,
+      anh text,
+      so_tien numeric NOT NULL DEFAULT 0,
+      trang_thai text DEFAULT 'Hoàn thành',
+      ngay date DEFAULT current_date,
+      gio time without time zone DEFAULT current_time,
+      created_at timestamptz DEFAULT now(),
+      updated_at timestamptz DEFAULT now(),
+      nguoi_nhan text,
+      nguoi_chi text,
+      phuong_thuc varchar(255) DEFAULT 'Chưa rõ'
+    );
+
     -- Seed san pham ban dau
     INSERT INTO public.ds_san_pham (id, ma_san_pham, ten_san_pham, gia, ton_dau_ky)
     VALUES 
@@ -155,6 +183,12 @@ test('PURCHASE RECEIPT ACCESS CONTROL & INVENTORY PROTECTION SUITE (HOTFIX SCOPE
     'utf8'
   );
   await db.exec(migration8);
+
+  const migration9 = await readFile(
+    new URL('../supabase/migrations/202609140002_purchase_receipt_payment.sql', import.meta.url),
+    'utf8'
+  );
+  await db.exec(migration9);
 
   // Helper thiet lap actor phien lam viec
   const setSessionActor = async (actorId) => {
@@ -223,6 +257,7 @@ test('PURCHASE RECEIPT ACCESS CONTROL & INVENTORY PROTECTION SUITE (HOTFIX SCOPE
   const receiptA = await saveReceipt({
     ngay: '2026-09-10',
     gio: '10:00',
+    phuong_thuc_thanh_toan: 'Tiền mặt',
     co_so: 'Cơ sở Bắc Giang',
     nha_cung_cap: 'NCC Phụ Tùng',
     items: [
@@ -241,6 +276,17 @@ test('PURCHASE RECEIPT ACCESS CONTROL & INVENTORY PROTECTION SUITE (HOTFIX SCOPE
   `, [receiptA.id])).rows[0];
   assert.equal(receiptATimes.receipt_gio, '10:00', 'Đầu phiếu vẫn lưu kiểu text tương thích dữ liệu cũ');
   assert.equal(receiptATimes.inventory_gio, '10:00:00', 'Dòng kho nhận đúng giá trị TIME đã parse');
+
+  const receiptACashTransaction = (await db.query(`
+    SELECT * FROM public.thu_chi
+    WHERE source_type = 'purchase_receipt' AND source_id = $1
+  `, [receiptA.id])).rows[0];
+  assert.equal(receiptA.phuong_thuc_thanh_toan, 'Tiền mặt');
+  assert.equal(receiptACashTransaction.loai_phieu, 'phiếu chi');
+  assert.equal(receiptACashTransaction.phuong_thuc, 'Tiền mặt');
+  assert.equal(receiptACashTransaction.trang_thai, 'Hoàn thành');
+  assert.equal(Number(receiptACashTransaction.so_tien), 5_000_000);
+  assert.equal(receiptACashTransaction.nguoi_nhan, 'NCC Phụ Tùng');
 
   const previewBeforeInvalidTime = (await db.query(
     `SELECT public.get_next_purchase_receipt_code() AS code`
@@ -273,7 +319,56 @@ test('PURCHASE RECEIPT ACCESS CONTROL & INVENTORY PROTECTION SUITE (HOTFIX SCOPE
     items: [{ ten_san_pham: 'Dịch vụ chỉ có trong catalog', so_luong: 1, gia_nhap: 12345 }]
   });
   assert.equal(manualReceipt.ma_phieu, 'NH-000008', 'Mã thủ công 8 được chuẩn hóa');
+  assert.equal(manualReceipt.phuong_thuc_thanh_toan, 'Chưa thanh toán', 'Mặc định an toàn là chưa thanh toán');
   assert.ok(manualReceipt.items[0].san_pham_id, 'Service-only/new name có san_pham_id trong detail');
+  const pendingTransaction = (await db.query(`
+    SELECT * FROM public.thu_chi
+    WHERE source_type = 'purchase_receipt' AND source_id = $1
+  `, [manualReceipt.id])).rows[0];
+  assert.equal(pendingTransaction.trang_thai, 'Chờ thanh toán');
+  assert.equal(pendingTransaction.phuong_thuc, 'Chưa thanh toán');
+  const completedExpenseBeforePayment = (await db.query(`
+    SELECT coalesce(sum(so_tien), 0) AS total
+    FROM public.thu_chi
+    WHERE loai_phieu = 'phiếu chi' AND trang_thai = 'Hoàn thành'
+  `)).rows[0].total;
+  assert.equal(Number(completedExpenseBeforePayment), 5_000_000, 'Phiếu chưa thanh toán không trừ dòng tiền');
+
+  const paidManualReceipt = await saveReceipt({
+    id: manualReceipt.id,
+    ngay: '2026-09-10',
+    gio: '10:30',
+    phuong_thuc_thanh_toan: 'Chuyển khoản',
+    co_so: 'Cơ sở Bắc Giang',
+    nha_cung_cap: 'NCC Dịch vụ',
+    items: [{ ten_san_pham: 'Dịch vụ chỉ có trong catalog', so_luong: 1, gia_nhap: 12345 }]
+  });
+  const paidTransaction = (await db.query(`
+    SELECT * FROM public.thu_chi
+    WHERE source_type = 'purchase_receipt' AND source_id = $1
+  `, [manualReceipt.id])).rows[0];
+  assert.equal(paidManualReceipt.phuong_thuc_thanh_toan, 'Chuyển khoản');
+  assert.equal(paidTransaction.id, pendingTransaction.id, 'Đổi thanh toán cập nhật cùng phiếu chi');
+  assert.equal(paidTransaction.trang_thai, 'Hoàn thành');
+  assert.equal(paidTransaction.phuong_thuc, 'Chuyển khoản');
+  assert.equal(Number((await db.query(`
+    SELECT count(*) AS total FROM public.thu_chi
+    WHERE source_type = 'purchase_receipt' AND source_id = $1
+  `, [manualReceipt.id])).rows[0].total), 1, 'Không sinh phiếu chi trùng khi cập nhật');
+
+  await saveReceipt({
+    id: manualReceipt.id,
+    ngay: '2026-09-10',
+    gio: '10:30',
+    phuong_thuc_thanh_toan: 'Chưa thanh toán',
+    co_so: 'Cơ sở Bắc Giang',
+    nha_cung_cap: 'NCC Dịch vụ',
+    items: [{ ten_san_pham: 'Dịch vụ chỉ có trong catalog', so_luong: 1, gia_nhap: 12345 }]
+  });
+  assert.equal((await db.query(`
+    SELECT trang_thai FROM public.thu_chi
+    WHERE source_type = 'purchase_receipt' AND source_id = $1
+  `, [manualReceipt.id])).rows[0].trang_thai, 'Chờ thanh toán', 'Đổi về chưa thanh toán loại chi khỏi dòng tiền');
   const manualProduct = (await db.query(
     `SELECT ton_dau_ky, gia FROM public.ds_san_pham WHERE ten_san_pham = $1`,
     ['Dịch vụ chỉ có trong catalog']
@@ -670,6 +765,9 @@ test('PURCHASE RECEIPT ACCESS CONTROL & INVENTORY PROTECTION SUITE (HOTFIX SCOPE
 
   const khoCCount = (await db.query(`SELECT count(*) c FROM public.nhap_xuat_kho WHERE source_id = $1`, [receiptC.id])).rows[0].c;
   assert.equal(Number(khoCCount), 0, 'Kho của receiptC đã bị xóa hoàn toàn');
+
+  const financeCCount = (await db.query(`SELECT count(*) c FROM public.thu_chi WHERE source_type = 'purchase_receipt' AND source_id = $1`, [receiptC.id])).rows[0].c;
+  assert.equal(Number(financeCCount), 0, 'Phiếu chi của receiptC đã bị xóa hoàn toàn');
 
   const khoACount = (await db.query(`SELECT count(*) c FROM public.nhap_xuat_kho WHERE source_id = $1`, [receiptA.id])).rows[0].c;
   assert.equal(Number(khoACount), 1, 'Kho của receiptA không hề bị ảnh hưởng');

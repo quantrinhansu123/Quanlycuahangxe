@@ -8,6 +8,8 @@ Migration `202609120001_purchase_receipt_manual_code.sql` cũng đã được á
 
 Hotfix `202609140001_purchase_receipt_time_type_fix.sql` đã được áp dụng production lúc 08:33 UTC ngày 14/09/2026 (Supabase ghi version `20260914083300`). RPC giờ parse chuỗi giờ sang `time without time zone` trước khi đồng bộ vào `nhap_xuat_kho.gio`, trong khi vẫn giữ `phieu_nhap_hang.gio` dạng text tương thích dữ liệu cũ. Owner, ACL, `SECURITY DEFINER`, `search_path` và kiểu cột production đã được đối chiếu trước/sau; không thay đổi dữ liệu nghiệp vụ.
 
+Migration `202609140002_purchase_receipt_payment.sql` đã được áp dụng production lúc 09:21 UTC ngày 14/09/2026 (Supabase ghi version `20260914092114`). Phiếu nhập hỗ trợ Tiền mặt, Chuyển khoản và Chưa thanh toán; RPC đồng bộ nguyên tử đúng một phiếu chi theo `source_id`. Giao dịch đã trả ở trạng thái hoàn thành nên đi vào dòng tiền, còn chưa trả ở trạng thái chờ để theo dõi công nợ. Ca tạo, đổi trạng thái và xóa đã chạy trực tiếp trên production trong transaction rollback; số bản ghi trước/sau giữ nguyên.
+
 Đã dùng scoped Supabase Management token lưu trong `.env.local` (được gitignore) để đọc metadata, chạy SQL/EXPLAIN có giới hạn và áp dụng migration. Endpoint plan công khai vẫn trả **406/PGRST107**, nên EXPLAIN được chạy qua Management API với role `anon`; không bật plan công khai. Chưa có quyền Vercel private để xem Runtime Logs hoặc compute addon.
 
 ## Baseline HTTP production

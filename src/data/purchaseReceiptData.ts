@@ -9,6 +9,9 @@ export {
   normalizePurchaseReceiptCode,
 } from '../lib/purchaseReceiptCode';
 
+export const PURCHASE_PAYMENT_METHODS = ['Tiền mặt', 'Chuyển khoản', 'Chưa thanh toán'] as const;
+export type PurchasePaymentMethod = (typeof PURCHASE_PAYMENT_METHODS)[number];
+
 export interface PurchaseReceiptItem {
   id?: string;
   phieu_nhap_id?: string;
@@ -25,6 +28,7 @@ export interface PurchaseReceipt {
   ma_phieu: string;
   ngay: string;
   gio: string | null;
+  phuong_thuc_thanh_toan: PurchasePaymentMethod;
   co_so: string;
   nha_cung_cap: string | null;
   nguoi_thuc_hien: string | null;
@@ -44,6 +48,7 @@ export interface PurchaseReceiptFormData {
   code_mode?: 'auto' | 'manual';
   ngay: string;
   gio: string;
+  phuong_thuc_thanh_toan: PurchasePaymentMethod;
   co_so: string;
   nha_cung_cap: string;
   nguoi_thuc_hien: string;
@@ -60,6 +65,7 @@ export interface PurchaseReceiptFormData {
 
 export interface PurchaseReceiptFilters {
   co_so?: string[];
+  phuong_thuc_thanh_toan?: PurchasePaymentMethod[];
   fromDate?: string;
   toDate?: string;
 }
@@ -185,6 +191,10 @@ export const getPurchaseReceiptsPaginated = async (
     query = query.in('co_so', filters.co_so);
   }
 
+  if (filters?.phuong_thuc_thanh_toan && filters.phuong_thuc_thanh_toan.length > 0) {
+    query = query.in('phuong_thuc_thanh_toan', filters.phuong_thuc_thanh_toan);
+  }
+
   if (filters?.fromDate) {
     query = query.gte('ngay', filters.fromDate);
   }
@@ -211,6 +221,7 @@ export const getPurchaseReceiptsPaginated = async (
       ma_phieu: row.ma_phieu,
       ngay: row.ngay,
       gio: row.gio,
+      phuong_thuc_thanh_toan: row.phuong_thuc_thanh_toan || 'Chưa thanh toán',
       co_so: row.co_so,
       nha_cung_cap: row.nha_cung_cap,
       nguoi_thuc_hien: row.nguoi_thuc_hien,
@@ -279,6 +290,7 @@ export const createPurchaseReceipt = async (
       code_mode: autoCode ? 'auto' : 'manual',
       ngay: formData.ngay,
       gio: formData.gio || '00:00',
+      phuong_thuc_thanh_toan: formData.phuong_thuc_thanh_toan,
       co_so: branch,
       nha_cung_cap: formData.nha_cung_cap?.trim() || null,
       nguoi_thuc_hien: formData.nguoi_thuc_hien?.trim() || null,
@@ -314,6 +326,7 @@ export const createPurchaseReceipt = async (
     ma_phieu: rpcData.ma_phieu,
     ngay: rpcData.ngay,
     gio: rpcData.gio,
+    phuong_thuc_thanh_toan: rpcData.phuong_thuc_thanh_toan || 'Chưa thanh toán',
     co_so: rpcData.co_so,
     nha_cung_cap: rpcData.nha_cung_cap,
     nguoi_thuc_hien: rpcData.nguoi_thuc_hien,
@@ -350,6 +363,7 @@ export const updatePurchaseReceipt = async (
       ma_phieu: formData.ma_phieu?.trim() || null,
       ngay: formData.ngay,
       gio: formData.gio || '00:00',
+      phuong_thuc_thanh_toan: formData.phuong_thuc_thanh_toan,
       co_so: branch,
       nha_cung_cap: formData.nha_cung_cap?.trim() || null,
       nguoi_thuc_hien: formData.nguoi_thuc_hien?.trim() || null,
@@ -384,6 +398,7 @@ export const updatePurchaseReceipt = async (
     ma_phieu: rpcData.ma_phieu,
     ngay: rpcData.ngay,
     gio: rpcData.gio,
+    phuong_thuc_thanh_toan: rpcData.phuong_thuc_thanh_toan || 'Chưa thanh toán',
     co_so: rpcData.co_so,
     nha_cung_cap: rpcData.nha_cung_cap,
     nguoi_thuc_hien: rpcData.nguoi_thuc_hien,

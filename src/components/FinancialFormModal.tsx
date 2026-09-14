@@ -137,7 +137,7 @@ const FinancialFormModal: React.FC<FinancialFormModalProps> = React.memo(({
               </div>
 
               <InputField label="Danh mục" name="danh_muc" value={formData.danh_muc || ''} onChange={handleInputChange} icon={Tag} placeholder="Vd: Thu sửa xe, Chi nhập hàng..." tabIndex={3} />
-              <InputField label="Phương thức thanh toán" name="phuong_thuc" type="select" options={['Tiền mặt', 'Ngân hàng']} value={formData.phuong_thuc || ''} onChange={handleInputChange} icon={BadgeDollarSign} tabIndex={4} />
+              <InputField label="Phương thức thanh toán" name="phuong_thuc" type="select" options={['Tiền mặt', 'Chuyển khoản', 'Ngân hàng']} value={formData.phuong_thuc || ''} onChange={handleInputChange} icon={BadgeDollarSign} tabIndex={4} />
               <InputField label="Cơ sở" name="co_so" type="select" options={branchOptions} value={formData.co_so || ''} onChange={handleInputChange} icon={Building2} tabIndex={5} />
               
               <InputField label="Người chi" name="nguoi_chi" value={formData.nguoi_chi || ''} onChange={handleInputChange} icon={User} placeholder="Tên người chi tiền..." tabIndex={6} />

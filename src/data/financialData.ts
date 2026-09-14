@@ -18,6 +18,8 @@ export interface ThuChi {
   ngay: string;
   gio: string;
   phuong_thuc?: string;
+  source_type?: string | null;
+  source_id?: string | null;
   created_at?: string;
   updated_at?: string;
 }
