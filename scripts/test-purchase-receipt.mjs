@@ -95,7 +95,7 @@ test('PURCHASE RECEIPT ACCESS CONTROL & INVENTORY PROTECTION SUITE (HOTFIX SCOPE
       gia numeric DEFAULT 0,
       tong_tien numeric DEFAULT 0,
       ngay date,
-      gio text,
+      gio time without time zone,
       nguoi_thuc_hien text,
       created_at timestamptz DEFAULT now()
     );
@@ -149,6 +149,12 @@ test('PURCHASE RECEIPT ACCESS CONTROL & INVENTORY PROTECTION SUITE (HOTFIX SCOPE
     'utf8'
   );
   await db.exec(migration7);
+
+  const migration8 = await readFile(
+    new URL('../supabase/migrations/202609140001_purchase_receipt_time_type_fix.sql', import.meta.url),
+    'utf8'
+  );
+  await db.exec(migration8);
 
   // Helper thiet lap actor phien lam viec
   const setSessionActor = async (actorId) => {
@@ -225,6 +231,34 @@ test('PURCHASE RECEIPT ACCESS CONTROL & INVENTORY PROTECTION SUITE (HOTFIX SCOPE
   });
   assert.ok(receiptA.id, 'Tạo phiếu thành công có ID');
   assert.match(receiptA.ma_phieu, /^NH-\d{6}$/, 'Mã phiếu dạng NH-000001');
+  assert.equal(receiptA.gio, '10:00', 'RPC giữ nguyên chuỗi giờ cho UI');
+
+  const receiptATimes = (await db.query(`
+    SELECT p.gio AS receipt_gio, k.gio::text AS inventory_gio
+    FROM public.phieu_nhap_hang p
+    JOIN public.nhap_xuat_kho k ON k.source_id = p.id
+    WHERE p.id = $1
+  `, [receiptA.id])).rows[0];
+  assert.equal(receiptATimes.receipt_gio, '10:00', 'Đầu phiếu vẫn lưu kiểu text tương thích dữ liệu cũ');
+  assert.equal(receiptATimes.inventory_gio, '10:00:00', 'Dòng kho nhận đúng giá trị TIME đã parse');
+
+  const previewBeforeInvalidTime = (await db.query(
+    `SELECT public.get_next_purchase_receipt_code() AS code`
+  )).rows[0].code;
+  await assert.rejects(
+    () => saveReceipt({
+      ngay: '2026-09-10',
+      gio: '25:99',
+      co_so: 'Cơ sở Bắc Giang',
+      items: [{ ten_san_pham: 'Giờ lỗi', so_luong: 1, gia_nhap: 1 }],
+    }),
+    /Giờ nhập không hợp lệ/,
+    'RPC từ chối giờ sai định dạng trước khi cấp mã hoặc ghi kho'
+  );
+  const previewAfterInvalidTime = (await db.query(
+    `SELECT public.get_next_purchase_receipt_code() AS code`
+  )).rows[0].code;
+  assert.equal(previewAfterInvalidTime, previewBeforeInvalidTime, 'Giờ lỗi không tiêu mã phiếu');
 
   const previewAfterCreate = (await db.query(`SELECT public.get_next_purchase_receipt_code() AS code`)).rows[0].code;
   assert.equal(previewAfterCreate, 'NH-000002', 'Create thành công mới làm preview tăng');

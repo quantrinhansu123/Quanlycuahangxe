@@ -51,12 +51,12 @@ test('sales dates correct ambiguous Excel month/day and reject future dates', ()
   );
 });
 
-test('plate-like searches normalize separators and stay on plate/code fields', () => {
+test('full plates normalize separators and use the canonical RPC; only short digits use the direct path', () => {
   assert.equal(isPlateLikeSearch('99d1-37435'), true);
   assert.equal(isPlateLikeSearch('99D1 37435'), true);
   assert.equal(isPlateLikeSearch('99D1 374.35'), true);
   assert.equal(isPlateLikeSearch('29A-12345'), true);
-  assert.equal(isTargetedVehicleSearch('99d137435'), true);
+  assert.equal(isTargetedVehicleSearch('99d137435'), false);
   assert.equal(vehicleNumericSuffix('99D1 374.35'), '37435');
   assert.equal(isPlateLikeSearch('0988123456'), false);
   assert.equal(isTargetedVehicleSearch('Nguyễn Văn Hưng'), false);
@@ -67,26 +67,20 @@ test('plate-like searches normalize separators and stay on plate/code fields', (
   assert.equal(normalizeVehicleSearch(' 99D1-37435 '), '99d137435');
   assert.equal(targetedCustomerRowMatches({ bien_so_xe: '99D1-37435' }, '99d1 37435'), true);
   assert.equal(targetedCustomerRowMatches({ bien_so_xe: '99D1-00001' }, '37435'), false);
-  assert.deepEqual(buildTargetedCustomerSearchOrConditions('99d1-37435'), [
-    'bien_so_xe.ilike.%99d137435%',
-    'bien_so_xe.ilike.%37435%',
-    'ma_khach_hang.ilike.%99d137435%',
-    'ma_khach_hang.ilike.%37435%',
-  ]);
-  assert.deepEqual(buildTargetedSalesSearchOrConditions('99D1 374.35'), [
-    'id_bh.ilike.%99d137435%,khach_hang_id.ilike.%99d137435%',
-    'id_bh.ilike.%37435%,khach_hang_id.ilike.%37435%',
-  ]);
+  assert.deepEqual(buildTargetedCustomerSearchOrConditions('99d1-37435'), []);
+  assert.deepEqual(buildTargetedSalesSearchOrConditions('99D1 374.35'), []);
 });
 
-test('read timeout aborts the underlying request and reports the slow-server message', async t => {
+test('read timeout aborts the underlying request and reports the slow-server message', { timeout: 1000 }, async t => {
   t.mock.timers.enable({ apis: ['setTimeout'] });
   let aborted = false;
   const request = readRequest('test_read_timeout', signal => new Promise(resolve => {
     signal.addEventListener('abort', () => { aborted = true; resolve({ error: 'aborted' }); });
   }));
   const rejection = assert.rejects(request, /Máy chủ phản hồi chậm\. Vui lòng thử lại\./);
-  t.mock.timers.tick(8000);
+  t.mock.timers.tick(19999);
+  assert.equal(aborted, false);
+  t.mock.timers.tick(1);
   await rejection;
   assert.equal(aborted, true);
 });

@@ -10,8 +10,10 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "security:zalo": "node scripts/check-zalo-secrets.mjs",
-    "test": "node scripts/test-attendance.mjs && node scripts/test-sales-data.mjs && node scripts/test-sales-helpers.mjs && node scripts/test-business-report.mjs && node scripts/test-purchase-receipt.mjs",
+    "test": "node scripts/test-attendance.mjs && node scripts/test-sales-data.mjs && node scripts/test-sales-helpers.mjs && node scripts/test-business-report.mjs && node scripts/test-purchase-receipt.mjs && npm run test:performance",
     "test:purchase": "node scripts/test-purchase-receipt.mjs",
+    "test:performance": "node scripts/test-query-performance.mjs && node scripts/test-request-diagnostics.mjs",
+    "db:measure": "node scripts/measure-supabase.mjs",
     "test:ui": "node scripts/test-branches-ui.mjs && node scripts/test-forms-ui.mjs && node scripts/test-cashbook-ui.mjs && node scripts/test-attendance-ui.mjs",
     "typecheck": "tsc -b --pretty false"
   },

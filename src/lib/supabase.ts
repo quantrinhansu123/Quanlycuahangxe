@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { getStoredSessionToken } from './authStorage';
+import { supabaseFetch } from './supabaseFetch';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -21,7 +22,7 @@ export const supabase = createClient(
         const headers = new Headers(init.headers);
         const sessionToken = getStoredSessionToken();
         if (sessionToken) headers.set('x-app-session', sessionToken);
-        return fetch(input, { ...init, headers });
+        return supabaseFetch(input, { ...init, headers });
       },
     },
   },
