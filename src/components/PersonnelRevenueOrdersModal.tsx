@@ -1,6 +1,5 @@
 import { AlertTriangle, ExternalLink, Loader2, ReceiptText, Users, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
 import type { PayrollRevenueOrderRow } from '../data/reportData';
 import { formatDateVi } from '../utils/datetimeFormat';
 import { formatVnd } from '../data/payrollAttendanceSalary';
@@ -15,6 +14,9 @@ interface PersonnelRevenueOrdersModalProps {
   loading?: boolean;
 }
 
+const getSalesCardDetailHref = (orderId: string) =>
+  `/ban-hang/phieu-ban-hang?${new URLSearchParams({ don: orderId }).toString()}`;
+
 const PersonnelRevenueOrdersModal: React.FC<PersonnelRevenueOrdersModalProps> = ({
   isOpen,
   onClose,
@@ -24,17 +26,11 @@ const PersonnelRevenueOrdersModal: React.FC<PersonnelRevenueOrdersModalProps> = 
   orders,
   loading = false,
 }) => {
-  const navigate = useNavigate();
   if (!isOpen) return null;
 
   const tongChuaChia = orders.reduce((sum, order) => sum + order.tong_tien_don, 0);
   const tongSauChia = orders.reduce((sum, order) => sum + order.phan_bo, 0);
   const suspiciousCount = orders.filter((order) => order.duplicate_order_ids.length > 0).length;
-
-  const openOrder = (orderId: string) => {
-    onClose();
-    navigate(`/ban-hang/phieu-ban-hang?don=${encodeURIComponent(orderId)}`);
-  };
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm">
@@ -112,14 +108,15 @@ const PersonnelRevenueOrdersModal: React.FC<PersonnelRevenueOrdersModalProps> = 
                 {orders.map((o, idx) => (
                   <tr key={`${o.id_bh}-${o.ngay}-${idx}`} className="border-b border-border/60 hover:bg-muted/30">
                     <td className="py-2.5 pr-2 whitespace-nowrap">
-                      <button
-                        type="button"
-                        onClick={() => openOrder(o.id_bh)}
+                      <a
+                        href={getSalesCardDetailHref(o.id_bh)}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 font-mono text-xs font-bold text-primary hover:underline"
                         title="Mở phiếu bán hàng gốc"
                       >
                         {o.id_bh} <ExternalLink className="h-3.5 w-3.5" />
-                      </button>
+                      </a>
                     </td>
                     <td className="py-2.5 pr-2 whitespace-nowrap">
                       <div>{formatDateVi(o.ngay)}</div>
@@ -145,14 +142,15 @@ const PersonnelRevenueOrdersModal: React.FC<PersonnelRevenueOrdersModalProps> = 
                     </td>
                     <td className="py-2.5 text-xs whitespace-nowrap">
                       {o.duplicate_order_ids.length > 0 ? (
-                        <button
-                          type="button"
-                          onClick={() => openOrder(o.id_bh)}
+                        <a
+                          href={getSalesCardDetailHref(o.id_bh)}
+                          target="_blank"
+                          rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-1 font-bold text-amber-800 hover:bg-amber-100"
                           title={`Có thể trùng với: ${o.duplicate_order_ids.join(', ')}`}
                         >
                           <AlertTriangle className="h-3.5 w-3.5" /> Nghi trùng
-                        </button>
+                        </a>
                       ) : (
                         <span className="text-muted-foreground">—</span>
                       )}

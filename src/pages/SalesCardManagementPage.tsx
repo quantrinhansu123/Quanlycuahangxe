@@ -139,11 +139,6 @@ function upsertCustomerInList(prev: KhachHang[], customer: KhachHang): KhachHang
   return exists ? prev : [customer, ...prev];
 }
 
-function getSalesCardDetailHref(card: SalesCard): string {
-  const orderReference = card.id_bh?.trim() || card.id;
-  return `?${new URLSearchParams({ don: orderReference }).toString()}`;
-}
-
 const SalesCardManagementPage: React.FC = () => {
   const branches = useBranches();
   const { nhanVien, isAdmin, isTechnician, canManageOrders, canViewRevenue, canUseDataFilters } = useAuth();
@@ -1843,14 +1838,9 @@ const SalesCardManagementPage: React.FC = () => {
                         </div>
 
                         <div className="flex items-center justify-end gap-1.5 pt-0.5">
-                          <a
-                            href={getSalesCardDetailHref(card)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1 px-3 py-1.5 text-blue-600 hover:bg-blue-50 rounded-lg text-[12px] font-bold border border-blue-100 transition-colors"
-                          >
+                          <button onClick={() => handleViewCard(card)} className="flex items-center gap-1 px-3 py-1.5 text-blue-600 hover:bg-blue-50 rounded-lg text-[12px] font-bold border border-blue-100 transition-colors">
                             <Eye size={14} /> Xem
-                          </a>
+                          </button>
                           {canEditSalesCard(card) && (
                             <button onClick={() => handleOpenModal(card)} className="flex items-center gap-1 px-3 py-1.5 text-primary hover:bg-primary/10 rounded-lg text-[12px] font-bold border border-primary/20 transition-colors">
                               <Edit2 size={14} /> Sửa
@@ -2053,16 +2043,7 @@ const SalesCardManagementPage: React.FC = () => {
                     </td>
                     <td className="px-4 py-4 text-center border-b border-slate-100 align-top">
                       <div className="flex items-center justify-center gap-1.5">
-                        <a
-                          href={getSalesCardDetailHref(card)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="h-9 w-9 inline-flex items-center justify-center text-blue-600 hover:bg-blue-50 rounded-md transition-colors border border-transparent hover:border-blue-100"
-                          title="Xem chi tiết"
-                          aria-label="Xem chi tiết"
-                        >
-                          <Eye size={18} />
-                        </a>
+                        <button onClick={() => handleViewCard(card)} className="h-9 w-9 inline-flex items-center justify-center text-blue-600 hover:bg-blue-50 rounded-md transition-colors border border-transparent hover:border-blue-100" title="Xem chi tiết"><Eye size={18} /></button>
                         {canEditSalesCard(card) && (
                           <button onClick={() => handleOpenModal(card)} className="h-9 w-9 inline-flex items-center justify-center text-primary hover:bg-primary/10 rounded-md transition-colors border border-transparent hover:border-blue-100" title="Chỉnh sửa"><Edit2 size={18} /></button>
                         )}
