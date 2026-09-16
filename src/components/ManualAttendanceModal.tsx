@@ -2,7 +2,8 @@ import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { addManualAttendance, formatAttendanceSaveError } from '../data/attendanceData';
 import type { NhanSu } from '../data/personnelData';
-import { ATTENDANCE_SHIFTS, workDaysForDayShifts } from '../utils/timekeeping';
+import { workDaysForDayShifts } from '../utils/timekeeping';
+import { useAttendanceSettings } from '../hooks/useAttendanceSettings';
 import { formatLocalIsoDate } from '../utils/datetimeFormat';
 import DateInputVi from './ui/DateInputVi';
 
@@ -10,17 +11,18 @@ export default function ManualAttendanceModal({ personnel, initialPerson = '', i
   personnel: NhanSu[]; initialPerson?: string; initialDay?: string;
   onClose: () => void; onSaved: () => Promise<void>;
 }) {
+  const { settings } = useAttendanceSettings();
   const [person, setPerson] = useState(initialPerson);
   const [day, setDay] = useState(initialDay || formatLocalIsoDate());
-  const [shift, setShift] = useState<'morning' | 'afternoon' | 'full'>('morning');
-  const [start, setStart] = useState<string>('07:30');
-  const [end, setEnd] = useState<string>('11:30');
+  const [shift, setShift] = useState<'morning' | 'afternoon' | 'full'>(() => settings.splitShiftEnabled ? 'morning' : 'full');
+  const [start, setStart] = useState<string>(() => settings.splitShiftEnabled ? settings.morningStart : settings.fullDayStart);
+  const [end, setEnd] = useState<string>(() => settings.splitShiftEnabled ? settings.morningEnd : settings.fullDayEnd);
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const busy = useRef(false);
   const field = 'w-full border border-border rounded-lg p-2 bg-background';
-  const credit = shift === 'full' ? 1 : workDaysForDayShifts([{ checkin: start, checkout: end }]);
+  const credit = shift === 'full' ? settings.fullDayCredit : workDaysForDayShifts([{ checkin: start, checkout: end }], settings);
   return createPortal(<div className="fixed inset-0 z-[99999] bg-black/60 flex items-center justify-center p-4">
     <form className="bg-card rounded-xl p-6 space-y-4 w-full max-w-lg max-h-[90vh] overflow-auto" onSubmit={async e => {
       e.preventDefault();
@@ -41,14 +43,18 @@ export default function ManualAttendanceModal({ personnel, initialPerson = '', i
       <label className="block">Ngày<DateInputVi value={day} onChange={setDay} className={field} /></label>
       <label className="block">Ca<select aria-label="Ca" className={field} value={shift} onChange={e => {
         const next = e.target.value as typeof shift; setShift(next);
-        const times = next === 'full' ? { start: '07:30', end: '19:30' } : ATTENDANCE_SHIFTS[next];
+        const times = next === 'full'
+          ? { start: settings.fullDayStart, end: settings.fullDayEnd }
+          : next === 'morning'
+            ? { start: settings.morningStart, end: settings.morningEnd }
+            : { start: settings.afternoonStart, end: settings.afternoonEnd };
         setStart(times.start); setEnd(times.end);
-      }}><option value="morning">Ca sáng</option><option value="afternoon">Ca chiều</option><option value="full">Cả ngày</option></select></label>
-      {shift === 'full' ? <p>Ca sáng 07:30–11:30 và ca chiều 14:00–19:30.</p> : <div className="grid grid-cols-2 gap-3">
+      }}>{settings.splitShiftEnabled && <option value="morning">Ca sáng</option>}{settings.splitShiftEnabled && <option value="afternoon">Ca chiều</option>}<option value="full">Cả ngày</option></select></label>
+      {shift === 'full' ? <p>Full ngày {settings.fullDayStart}–{settings.fullDayEnd}{settings.splitShiftEnabled ? `; khi bổ sung hệ thống tạo riêng buổi sáng ${settings.morningStart}–${settings.morningEnd} và buổi chiều ${settings.afternoonStart}–${settings.afternoonEnd}.` : '.'}</p> : <div className="grid grid-cols-2 gap-3">
         <label>Giờ vào<input required type="time" className={field} value={start} onChange={e => setStart(e.target.value)} /></label>
         <label>Giờ ra<input required type="time" className={field} value={end} onChange={e => setEnd(e.target.value)} /></label>
       </div>}
-      <p>Công bổ sung: <strong>{credit}</strong>. Mỗi ca đủ giờ = 0,5 công.</p>
+      <p>Công bổ sung: <strong>{credit}</strong>. Công được lấy theo cấu hình ca hiện hành.</p>
       <label className="block">Ghi chú / lý do bổ sung<textarea required className={field} value={note} onChange={e => setNote(e.target.value)} /></label>
       {error && <p role="alert" className="text-red-600">{error}</p>}
       <div className="flex justify-end gap-3"><button type="button" disabled={saving} onClick={onClose}>Đóng</button>

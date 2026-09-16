@@ -9,7 +9,8 @@ import {
   BarChart2,
   LineChart,
   ShieldCheck,
-  Send
+  Send,
+  CalendarClock
 } from 'lucide-react';
 import React from 'react';
 import type { ViewPermissionKey } from './viewPermissions';
@@ -72,6 +73,7 @@ export const sidebarMenu: SidebarItem[] = [
   { icon: Send, label: 'Gửi ZNS hàng loạt', path: '/zns/gui-hang-loat', adminOnly: true, viewKey: 'zns-gui-hang-loat' },
   { icon: ShieldCheck, label: 'Cài đặt phân quyền', path: '/cai-dat/phan-quyen', adminOnly: true, viewKey: 'cai-dat-phan-quyen' },
   { icon: Box, label: 'Quản lý cơ sở', path: '/cai-dat/co-so', adminOnly: true },
+  { icon: CalendarClock, label: 'Cài đặt chấm công', path: '/cai-dat/cham-cong', adminOnly: true },
 ];
 
 // Additional items seen on the dashboard

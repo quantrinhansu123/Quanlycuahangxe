@@ -33,6 +33,7 @@ import {
   type PurchasePaymentMethod,
 } from '../data/purchaseReceiptData';
 import { formatTime24h } from '../utils/datetimeFormat';
+import { isGlobalPurchaseReceiptRole } from '../utils/purchaseReceiptPermissions';
 
 interface PurchaseReceiptFormModalProps {
   isOpen: boolean;
@@ -70,10 +71,10 @@ export const PurchaseReceiptFormModal: React.FC<PurchaseReceiptFormModalProps> =
   const branches = useBranches();
   const { nhanVien } = useAuth();
 
-  const isGlobalManager = useMemo(() => {
-    const vt = (nhanVien?.vi_tri || '').toLowerCase().trim();
-    return /admin|quản trị|chủ cửa/.test(vt);
-  }, [nhanVien?.vi_tri]);
+  const isGlobalManager = useMemo(
+    () => isGlobalPurchaseReceiptRole(nhanVien?.vi_tri),
+    [nhanVien?.vi_tri]
+  );
 
   const userAssignedBranch = useMemo(() => {
     if (isGlobalManager || !nhanVien?.co_so) return null;

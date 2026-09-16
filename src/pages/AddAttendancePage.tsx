@@ -3,6 +3,7 @@ import { AlertTriangle, ArrowLeft, Calendar, Camera, Clock, Loader2, MapPin, Ref
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useAttendanceSettings } from '../hooks/useAttendanceSettings';
 import { useToast } from '../context/toast';
 import {
   formatAttendanceSaveError,
@@ -32,6 +33,7 @@ import {
 
 const AddAttendancePage: React.FC = () => {
   const { nhanVien, isAdmin } = useAuth();
+  const { settings: attendanceSettings } = useAttendanceSettings();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [personnel, setPersonnel] = useState<NhanSu[]>([]);
@@ -262,7 +264,7 @@ const AddAttendancePage: React.FC = () => {
       let hasCheckout = false;
 
       dayRecords.forEach(record => {
-        const status = calculateAttendanceStatus(record.checkin, record.checkout);
+        const status = calculateAttendanceStatus(record.checkin, record.checkout, attendanceSettings);
         if (status.isLate) dayIsLate = true;
         if (record.checkin) hasCheckin = true;
         if (record.checkout) hasCheckout = true;
@@ -270,7 +272,8 @@ const AddAttendancePage: React.FC = () => {
 
       // Tăng ca: cùng quy ước bảng lương — mỗi ngày một lần, lấy giờ **ra** muộn nhất
       const dayOvertime = overtimeMinutesForDayShifts(
-        dayRecords.map((r) => ({ checkin: r.checkin, checkout: r.checkout }))
+        dayRecords.map((r) => ({ checkin: r.checkin, checkout: r.checkout })),
+        attendanceSettings
       );
 
       if (dayIsLate) {
@@ -292,7 +295,7 @@ const AddAttendancePage: React.FC = () => {
     });
 
     return {
-      totalDays: Object.values(recordsByDate).reduce((sum, rows) => sum + workDaysForDayShifts(rows), 0),
+      totalDays: Object.values(recordsByDate).reduce((sum, rows) => sum + workDaysForDayShifts(rows, attendanceSettings), 0),
       lateCount,
       totalOvertimeMinutes,
       overtimeFormatted: formatMinutesToHours(totalOvertimeMinutes),
@@ -301,7 +304,7 @@ const AddAttendancePage: React.FC = () => {
       overtimeRecords: overtimeRecords.sort((a, b) => b.date.localeCompare(a.date)),
       allWorkDays: allWorkDays.sort((a, b) => b.date.localeCompare(a.date))
     };
-  }, [monthlyRecords]);
+  }, [monthlyRecords, attendanceSettings]);
 
   // Parse coordinates for map
   const coordinates = useMemo(() => {
@@ -701,7 +704,8 @@ const AddAttendancePage: React.FC = () => {
                     const dayOtMin =
                       showDetailView === 'overtime'
                         ? overtimeMinutesForDayShifts(
-                            item.records.map((r) => ({ checkin: r.checkin, checkout: r.checkout }))
+                            item.records.map((r) => ({ checkin: r.checkin, checkout: r.checkout })),
+                            attendanceSettings
                           )
                         : 0;
 
@@ -734,16 +738,16 @@ const AddAttendancePage: React.FC = () => {
 
                         <div className="space-y-2">
                           {item.records.map((r, rIdx) => {
-                            const status = calculateAttendanceStatus(r.checkin, r.checkout);
+                            const status = calculateAttendanceStatus(r.checkin, r.checkout, attendanceSettings);
                             return (
-                              <div key={rIdx} className={`p-3 rounded-xl border flex items-center justify-between ${r.checkin && calculateAttendanceStatus(r.checkin, null).isLate
+                              <div key={rIdx} className={`p-3 rounded-xl border flex items-center justify-between ${r.checkin && calculateAttendanceStatus(r.checkin, null, attendanceSettings).isLate
                                   ? 'bg-red-500/5 border-red-500/10'
                                   : 'bg-emerald-500/5 border-emerald-500/10'
                                 }`}>
                                 <div className="flex items-center gap-4">
                                   <div>
                                     <p className="text-[9px] font-bold text-muted-foreground uppercase opacity-70">Giờ vào</p>
-                                    <p className={`text-[13px] font-black ${r.checkin && calculateAttendanceStatus(r.checkin, null).isLate ? 'text-red-600' : 'text-emerald-700'
+                                    <p className={`text-[13px] font-black ${r.checkin && calculateAttendanceStatus(r.checkin, null, attendanceSettings).isLate ? 'text-red-600' : 'text-emerald-700'
                                       }`}>
                                       {r.checkin || '--:--'}
                                     </p>
@@ -761,8 +765,8 @@ const AddAttendancePage: React.FC = () => {
                                       +{formatMinutesToHours(status.overtimeMinutes)} TC
                                     </p>
                                   )}
-                                  {r.checkin && calculateAttendanceStatus(r.checkin, null).isLate && (
-                                    <p className="text-[10px] font-bold text-red-500">Muộn {calculateAttendanceStatus(r.checkin, null).lateMinutes}p</p>
+                                  {r.checkin && calculateAttendanceStatus(r.checkin, null, attendanceSettings).isLate && (
+                                    <p className="text-[10px] font-bold text-red-500">Muộn {calculateAttendanceStatus(r.checkin, null, attendanceSettings).lateMinutes}p</p>
                                   )}
                                 </div>
                               </div>

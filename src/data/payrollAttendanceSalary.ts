@@ -3,7 +3,13 @@
  */
 
 import { removeVietnameseTones } from '../lib/utils';
-import { workDaysForDayShifts, MOC_TANG_CA_TINH_TU, overtimeMinutesForDayShifts, parseTimeStringToMinutes } from '../utils/timekeeping';
+import {
+  DEFAULT_ATTENDANCE_SETTINGS,
+  workDaysForDayShifts,
+  overtimeMinutesForDayShifts,
+  parseTimeStringToMinutes,
+  type AttendanceSettings,
+} from '../utils/timekeeping';
 
 export const ATTENDANCE_SALARY = {
   NGAY_LAM_TRONG_THANG: 28,
@@ -22,7 +28,7 @@ export const ATTENDANCE_SALARY = {
   PHU_CAP_THAM_NHIEN_TOI_DA: 600_000,
   HE_SO_TANG_CA: 1.5,
   GIO_TANG_CA_TOI_DA_THANG: 25,
-  /** @deprecated Dùng MOC_TANG_CA_TINH_TU (19:40) từ utils/timekeeping */
+  /** @deprecated Mốc thực tế lấy từ AttendanceSettings. */
   GIO_CHECKOUT_BU_SUNG_BUA_TANG_CA: 19,
   BUA_MOT_NGAY_TAI_CO: 2,
   BUA_MOT_NGAY_NGOAI: 1,
@@ -194,15 +200,16 @@ function viTriLamNgoai(viTri: string | null | undefined): boolean {
 /**
  * Số bữa ăn trong tháng theo từng bản ghi chấm công (Nhân sự → bảng `cham_cong`).
  * Mỗi **ngày** có chấm (có check-in): 2 bữa tại cơ sở, 1 bữa nếu vị trí gợi ý làm ngoài;
- * thêm 1 bữa nếu **checkout** ≥ giờ ra chuẩn (19:40) — tăng ca sau giờ ăn.
+ * thêm 1 bữa nếu **checkout** ≥ mốc tăng ca trong cấu hình.
  */
 export function demSoBuaAnTheoDongCham(
   cacDong: DongChamBuaNhap[],
   hoTen: string,
   nhanSuId: string | null | undefined,
-  idNhanSu: string | null | undefined = undefined
+  idNhanSu: string | null | undefined = undefined,
+  attendanceSettings: AttendanceSettings = DEFAULT_ATTENDANCE_SETTINGS
 ): number {
-  return demSoBuaAnTachTheoDongCham(cacDong, hoTen, nhanSuId, idNhanSu).tong;
+  return demSoBuaAnTachTheoDongCham(cacDong, hoTen, nhanSuId, idNhanSu, attendanceSettings).tong;
 }
 
 /** Tách số bữa ăn thường và bữa ăn tăng ca từ chấm công. */
@@ -210,7 +217,8 @@ export function demSoBuaAnTachTheoDongCham(
   cacDong: DongChamBuaNhap[],
   hoTen: string,
   nhanSuId: string | null | undefined,
-  idNhanSu: string | null | undefined = undefined
+  idNhanSu: string | null | undefined = undefined,
+  attendanceSettings: AttendanceSettings = DEFAULT_ATTENDANCE_SETTINGS
 ): { soBuaCoBan: number; soBuaTangCa: number; tong: number } {
   const thu = locDongChamTheoNhanVien(cacDong, hoTen, nhanSuId, idNhanSu);
   if (thu.length === 0) return { soBuaCoBan: 0, soBuaTangCa: 0, tong: 0 };
@@ -221,7 +229,7 @@ export function demSoBuaAnTachTheoDongCham(
     list.push(d);
     theoNgay.set(d.ngay, list);
   }
-  const G0 = MOC_TANG_CA_TINH_TU;
+  const overtimeStart = parseTimeStringToMinutes(attendanceSettings.overtimeStart)!;
   let soBuaCoBan = 0;
   let soBuaTangCa = 0;
   for (const [, dongsCuaMNgay] of theoNgay) {
@@ -233,7 +241,7 @@ export function demSoBuaAnTachTheoDongCham(
       : ATTENDANCE_SALARY.BUA_MOT_NGAY_TAI_CO;
     const buaTang = coVao.some((d) => {
       const p = phutKhoiThoiGian(d.checkout);
-      return p != null && p >= G0;
+      return p != null && p >= overtimeStart;
     })
       ? 1
       : 0;
@@ -250,7 +258,8 @@ export function demSoNgayCongTheoDongCham(
   cacDong: DongChamBuaNhap[],
   hoTen: string,
   nhanSuId: string | null | undefined,
-  idNhanSu: string | null | undefined = undefined
+  idNhanSu: string | null | undefined = undefined,
+  attendanceSettings: AttendanceSettings = DEFAULT_ATTENDANCE_SETTINGS
 ): number {
   const thu = locDongChamTheoNhanVien(cacDong, hoTen, nhanSuId, idNhanSu);
   const theoNgay = new Map<string, DongChamBuaNhap[]>();
@@ -262,20 +271,21 @@ export function demSoNgayCongTheoDongCham(
   }
   let soNgay = 0;
   for (const [, dongsCuaMNgay] of theoNgay) {
-    soNgay += workDaysForDayShifts(dongsCuaMNgay);
+    soNgay += workDaysForDayShifts(dongsCuaMNgay, attendanceSettings);
   }
   return soNgay;
 }
 
 /**
- * Tổng giờ tăng ca (tháng) từ chấm công — cùng quy ước màn hình Tăng ca (sau 19:40, mỗi phút).
+ * Tổng giờ tăng ca (tháng) từ chấm công — cùng quy ước mốc tăng ca cấu hình, tính từng phút.
  * Mỗi **ngày** chỉ tính một lần: lấy **giờ ra muộn nhất** nếu có nhiều bản ghi.
  */
 export function demGioTangCaTheoDongCham(
   cacDong: DongChamBuaNhap[],
   hoTen: string,
   nhanSuId: string | null | undefined,
-  idNhanSu: string | null | undefined = undefined
+  idNhanSu: string | null | undefined = undefined,
+  attendanceSettings: AttendanceSettings = DEFAULT_ATTENDANCE_SETTINGS
 ): number {
   const thu = locDongChamTheoNhanVien(cacDong, hoTen, nhanSuId, idNhanSu);
   if (thu.length === 0) return 0;
@@ -289,7 +299,8 @@ export function demGioTangCaTheoDongCham(
   let totalPhut = 0;
   for (const [, dongsCuaMNgay] of theoNgay) {
     totalPhut += overtimeMinutesForDayShifts(
-      dongsCuaMNgay.map((d) => ({ checkin: d.checkin, checkout: d.checkout }))
+      dongsCuaMNgay.map((d) => ({ checkin: d.checkin, checkout: d.checkout })),
+      attendanceSettings
     );
   }
   return Math.round((totalPhut / 60) * 100) / 100;
@@ -310,10 +321,12 @@ export function tinhMotDong(
     donGiaTienAnTangCaTheoKy?: number;
     /** Ghi đè cột Tăng ca (giờ) khi đã tổng hợp từ bảng chấm công. */
     soGioTangCaTheoChamCon?: number;
+    /** Cấu hình chấm công dùng cho mốc tăng ca và giới hạn theo tháng. */
+    attendanceSettings?: AttendanceSettings;
   }
 ): BangLuongChamCongKetQua {
   const D = ATTENDANCE_SALARY.NGAY_LAM_TRONG_THANG;
-  const H = ATTENDANCE_SALARY.GIO_MOT_NGAY;
+  const H = (options?.attendanceSettings?.standardWorkMinutes ?? ATTENDANCE_SALARY.GIO_MOT_NGAY * 60) / 60;
   const thangLam = soThangLamViec(row.ngayBatDauLam, nam, thang);
   // Thâm niên là một khoản riêng bên dưới; không cộng lần nữa vào LCB.
   const lcbHieuLuc = Math.max(0, row.luongCoBan);
@@ -370,7 +383,7 @@ export function tinhMotDong(
       : row.soGioTangCa;
   let gioTangCaApDung = Math.min(
     Math.max(0, gioTangCaNguon),
-    ATTENDANCE_SALARY.GIO_TANG_CA_TOI_DA_THANG
+    options?.attendanceSettings?.maxOvertimeHoursMonth ?? ATTENDANCE_SALARY.GIO_TANG_CA_TOI_DA_THANG
   );
   let luongTangCa = 0;
   if (row.loai === 'chinh_thuc' && gioTangCaApDung > 0) {
@@ -427,8 +440,9 @@ export function tinhMotDong(
   ) {
     ghiChu = 'Cảnh báo: tổng ngày tại quán + không tại quán > số ngày công.';
   }
-  if (gioTangCaNguon > ATTENDANCE_SALARY.GIO_TANG_CA_TOI_DA_THANG) {
-    ghiChu = (ghiChu ? ghiChu + ' ' : '') + `Giờ tăng ca chỉ tính tối đa ${ATTENDANCE_SALARY.GIO_TANG_CA_TOI_DA_THANG}h/tháng.`;
+  const overtimeLimit = options?.attendanceSettings?.maxOvertimeHoursMonth ?? ATTENDANCE_SALARY.GIO_TANG_CA_TOI_DA_THANG;
+  if (gioTangCaNguon > overtimeLimit) {
+    ghiChu = (ghiChu ? ghiChu + ' ' : '') + `Giờ tăng ca chỉ tính tối đa ${overtimeLimit}h/tháng.`;
   }
 
   return {

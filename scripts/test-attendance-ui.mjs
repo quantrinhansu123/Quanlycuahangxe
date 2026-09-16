@@ -12,6 +12,7 @@ import Manual from '/src/components/ManualAttendanceModal';
 import { SearchableSelect } from '/src/components/ui/SearchableSelect';
 import { queryCustomers } from '/src/data/salesQueryData';
 import { demSoNgayCongTheoDongCham } from '/src/data/payrollAttendanceSalary';
+import { AttendanceSettingsProvider } from '/src/context/AttendanceSettingsContext';
 import '/src/index.css';
 const staff = [{id:'00000000-0000-0000-0000-000000000002',id_nhan_su:'NV2',ho_ten:'Nhân viên',co_so:'Hà Nội'}];
 function Harness() {
@@ -21,17 +22,17 @@ function Harness() {
   return result.data.map(c=>({value:c.id,label:c.ho_va_ten}));
  },[]);
  const payroll = demSoNgayCongTheoDongCham([
-  {nhan_su:'NV2',ngay:'2026-09-08',checkin:'07:30',checkout:'11:30'},
-  {nhan_su:'Nhân viên',ngay:'2026-09-08',checkin:'14:00',checkout:'19:30'},
-  {nhan_su:'NV2',ngay:'2026-09-09',checkin:'07:30',checkout:'11:30'},
-  {nhan_su:'NV2',ngay:'2026-09-10',checkin:'14:00',checkout:'19:30'},
+  {nhan_su:'NV2',ngay:'2026-09-08',checkin:'08:30',checkout:'12:00'},
+  {nhan_su:'Nhân viên',ngay:'2026-09-08',checkin:'13:00',checkout:'17:30'},
+  {nhan_su:'NV2',ngay:'2026-09-09',checkin:'08:30',checkout:'12:00'},
+  {nhan_su:'NV2',ngay:'2026-09-10',checkin:'13:00',checkout:'17:30'},
  ], 'Nhân viên',staff[0].id,'NV2');
  return <><button onClick={()=>setOpen(true)}>Bổ sung</button><output data-testid="payroll">{payroll}</output>
  {open && <Manual personnel={staff} initialPerson={staff[0].id} initialDay="2026-09-08" onClose={()=>setOpen(false)} onSaved={async()=>{}}/>}
  <SearchableSelect options={[]} loadOptions={loader} value={selected} onValueChange={setSelected} placeholder="Tìm khách hàng" searchPlaceholder="Tên, SĐT, biển số"/>
  <output data-testid="selected">{selected}</output></>;
 }
-createRoot(document.getElementById('root')).render(<Harness/>);
+createRoot(document.getElementById('root')).render(<AttendanceSettingsProvider><Harness/></AttendanceSettingsProvider>);
 `);
 const browser = await chromium.launch({ headless: true, channel: process.platform === 'win32' ? 'msedge' : undefined });
 try {
@@ -55,7 +56,7 @@ try {
  await page.goto(base+'/.build-verification/attendance.html');
  await page.getByRole('button',{name:'Bổ sung',exact:true}).waitFor();
  assert.equal(await page.getByTestId('payroll').textContent(),'2');
- for(const [shift,start,end] of [['morning','07:30','11:30'],['afternoon','14:00','19:30'],['full','07:30','19:30']]) {
+ for(const [shift,start,end] of [['morning','08:30','12:00'],['afternoon','13:00','17:30'],['full','08:30','17:30']]) {
   await page.getByRole('button',{name:'Bổ sung',exact:true}).click();
   await page.getByLabel('Ca',{exact:true}).selectOption(shift);
   if(shift!=='full') {assert.equal(await page.getByLabel('Giờ vào').inputValue(),start);assert.equal(await page.getByLabel('Giờ ra').inputValue(),end);}
@@ -83,12 +84,14 @@ try {
  await writeFile('.build-verification/attendance-page.tsx', `
  import React from 'react'; import { createRoot } from 'react-dom/client';
  import { MemoryRouter } from 'react-router-dom';
+ import { AttendanceSettingsProvider } from '/src/context/AttendanceSettingsContext';
  import Attendance from '/src/pages/AttendanceManagementPage'; import '/src/index.css';
- createRoot(document.getElementById('root')).render(<MemoryRouter><Attendance/></MemoryRouter>);`);
+ createRoot(document.getElementById('root')).render(<AttendanceSettingsProvider><MemoryRouter><Attendance/></MemoryRouter></AttendanceSettingsProvider>);`);
+ await new Promise(resolve=>setTimeout(resolve,300));
  let attendanceReads = 0;
  const staff = {id:'00000000-0000-0000-0000-000000000002',id_nhan_su:'NV2',ho_ten:'Nhân viên',vi_tri:'quản lý',co_so:'Hà Nội'};
  const attendance = Array.from({length:22},(_,i)=>({id:`row-${i}`,id_cham_cong:`CC-${i}`,nhan_su:i%2?'NV2':'Nhân viên',
-   ngay:`2026-09-${String(Math.floor(i/2)+1).padStart(2,'0')}`,checkin:i%2?'14:00':'07:30',checkout:i%2?'19:30':'11:30',created_at:`2026-09-01T00:00:${String(i).padStart(2,'0')}Z`}));
+   ngay:`2026-09-${String(Math.floor(i/2)+1).padStart(2,'0')}`,checkin:i%2?'13:00':'08:30',checkout:i%2?'17:30':'12:00',created_at:`2026-09-01T00:00:${String(i).padStart(2,'0')}Z`}));
  await page.route('**/src/context/AuthContext.tsx*', route=>route.fulfill({contentType:'application/javascript',body:
    `const auth={nhanVien:${JSON.stringify(staff)},isAdmin:true,canModifyData:true,isTechnician:false,hasViewAccess:()=>true}; export const useAuth=()=>auth;`}));
  await page.route('**/rest/v1/nhan_su*', route=>route.fulfill({contentType:'application/json',body:JSON.stringify([staff])}));
@@ -100,11 +103,13 @@ try {
  await page.getByTitle('Trang sau',{exact:true}).click();
  await page.getByTitle('Trang trước',{exact:true}).click();
  assert.equal(attendanceReads,1,'Pagination must reuse the complete filtered attendance data');
- assert.ok(await page.getByText('Công ngày: 1',{exact:true}).count()>0);
+ assert.ok(await page.getByText('Sáng: 0.5 · Chiều: 0.5 · Tổng: 1',{exact:true}).count()>0);
  await writeFile('.build-verification/station.html', '<div id="root"></div><script type="module" src="/.build-verification/station.tsx"></script>');
  await writeFile('.build-verification/station.tsx', `import React from 'react'; import {createRoot} from 'react-dom/client';
  import {MemoryRouter} from 'react-router-dom'; import Station from '/src/pages/CheckInPage'; import '/src/index.css';
- createRoot(document.getElementById('root')).render(<MemoryRouter><Station/></MemoryRouter>);`);
+ import {AttendanceSettingsProvider} from '/src/context/AttendanceSettingsContext';
+ createRoot(document.getElementById('root')).render(<AttendanceSettingsProvider><MemoryRouter><Station/></MemoryRouter></AttendanceSettingsProvider>);`);
+ await new Promise(resolve=>setTimeout(resolve,300));
  await page.clock.install({time:new Date('2026-09-11T07:00:00Z')});
  await page.addInitScript(()=>{
    navigator.geolocation.getCurrentPosition=success=>success({coords:{latitude:21,longitude:105}});
@@ -127,7 +132,44 @@ try {
  assert.equal(stationWrite.id,undefined,'Afternoon must create a new record instead of overwriting morning');
  assert.equal(stationWrite.checkout,null);
  assert.deepEqual(errors,[]);
+ await writeFile('.build-verification/attendance-settings.html', '<div id="root"></div><script type="module" src="/.build-verification/attendance-settings.tsx"></script>');
+ await writeFile('.build-verification/attendance-settings.tsx', `import React from 'react'; import {createRoot} from 'react-dom/client';
+ import {AttendanceSettingsProvider} from '/src/context/AttendanceSettingsContext';
+ import AttendanceSettings from '/src/pages/AttendanceSettingsPage'; import '/src/index.css';
+ createRoot(document.getElementById('root')).render(<AttendanceSettingsProvider><AttendanceSettings/></AttendanceSettingsProvider>);`);
+ await new Promise(resolve=>setTimeout(resolve,300));
+ let settingsWrite;
+ await page.route('**/rpc/save_attendance_settings', route=>{
+   settingsWrite=route.request().postDataJSON();
+   const p=settingsWrite;
+   return route.fulfill({contentType:'application/json',body:JSON.stringify([{
+     id:'settings-id',scope:'global',shift_name:p.p_shift_name,
+     full_day_start:p.p_full_day_start,full_day_end:p.p_full_day_end,
+     standard_work_minutes:p.p_standard_work_minutes,unpaid_break_minutes:p.p_unpaid_break_minutes,
+     full_day_credit:p.p_full_day_credit,split_shift_enabled:p.p_split_shift_enabled,
+     morning_start:p.p_morning_start,morning_end:p.p_morning_end,morning_credit:p.p_morning_credit,
+     afternoon_start:p.p_afternoon_start,afternoon_end:p.p_afternoon_end,afternoon_credit:p.p_afternoon_credit,
+     late_grace_minutes:p.p_late_grace_minutes,overtime_start:p.p_overtime_start,
+     max_overtime_hours_month:p.p_max_overtime_hours_month,updated_at:'2026-09-16T00:00:00Z'
+   }])});
+ });
+ await page.goto(base+'/.build-verification/attendance-settings.html');
+ await page.getByRole('heading',{name:'Cài đặt chấm công'}).waitFor();
+ assert.equal(await page.getByLabel('Giờ vào chuẩn').inputValue(),'08:30');
+ await page.getByLabel('Kết thúc').first().fill('14:00');
+ assert.match(await page.getByRole('alert').innerText(),/chồng nhau/);
+ assert.equal(await page.getByRole('button',{name:'Lưu cấu hình'}).isDisabled(),true);
+ await page.getByLabel('Kết thúc').first().fill('12:00');
+ await page.getByLabel('Công tối đa').first().fill('0.4');
+ await page.getByLabel('Công tối đa').nth(1).fill('0.6');
+ await page.getByRole('button',{name:'Lưu cấu hình'}).click();
+ await page.getByText(/Đã lưu và áp dụng cấu hình/).waitFor();
+ assert.equal(settingsWrite.p_morning_credit,0.4);
+ assert.equal(settingsWrite.p_afternoon_credit,0.6);
+ assert.equal(settingsWrite.p_split_shift_enabled,true);
+ assert.deepEqual(errors,[]);
  console.log('PASS: manual morning/afternoon/full defaults, note, duplicate error; payroll total 2; database customer search by plate/phone/name beyond loaded options.');
  console.log('PASS: attendance page groups employee name/code, displays daily credit 1, and makes no additional database reads on page changes.');
  console.log('PASS: check-in station sums half shifts and opens a new record after a completed morning.');
+ console.log('PASS: attendance settings validates overlap and saves configurable split credits.');
 } finally { await browser.close(); }

@@ -9,7 +9,6 @@ import {
   type PayrollRevenueOrderRow,
 } from '../data/reportData';
 import { removeVietnameseTones } from '../lib/utils';
-import { GIO_RA_CHUAN_LABEL } from '../utils/timekeeping';
 import {
   demGioTangCaTheoDongCham,
   demSoBuaAnTachTheoDongCham,
@@ -36,6 +35,7 @@ import {
   saveDefaultOvertimeMealUnitPrice,
 } from '../data/payrollSettingsData';
 import { useAuth } from '../context/AuthContext';
+import { useAttendanceSettings } from '../hooks/useAttendanceSettings';
 
 const LS_PREFIX = 'payrollChamCongLuongV2:';
 const LS_PREFIX_LEGACY = 'payrollChamCongLuongV1:';
@@ -373,6 +373,7 @@ function formatDonGiaGon(value: number): string {
 }
 
 const PayrollAttendanceSalaryPage: React.FC = () => {
+  const { settings: attendanceSettings } = useAttendanceSettings();
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
   const now = new Date();
@@ -640,11 +641,11 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
         const nhanId = personById?.id ?? nhanMeta?.id;
         const idNhanSu = personById?.id_nhan_su ?? nhanMeta?.idNhanSu ?? undefined;
         const coSo = personById?.co_so?.trim() || nhanMeta?.coSo || r.coSo?.trim() || 'Chưa xác định';
-        const b = demSoBuaAnTachTheoDongCham(chamDong, r.hoTen, nhanId, idNhanSu);
-        const c = demSoNgayCongTheoDongCham(chamDong, r.hoTen, nhanId, idNhanSu);
+        const b = demSoBuaAnTachTheoDongCham(chamDong, r.hoTen, nhanId, idNhanSu, attendanceSettings);
+        const c = demSoNgayCongTheoDongCham(chamDong, r.hoTen, nhanId, idNhanSu, attendanceSettings);
         const gTcTuCham =
           chamDong.length > 0
-            ? demGioTangCaTheoDongCham(chamDong, r.hoTen, nhanId, idNhanSu)
+            ? demGioTangCaTheoDongCham(chamDong, r.hoTen, nhanId, idNhanSu, attendanceSettings)
             : undefined;
         return {
           input: r,
@@ -657,6 +658,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
             soGioTangCaTheoChamCon: gTcTuCham,
             donGiaTienAnTheoKy: donGiaTienAnKy,
             donGiaTienAnTangCaTheoKy: donGiaTienAnTangCaKy,
+            attendanceSettings,
           }),
         };
       }),
@@ -669,6 +671,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
       nhanTheoId,
       donGiaTienAnKy,
       donGiaTienAnTangCaKy,
+      attendanceSettings,
     ]
   );
 
@@ -1292,13 +1295,13 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
           <div><strong>Lương ngày:</strong> Lương cơ bản ÷ {ATTENDANCE_SALARY.NGAY_LAM_TRONG_THANG}.</div>
           <div><strong>Lương theo công:</strong> Lương ngày × tổng ngày công.</div>
           <div>
-            <strong>Lương giờ:</strong> Lương cơ bản ÷ {ATTENDANCE_SALARY.NGAY_LAM_TRONG_THANG} ÷ {ATTENDANCE_SALARY.GIO_MOT_NGAY} giờ.
+            <strong>Lương giờ:</strong> Lương cơ bản ÷ {ATTENDANCE_SALARY.NGAY_LAM_TRONG_THANG} ÷ {attendanceSettings.standardWorkMinutes / 60} giờ.
           </div>
           <div>
             <strong>Tiền tăng ca:</strong> Số giờ tăng ca × lương giờ × {ATTENDANCE_SALARY.HE_SO_TANG_CA}.
           </div>
           <div>
-            <strong>Giờ tăng ca:</strong> mỗi ngày lấy giờ ra muộn nhất, chỉ tính phần sau {GIO_RA_CHUAN_LABEL}; tối đa {ATTENDANCE_SALARY.GIO_TANG_CA_TOI_DA_THANG} giờ/tháng.
+            <strong>Giờ tăng ca:</strong> mỗi ngày lấy giờ ra muộn nhất, chỉ tính phần sau {attendanceSettings.overtimeStart}; tối đa {attendanceSettings.maxOvertimeHoursMonth} giờ/tháng.
           </div>
           <div>
             <strong>Chuyên cần:</strong> đủ {ATTENDANCE_SALARY.NGAY_LAM_TRONG_THANG} công được {formatVnd(ATTENDANCE_SALARY.PHU_CAP_CHUYEN_CAN)}; số sửa tay được dùng ngay.
@@ -1493,7 +1496,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                       className="px-2.5 py-2.5 text-right font-mono whitespace-nowrap text-sm"
                       title={
                         gTcTuCham !== undefined
-                          ? `${kq.gioTangCaApDung}h tăng ca (từ chấm công, sau ${GIO_RA_CHUAN_LABEL})`
+                          ? `${kq.gioTangCaApDung}h tăng ca (từ chấm công, sau ${attendanceSettings.overtimeStart})`
                           : `${input.soGioTangCa}h tăng ca (nhập tay)`
                       }
                     >

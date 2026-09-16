@@ -5,10 +5,12 @@ import type { DongChamBuaNhap } from '../data/payrollAttendanceSalary';
 import { formatDateVi } from '../utils/datetimeFormat';
 import {
   workDaysForDayShifts,
+  attendanceCreditBreakdownForDay,
   calculateAttendanceStatus,
   formatMinutesToHours,
   overtimeMinutesForDayShifts,
 } from '../utils/timekeeping';
+import { useAttendanceSettings } from '../hooks/useAttendanceSettings';
 
 interface PersonnelAttendanceDetailsModalProps {
   isOpen: boolean;
@@ -47,6 +49,7 @@ const PersonnelAttendanceDetailsModal: React.FC<PersonnelAttendanceDetailsModalP
   year,
   rows,
 }) => {
+  const { settings: attendanceSettings } = useAttendanceSettings();
   const days = useMemo<AttendanceDay[]>(() => {
     const byDate = new Map<string, DongChamBuaNhap[]>();
     rows.forEach((row) => {
@@ -58,25 +61,25 @@ const PersonnelAttendanceDetailsModal: React.FC<PersonnelAttendanceDetailsModalP
 
     return Array.from(byDate.entries())
       .map(([date, dateRows]) => {
-        const statuses = dateRows.map((row) => calculateAttendanceStatus(row.checkin, row.checkout));
+        const statuses = dateRows.map((row) => calculateAttendanceStatus(row.checkin, row.checkout, attendanceSettings));
         return {
           date,
           rows: dateRows,
           hasCheckin: dateRows.some((row) => Boolean(row.checkin?.trim())),
           hasMissingCheckout: dateRows.some((row) => Boolean(row.checkin?.trim()) && !row.checkout?.trim()),
           lateMinutes: Math.max(0, ...statuses.map((status) => status.lateMinutes)),
-          overtimeMinutes: overtimeMinutesForDayShifts(dateRows),
+          overtimeMinutes: overtimeMinutesForDayShifts(dateRows, attendanceSettings),
           locations: Array.from(
             new Set(dateRows.map((row) => row.vi_tri?.trim()).filter((value): value is string => Boolean(value)))
           ),
         };
       })
       .sort((a, b) => b.date.localeCompare(a.date));
-  }, [rows]);
+  }, [rows, attendanceSettings]);
 
   if (!isOpen) return null;
 
-  const workDays = days.reduce((sum, day) => sum + workDaysForDayShifts(day.rows), 0);
+  const workDays = days.reduce((sum, day) => sum + workDaysForDayShifts(day.rows, attendanceSettings), 0);
   const missingCheckoutDays = days.filter((day) => day.hasMissingCheckout).length;
   const overtimeMinutes = days.reduce((sum, day) => sum + day.overtimeMinutes, 0);
 
@@ -145,7 +148,12 @@ const PersonnelAttendanceDetailsModal: React.FC<PersonnelAttendanceDetailsModalP
                       <TimeList icon={LogOut} tone="orange" values={day.rows.map((row) => formatTime(row.checkout))} />
                     </td>
                     <td className="px-3 py-3">
-                      {workDaysForDayShifts(day.rows)}
+                      {(() => {
+                        const credit = attendanceCreditBreakdownForDay(day.rows, attendanceSettings);
+                        return <span title={credit.fullDay ? 'Một cặp xuyên ngày' : 'Tính riêng từng buổi'}>
+                          S: {credit.morning} · C: {credit.afternoon} · Tổng: {credit.total}{credit.fullDay ? ' (full)' : ''}
+                        </span>;
+                      })()}
                     </td><td className="px-3 py-3">
                       {!day.hasCheckin ? (
                         <StatusBadge tone="slate" label="Không tính công" />

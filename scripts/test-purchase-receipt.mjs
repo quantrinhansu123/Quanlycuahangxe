@@ -10,6 +10,7 @@ import {
   isMissingPurchaseReceiptCodeRpcError,
   normalizePurchaseReceiptCode,
 } from '../src/lib/purchaseReceiptCode.ts';
+import { isGlobalPurchaseReceiptRole } from '../src/utils/purchaseReceiptPermissions.ts';
 
 test('PURCHASE RECEIPT ACCESS CONTROL & INVENTORY PROTECTION SUITE (HOTFIX SCOPE)', async () => {
   const modalSource = await readFile(
@@ -31,6 +32,11 @@ test('PURCHASE RECEIPT ACCESS CONTROL & INVENTORY PROTECTION SUITE (HOTFIX SCOPE
   assert.match(modalSource, /setAutoPreviewCode\(''\)/, 'Preview lỗi để trống thay vì bịa mã');
   assert.equal(modalSource.includes("setMaPhieu('NH-000001')"), false, 'Modal không gán mã giả khi preview lỗi');
   assert.match(modalSource, /PURCHASE_PAYMENT_METHODS\.map/, 'Modal hiển thị đủ ba phương thức thanh toán');
+  assert.match(modalSource, /isGlobalPurchaseReceiptRole/, 'Modal dùng chung quy tắc quyền liên cơ sở');
+  assert.match(receiptPageSource, /isGlobalPurchaseReceiptRole/, 'Trang danh sách dùng chung quy tắc quyền liên cơ sở');
+  assert.equal(isGlobalPurchaseReceiptRole('Quản lý'), true, 'Quản lý được chọn mọi cơ sở');
+  assert.equal(isGlobalPurchaseReceiptRole('QL'), true, 'QL được chọn mọi cơ sở');
+  assert.equal(isGlobalPurchaseReceiptRole('Kho'), false, 'Kho vẫn bị giới hạn theo cơ sở');
   assert.match(modalSource, /Chưa trừ dòng tiền; ghi nhận công nợ nhà cung cấp/, 'Modal giải thích rõ tác động dòng tiền');
   assert.match(receiptPageSource, /phuong_thuc_thanh_toan: selectedPayment/, 'Danh sách lọc được theo thanh toán');
   assert.match(receiptPageSource, /Tất cả thanh toán/, 'Toolbar có bộ lọc thanh toán');
@@ -189,6 +195,12 @@ test('PURCHASE RECEIPT ACCESS CONTROL & INVENTORY PROTECTION SUITE (HOTFIX SCOPE
     'utf8'
   );
   await db.exec(migration9);
+
+  const managerGlobalScopeMigration = await readFile(
+    new URL('../supabase/migrations/202609160003_purchase_receipt_manager_global_scope.sql', import.meta.url),
+    'utf8'
+  );
+  await db.exec(managerGlobalScopeMigration);
 
   // Helper thiet lap actor phien lam viec
   const setSessionActor = async (actorId) => {
@@ -527,6 +539,22 @@ test('PURCHASE RECEIPT ACCESS CONTROL & INVENTORY PROTECTION SUITE (HOTFIX SCOPE
     ]
   });
   assert.ok(receiptB.id, 'Kho B tạo phiếu cơ sở B thành công');
+
+  // Quản lý được chọn, xem và thao tác phiếu của chi nhánh khác.
+  await setSessionActor('00000000-0000-0000-0000-000000000001'); // NV-QL (được phân công Bắc Giang)
+  const managerReceiptB = await saveReceipt({
+    ngay: '2026-09-11',
+    co_so: 'Cơ sở Bắc Ninh',
+    nha_cung_cap: 'NCC liên cơ sở',
+    items: [{ ten_san_pham: 'Bugi B', so_luong: 1, gia_nhap: 100000 }]
+  });
+  assert.ok(managerReceiptB.id, 'Quản lý tạo được phiếu tại chi nhánh khác');
+  await db.exec('SET ROLE anon');
+  const managerBranches = (await db.query(`SELECT DISTINCT co_so FROM public.phieu_nhap_hang`)).rows.map((row) => row.co_so);
+  assert.ok(managerBranches.some((branch) => branch.includes('Bắc Giang')), 'Quản lý thấy phiếu Bắc Giang');
+  assert.ok(managerBranches.some((branch) => branch.includes('Bắc Ninh')), 'Quản lý thấy phiếu Bắc Ninh');
+  await db.exec('RESET ROLE');
+  assert.equal(await deleteReceipt(managerReceiptB.id), true, 'Quản lý xóa được phiếu tại chi nhánh khác');
 
   // Đổi sang Kho A
   await setSessionActor('00000000-0000-0000-0000-000000000004'); // NV-KHO-A (Bắc Giang)

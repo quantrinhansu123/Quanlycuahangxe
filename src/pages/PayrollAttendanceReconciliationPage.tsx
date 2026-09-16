@@ -26,6 +26,7 @@ import {
 import { getPayrollBatch, getPayrollBreakdown, type BangLuong } from '../data/payrollData';
 import { getPersonnel, type NhanSu } from '../data/personnelData';
 import { cn, normalizeForCompare } from '../lib/utils';
+import { useAttendanceSettings } from '../hooks/useAttendanceSettings';
 
 type ComparisonStatus = 'matched' | 'mismatched' | 'missing-payroll';
 
@@ -103,6 +104,7 @@ function statusLabel(status: ComparisonStatus): string {
 }
 
 const PayrollAttendanceReconciliationPage: React.FC = () => {
+  const { settings: attendanceSettings } = useAttendanceSettings();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const currentDate = useMemo(() => new Date(), []);
@@ -178,8 +180,8 @@ const PayrollAttendanceReconciliationPage: React.FC = () => {
       const name = person?.ho_ten?.trim() || payrollName || fallbackName || key;
       const personnelUuid = person?.id || payroll?.nhan_su_id;
       const personnelCode = person?.id_nhan_su;
-      const sourceWorkDays = demSoNgayCongTheoDongCham(sourceRows, name, personnelUuid, personnelCode);
-      const sourceOvertimeHours = demGioTangCaTheoDongCham(sourceRows, name, personnelUuid, personnelCode);
+      const sourceWorkDays = demSoNgayCongTheoDongCham(sourceRows, name, personnelUuid, personnelCode, attendanceSettings);
+      const sourceOvertimeHours = demGioTangCaTheoDongCham(sourceRows, name, personnelUuid, personnelCode, attendanceSettings);
       const payrollBreakdown = payroll ? getPayrollBreakdown(payroll) : null;
       const payrollWorkDays = Number(payroll?.ngay_cong_thuc_te ?? 0);
       const payrollExtraDays = Number(payrollBreakdown?.ngay_cong_them ?? 0);
@@ -258,7 +260,7 @@ const PayrollAttendanceReconciliationPage: React.FC = () => {
       };
       return statusOrder[a.status] - statusOrder[b.status] || a.name.localeCompare(b.name, 'vi');
     });
-  }, [data]);
+  }, [data, attendanceSettings]);
 
   const branches = useMemo(
     () => [ALL_BRANCHES, ...Array.from(new Set(rows.map((row) => row.branch))).sort((a, b) => a.localeCompare(b, 'vi'))],
@@ -351,8 +353,8 @@ const PayrollAttendanceReconciliationPage: React.FC = () => {
           <div className="flex gap-2">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
             <p>
-              <strong>Ngày công nguồn</strong> là số ngày duy nhất có giờ vào. <strong>Tăng ca nguồn</strong> lấy giờ ra
-              muộn nhất mỗi ngày và chỉ tính phần sau 19:40. Ngày công bổ sung được hiển thị riêng, không tính là chênh lệch.
+              <strong>Ngày công nguồn</strong> được tính theo ca full hoặc từng buổi trong cấu hình chấm công. <strong>Tăng ca nguồn</strong> lấy giờ ra
+              muộn nhất mỗi ngày và chỉ tính phần sau {attendanceSettings.overtimeStart}. Ngày công bổ sung được hiển thị riêng, không tính là chênh lệch.
             </p>
           </div>
         </div>

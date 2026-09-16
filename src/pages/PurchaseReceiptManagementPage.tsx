@@ -22,6 +22,7 @@ import { branchKey } from '../lib/branchCatalog';
 import { useBranches } from '../hooks/useBranches';
 import Pagination from '../components/Pagination';
 import { PurchaseReceiptFormModal } from '../components/PurchaseReceiptFormModal';
+import { isGlobalPurchaseReceiptRole } from '../utils/purchaseReceiptPermissions';
 import {
   getPurchaseReceiptsPaginated,
   createPurchaseReceipt,
@@ -45,11 +46,11 @@ const PurchaseReceiptManagementPage: React.FC = () => {
     return /admin|quản trị|quản lý|quan ly|chủ cửa|kho|kế toán/.test(vt) || vt === 'ql';
   }, [isTechnician, nhanVien?.vi_tri]);
 
-  // Chi role thuc su global moi duoc phep cross-branch (Admin, Quan tri, Chu cua hang)
-  const isGlobalRole = useMemo(() => {
-    const vt = (nhanVien?.vi_tri || '').toLowerCase().trim();
-    return /admin|quản trị|chủ cửa/.test(vt);
-  }, [nhanVien?.vi_tri]);
+  // Admin/Quản trị/Chủ cửa hàng/Quản lý được thao tác phiếu nhập liên cơ sở.
+  const isGlobalRole = useMemo(
+    () => isGlobalPurchaseReceiptRole(nhanVien?.vi_tri),
+    [nhanVien?.vi_tri]
+  );
 
   // Kiem tra co so hop le cua nhan su branch-scoped (khong chap nhan null, blank, hay label tat ca/all/*)
   const hasValidAssignedBranch = useMemo(() => {

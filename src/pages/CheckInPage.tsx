@@ -13,8 +13,10 @@ import { workDaysForDayShifts } from '../utils/timekeeping';
 import type { AttendanceRecord } from '../data/attendanceData';
 import { clsx } from 'clsx';
 import { formatDateVi, formatLocalIsoDate, formatTime24h } from '../utils/datetimeFormat';
+import { useAttendanceSettings } from '../hooks/useAttendanceSettings';
 
 const CheckInPage: React.FC = () => {
+  const { settings: attendanceSettings } = useAttendanceSettings();
   const navigate = useNavigate();
   const [personnel, setPersonnel] = useState<NhanSu[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
@@ -117,7 +119,7 @@ const CheckInPage: React.FC = () => {
       if (!belongsToStaff(r, staffName) || !r.ngay.startsWith(currentMonthPrefix)) continue;
       byDay.set(r.ngay, [...(byDay.get(r.ngay) || []), r]);
     }
-    return [...byDay.values()].reduce((sum, rows) => sum + workDaysForDayShifts(rows), 0);
+    return [...byDay.values()].reduce((sum, rows) => sum + workDaysForDayShifts(rows, attendanceSettings), 0);
   };
 
   return (

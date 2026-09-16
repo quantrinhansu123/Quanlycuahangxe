@@ -21,6 +21,7 @@ import {
 import { getPersonnel } from './personnelData';
 import { loadPayrollRevenueData } from './reportData';
 import { removeVietnameseTones } from '../lib/utils';
+import { getAttendanceSettings } from './attendanceSettingsData';
 
 const LOCKED_PAYROLL_STATUSES = new Set(['Đã duyệt', 'Đã khóa', 'Đã chi trả']);
 const DEFAULT_COMMISSION_PERCENT = 2;
@@ -102,12 +103,13 @@ export async function syncPayrollFromAttendance(
   const { start, end } = monthRange(year, month);
   const branchFilter = branch && branch !== 'Tất cả cơ sở' ? branch : undefined;
 
-  const [attendanceRows, personnelRows, existingPayroll, revenueData] =
+  const [attendanceRows, personnelRows, existingPayroll, revenueData, attendanceSettings] =
     await Promise.all([
       getChamCongTrongKhoang(start, end),
       getPersonnel(),
       getPayrollBatch(month, year, branchFilter),
       loadPayrollRevenueData(year, month),
+      getAttendanceSettings(),
     ]);
 
   const personnel = branchFilter
@@ -169,19 +171,22 @@ export async function syncPayrollFromAttendance(
       attendanceRows as DongChamBuaNhap[],
       person.ho_ten,
       person.id,
-      person.id_nhan_su
+      person.id_nhan_su,
+      attendanceSettings
     );
     const overtimeHours = demGioTangCaTheoDongCham(
       attendanceRows as DongChamBuaNhap[],
       person.ho_ten,
       person.id,
-      person.id_nhan_su
+      person.id_nhan_su,
+      attendanceSettings
     );
     const mealCounts = demSoBuaAnTachTheoDongCham(
       attendanceRows as DongChamBuaNhap[],
       person.ho_ten,
       person.id,
-      person.id_nhan_su
+      person.id_nhan_su,
+      attendanceSettings
     );
     if (actualWorkDays > 0) staffWithAttendanceCount += 1;
 
@@ -332,6 +337,7 @@ export async function syncPayrollFromAttendance(
       soBuaAnTangCaTheoChamCon: mealCounts.soBuaTangCa,
       soNgayCongTheoChamCon: actualWorkDays,
       soGioTangCaTheoChamCon: overtimeHours,
+      attendanceSettings,
       donGiaTienAnTheoKy: mealUnitPrice,
       donGiaTienAnTangCaTheoKy: overtimeMealUnitPrice,
     });
