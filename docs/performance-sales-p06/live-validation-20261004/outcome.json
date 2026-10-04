@@ -1,0 +1,117 @@
+{
+  "at": "2026-10-04T06:00:33.828Z",
+  "p0Pass": false,
+  "finalDatabaseState": "OLD",
+  "productionMigrationApplied": false,
+  "reason": "All/page SQL slower than OLD median: A_all_page1",
+  "liveRollbackVerified": {
+    "at": "2026-10-04T05:58:29.242Z",
+    "status": 201,
+    "restoredLiveDefinitionsAndAcl": true,
+    "removedNewHelpers": true,
+    "rlsAndTableAclUnchanged": true,
+    "indexesUnchanged": true,
+    "settingsUnchanged": true,
+    "finalDatabaseState": "OLD",
+    "readOnly": true
+  },
+  "migrationHash": "e8ff0437eabd7f3ffdb78122fddb591bae3f75fcc410a0ddc1aa1821d68b794b",
+  "dataCounts": {
+    "sales": 9351,
+    "details": 15837,
+    "customers": 6671
+  },
+  "oldPages": [
+    {
+      "name": "A_all_page1",
+      "rounds": 5,
+      "sqlMedianMs": 1590.157,
+      "httpMedianMs": 2028,
+      "httpRangeMs": [
+        1823,
+        2762
+      ],
+      "httpStatuses": [
+        200,
+        200,
+        200,
+        200,
+        200
+      ],
+      "sharedHits": [
+        12328,
+        12328,
+        12328,
+        12328,
+        12328
+      ],
+      "tempRead": 17012,
+      "tempWritten": 15506
+    },
+    {
+      "name": "B_all_page2",
+      "rounds": 5,
+      "sqlMedianMs": 1569.58,
+      "httpMedianMs": 2225,
+      "httpRangeMs": [
+        1980,
+        5873
+      ],
+      "httpStatuses": [
+        200,
+        200,
+        200,
+        200,
+        200
+      ],
+      "sharedHits": [
+        12328,
+        12328,
+        12328,
+        12328,
+        12328
+      ],
+      "tempRead": 17012,
+      "tempWritten": 15506
+    }
+  ],
+  "newPage1": {
+    "sqlMs": 3021.193,
+    "sharedHits": 3468,
+    "sharedReads": 0,
+    "tempRead": 1298,
+    "tempWritten": 649,
+    "httpStatus": 200,
+    "httpDurationMs": null,
+    "httpBytes": null,
+    "httpMetricSource": "Control flow: successful HTTP/schema/parity preceded saved SQL plan; HTTP metrics not persisted before SQL guard threw.",
+    "sameSnapshotFullJsonParity": true,
+    "parityRole": "anon",
+    "paritySource": "Successful parity control flow; no standalone parity result persisted."
+  },
+  "newPage2Measured": false,
+  "newWarmRepeats": 0,
+  "productionCasesReached": 1,
+  "productionFourteenCasesCompleted": false,
+  "newCallerValidationCompleted": false,
+  "newRoleMatrixCompleted": false,
+  "newDetailedPlansCompleted": false,
+  "appliedOnce": true,
+  "reappliedAfterFailure": false,
+  "frontendDeployed": false,
+  "businessDml": false,
+  "envChanged": false,
+  "timeoutRaised": false,
+  "workMemChanged": false,
+  "productionIndexChanged": false,
+  "committed": false,
+  "pushed": false,
+  "merged": false,
+  "finalCheckProcess": {
+    "readOnlyVerificationPassed": true,
+    "exitCode": 1,
+    "postVerificationExitDiagnostic": "Windows PTY Node uv_async handle closing assertion after successful verified artifact was written; no database error or further query."
+  },
+  "timingComparisonSameTransactionSnapshot": false,
+  "semanticPage1ComparisonSameTransactionSnapshot": true
+}

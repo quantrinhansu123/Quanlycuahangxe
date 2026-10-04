@@ -9,7 +9,7 @@ import {
   Trash2,
   Upload
 } from 'lucide-react';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import * as XLSX from 'xlsx';
@@ -18,7 +18,7 @@ import SalesCardCTFormModal from '../components/SalesCardCTFormModal';
 import type { SalesCardCT } from '../data/salesCardCTData';
 import { bulkUpsertSalesCardCTs, deleteAllSalesCardCTs, deleteSalesCardCT, getSalesCardCTs, getSalesCardCTsPaginated } from '../data/salesCardCTData';
 import type { SalesCard } from '../data/salesCardData';
-import { getSalesCards } from '../data/salesCardData'; // Header cards
+import { getCTServicesForForm, getSalesForPageRefs } from '../data/ctFinancialLookupData';
 import type { DichVu } from '../data/serviceData';
 import { getServices } from '../data/serviceData';
 import { formatLocalIsoDate, parseExcelDateValue } from '../utils/datetimeFormat';
@@ -30,6 +30,10 @@ const SalesCardCTManagementPage: React.FC = () => {
   const [salesCards, setSalesCards] = useState<SalesCard[]>([]);
   const [services, setServices] = useState<DichVu[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const requestVersion = useRef(0);
+  const loadAbort = useRef<AbortController | null>(null);
+  const modalAbort = useRef<AbortController | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
@@ -43,26 +47,28 @@ const SalesCardCTManagementPage: React.FC = () => {
 
 
   const loadData = useCallback(async () => {
+    const version = ++requestVersion.current;
+    loadAbort.current?.abort();
+    const controller = new AbortController(); loadAbort.current = controller;
     try {
       setLoading(true);
-      const [ctsResult, cards, servs] = await Promise.all([
-        getSalesCardCTsPaginated(currentPage, pageSize, debouncedSearch),
-        getSalesCards(),
-        getServices()
-      ]);
+      setLoadError('');
+      const ctsResult = await getSalesCardCTsPaginated(currentPage, pageSize, debouncedSearch, controller.signal);
+      const cards = await getSalesForPageRefs(ctsResult.data.map(r => r.id_don_hang), controller.signal);
+      if (controller.signal.aborted || version !== requestVersion.current) return;
       setItems(ctsResult.data);
       setTotalCount(ctsResult.totalCount);
       setSalesCards(cards);
-      setServices(servs);
     } catch (error) {
-      console.error(error);
+      if (!controller.signal.aborted && version === requestVersion.current) setLoadError(error instanceof Error ? error.message : 'Không tải được chi tiết bán hàng.');
     } finally {
-      setLoading(false);
+      if (version === requestVersion.current) setLoading(false);
     }
   }, [currentPage, pageSize, debouncedSearch]);
 
   useEffect(() => {
-    loadData();
+    void loadData();
+    return () => { requestVersion.current++; loadAbort.current?.abort(); modalAbort.current?.abort(); };
   }, [loadData]);
 
   useEffect(() => {
@@ -76,12 +82,20 @@ const SalesCardCTManagementPage: React.FC = () => {
   // Since we use Server-side pagination, 'items' IS already the filtered list for the current page
   const displayItems = items;
 
-  const handleOpenModal = (item?: SalesCardCT) => {
-    setEditingItem(item || null);
-    setIsModalOpen(true);
+  const handleOpenModal = async (item?: SalesCardCT) => {
+    modalAbort.current?.abort();
+    const controller = new AbortController(); modalAbort.current = controller;
+    try {
+      const catalog = await getCTServicesForForm(controller.signal);
+      if (controller.signal.aborted) return;
+      setServices(catalog);
+      setEditingItem(item || null);
+      setIsModalOpen(true);
+    } catch { if (!controller.signal.aborted) setLoadError('Không tải được danh mục dịch vụ. Vui lòng thử lại.'); }
   };
 
   const handleCloseModal = () => {
+    modalAbort.current?.abort();
     setIsModalOpen(false);
     setEditingItem(null);
   };
@@ -276,6 +290,7 @@ const SalesCardCTManagementPage: React.FC = () => {
   return (
     <div className="w-full h-full flex flex-col p-4 lg:p-6 animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-y-auto pt-8">
       <div className="w-full space-y-6">
+        {loadError && <p role="alert">{loadError} <button type="button" onClick={() => void loadData()} className="underline">Thử lại</button></p>}
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-black text-foreground tracking-tight flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-600">

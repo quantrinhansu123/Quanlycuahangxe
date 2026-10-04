@@ -1,0 +1,37 @@
+{
+  "at": "2026-10-04T07:23:45.922Z",
+  "files": [
+    {
+      "file": "src/data/attendanceData.ts",
+      "hash": "4ce06e5955b19a1b35e405a6aeec1089f5d55521d845b1ffdc6388feb45136ce"
+    },
+    {
+      "file": "src/pages/AttendanceManagementPage.tsx",
+      "hash": "cab9eb6efe4bc10a580902a771847914fbe2fe088f8aa4103285469395fe3ba1"
+    },
+    {
+      "file": "src/pages/AddAttendancePage.tsx",
+      "hash": "bc09c0488f93c8e86d404f93b63c0ff3a75054a8cc6a73d0f6e2a5865a0c645a"
+    },
+    {
+      "file": "src/pages/CheckInPage.tsx",
+      "hash": "23bdb46a7fc17f6f5e55a4215e205a07ae064b20d6fcda13244da145a1f6dec3"
+    },
+    {
+      "file": "src/data/attendanceSettingsData.ts",
+      "hash": "d8ffded7fedbf6c51886e38630f6b71948b573dea1ee103e867c5922ce64ebfd"
+    },
+    {
+      "file": "src/utils/timekeeping.ts",
+      "hash": "a9eff4810f53379fc001667a87d521261ed367dc51d96ec22d98fb5315ae9842"
+    },
+    {
+      "file": "src/data/personnelData.ts",
+      "hash": "c599c77927b8cd601dbc306d9253c74a69c2c1e310ff49db2ef924939f7c2601"
+    },
+    {
+      "file": "supabase/migrations/202610040001_sales_p0.sql",
+      "hash": "e8ff0437eabd7f3ffdb78122fddb591bae3f75fcc410a0ddc1aa1821d68b794b"
+    }
+  ]
+}

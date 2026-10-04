@@ -1,0 +1,209 @@
+{
+  "date": "2026-10-04",
+  "timezone": "Asia/Saigon",
+  "npmTest": {
+    "passed": 64,
+    "failed": 0
+  },
+  "p0Tests": {
+    "passed": 7,
+    "failed": 0
+  },
+  "ui": "pass (all external requests mocked)",
+  "typecheck": "pass",
+  "build": "pass",
+  "diffCheck": "pass",
+  "remoteManagement": "restored with provided credential; 201 read/apply/rollback",
+  "productionMigrationApplied": true,
+  "productionAfterVerified": true,
+  "frontendChanged": false,
+  "committed": false,
+  "pushed": false,
+  "merged": false,
+  "envChanged": false,
+  "productionFinalDatabaseState": "P0.6 NEW (P0.7 validated)",
+  "p0Pass": true,
+  "productionSmokeFailure": null,
+  "productionRollback": "P0.7 successful: fresh LIVE OLD rollback generated/verified; no public rollback. P0.5/P0.6 rollbacks remain historical.",
+  "p05Checks": {
+    "p0Tests": {
+      "passed": 7,
+      "failed": 0,
+      "rerun": true
+    },
+    "scriptSyntax": "pass",
+    "diffCheck": "pass",
+    "temporaryFullJsonParityCases": 14,
+    "temporaryPage40": "pass",
+    "newCallerValidation": "not completed",
+    "newRoleParity": "not completed"
+  },
+  "productionEvidence": "../performance-sales-p07/live-validation-20261004/outcome.json",
+  "p06Checks": {
+    "npmTest": {
+      "passed": 64,
+      "failed": 0,
+      "rerun": true
+    },
+    "p0Tests": {
+      "passed": 7,
+      "failed": 0,
+      "rerun": true
+    },
+    "localBulkFullJsonComparisons": 28,
+    "localSteadyGate": true,
+    "oldLiveWarmRoundsPerPage": 5,
+    "newLiveWarmRoundsPerPage": 0,
+    "livePage1SqlMs": 3021.193,
+    "livePage1Hits": 3468,
+    "livePage1TempRead": 1298,
+    "livePage1TempWritten": 649,
+    "liveCoreCasesReached": 1,
+    "liveAfterFullMatrix": "not completed; mandatory stop after SQL guard",
+    "newCallerValidation": "not completed",
+    "newRoleMatrix": "not completed",
+    "rollbackVerification": "pass; definitions/metadata/RLS/index/settings match live snapshot",
+    "finalCheckPtyExit": "verification artifact passed; process exit 1 after Windows Node handle closing assertion",
+    "historicalProductionSmokeFailure": "P0.6 NEW A_all_page1 SQL 3021.193 ms >= OLD warm median 1590.157 ms",
+    "historicalProductionRollback": "executed; exact LIVE definitions/owner/ACL restored; new helpers absent; RLS/index/settings unchanged"
+  },
+  "p07Checks": {
+    "at": "2026-10-04T07:16:37.303Z",
+    "diagnosticLocalReadOnlyAndParity": "pass",
+    "tempProbeLocalPrivateRoleAndRollback": "pass",
+    "readOnlyLiveWarmRounds": 5,
+    "readOnlyLiveFullJsonParityRounds": 5,
+    "productionMigrationChanged": false,
+    "liveTempProbeExecuted": true,
+    "approvalPending": false,
+    "originalP06MigrationHash": "e8ff0437eabd7f3ffdb78122fddb591bae3f75fcc410a0ddc1aa1821d68b794b",
+    "existingP0Suite": "Rerun in P0.7: npm test 64/64 including all P0 tests 7/7",
+    "businessDml": false,
+    "envChanged": false,
+    "productionIndexChanged": false,
+    "timeoutRaised": false,
+    "workMemChanged": false,
+    "tempProbeUserApproved": true,
+    "tempProbeScope": "Private pg_temp functions, benchmark, ROLLBACK; public functions remain OLD",
+    "npmTest": {
+      "passed": 64,
+      "failed": 0,
+      "rerun": true
+    },
+    "p0Tests": {
+      "passed": 7,
+      "failed": 0,
+      "rerun": true
+    },
+    "tempProbeRollbackVerified": true,
+    "productionMigrationApplied": true,
+    "productionMigrationSourceChanged": false,
+    "liveFinalDatabaseState": "P0.6 NEW",
+    "p0Pass": true,
+    "diagnosticPairedLocalPrivateRoleAndParity": "pass",
+    "publicCoreWarmRoundsPerPage": 5,
+    "publicNewWarmHttp200": 10,
+    "publicNewWarm57014": 0,
+    "liveFullJsonParityCases": 14,
+    "roleComparisonsPassed": 12,
+    "callersPassed": 6,
+    "callerReadRequests": 612,
+    "remoteBusinessWrites": 0,
+    "callerScope": "Actual existing application read loaders against LIVE API; fresh browser, anon, no copied app session; no interactive authenticated UI claim",
+    "publicComponentsWarmRounds": 5,
+    "pairedSameSnapshotRounds": 5,
+    "pairedTimingPassed": true,
+    "finalLiveCatalogVerified": true,
+    "staticFastPathAdded": false,
+    "historical3021msReproduced": false,
+    "historical3021msExactRootCause": "unresolved",
+    "finalCheckPtyExit": {
+      "code": 1,
+      "queryPassed": true,
+      "artifactSaved": true,
+      "reason": "Windows Node handle-closing assertion after successful read-only verification"
+    },
+    "scriptSyntax": {
+      "passed": true,
+      "count": 13,
+      "files": [
+        {
+          "file": "scripts/report-sales-p07.mjs",
+          "passed": true,
+          "error": null
+        },
+        {
+          "file": "scripts/sales-p07-final-check.mjs",
+          "passed": true,
+          "error": null
+        },
+        {
+          "file": "scripts/sales-p07-live.mjs",
+          "passed": true,
+          "error": null
+        },
+        {
+          "file": "scripts/sales-p07-paired.mjs",
+          "passed": true,
+          "error": null
+        },
+        {
+          "file": "scripts/sales-p07-public-components.mjs",
+          "passed": true,
+          "error": null
+        },
+        {
+          "file": "scripts/sales-p07-readonly.mjs",
+          "passed": true,
+          "error": null
+        },
+        {
+          "file": "scripts/sales-p07-run-temp.mjs",
+          "passed": true,
+          "error": null
+        },
+        {
+          "file": "scripts/sales-p07-sql.mjs",
+          "passed": true,
+          "error": null
+        },
+        {
+          "file": "scripts/sales-p07-temp-probe.mjs",
+          "passed": true,
+          "error": null
+        },
+        {
+          "file": "scripts/sales-p07-validator.mjs",
+          "passed": true,
+          "error": null
+        },
+        {
+          "file": "scripts/test-sales-p07-diagnostic.mjs",
+          "passed": true,
+          "error": null
+        },
+        {
+          "file": "scripts/test-sales-p07-paired.mjs",
+          "passed": true,
+          "error": null
+        },
+        {
+          "file": "scripts/test-sales-p07-temp-probe.mjs",
+          "passed": true,
+          "error": null
+        }
+      ]
+    },
+    "diffCheck": "pass",
+    "reportLocalLinks": {
+      "passed": true,
+      "missing": []
+    },
+    "credentialLiteralScan": {
+      "passed": true,
+      "matchedFiles": []
+    },
+    "branch": "main",
+    "head": "810f6f5630341b73d68579f08c390eb42b892a93"
+  }
+}

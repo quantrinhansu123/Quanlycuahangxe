@@ -1,0 +1,115 @@
+{
+  "at": "2026-10-04T10:22:13.073Z",
+  "npmTest": {
+    "tests": 74,
+    "pass": 74,
+    "exit": 0
+  },
+  "typecheck": {
+    "exit": 0
+  },
+  "protectedFiles": [
+    {
+      "file": "src/data/attendanceData.ts",
+      "hash": "f6955d3dd5c7b1e512f95e0a73c721fcf8cb40c1b8ea26a53b557573e4d3b8ea",
+      "currentHash": "f6955d3dd5c7b1e512f95e0a73c721fcf8cb40c1b8ea26a53b557573e4d3b8ea"
+    },
+    {
+      "file": "src/pages/AttendanceManagementPage.tsx",
+      "hash": "5d4ee57290363ff7b21050c3030f99498b4aa4b7189a9d3641cf1a0b5536fa04",
+      "currentHash": "5d4ee57290363ff7b21050c3030f99498b4aa4b7189a9d3641cf1a0b5536fa04"
+    },
+    {
+      "file": "src/pages/AddAttendancePage.tsx",
+      "hash": "e71eb918e653986040725a38f303be7f66970d20271599e8d588248bc3aabca9",
+      "currentHash": "e71eb918e653986040725a38f303be7f66970d20271599e8d588248bc3aabca9"
+    },
+    {
+      "file": "src/data/ctFinancialLookupData.ts",
+      "hash": "19f7a0d7d5778cf219adc37e8c09130ce08a77d6089e70e9a390c6dbd830c900",
+      "currentHash": "19f7a0d7d5778cf219adc37e8c09130ce08a77d6089e70e9a390c6dbd830c900"
+    },
+    {
+      "file": "src/data/financialData.ts",
+      "hash": "9a068ed0e4a4a322c1201eacb70748ec727d23d592c94974e5b5e04b27bb9d73",
+      "currentHash": "9a068ed0e4a4a322c1201eacb70748ec727d23d592c94974e5b5e04b27bb9d73"
+    },
+    {
+      "file": "src/pages/FinancialManagementPage.tsx",
+      "hash": "ccbd6af475b2b21074271c38b8f55836fcac30a362f7cc6b00a905c287ff7bca",
+      "currentHash": "ccbd6af475b2b21074271c38b8f55836fcac30a362f7cc6b00a905c287ff7bca"
+    },
+    {
+      "file": "src/pages/SalesCardCTManagementPage.tsx",
+      "hash": "76add5086fb0fcd6cea75991c4594a4f979d0627f6c23c84bd9fe0a8ff0634b2",
+      "currentHash": "76add5086fb0fcd6cea75991c4594a4f979d0627f6c23c84bd9fe0a8ff0634b2"
+    },
+    {
+      "file": "supabase/migrations/202610040001_sales_p0.sql",
+      "hash": "e8ff0437eabd7f3ffdb78122fddb591bae3f75fcc410a0ddc1aa1821d68b794b",
+      "currentHash": "e8ff0437eabd7f3ffdb78122fddb591bae3f75fcc410a0ddc1aa1821d68b794b"
+    },
+    {
+      "file": "supabase/migrations/202610040002_ct_financial_p2.sql",
+      "hash": "bcd6924a7bedc8267dd3ebeed74878d60a226dd88ad84779a7b3ced1923d3655",
+      "currentHash": "bcd6924a7bedc8267dd3ebeed74878d60a226dd88ad84779a7b3ced1923d3655"
+    }
+  ],
+  "uiSuite": {
+    "exit": 0,
+    "p1UiChecks": 7,
+    "p2UiChecks": 7,
+    "p3UiChecks": 5
+  },
+  "build": {
+    "exit": 0,
+    "seconds": 33.49
+  },
+  "deploy": "pending",
+  "uiFirstAttempt": {
+    "exit": 1,
+    "reason": "Test harness asserted financial lazy reads before route activation; waiting for selected tab fixed the test, product source unchanged."
+  },
+  "diffCheck": {
+    "exit": 0
+  },
+  "p3Ui": {
+    "exit": 0,
+    "checks": 6
+  },
+  "finalLiveLoaders": {
+    "passed": true,
+    "salesWarmSamples": 10,
+    "allHttp200": true,
+    "payrollRead": true,
+    "reconciliationRead": true
+  },
+  "finalDb": {
+    "passed": true,
+    "p0Functions": 18,
+    "p2Functions": 4,
+    "migrationsReapplied": false
+  },
+  "finalSourceChecks": {
+    "npmTestExit": 0,
+    "tests": 74,
+    "typecheckExit": 0,
+    "buildExit": 0,
+    "diffCheckExit": 0
+  },
+  "predeployBuiltUi": {
+    "passed": true,
+    "routes": 6,
+    "liveWrites": 0
+  },
+  "allPassed": true,
+  "finalReview": {
+    "allTrackedDiffReviewed": true,
+    "criticalOrHighRegressionsFound": 0
+  },
+  "harnessAttempts": [
+    "Initial financial assertion ran before active tab; selected-tab wait fixed it.",
+    "Final source-loader guard initially blocked a GET font stylesheet; static resource GETs allowed and read-only loader suite rerun passed.",
+    "Scope UI goto networkidle timed out; commit navigation plus rendered-state waits rerun passed."
+  ]
+}

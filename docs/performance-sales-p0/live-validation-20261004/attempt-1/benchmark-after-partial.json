@@ -1,0 +1,381 @@
+{
+  "cases": [
+    {
+      "name": "A_all_page1",
+      "input": {
+        "p_page": 1,
+        "p_limit": 20
+      },
+      "http": {
+        "input": {
+          "p_page": 1,
+          "p_limit": 20
+        },
+        "status": 200,
+        "ttfbMs": 3756,
+        "totalMs": 3769,
+        "bytes": 67588,
+        "rows": 20,
+        "totalCount": 9346,
+        "errorCode": null
+      },
+      "sql": {
+        "httpMs": 2885,
+        "executionMs": 1581.187,
+        "sharedHits": 55455,
+        "sharedReads": 0,
+        "tempRead": 1298,
+        "tempWritten": 649
+      },
+      "oldNewEqual": true
+    },
+    {
+      "name": "B_all_page2",
+      "input": {
+        "p_page": 2,
+        "p_limit": 20
+      },
+      "http": {
+        "input": {
+          "p_page": 2,
+          "p_limit": 20
+        },
+        "status": 200,
+        "ttfbMs": 2469,
+        "totalMs": 2492,
+        "bytes": 67986,
+        "rows": 20,
+        "totalCount": 9346,
+        "errorCode": null
+      },
+      "sql": {
+        "httpMs": 3062,
+        "executionMs": 1668.686,
+        "sharedHits": 56320,
+        "sharedReads": 0,
+        "tempRead": 1298,
+        "tempWritten": 649
+      },
+      "oldNewEqual": true
+    },
+    {
+      "name": "C_month",
+      "input": {
+        "p_start": "2026-09-01",
+        "p_end": "2026-09-30",
+        "p_page": 1,
+        "p_limit": 20
+      },
+      "http": {
+        "input": {
+          "p_start": "2026-09-01",
+          "p_end": "2026-09-30",
+          "p_page": 1,
+          "p_limit": 20
+        },
+        "status": 200,
+        "ttfbMs": 1613,
+        "totalMs": 1617,
+        "bytes": 28632,
+        "rows": 20,
+        "totalCount": 1764,
+        "errorCode": null
+      },
+      "sql": {
+        "httpMs": 2120,
+        "executionMs": 802.654,
+        "sharedHits": 16130,
+        "sharedReads": 0,
+        "tempRead": 0,
+        "tempWritten": 0
+      },
+      "oldNewEqual": true
+    },
+    {
+      "name": "D_reference_id_bh",
+      "input": {
+        "p_reference": "[redacted sample]",
+        "p_page": 1,
+        "p_limit": 1
+      },
+      "http": {
+        "input": {
+          "p_reference": "[redacted sample]",
+          "p_page": 1,
+          "p_limit": 1
+        },
+        "status": 200,
+        "ttfbMs": 1373,
+        "totalMs": 1375,
+        "bytes": 1531,
+        "rows": 1,
+        "totalCount": 1,
+        "errorCode": null
+      },
+      "sql": {
+        "httpMs": 1644,
+        "executionMs": 443.333,
+        "sharedHits": 3863,
+        "sharedReads": 0,
+        "tempRead": 0,
+        "tempWritten": 0
+      },
+      "oldNewEqual": true
+    },
+    {
+      "name": "E_customer",
+      "input": {
+        "p_customer": "[redacted sample]",
+        "p_page": 1,
+        "p_limit": 20
+      },
+      "http": {
+        "input": {
+          "p_customer": "[redacted sample]",
+          "p_page": 1,
+          "p_limit": 20
+        },
+        "status": 200,
+        "ttfbMs": 1094,
+        "totalMs": 1096,
+        "bytes": 2853,
+        "rows": 2,
+        "totalCount": 2,
+        "errorCode": null
+      },
+      "sql": {
+        "httpMs": 2060,
+        "executionMs": 576.268,
+        "sharedHits": 4120,
+        "sharedReads": 0,
+        "tempRead": 0,
+        "tempWritten": 0
+      },
+      "oldNewEqual": true
+    },
+    {
+      "name": "F_branch",
+      "input": {
+        "p_branch": "Bắc Ninh",
+        "p_page": 1,
+        "p_limit": 20
+      },
+      "http": {
+        "input": {
+          "p_branch": "Bắc Ninh",
+          "p_page": 1,
+          "p_limit": 20
+        },
+        "status": 200,
+        "ttfbMs": 3056,
+        "totalMs": 3063,
+        "bytes": 66461,
+        "rows": 20,
+        "totalCount": 3969,
+        "errorCode": null
+      },
+      "sql": {
+        "httpMs": 2588,
+        "executionMs": 1577.883,
+        "sharedHits": 55961,
+        "sharedReads": 0,
+        "tempRead": 470,
+        "tempWritten": 235
+      },
+      "oldNewEqual": true
+    },
+    {
+      "name": "G_staff",
+      "input": {
+        "p_staff": "An",
+        "p_page": 1,
+        "p_limit": 20
+      },
+      "http": {
+        "input": {
+          "p_staff": "An",
+          "p_page": 1,
+          "p_limit": 20
+        },
+        "status": 200,
+        "ttfbMs": 731,
+        "totalMs": 732,
+        "bytes": 174,
+        "rows": 0,
+        "totalCount": 0,
+        "errorCode": null
+      },
+      "sql": {
+        "httpMs": 837,
+        "executionMs": 120.136,
+        "sharedHits": 2019,
+        "sharedReads": 0,
+        "tempRead": 0,
+        "tempWritten": 0
+      },
+      "oldNewEqual": true
+    },
+    {
+      "name": "H_search",
+      "input": {
+        "p_search": "thay dau",
+        "p_page": 1,
+        "p_limit": 20
+      },
+      "http": {
+        "input": {
+          "p_search": "thay dau",
+          "p_page": 1,
+          "p_limit": 20
+        },
+        "status": 200,
+        "ttfbMs": 1211,
+        "totalMs": 1213,
+        "bytes": 174,
+        "rows": 0,
+        "totalCount": 0,
+        "errorCode": null
+      },
+      "sql": {
+        "httpMs": 1762,
+        "executionMs": 530.71,
+        "sharedHits": 3983,
+        "sharedReads": 0,
+        "tempRead": 0,
+        "tempWritten": 0
+      },
+      "oldNewEqual": true
+    },
+    {
+      "name": "J_uuid",
+      "input": {
+        "p_reference": "[redacted sample]",
+        "p_page": 1,
+        "p_limit": 1
+      },
+      "http": {
+        "input": {
+          "p_reference": "[redacted sample]",
+          "p_page": 1,
+          "p_limit": 1
+        },
+        "status": 200,
+        "ttfbMs": 1321,
+        "totalMs": 1323,
+        "bytes": 1531,
+        "rows": 1,
+        "totalCount": 1,
+        "errorCode": null
+      },
+      "sql": {
+        "httpMs": 1303,
+        "executionMs": 425.103,
+        "sharedHits": 3866,
+        "sharedReads": 0,
+        "tempRead": 0,
+        "tempWritten": 0
+      },
+      "oldNewEqual": true
+    },
+    {
+      "name": "K_detail_branch",
+      "input": {
+        "p_reference": "[redacted sample]",
+        "p_branch": "Bắc Ninh",
+        "p_page": 1,
+        "p_limit": 20
+      },
+      "http": {
+        "input": {
+          "p_reference": "[redacted sample]",
+          "p_branch": "Bắc Ninh",
+          "p_page": 1,
+          "p_limit": 20
+        },
+        "status": 200,
+        "ttfbMs": 1541,
+        "totalMs": 1543,
+        "bytes": 1531,
+        "rows": 1,
+        "totalCount": 1,
+        "errorCode": null
+      },
+      "sql": {
+        "httpMs": 1224,
+        "executionMs": 398.3,
+        "sharedHits": 3863,
+        "sharedReads": 0,
+        "tempRead": 0,
+        "tempWritten": 0
+      },
+      "oldNewEqual": true
+    },
+    {
+      "name": "L_customer_history",
+      "input": {
+        "p_customer": "[redacted sample]",
+        "p_start": "2026-10-01",
+        "p_end": "2026-10-31",
+        "p_page": 1,
+        "p_limit": 20
+      },
+      "http": {
+        "input": {
+          "p_customer": "[redacted sample]",
+          "p_start": "2026-10-01",
+          "p_end": "2026-10-31",
+          "p_page": 1,
+          "p_limit": 20
+        },
+        "status": 200,
+        "ttfbMs": 646,
+        "totalMs": 647,
+        "bytes": 1531,
+        "rows": 1,
+        "totalCount": 1,
+        "errorCode": null
+      },
+      "sql": {
+        "httpMs": 1537,
+        "executionMs": 452.792,
+        "sharedHits": 3857,
+        "sharedReads": 0,
+        "tempRead": 0,
+        "tempWritten": 0
+      },
+      "oldNewEqual": true
+    },
+    {
+      "name": "I_legacy",
+      "input": {
+        "p_reference": "[redacted sample]",
+        "p_page": 1,
+        "p_limit": 1
+      },
+      "http": {
+        "input": {
+          "p_reference": "[redacted sample]",
+          "p_page": 1,
+          "p_limit": 1
+        },
+        "status": 200,
+        "ttfbMs": 1414,
+        "totalMs": 1415,
+        "bytes": 1504,
+        "rows": 1,
+        "totalCount": 1,
+        "errorCode": null
+      },
+      "sql": {
+        "httpMs": 1280,
+        "executionMs": 401.695,
+        "sharedHits": 3639,
+        "sharedReads": 0,
+        "tempRead": 0,
+        "tempWritten": 0
+      },
+      "oldNewEqual": true
+    }
+  ],
+  "error": "Management HTTP 400"
+}

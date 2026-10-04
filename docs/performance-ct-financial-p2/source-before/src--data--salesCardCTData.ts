@@ -1,0 +1,148 @@
+import { supabase } from '../lib/supabase';
+import { assertSalesDateNotFuture } from '../utils/datetimeFormat';
+
+export interface SalesCardCT {
+  id: string;
+  id_ban_hang_ct: string | null;
+  id_don_hang: string | null;
+  ten_don_hang: string | null;
+  san_pham: string;
+  co_so: string;
+  ghi_chu: string | null;
+  gia_ban: number;
+  gia_von: number;
+  so_luong: number;
+  thanh_tien: number;
+  lai: number;
+  chi_phi: number;
+  ngay: string;
+  created_at?: string;
+  // Tên dịch vụ đã resolve qua dich_vu.id_dich_vu (chỉ dùng để hiển thị, không lưu DB)
+  ten_dich_vu?: string;
+}
+
+export const getSalesCardCTs = async (idDonHang?: string): Promise<SalesCardCT[]> => {
+  let query = supabase.from('the_ban_hang_ct').select('*');
+  
+  if (idDonHang) {
+    query = query.eq('id_don_hang', idDonHang);
+  }
+  
+  const { data, error } = await query
+    .order('ngay', { ascending: false })
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching sales card CTs:', error);
+    throw error;
+  }
+  return data as SalesCardCT[];
+};
+
+export const getSalesCardCTsPaginated = async (
+  page: number, 
+  pageSize: number, 
+  searchQuery?: string
+): Promise<{ data: SalesCardCT[], totalCount: number }> => {
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  let query = supabase
+    .from('the_ban_hang_ct')
+    .select('*', { count: 'exact' });
+
+  if (searchQuery) {
+    query = query.or(`san_pham.ilike.%${searchQuery}%,ten_don_hang.ilike.%${searchQuery}%,ghi_chu.ilike.%${searchQuery}%`);
+  }
+
+  const { data, count, error } = await query
+    .order('ngay', { ascending: false })
+    .order('created_at', { ascending: false })
+    .range(from, to);
+
+  if (error) {
+    console.error('Error fetching paginated sales card CTs:', error);
+    throw error;
+  }
+
+  return {
+    data: (data as SalesCardCT[]) || [],
+    totalCount: count || 0
+  };
+};
+
+export const upsertSalesCardCT = async (item: Partial<SalesCardCT>): Promise<SalesCardCT> => {
+  if (item.ngay) assertSalesDateNotFuture(item.ngay);
+  const { data, error } = await supabase
+    .from('the_ban_hang_ct')
+    .upsert(item)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error upserting sales card CT:', error);
+    throw error;
+  }
+  return data as SalesCardCT;
+};
+
+export const bulkUpsertSalesCardCTs = async (items: Partial<SalesCardCT>[]): Promise<void> => {
+  for (const item of items) {
+    if (item.ngay) assertSalesDateNotFuture(item.ngay);
+  }
+  const toUpdate = items.filter(i => i.id);
+  const toInsert = items.filter(i => !i.id);
+
+  if (toUpdate.length > 0) {
+    // Deduplicate by ID: if multiple items have the same ID, take the last one
+    const uniqueToUpdate = Array.from(new Map(toUpdate.map(item => [item.id, item])).values());
+    const { error } = await supabase.from('the_ban_hang_ct').upsert(uniqueToUpdate);
+    if (error) { console.error('Error upserting sales card CTs:', error); throw error; }
+  }
+  if (toInsert.length > 0) {
+    const cleanInserts = toInsert.map(row => { const copy = { ...row }; delete copy.id; return copy; });
+    const { error } = await supabase.from('the_ban_hang_ct').insert(cleanInserts);
+    if (error) { console.error('Error inserting sales card CTs:', error); throw error; }
+  }
+};
+
+export const deleteSalesCardCT = async (id: string): Promise<void> => {
+  const { error } = await supabase
+    .from('the_ban_hang_ct')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting sales card CT:', error);
+    throw error;
+  }
+};
+
+export const deleteSalesCardCTsByOrderId = async (orderId: string, orderCode?: string): Promise<void> => {
+  let query = supabase.from('the_ban_hang_ct').delete();
+  
+  if (orderCode && orderCode !== orderId) {
+    query = query.or(`id_don_hang.eq."${orderId}",id_don_hang.eq."${orderCode}"`);
+  } else {
+    query = query.eq('id_don_hang', orderId);
+  }
+
+  const { error } = await query;
+
+  if (error) {
+    console.error('Error deleting sales card CTs by order ID:', error);
+    throw error;
+  }
+};
+
+export const deleteAllSalesCardCTs = async (): Promise<void> => {
+  const { error } = await supabase
+    .from('the_ban_hang_ct')
+    .delete()
+    .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
+
+  if (error) {
+    console.error('Error deleting all sales card CTs:', error);
+    throw error;
+  }
+};

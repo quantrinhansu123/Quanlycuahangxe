@@ -7,6 +7,7 @@ import { upsertSalesCardCT } from '../data/salesCardCTData';
 import type { SalesCard } from '../data/salesCardData';
 import type { DichVu } from '../data/serviceData';
 import { SearchableSelect } from './ui/SearchableSelect';
+import { loadSalesOrderOptions } from '../data/ctFinancialLookupData';
 
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
@@ -50,6 +51,12 @@ const SalesCardCTForm: React.FC<SalesCardCTFormModalProps> = React.memo(({
       label: `${c.id_bh || c.id.slice(0,8)} - ${new Date(c.ngay).toLocaleDateString()} - ${c.khach_hang?.ho_va_ten || 'Khách lẻ'}`
     }));
   }, [salesCards]);
+  const [remoteSalesOptions, setRemoteSalesOptions] = useState<{ value: string; label: string }[]>([]);
+  const loadOrderOptions = React.useCallback(async (search: string, signal: AbortSignal) => {
+    const options = await loadSalesOrderOptions(search, signal);
+    if (!signal.aborted) setRemoteSalesOptions(options);
+    return options;
+  }, []);
 
   const serviceOptions = React.useMemo(() => {
     return services.map(s => ({
@@ -143,7 +150,8 @@ const SalesCardCTForm: React.FC<SalesCardCTFormModalProps> = React.memo(({
               <div className="space-y-1.5 md:col-span-2">
                 <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider">Hoặc Chọn Đơn hàng từ danh sách</label>
                 <SearchableSelect
-                  options={salesCardOptions}
+                  options={[...salesCardOptions, ...remoteSalesOptions]}
+                  loadOptions={loadOrderOptions}
                   value={formData.id_don_hang || undefined}
                   onValueChange={handleOrderChange}
                   placeholder="-- Chọn đơn hàng gốc --"

@@ -1,0 +1,17 @@
+{
+  "at": "2026-10-04T10:21:32.801Z",
+  "passed": true,
+  "checks": [
+    "compact list, no photo/history reads, independent settings/personnel, UI pagination reuses full data",
+    "photo/history/edit load by ID; edit preserves photo/history and refreshes lightweight month",
+    "failed detail cannot open/save incomplete editor; retry succeeds",
+    "superseded detail cannot overwrite latest selection; mobile photos also load on demand",
+    "absent-record editor preserves the existing personnel photo default without adding photos to list rows",
+    "1034 logs fully batched; time-only mutation omits image/history; edit/delete/create/manual/bulk refresh immediately",
+    "one aborted caller cannot cancel a concurrent caller or share stale records"
+  ],
+  "requests": 27,
+  "mockWrites": 6,
+  "liveWrites": 0,
+  "allRemoteResponsesMocked": true
+}

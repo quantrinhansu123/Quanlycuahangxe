@@ -3,6 +3,7 @@ import { getPersonnel } from './personnelData';
 import { getStoredDemoRole } from '../lib/authStorage';
 import { supabase } from '../lib/supabase';
 import { removeVietnameseTones } from '../lib/utils';
+import { readRequest } from '../lib/readRequest';
 
 /** Chuẩn hóa tên để khớp bảng lương / nhan_vien_id trên đơn (bỏ dấu, thường, gộp khoảng trắng). */
 function chuanHoaTenTheoDon(s: string): string {
@@ -199,7 +200,7 @@ export interface ReportSummary {
 const isDemo = () => typeof window !== 'undefined' && !!getStoredDemoRole();
 
 // Fetch all CT records within a date range
-async function fetchAllCTRecords(startDate?: string, endDate?: string) {
+export async function fetchAllCTRecords(startDate?: string, endDate?: string, signal?: AbortSignal) {
   if (isDemo()) {
     const data = [];
     const products = [
@@ -231,18 +232,18 @@ async function fetchAllCTRecords(startDate?: string, endDate?: string) {
     }
     return data;
   }
-  let query = supabase
-    .from('the_ban_hang_ct')
-    .select('id, id_don_hang, san_pham, co_so, gia_ban, gia_von, so_luong, thanh_tien, ngay');
-
-  if (startDate) query = query.gte('ngay', startDate);
-  if (endDate) query = query.lte('ngay', endDate);
-
   return fetchAllRowsPaginated(async (offset, pageSize) => {
-    const res = await query
+    signal?.throwIfAborted();
+    const res = await readRequest('report_ct_page', s => {
+      let query = supabase.from('the_ban_hang_ct')
+        .select('id, id_don_hang, san_pham, co_so, gia_ban, gia_von, so_luong, thanh_tien, ngay');
+      if (startDate) query = query.gte('ngay', startDate);
+      if (endDate) query = query.lte('ngay', endDate);
+      return query
       .order('ngay', { ascending: true })
       .order('id', { ascending: true })
-      .range(offset, offset + pageSize - 1);
+      .range(offset, offset + pageSize - 1).abortSignal(s);
+    }, signal);
     return { data: res.data, error: res.error };
   });
 }
@@ -270,8 +271,10 @@ async function fetchAllHeaderRecords(startDate?: string, endDate?: string) {
   return queryAllSales({ p_start: startDate || null, p_end: endDate || null });
 }
 
-export async function getReportSummary(startDate?: string, endDate?: string): Promise<ReportSummary> {
-  const ctRecords = await fetchAllCTRecords(startDate, endDate);
+export type ReportCTRecords = Awaited<ReturnType<typeof fetchAllCTRecords>>;
+
+export async function getReportSummary(startDate?: string, endDate?: string, sharedRecords?: ReportCTRecords): Promise<ReportSummary> {
+  const ctRecords = sharedRecords ?? await fetchAllCTRecords(startDate, endDate);
   const total_revenue = ctRecords.reduce((s, r) => s + (r.thanh_tien || r.gia_ban * r.so_luong || 0), 0);
   const total_profit = ctRecords.reduce((s, r) => s + ((r.thanh_tien || 0) - (r.gia_von || 0) * (r.so_luong || 1)), 0);
 
@@ -291,8 +294,8 @@ export async function getReportSummary(startDate?: string, endDate?: string): Pr
   };
 }
 
-export async function getRevenueByService(startDate?: string, endDate?: string): Promise<RevenueByService[]> {
-  const records = await fetchAllCTRecords(startDate, endDate);
+export async function getRevenueByService(startDate?: string, endDate?: string, sharedRecords?: ReportCTRecords): Promise<RevenueByService[]> {
+  const records = sharedRecords ?? await fetchAllCTRecords(startDate, endDate);
 
   const map = new Map<string, {
     revenue: number;
@@ -344,8 +347,8 @@ export async function getRevenueByService(startDate?: string, endDate?: string):
     .sort((a, b) => b.total_revenue - a.total_revenue);
 }
 
-export async function getRevenueByDay(startDate?: string, endDate?: string): Promise<RevenueByDay[]> {
-  const records = await fetchAllCTRecords(startDate, endDate);
+export async function getRevenueByDay(startDate?: string, endDate?: string, sharedRecords?: ReportCTRecords): Promise<RevenueByDay[]> {
+  const records = sharedRecords ?? await fetchAllCTRecords(startDate, endDate);
 
   const map = new Map<string, {
     revenue: number;
@@ -390,8 +393,8 @@ export async function getRevenueByDay(startDate?: string, endDate?: string): Pro
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
-export async function getRevenueByBranch(startDate?: string, endDate?: string): Promise<RevenueByBranch[]> {
-  const records = await fetchAllCTRecords(startDate, endDate);
+export async function getRevenueByBranch(startDate?: string, endDate?: string, sharedRecords?: ReportCTRecords): Promise<RevenueByBranch[]> {
+  const records = sharedRecords ?? await fetchAllCTRecords(startDate, endDate);
 
   const map = new Map<string, {
     revenue: number;
@@ -439,11 +442,13 @@ export async function getRevenueByBranch(startDate?: string, endDate?: string): 
 
 export async function getRevenueByPersonnel(
   startDate?: string,
-  endDate?: string
+  endDate?: string,
+  sharedRecords?: ReportCTRecords,
+  signal?: AbortSignal
 ): Promise<{ personnel: RevenueByPersonnel[]; avg_revenue_per_person: number; date_list: string[] }> {
   const [headers, ctRecords] = await Promise.all([
-    fetchAllHeaderRecords(startDate, endDate),
-    fetchAllCTRecords(startDate, endDate),
+    fetchReportPersonnelHeaders(startDate, endDate, signal),
+    sharedRecords ?? fetchAllCTRecords(startDate, endDate, signal),
   ]);
 
   /** Gộp thành tiền theo mã đơn (id_don_hang ↔ id_bh / id trên bảng the_ban_hang). Khóa chữ thường để khớp ổn định. */
@@ -529,6 +534,34 @@ export async function getRevenueByPersonnel(
 
   return { personnel, avg_revenue_per_person, date_list };
 }
+
+// Report personnel uses only these header columns. Payroll below continues using
+// the canonical Sales RPC, including customer/amount resolution, without changes.
+async function fetchReportPersonnelHeaders(startDate?: string, endDate?: string, signal?: AbortSignal) {
+  if (isDemo()) return fetchAllHeaderRecords(startDate, endDate);
+  return fetchAllRowsPaginated(async (offset, size) => {
+    signal?.throwIfAborted();
+    const result = await readRequest('report_staff_headers', s => {
+      let query = supabase.from('the_ban_hang').select('id,id_bh,ngay,nhan_vien_id');
+      if (startDate) query = query.gte('ngay', startDate);
+      if (endDate) query = query.lte('ngay', endDate);
+      return query.order('ngay', { ascending: false }).order('gio', { ascending: false })
+        .order('id', { ascending: false }).range(offset, offset + size - 1).abortSignal(s);
+    }, signal);
+    return { data: result.data, error: result.error };
+  });
+}
+
+export async function loadReportSnapshot(startDate?: string, endDate?: string, signal?: AbortSignal) {
+  const records = await fetchAllCTRecords(startDate, endDate, signal);
+  signal?.throwIfAborted();
+  const [summary, services, days, branches] = await Promise.all([
+    getReportSummary(startDate,endDate,records), getRevenueByService(startDate,endDate,records),
+    getRevenueByDay(startDate,endDate,records), getRevenueByBranch(startDate,endDate,records),
+  ]);
+  return { startDate, endDate, records, summary, services, days, branches };
+}
+export type ReportSnapshot = Awaited<ReturnType<typeof loadReportSnapshot>>;
 
 export interface PayrollRevenueOrderRow {
   id_bh: string;

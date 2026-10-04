@@ -1,0 +1,709 @@
+{
+  "at": "2026-10-04T10:00:09.424Z",
+  "scope": "Actual OLD/NEW modules through local Vite, LIVE anon September reads; three pairs, phases use separate snapshots; no data records exported; OLD source calculates same NEW scalar input for same-input parity",
+  "samples": [
+    {
+      "round": 1,
+      "version": "old",
+      "durationMs": 11130,
+      "requests": 17,
+      "payloadBytes": 5002056,
+      "ctPageCalls": 15,
+      "ctDatasetLoads": 5,
+      "salesRpcCalls": 2,
+      "headerGetCalls": 0,
+      "ctRows": 2724,
+      "headers": 1764,
+      "businessHash": "cd113dbecea1edaec07ef76a99dfd4116938dbdcabad98e7fa69d8d5d141e18f",
+      "sameInputParity": null,
+      "peakConcurrency": 6,
+      "network": [
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 214640,
+          "ms": 2568,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 214640,
+          "ms": 2565,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 214640,
+          "ms": 2633,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 214640,
+          "ms": 2673,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 214640,
+          "ms": 2685,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 214642,
+          "ms": 909,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 214642,
+          "ms": 927,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 214642,
+          "ms": 1003,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 214642,
+          "ms": 945,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 214642,
+          "ms": 1038,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 154137,
+          "ms": 175,
+          "rows": 724,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 154137,
+          "ms": 281,
+          "rows": 724,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 154137,
+          "ms": 310,
+          "rows": 724,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 154137,
+          "ms": 314,
+          "rows": 724,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 154137,
+          "ms": 393,
+          "rows": 724,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "sales_query",
+          "status": 200,
+          "bytes": 1180260,
+          "ms": 4812,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": null
+        },
+        {
+          "endpoint": "sales_query",
+          "status": 200,
+          "bytes": 904701,
+          "ms": 1365,
+          "rows": 764,
+          "errorCode": null,
+          "projection": null
+        }
+      ]
+    },
+    {
+      "round": 1,
+      "version": "new",
+      "durationMs": 1667,
+      "requests": 5,
+      "payloadBytes": 805897,
+      "ctPageCalls": 3,
+      "ctDatasetLoads": 1,
+      "salesRpcCalls": 0,
+      "headerGetCalls": 2,
+      "ctRows": 2724,
+      "headers": 1764,
+      "businessHash": "cd113dbecea1edaec07ef76a99dfd4116938dbdcabad98e7fa69d8d5d141e18f",
+      "sameInputParity": true,
+      "peakConcurrency": 1,
+      "network": [
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 214640,
+          "ms": 321,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 214642,
+          "ms": 167,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 154137,
+          "ms": 148,
+          "rows": 724,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang",
+          "status": 200,
+          "bytes": 126402,
+          "ms": 293,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_bh,ngay,nhan_vien_id"
+        },
+        {
+          "endpoint": "the_ban_hang",
+          "status": 200,
+          "bytes": 96076,
+          "ms": 157,
+          "rows": 764,
+          "errorCode": null,
+          "projection": "id,id_bh,ngay,nhan_vien_id"
+        }
+      ]
+    },
+    {
+      "round": 2,
+      "version": "old",
+      "durationMs": 3587,
+      "requests": 17,
+      "payloadBytes": 5002056,
+      "ctPageCalls": 15,
+      "ctDatasetLoads": 5,
+      "salesRpcCalls": 2,
+      "headerGetCalls": 0,
+      "ctRows": 2724,
+      "headers": 1764,
+      "businessHash": "cd113dbecea1edaec07ef76a99dfd4116938dbdcabad98e7fa69d8d5d141e18f",
+      "sameInputParity": null,
+      "peakConcurrency": 6,
+      "network": [
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 214640,
+          "ms": 329,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 214640,
+          "ms": 331,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 214640,
+          "ms": 356,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 214640,
+          "ms": 367,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 214640,
+          "ms": 385,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 214642,
+          "ms": 176,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 214642,
+          "ms": 187,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 214642,
+          "ms": 300,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 214642,
+          "ms": 337,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 154137,
+          "ms": 157,
+          "rows": 724,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 214642,
+          "ms": 440,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 154137,
+          "ms": 244,
+          "rows": 724,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 154137,
+          "ms": 199,
+          "rows": 724,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 154137,
+          "ms": 243,
+          "rows": 724,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 154137,
+          "ms": 386,
+          "rows": 724,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "sales_query",
+          "status": 200,
+          "bytes": 1180260,
+          "ms": 1483,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": null
+        },
+        {
+          "endpoint": "sales_query",
+          "status": 200,
+          "bytes": 904701,
+          "ms": 1444,
+          "rows": 764,
+          "errorCode": null,
+          "projection": null
+        }
+      ]
+    },
+    {
+      "round": 2,
+      "version": "new",
+      "durationMs": 1932,
+      "requests": 5,
+      "payloadBytes": 805897,
+      "ctPageCalls": 3,
+      "ctDatasetLoads": 1,
+      "salesRpcCalls": 0,
+      "headerGetCalls": 2,
+      "ctRows": 2724,
+      "headers": 1764,
+      "businessHash": "cd113dbecea1edaec07ef76a99dfd4116938dbdcabad98e7fa69d8d5d141e18f",
+      "sameInputParity": true,
+      "peakConcurrency": 1,
+      "network": [
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 214640,
+          "ms": 303,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 214642,
+          "ms": 319,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 154137,
+          "ms": 244,
+          "rows": 724,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang",
+          "status": 200,
+          "bytes": 126402,
+          "ms": 228,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_bh,ngay,nhan_vien_id"
+        },
+        {
+          "endpoint": "the_ban_hang",
+          "status": 200,
+          "bytes": 96076,
+          "ms": 243,
+          "rows": 764,
+          "errorCode": null,
+          "projection": "id,id_bh,ngay,nhan_vien_id"
+        }
+      ]
+    },
+    {
+      "round": 3,
+      "version": "old",
+      "durationMs": 3774,
+      "requests": 17,
+      "payloadBytes": 5002056,
+      "ctPageCalls": 15,
+      "ctDatasetLoads": 5,
+      "salesRpcCalls": 2,
+      "headerGetCalls": 0,
+      "ctRows": 2724,
+      "headers": 1764,
+      "businessHash": "cd113dbecea1edaec07ef76a99dfd4116938dbdcabad98e7fa69d8d5d141e18f",
+      "sameInputParity": null,
+      "peakConcurrency": 6,
+      "network": [
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 214640,
+          "ms": 365,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 214640,
+          "ms": 396,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 214640,
+          "ms": 406,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 214640,
+          "ms": 422,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 214640,
+          "ms": 434,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 214642,
+          "ms": 176,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 214642,
+          "ms": 224,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 214642,
+          "ms": 298,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 154137,
+          "ms": 174,
+          "rows": 724,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 214642,
+          "ms": 506,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 154137,
+          "ms": 261,
+          "rows": 724,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 154137,
+          "ms": 298,
+          "rows": 724,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 214642,
+          "ms": 631,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 154137,
+          "ms": 257,
+          "rows": 724,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "sales_query",
+          "status": 200,
+          "bytes": 1180260,
+          "ms": 1774,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": null
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 154137,
+          "ms": 803,
+          "rows": 724,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "sales_query",
+          "status": 200,
+          "bytes": 904701,
+          "ms": 1373,
+          "rows": 764,
+          "errorCode": null,
+          "projection": null
+        }
+      ]
+    },
+    {
+      "round": 3,
+      "version": "new",
+      "durationMs": 1855,
+      "requests": 5,
+      "payloadBytes": 805897,
+      "ctPageCalls": 3,
+      "ctDatasetLoads": 1,
+      "salesRpcCalls": 0,
+      "headerGetCalls": 2,
+      "ctRows": 2724,
+      "headers": 1764,
+      "businessHash": "cd113dbecea1edaec07ef76a99dfd4116938dbdcabad98e7fa69d8d5d141e18f",
+      "sameInputParity": true,
+      "peakConcurrency": 1,
+      "network": [
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 214640,
+          "ms": 330,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 214642,
+          "ms": 312,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 200,
+          "bytes": 154137,
+          "ms": 242,
+          "rows": 724,
+          "errorCode": null,
+          "projection": "id,id_don_hang,san_pham,co_so,gia_ban,gia_von,so_luong,thanh_tien,ngay"
+        },
+        {
+          "endpoint": "the_ban_hang",
+          "status": 200,
+          "bytes": 126402,
+          "ms": 247,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_bh,ngay,nhan_vien_id"
+        },
+        {
+          "endpoint": "the_ban_hang",
+          "status": 200,
+          "bytes": 96076,
+          "ms": 230,
+          "rows": 764,
+          "errorCode": null,
+          "projection": "id,id_bh,ngay,nhan_vien_id"
+        }
+      ]
+    }
+  ],
+  "productionWrites": 0
+}

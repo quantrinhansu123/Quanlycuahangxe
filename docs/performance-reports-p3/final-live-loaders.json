@@ -1,0 +1,160 @@
+{
+  "at": "2026-10-04T10:26:53.531Z",
+  "scope": "Actual source read modules, fresh browser, anon; no payroll auto-sync mount",
+  "checks": [
+    {
+      "name": "Sales warm pages",
+      "round": 0,
+      "totalCount": 9364,
+      "pageRows": 40,
+      "summaryEqual": true
+    },
+    {
+      "name": "Sales warm pages",
+      "round": 1,
+      "totalCount": 9364,
+      "pageRows": 40,
+      "summaryEqual": true
+    },
+    {
+      "name": "Sales warm pages",
+      "round": 2,
+      "totalCount": 9364,
+      "pageRows": 40,
+      "summaryEqual": true
+    },
+    {
+      "name": "Sales warm pages",
+      "round": 3,
+      "totalCount": 9364,
+      "pageRows": 40,
+      "summaryEqual": true
+    },
+    {
+      "name": "Sales warm pages",
+      "round": 4,
+      "totalCount": 9364,
+      "pageRows": 40,
+      "summaryEqual": true
+    },
+    {
+      "name": "Sales warm pages",
+      "round": 5,
+      "totalCount": 9364,
+      "pageRows": 40,
+      "summaryEqual": true
+    },
+    {
+      "name": "Payroll read/reconciliation",
+      "revenueStaff": 12,
+      "orders": 2018,
+      "payrollRows": 0,
+      "personnelRows": 10
+    }
+  ],
+  "passed": true,
+  "network": [
+    {
+      "endpoint": "attendance_settings",
+      "status": 200,
+      "ms": 2509
+    },
+    {
+      "endpoint": "sales_query",
+      "status": 200,
+      "ms": 1878
+    },
+    {
+      "endpoint": "sales_query",
+      "status": 200,
+      "ms": 917
+    },
+    {
+      "endpoint": "sales_query",
+      "status": 200,
+      "ms": 865
+    },
+    {
+      "endpoint": "sales_query",
+      "status": 200,
+      "ms": 847
+    },
+    {
+      "endpoint": "sales_query",
+      "status": 200,
+      "ms": 1006
+    },
+    {
+      "endpoint": "sales_query",
+      "status": 200,
+      "ms": 768
+    },
+    {
+      "endpoint": "sales_query",
+      "status": 200,
+      "ms": 827
+    },
+    {
+      "endpoint": "sales_query",
+      "status": 200,
+      "ms": 784
+    },
+    {
+      "endpoint": "sales_query",
+      "status": 200,
+      "ms": 723
+    },
+    {
+      "endpoint": "sales_query",
+      "status": 200,
+      "ms": 909
+    },
+    {
+      "endpoint": "sales_query",
+      "status": 200,
+      "ms": 754
+    },
+    {
+      "endpoint": "sales_query",
+      "status": 200,
+      "ms": 791
+    },
+    {
+      "endpoint": "nhan_su",
+      "status": 200,
+      "ms": 514
+    },
+    {
+      "endpoint": "the_ban_hang_ct",
+      "status": 200,
+      "ms": 749
+    },
+    {
+      "endpoint": "bang_luong",
+      "status": 200,
+      "ms": 785
+    },
+    {
+      "endpoint": "the_ban_hang_ct",
+      "status": 200,
+      "ms": 539
+    },
+    {
+      "endpoint": "the_ban_hang_ct",
+      "status": 200,
+      "ms": 482
+    },
+    {
+      "endpoint": "sales_query",
+      "status": 200,
+      "ms": 1994
+    },
+    {
+      "endpoint": "sales_query",
+      "status": 200,
+      "ms": 1518
+    }
+  ],
+  "blocked": [],
+  "liveWrites": 0
+}

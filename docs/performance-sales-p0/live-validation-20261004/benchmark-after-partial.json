@@ -1,0 +1,34 @@
+{
+  "cases": [
+    {
+      "name": "A_all_page1",
+      "input": {
+        "p_page": 1,
+        "p_limit": 20
+      },
+      "http": {
+        "input": {
+          "p_page": 1,
+          "p_limit": 20
+        },
+        "status": 200,
+        "ttfbMs": 3614,
+        "totalMs": 3617,
+        "bytes": 67588,
+        "rows": 20,
+        "totalCount": 9346,
+        "errorCode": null
+      },
+      "sql": {
+        "httpMs": 3620,
+        "executionMs": 1799.459,
+        "sharedHits": 55455,
+        "sharedReads": 0,
+        "tempRead": 1298,
+        "tempWritten": 649
+      },
+      "oldNewEqual": true
+    }
+  ],
+  "error": "Smoke B_all_page2: HTTP 500/57014"
+}

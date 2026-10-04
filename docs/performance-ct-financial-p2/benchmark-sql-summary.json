@@ -1,0 +1,33 @@
+{
+  "snapshot": "101645:101645:",
+  "rounds": 5,
+  "warmupExcluded": true,
+  "readOnly": "on",
+  "workMem": "2184kB",
+  "results": [
+    {
+      "name": "financial_page1",
+      "planningMs": 0.02,
+      "executionMs": 7.27,
+      "hits": 350,
+      "tempRead": 0,
+      "tempWrite": 0
+    },
+    {
+      "name": "financial_page2",
+      "planningMs": 0.018,
+      "executionMs": 7.283,
+      "hits": 350,
+      "tempRead": 0,
+      "tempWrite": 0
+    },
+    {
+      "name": "page_reference_batch",
+      "planningMs": 0.01,
+      "executionMs": 132.581,
+      "hits": 835,
+      "tempRead": 0,
+      "tempWrite": 0
+    }
+  ]
+}

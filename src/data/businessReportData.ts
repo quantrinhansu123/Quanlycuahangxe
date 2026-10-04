@@ -14,8 +14,9 @@ import {
   type ProductCostMetricsRow,
 } from '../lib/businessReportMetrics';
 import { supabase } from '../lib/supabase';
-import { getInventoryStockSummary, type InventoryStockSummaryRow } from './inventoryData';
-import type { ReportSummary } from './reportData';
+import { calculateInventoryStockSummary, type ProductRecord, type InventoryRecord, type InventoryStockSummaryRow } from './inventoryData';
+import { fetchAllCTRecords, type ReportCTRecords, type ReportSummary } from './reportData';
+import { readRequest } from '../lib/readRequest';
 
 const PAGE_SIZE = 1000;
 const isDemo = () => typeof window !== 'undefined' && !!getStoredDemoRole();
@@ -111,32 +112,49 @@ function demoPeriodRows(date: string, previous = false): PeriodRows {
   };
 }
 
-async function fetchPeriodRows(startDate: string, endDate: string): Promise<PeriodRows> {
+async function fetchPeriodRows(startDate: string, endDate: string, sharedDetails?: ReportCTRecords, signal?: AbortSignal): Promise<PeriodRows> {
   const [transactions, orders, details] = await Promise.all([
     fetchAll<TransactionRow>(async (from, to) => {
-      const result = await supabase.from('thu_chi').select('id, loai_phieu, id_don, danh_muc, so_tien, nguoi_nhan, trang_thai, ngay, phuong_thuc').gte('ngay', startDate).lte('ngay', endDate).order('ngay').order('id').range(from, to);
+      signal?.throwIfAborted();
+      const result = await readRequest('report_transactions', s => supabase.from('thu_chi').select('id, loai_phieu, id_don, danh_muc, so_tien, nguoi_nhan, trang_thai, ngay, phuong_thuc').gte('ngay', startDate).lte('ngay', endDate).order('ngay').order('id').range(from, to).abortSignal(s), signal);
       return { data: result.data as TransactionRow[] | null, error: result.error };
     }),
     fetchAll<OrderRow>(async (from, to) => {
-      const result = await supabase.from('the_ban_hang').select('id, id_bh, ngay, khach_hang_id, ten_khach_hang, tong_tien').gte('ngay', startDate).lte('ngay', endDate).order('ngay').order('id').range(from, to);
+      signal?.throwIfAborted();
+      const result = await readRequest('report_business_headers', s => supabase.from('the_ban_hang').select('id, id_bh, ngay, khach_hang_id, ten_khach_hang, tong_tien').gte('ngay', startDate).lte('ngay', endDate).order('ngay').order('id').range(from, to).abortSignal(s), signal);
       return { data: result.data as OrderRow[] | null, error: result.error };
     }),
-    fetchAll<OrderDetailRow>(async (from, to) => {
-      const result = await supabase.from('the_ban_hang_ct').select('id_don_hang, san_pham, thanh_tien, gia_ban, gia_von, so_luong, ngay').gte('ngay', startDate).lte('ngay', endDate).order('id').range(from, to);
-      return { data: result.data as OrderDetailRow[] | null, error: result.error };
-    }),
+    sharedDetails ?? fetchAllCTRecords(startDate, endDate, signal),
   ]);
-  return { transactions, orders, details };
+  // OLD business reports iterate CT in ID order. Keep tie ordering and floating
+  // point accumulation identical using a sorted reference array, not row copies.
+  return { transactions, orders, details: [...details].sort((a,b) => a.id.localeCompare(b.id)) };
 }
 
-export async function getBusinessReportData(startDate: string, endDate: string): Promise<BusinessReportData> {
+async function fetchReportInventory(startDate: string, endDate: string, signal?: AbortSignal) {
+  const [products, movements] = await Promise.all([
+    fetchAll<ProductRecord>(async (from,to) => {
+      signal?.throwIfAborted();
+      const result = await readRequest('report_product_catalog', s => supabase.from('ds_san_pham')
+        .select('id,ma_san_pham,ten_san_pham,don_vi_tinh,gia,ton_dau_ky').order('ten_san_pham').order('id').range(from,to).abortSignal(s), signal);
+      return { data: result.data, error: result.error };
+    }),
+    readRequest('report_inventory', s => supabase.from('nhap_xuat_kho')
+      .select('id,loai_phieu,ten_mat_hang,so_luong,gia,tong_tien,ngay').order('created_at',{ascending:false}).abortSignal(s), signal),
+  ]);
+  if (movements.error) throw movements.error;
+  return calculateInventoryStockSummary(products, movements.data as InventoryRecord[] || [], startDate, endDate);
+}
+
+export async function getBusinessReportData(startDate: string, endDate: string, sharedDetails?: ReportCTRecords, signal?: AbortSignal): Promise<BusinessReportData> {
   const prior = previousBusinessRange(startDate, endDate);
   const demo = isDemo();
   const [current, previous, inventory] = await Promise.all([
-    demo ? Promise.resolve(demoPeriodRows(startDate)) : fetchPeriodRows(startDate, endDate),
-    demo ? Promise.resolve(demoPeriodRows(prior.start, true)) : fetchPeriodRows(prior.start, prior.end),
-    demo ? Promise.resolve([] as InventoryStockSummaryRow[]) : getInventoryStockSummary(startDate, endDate),
+    demo ? Promise.resolve(demoPeriodRows(startDate)) : fetchPeriodRows(startDate, endDate, sharedDetails, signal),
+    demo ? Promise.resolve(demoPeriodRows(prior.start, true)) : fetchPeriodRows(prior.start, prior.end, undefined, signal),
+    demo ? Promise.resolve([] as InventoryStockSummaryRow[]) : fetchReportInventory(startDate, endDate, signal),
   ]);
+  signal?.throwIfAborted();
 
   const baseSummary = buildReportSummary(current.details);
   const basePreviousSummary = buildReportSummary(previous.details);

@@ -1,0 +1,166 @@
+{
+  "at": "2026-10-04T09:27:36.125Z",
+  "scope": "Actual NEW pages in local Vite, LIVE anon reads; September fixed UI clock; test UI identity; no authenticated session claim",
+  "samples": [
+    {
+      "round": 1,
+      "workload": "CT",
+      "mountMs": 9822,
+      "mountReads": 2,
+      "totalReads": 4,
+      "payloadBytes": 42333,
+      "page1Hash": "7b7c27e6393d74d159e5beb825988abc86295ce509bb275f6596e2cd1a77cfe7",
+      "page2Hash": "1ba5304aad02db99b1acfefd45d90bb31a1fa4b0884036fd2c9b36ae0e525edb",
+      "distinctPageIds": 40,
+      "network": [
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 206,
+          "bytes": 7997,
+          "ms": 706,
+          "rows": 20
+        },
+        {
+          "endpoint": "sales_p2_lookup",
+          "status": 200,
+          "bytes": 11000,
+          "ms": 731,
+          "rows": 9
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 206,
+          "bytes": 7995,
+          "ms": 371,
+          "rows": 20
+        },
+        {
+          "endpoint": "sales_p2_lookup",
+          "status": 200,
+          "bytes": 15341,
+          "ms": 324,
+          "rows": 13
+        }
+      ]
+    },
+    {
+      "round": 1,
+      "workload": "Financial",
+      "mountMs": 2510,
+      "mountReads": 4,
+      "totalReads": 8,
+      "payloadBytes": 78908,
+      "page1Hash": "4a947b612fefa5f160be29b57fabd56acffc1e8f6369b48b9e8283e5b07baff1",
+      "page2Hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "distinctPageIds": 40,
+      "network": [
+        {
+          "endpoint": "co_so",
+          "status": 200,
+          "bytes": 155,
+          "ms": 246,
+          "rows": 4
+        },
+        {
+          "endpoint": "financial_p2_query",
+          "status": 200,
+          "bytes": 12634,
+          "ms": 616,
+          "rows": 20
+        },
+        {
+          "endpoint": "sales_p2_lookup",
+          "status": 200,
+          "bytes": 23319,
+          "ms": 613,
+          "rows": 20
+        },
+        {
+          "endpoint": "khach_hang",
+          "status": 200,
+          "bytes": 2383,
+          "ms": 632,
+          "rows": 19
+        },
+        {
+          "endpoint": "financial_p2_query",
+          "status": 200,
+          "bytes": 12642,
+          "ms": 227,
+          "rows": 20
+        },
+        {
+          "endpoint": "khach_hang",
+          "status": 200,
+          "bytes": 2558,
+          "ms": 217,
+          "rows": 20
+        },
+        {
+          "endpoint": "sales_p2_lookup",
+          "status": 200,
+          "bytes": 23117,
+          "ms": 322,
+          "rows": 20
+        },
+        {
+          "endpoint": "financial_p2_query",
+          "status": 200,
+          "bytes": 2100,
+          "ms": 316,
+          "rows": 0
+        }
+      ]
+    },
+    {
+      "round": 1,
+      "workload": "Cashbook",
+      "mountMs": 1157,
+      "mountReads": 4,
+      "totalReads": 5,
+      "payloadBytes": 51133,
+      "page1Hash": "e17a960a58b40d06af98dea3b1e60f52f29a2bf5ff49eba66fff66fb2aa094b3",
+      "page2Hash": "db847990eb6047fb91f2dca708c0a175c78e70cd68e9e056d2029275f326d462",
+      "distinctPageIds": 40,
+      "network": [
+        {
+          "endpoint": "financial_p2_query",
+          "status": 200,
+          "bytes": 12634,
+          "ms": 167,
+          "rows": 20
+        },
+        {
+          "endpoint": "co_so",
+          "status": 200,
+          "bytes": 155,
+          "ms": 240,
+          "rows": 4
+        },
+        {
+          "endpoint": "khach_hang",
+          "status": 200,
+          "bytes": 2383,
+          "ms": 136,
+          "rows": 19
+        },
+        {
+          "endpoint": "sales_p2_lookup",
+          "status": 200,
+          "bytes": 23319,
+          "ms": 331,
+          "rows": 20
+        },
+        {
+          "endpoint": "financial_p2_query",
+          "status": 200,
+          "bytes": 12642,
+          "ms": 148,
+          "rows": 20
+        }
+      ]
+    }
+  ],
+  "deniedWrites": [],
+  "productionWrites": 0
+}

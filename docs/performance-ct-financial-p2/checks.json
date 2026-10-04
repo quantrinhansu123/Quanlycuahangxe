@@ -1,0 +1,64 @@
+{
+  "at": "2026-10-04T09:38:33.942Z",
+  "allPassed": true,
+  "checks": {
+    "npmTest": {
+      "exitCode": 0,
+      "tests": 71
+    },
+    "uiSuite": {
+      "exitCode": 0,
+      "p2Checks": 7
+    },
+    "typecheck": {
+      "exitCode": 0
+    },
+    "build": {
+      "exitCode": 0
+    },
+    "diffCheck": {
+      "exitCode": 0
+    },
+    "protectedFiles": {
+      "matched": 11
+    },
+    "scriptSyntax": {
+      "passed": 11
+    },
+    "sqlProbeRehearsal": {
+      "passed": true,
+      "financialCases": 14,
+      "plans": 18,
+      "readOnly": "on"
+    },
+    "tieOrderDiagnosis": {
+      "readOnly": true,
+      "samePageIds": true,
+      "sameDateTimeSequence": true,
+      "differentRowFields": null
+    },
+    "finalP2Regression": {
+      "exitCode": 0,
+      "tests": 4
+    },
+    "paginationTies": {
+      "rows": 63,
+      "uniqueRows": 63,
+      "oldRows": 63,
+      "oldUniqueRows": 63
+    }
+  },
+  "migrationSha256": "bcd6924a7bedc8267dd3ebeed74878d60a226dd88ad84779a7b3ced1923d3655",
+  "permission": "User explicitly allowed DB migration after all prechecks/tests pass; frontend remains undeployed",
+  "liveSqlCases": 14,
+  "liveUiRounds": 9,
+  "protectedSourceFiles": 11,
+  "catalog": {
+    "at": "2026-10-04T09:34:14.881Z",
+    "passed": true,
+    "p0Unchanged": true,
+    "rlsIndexesTableAclUnchanged": true,
+    "p2Functions": 4
+  },
+  "frontendDeployed": false
+}

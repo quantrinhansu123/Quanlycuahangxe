@@ -1,0 +1,1552 @@
+{
+  "tables": [
+    {
+      "acl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "rls": false,
+      "name": "cham_cong",
+      "forced": false
+    },
+    {
+      "acl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "rls": false,
+      "name": "dich_vu",
+      "forced": false
+    },
+    {
+      "acl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "rls": false,
+      "name": "khach_hang",
+      "forced": false
+    },
+    {
+      "acl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "rls": false,
+      "name": "nhan_su",
+      "forced": false
+    },
+    {
+      "acl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "rls": true,
+      "name": "the_ban_hang",
+      "forced": false
+    },
+    {
+      "acl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "rls": false,
+      "name": "the_ban_hang_ct",
+      "forced": false
+    },
+    {
+      "acl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "rls": false,
+      "name": "thu_chi",
+      "forced": false
+    }
+  ],
+  "indexes": [
+    {
+      "indexdef": "CREATE INDEX attendance_date_created_id ON public.cham_cong USING btree (ngay DESC, created_at DESC, id DESC)",
+      "indexname": "attendance_date_created_id",
+      "tablename": "cham_cong",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX cham_cong_date_staff ON public.cham_cong USING btree (ngay, lower(btrim(nhan_su)))",
+      "indexname": "cham_cong_date_staff",
+      "tablename": "cham_cong",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX cham_cong_pkey ON public.cham_cong USING btree (id)",
+      "indexname": "cham_cong_pkey",
+      "tablename": "cham_cong",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX dich_vu_id_dich_vu_key ON public.dich_vu USING btree (id_dich_vu)",
+      "indexname": "dich_vu_id_dich_vu_key",
+      "tablename": "dich_vu",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX dich_vu_pkey ON public.dich_vu USING btree (id)",
+      "indexname": "dich_vu_pkey",
+      "tablename": "dich_vu",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX idx_dich_vu_id_dich_vu ON public.dich_vu USING btree (id_dich_vu)",
+      "indexname": "idx_dich_vu_id_dich_vu",
+      "tablename": "dich_vu",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX idx_khach_hang_bien_so_xe ON public.khach_hang USING btree (bien_so_xe)",
+      "indexname": "idx_khach_hang_bien_so_xe",
+      "tablename": "khach_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX idx_khach_hang_ho_va_ten ON public.khach_hang USING btree (ho_va_ten)",
+      "indexname": "idx_khach_hang_ho_va_ten",
+      "tablename": "khach_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX idx_khach_hang_last_order_at ON public.khach_hang USING btree (last_order_at DESC NULLS LAST)",
+      "indexname": "idx_khach_hang_last_order_at",
+      "tablename": "khach_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX idx_khach_hang_ma_khach_hang ON public.khach_hang USING btree (ma_khach_hang)",
+      "indexname": "idx_khach_hang_ma_khach_hang",
+      "tablename": "khach_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX idx_khach_hang_nhan_vien_id ON public.khach_hang USING btree (nhan_vien_id)",
+      "indexname": "idx_khach_hang_nhan_vien_id",
+      "tablename": "khach_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX idx_khach_hang_so_dien_thoai ON public.khach_hang USING btree (so_dien_thoai)",
+      "indexname": "idx_khach_hang_so_dien_thoai",
+      "tablename": "khach_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX khach_hang_code_trgm ON public.khach_hang USING gin (ma_khach_hang gin_trgm_ops)",
+      "indexname": "khach_hang_code_trgm",
+      "tablename": "khach_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX khach_hang_phone_search ON public.khach_hang USING btree (app_phone(so_dien_thoai))",
+      "indexname": "khach_hang_phone_search",
+      "tablename": "khach_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX khach_hang_pkey ON public.khach_hang USING btree (id)",
+      "indexname": "khach_hang_pkey",
+      "tablename": "khach_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX khach_hang_plate_search ON public.khach_hang USING btree (app_plate(bien_so_xe))",
+      "indexname": "khach_hang_plate_search",
+      "tablename": "khach_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX khach_hang_plate_suffix_search ON public.khach_hang USING btree (reverse(app_plate(bien_so_xe)) text_pattern_ops)",
+      "indexname": "khach_hang_plate_suffix_search",
+      "tablename": "khach_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX khach_hang_plate_trgm ON public.khach_hang USING gin (bien_so_xe gin_trgm_ops)",
+      "indexname": "khach_hang_plate_trgm",
+      "tablename": "khach_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX idx_nhan_su_id_nhan_su ON public.nhan_su USING btree (id_nhan_su)",
+      "indexname": "idx_nhan_su_id_nhan_su",
+      "tablename": "nhan_su",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX nhan_su_auth_user_id_key ON public.nhan_su USING btree (auth_user_id)",
+      "indexname": "nhan_su_auth_user_id_key",
+      "tablename": "nhan_su",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX nhan_su_pkey ON public.nhan_su USING btree (id)",
+      "indexname": "nhan_su_pkey",
+      "tablename": "nhan_su",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX idx_the_ban_hang_dich_vu ON public.the_ban_hang USING btree (dich_vu_id)",
+      "indexname": "idx_the_ban_hang_dich_vu",
+      "tablename": "the_ban_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX idx_the_ban_hang_id_bh ON public.the_ban_hang USING btree (id_bh)",
+      "indexname": "idx_the_ban_hang_id_bh",
+      "tablename": "the_ban_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX idx_the_ban_hang_id_bh_ref ON public.the_ban_hang USING btree (lower(TRIM(BOTH FROM COALESCE(id_bh, ''::text)))) WHERE ((id_bh IS NOT NULL) AND (length(TRIM(BOTH FROM id_bh)) > 0))",
+      "indexname": "idx_the_ban_hang_id_bh_ref",
+      "tablename": "the_ban_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX idx_the_ban_hang_khach_hang ON public.the_ban_hang USING btree (khach_hang_id)",
+      "indexname": "idx_the_ban_hang_khach_hang",
+      "tablename": "the_ban_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX idx_the_ban_hang_ngay ON public.the_ban_hang USING btree (ngay)",
+      "indexname": "idx_the_ban_hang_ngay",
+      "tablename": "the_ban_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX idx_the_ban_hang_nhan_vien ON public.the_ban_hang USING btree (nhan_vien_id)",
+      "indexname": "idx_the_ban_hang_nhan_vien",
+      "tablename": "the_ban_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX idx_the_ban_hang_ten_khach_hang_norm ON public.the_ban_hang USING btree (lower(btrim(ten_khach_hang)))",
+      "indexname": "idx_the_ban_hang_ten_khach_hang_norm",
+      "tablename": "the_ban_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX sales_code_trgm ON public.the_ban_hang USING gin (id_bh gin_trgm_ops)",
+      "indexname": "sales_code_trgm",
+      "tablename": "the_ban_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX sales_customer_ref_search ON public.the_ban_hang USING btree (lower(btrim(khach_hang_id)))",
+      "indexname": "sales_customer_ref_search",
+      "tablename": "the_ban_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX sales_customer_trgm ON public.the_ban_hang USING gin (khach_hang_id gin_trgm_ops)",
+      "indexname": "sales_customer_trgm",
+      "tablename": "the_ban_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX sales_date_page ON public.the_ban_hang USING btree (ngay DESC, gio DESC, id DESC)",
+      "indexname": "sales_date_page",
+      "tablename": "the_ban_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX the_ban_hang_id_bh_key ON public.the_ban_hang USING btree (id_bh)",
+      "indexname": "the_ban_hang_id_bh_key",
+      "tablename": "the_ban_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX the_ban_hang_pkey ON public.the_ban_hang USING btree (id)",
+      "indexname": "the_ban_hang_pkey",
+      "tablename": "the_ban_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX idx_the_ban_hang_ct_id_don_hang ON public.the_ban_hang_ct USING btree (id_don_hang)",
+      "indexname": "idx_the_ban_hang_ct_id_don_hang",
+      "tablename": "the_ban_hang_ct",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX idx_the_ban_hang_ct_id_don_hang_norm ON public.the_ban_hang_ct USING btree (lower(btrim(id_don_hang)))",
+      "indexname": "idx_the_ban_hang_ct_id_don_hang_norm",
+      "tablename": "the_ban_hang_ct",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX idx_the_ban_hang_ct_id_don_hang_ref ON public.the_ban_hang_ct USING btree (lower(TRIM(BOTH FROM id_don_hang))) WHERE ((id_don_hang IS NOT NULL) AND (length(TRIM(BOTH FROM id_don_hang)) > 0))",
+      "indexname": "idx_the_ban_hang_ct_id_don_hang_ref",
+      "tablename": "the_ban_hang_ct",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX sales_detail_date_id ON public.the_ban_hang_ct USING btree (ngay, id)",
+      "indexname": "sales_detail_date_id",
+      "tablename": "the_ban_hang_ct",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX sales_detail_ref_search ON public.the_ban_hang_ct USING btree (lower(btrim(id_don_hang)))",
+      "indexname": "sales_detail_ref_search",
+      "tablename": "the_ban_hang_ct",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX the_ban_hang_ct_pkey ON public.the_ban_hang_ct USING btree (id)",
+      "indexname": "the_ban_hang_ct_pkey",
+      "tablename": "the_ban_hang_ct",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX cashbook_date_id ON public.thu_chi USING btree (ngay, id)",
+      "indexname": "cashbook_date_id",
+      "tablename": "thu_chi",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX thu_chi_pkey ON public.thu_chi USING btree (id)",
+      "indexname": "thu_chi_pkey",
+      "tablename": "thu_chi",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX thu_chi_purchase_receipt_source_unique ON public.thu_chi USING btree (source_id) WHERE (source_type = 'purchase_receipt'::text)",
+      "indexname": "thu_chi_purchase_receipt_source_unique",
+      "tablename": "thu_chi",
+      "schemaname": "public",
+      "tablespace": null
+    }
+  ],
+  "samples": [
+    {
+      "page": 1,
+      "plan": [
+        {
+          "Plan": {
+            "Node Type": "Result",
+            "Plan Rows": 1,
+            "Plan Width": 32,
+            "Total Cost": 0.26,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Startup Cost": 0,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 1300,
+            "Actual Total Time": 1309.064,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 3439,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 1309.064,
+            "Temp Written Blocks": 650,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 1,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.042,
+          "Execution Time": 1309.239
+        }
+      ],
+      "round": 0
+    },
+    {
+      "page": 2,
+      "plan": [
+        {
+          "Plan": {
+            "Node Type": "Result",
+            "Plan Rows": 1,
+            "Plan Width": 32,
+            "Total Cost": 0.26,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Startup Cost": 0,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 1300,
+            "Actual Total Time": 546.494,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 1211,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 546.493,
+            "Temp Written Blocks": 650,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.018,
+          "Execution Time": 546.514
+        }
+      ],
+      "round": 0
+    },
+    {
+      "page": 1,
+      "plan": [
+        {
+          "Plan": {
+            "Node Type": "Result",
+            "Plan Rows": 1,
+            "Plan Width": 32,
+            "Total Cost": 0.26,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Startup Cost": 0,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 1300,
+            "Actual Total Time": 514.4,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 1208,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 514.399,
+            "Temp Written Blocks": 650,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.009,
+          "Execution Time": 514.417
+        }
+      ],
+      "round": 1
+    },
+    {
+      "page": 2,
+      "plan": [
+        {
+          "Plan": {
+            "Node Type": "Result",
+            "Plan Rows": 1,
+            "Plan Width": 32,
+            "Total Cost": 0.26,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Startup Cost": 0,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 1300,
+            "Actual Total Time": 515.195,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 1211,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 515.194,
+            "Temp Written Blocks": 650,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.015,
+          "Execution Time": 515.213
+        }
+      ],
+      "round": 1
+    },
+    {
+      "page": 1,
+      "plan": [
+        {
+          "Plan": {
+            "Node Type": "Result",
+            "Plan Rows": 1,
+            "Plan Width": 32,
+            "Total Cost": 0.26,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Startup Cost": 0,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 1300,
+            "Actual Total Time": 522.136,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 1208,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 522.135,
+            "Temp Written Blocks": 650,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.008,
+          "Execution Time": 522.177
+        }
+      ],
+      "round": 2
+    },
+    {
+      "page": 2,
+      "plan": [
+        {
+          "Plan": {
+            "Node Type": "Result",
+            "Plan Rows": 1,
+            "Plan Width": 32,
+            "Total Cost": 0.26,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Startup Cost": 0,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 1300,
+            "Actual Total Time": 520.736,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 1211,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 520.735,
+            "Temp Written Blocks": 650,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.009,
+          "Execution Time": 520.753
+        }
+      ],
+      "round": 2
+    },
+    {
+      "page": 1,
+      "plan": [
+        {
+          "Plan": {
+            "Node Type": "Result",
+            "Plan Rows": 1,
+            "Plan Width": 32,
+            "Total Cost": 0.26,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Startup Cost": 0,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 1300,
+            "Actual Total Time": 517.421,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 1208,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 517.421,
+            "Temp Written Blocks": 650,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.009,
+          "Execution Time": 517.442
+        }
+      ],
+      "round": 3
+    },
+    {
+      "page": 2,
+      "plan": [
+        {
+          "Plan": {
+            "Node Type": "Result",
+            "Plan Rows": 1,
+            "Plan Width": 32,
+            "Total Cost": 0.26,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Startup Cost": 0,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 1300,
+            "Actual Total Time": 515.271,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 1211,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 515.27,
+            "Temp Written Blocks": 650,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.009,
+          "Execution Time": 515.287
+        }
+      ],
+      "round": 3
+    },
+    {
+      "page": 1,
+      "plan": [
+        {
+          "Plan": {
+            "Node Type": "Result",
+            "Plan Rows": 1,
+            "Plan Width": 32,
+            "Total Cost": 0.26,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Startup Cost": 0,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 1300,
+            "Actual Total Time": 518.154,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 1208,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 518.153,
+            "Temp Written Blocks": 650,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.008,
+          "Execution Time": 518.17
+        }
+      ],
+      "round": 4
+    },
+    {
+      "page": 2,
+      "plan": [
+        {
+          "Plan": {
+            "Node Type": "Result",
+            "Plan Rows": 1,
+            "Plan Width": 32,
+            "Total Cost": 0.26,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Startup Cost": 0,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 1300,
+            "Actual Total Time": 521.346,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 1211,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 521.345,
+            "Temp Written Blocks": 650,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.012,
+          "Execution Time": 521.365
+        }
+      ],
+      "round": 4
+    },
+    {
+      "page": 1,
+      "plan": [
+        {
+          "Plan": {
+            "Node Type": "Result",
+            "Plan Rows": 1,
+            "Plan Width": 32,
+            "Total Cost": 0.26,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Startup Cost": 0,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 1300,
+            "Actual Total Time": 522.786,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 1208,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 522.785,
+            "Temp Written Blocks": 650,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.009,
+          "Execution Time": 522.802
+        }
+      ],
+      "round": 5
+    },
+    {
+      "page": 2,
+      "plan": [
+        {
+          "Plan": {
+            "Node Type": "Result",
+            "Plan Rows": 1,
+            "Plan Width": 32,
+            "Total Cost": 0.26,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Startup Cost": 0,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 1300,
+            "Actual Total Time": 528.822,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 1211,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 528.821,
+            "Temp Written Blocks": 650,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.012,
+          "Execution Time": 528.838
+        }
+      ],
+      "round": 5
+    }
+  ],
+  "version": "PostgreSQL 17.6 on aarch64-unknown-linux-gnu, compiled by gcc (GCC) 15.2.0, 64-bit",
+  "workMem": "2184kB",
+  "policies": [
+    {
+      "cmd": "DELETE",
+      "qual": "(is_admin() OR ((NOT is_technician()) AND cham_cong_matched_logged_in_nhan_su(nhan_su)))",
+      "roles": [
+        "public"
+      ],
+      "tablename": "cham_cong",
+      "permissive": "PERMISSIVE",
+      "policyname": "cham_cong: delete admin or self non technician",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "(is_admin() OR ((NOT is_technician()) AND cham_cong_matched_logged_in_nhan_su(nhan_su)))",
+      "roles": [
+        "public"
+      ],
+      "tablename": "cham_cong",
+      "permissive": "PERMISSIVE",
+      "policyname": "cham_cong: update admin or self non technician",
+      "schemaname": "public",
+      "with_check": "(is_admin() OR ((NOT is_technician()) AND cham_cong_matched_logged_in_nhan_su(nhan_su)))"
+    },
+    {
+      "cmd": "ALL",
+      "qual": "true",
+      "roles": [
+        "public"
+      ],
+      "tablename": "khach_hang",
+      "permissive": "PERMISSIVE",
+      "policyname": "khach_hang: allow all for app",
+      "schemaname": "public",
+      "with_check": "true"
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "((NOT is_technician()) AND ((nhan_vien_id = get_my_ho_ten()) OR (nhan_vien_id = get_my_nhan_su_id())))",
+      "roles": [
+        "public"
+      ],
+      "tablename": "khach_hang",
+      "permissive": "PERMISSIVE",
+      "policyname": "khach_hang: nv sua khach cua minh non technician",
+      "schemaname": "public",
+      "with_check": "((NOT is_technician()) AND ((nhan_vien_id = get_my_ho_ten()) OR (nhan_vien_id = get_my_nhan_su_id())))"
+    },
+    {
+      "cmd": "ALL",
+      "qual": "true",
+      "roles": [
+        "public"
+      ],
+      "tablename": "the_ban_hang",
+      "permissive": "PERMISSIVE",
+      "policyname": "Allow all actions for the_ban_hang",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "((NOT is_technician()) AND ((nhan_vien_id = get_my_ho_ten()) OR (nhan_vien_id = get_my_nhan_su_id())))",
+      "roles": [
+        "public"
+      ],
+      "tablename": "the_ban_hang",
+      "permissive": "PERMISSIVE",
+      "policyname": "the_ban_hang: nv sua phieu cua minh non technician",
+      "schemaname": "public",
+      "with_check": "((NOT is_technician()) AND ((nhan_vien_id = get_my_ho_ten()) OR (nhan_vien_id = get_my_nhan_su_id())))"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(EXISTS ( SELECT 1\n   FROM the_ban_hang tbh\n  WHERE ((tbh.id_bh = the_ban_hang_ct.id_don_hang) AND ((tbh.nhan_vien_id = get_my_ho_ten()) OR (tbh.nhan_vien_id = get_my_nhan_su_id())))))",
+      "roles": [
+        "public"
+      ],
+      "tablename": "the_ban_hang_ct",
+      "permissive": "PERMISSIVE",
+      "policyname": "the_ban_hang_ct: nv doc phieu cua minh",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "((NOT is_technician()) AND (EXISTS ( SELECT 1\n   FROM the_ban_hang tbh\n  WHERE ((tbh.id_bh = the_ban_hang_ct.id_don_hang) AND ((tbh.nhan_vien_id = get_my_ho_ten()) OR (tbh.nhan_vien_id = get_my_nhan_su_id()))))))",
+      "roles": [
+        "public"
+      ],
+      "tablename": "the_ban_hang_ct",
+      "permissive": "PERMISSIVE",
+      "policyname": "the_ban_hang_ct: nv sua chi_tiet phieu cua minh non technician",
+      "schemaname": "public",
+      "with_check": "((NOT is_technician()) AND (EXISTS ( SELECT 1\n   FROM the_ban_hang tbh\n  WHERE ((tbh.id_bh = the_ban_hang_ct.id_don_hang) AND ((tbh.nhan_vien_id = get_my_ho_ten()) OR (tbh.nhan_vien_id = get_my_nhan_su_id()))))))"
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "public"
+      ],
+      "tablename": "the_ban_hang_ct",
+      "permissive": "PERMISSIVE",
+      "policyname": "the_ban_hang_ct: nv tao chi_tiet phieu cua minh",
+      "schemaname": "public",
+      "with_check": "(EXISTS ( SELECT 1\n   FROM the_ban_hang tbh\n  WHERE ((tbh.id_bh = the_ban_hang_ct.id_don_hang) AND ((tbh.nhan_vien_id = get_my_ho_ten()) OR (tbh.nhan_vien_id = get_my_nhan_su_id())))))"
+    },
+    {
+      "cmd": "DELETE",
+      "qual": "((NOT is_technician()) AND (EXISTS ( SELECT 1\n   FROM the_ban_hang tbh\n  WHERE ((tbh.id_bh = the_ban_hang_ct.id_don_hang) AND ((tbh.nhan_vien_id = get_my_ho_ten()) OR (tbh.nhan_vien_id = get_my_nhan_su_id()))))))",
+      "roles": [
+        "public"
+      ],
+      "tablename": "the_ban_hang_ct",
+      "permissive": "PERMISSIVE",
+      "policyname": "the_ban_hang_ct: nv xoa chi_tiet phieu cua minh non technician",
+      "schemaname": "public",
+      "with_check": null
+    }
+  ],
+  "readOnly": "on",
+  "snapshot": "101706:101706:",
+  "functions": [
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": null,
+      "signature": "app_branch(text)",
+      "volatility": "i",
+      "definitionMd5": "d0f4a070cdb950a7a67418a29265c7f6",
+      "securityDefiner": false
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": null,
+      "signature": "app_customer_matches(jsonb,text)",
+      "volatility": "i",
+      "definitionMd5": "22ab8a1fc212db072f45cf12b3e99671",
+      "securityDefiner": false
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": null,
+      "signature": "app_customer_name(text)",
+      "volatility": "i",
+      "definitionMd5": "768b2b7277cea9d4f835879adb97dfe6",
+      "securityDefiner": false
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": [
+        "search_path=public"
+      ],
+      "signature": "app_customer_rows()",
+      "volatility": "s",
+      "definitionMd5": "8f6e7105f039a8733405bf94bc62f5a2",
+      "securityDefiner": false
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": [
+        "search_path=public"
+      ],
+      "signature": "app_financial_p2_rows(text,text[],text[],date,date)",
+      "volatility": "s",
+      "definitionMd5": "17735905726781bd23c07799b4026f27",
+      "securityDefiner": false
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": null,
+      "signature": "app_phone(text)",
+      "volatility": "i",
+      "definitionMd5": "c910b81b8350b10484c153056de8ef12",
+      "securityDefiner": false
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": null,
+      "signature": "app_plate(text)",
+      "volatility": "i",
+      "definitionMd5": "e4f096766379455c09dc1cb42e5dd211",
+      "securityDefiner": false
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": [
+        "search_path=public"
+      ],
+      "signature": "app_sales_customer_identities(boolean)",
+      "volatility": "s",
+      "definitionMd5": "7b3e8954594e48842b72388a8c852066",
+      "securityDefiner": false
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": [
+        "search_path=public"
+      ],
+      "signature": "app_sales_filtered_typed(date,date,text,text,text,text,text)",
+      "volatility": "s",
+      "definitionMd5": "9a9a8e184eb6e0a4169ae75421b33f0b",
+      "securityDefiner": false
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": [
+        "search_path=public"
+      ],
+      "signature": "app_sales_first_dates_for_keys(text[])",
+      "volatility": "s",
+      "definitionMd5": "3028a9d9c6bbfc22d21c9ac51c892b94",
+      "securityDefiner": false
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": [
+        "search_path=public"
+      ],
+      "signature": "app_sales_first_dates()",
+      "volatility": "s",
+      "definitionMd5": "6bc75f3df358d0923adb2695ac6e0eb5",
+      "securityDefiner": false
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": [
+        "search_path=public"
+      ],
+      "signature": "app_sales_p2_rows_for_refs(text[])",
+      "volatility": "s",
+      "definitionMd5": "68401cfe98f0805b35c869a565dd44de",
+      "securityDefiner": false
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": [
+        "search_path=public"
+      ],
+      "signature": "app_sales_page_json(uuid,text,text,text,numeric,text[])",
+      "volatility": "s",
+      "definitionMd5": "c23e117fd725dea3570ad701a5f2ac30",
+      "securityDefiner": false
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": [
+        "search_path=public"
+      ],
+      "signature": "app_sales_rows_searched(date,date,text)",
+      "volatility": "s",
+      "definitionMd5": "5e090ad92c4d6e265536ed26de962792",
+      "securityDefiner": false
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": [
+        "search_path=public"
+      ],
+      "signature": "app_sales_rows()",
+      "volatility": "s",
+      "definitionMd5": "94365f8aa2cebcac0a9115c00be3657a",
+      "securityDefiner": false
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": null,
+      "signature": "app_search_text(text)",
+      "volatility": "i",
+      "definitionMd5": "2b34badbf27f6447ebb6aa1743947544",
+      "securityDefiner": false
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": [
+        "search_path=public"
+      ],
+      "signature": "customer_order_stats(text[])",
+      "volatility": "s",
+      "definitionMd5": "599f06d8ad169751896b675dcd23791d",
+      "securityDefiner": false
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": [
+        "search_path=public"
+      ],
+      "signature": "financial_p2_query(integer,integer,text,text[],text[],date,date,boolean)",
+      "volatility": "s",
+      "definitionMd5": "6274aeafda36d1dc7ab17ea32089c5bc",
+      "securityDefiner": false
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": [
+        "search_path=public"
+      ],
+      "signature": "sales_details(text[])",
+      "volatility": "s",
+      "definitionMd5": "cd299e3819ae0cba8021242db1af389e",
+      "securityDefiner": false
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": [
+        "search_path=public"
+      ],
+      "signature": "sales_lookup(text[])",
+      "volatility": "s",
+      "definitionMd5": "0bb516eead6b0c4cdf1ce56655796412",
+      "securityDefiner": false
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": [
+        "search_path=public"
+      ],
+      "signature": "sales_p2_lookup(text[])",
+      "volatility": "s",
+      "definitionMd5": "51dab9b449c7307dd64878c0aa0d56b7",
+      "securityDefiner": false
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": [
+        "search_path=public"
+      ],
+      "signature": "sales_query(text,date,date,text,text,integer,integer,text,text)",
+      "volatility": "s",
+      "definitionMd5": "5f58e3b9452b951d57f8efab1ae7eb84",
+      "securityDefiner": false
+    }
+  ],
+  "at": "2026-10-04T10:11:19.444Z",
+  "p0NewUnchanged": true,
+  "p2NewUnchanged": true,
+  "migrationsReapplied": false,
+  "metrics": [
+    {
+      "round": 0,
+      "page": 1,
+      "planningMs": 0.042,
+      "executionMs": 1309.239,
+      "sharedHits": 3439,
+      "tempRead": 1300,
+      "tempWritten": 650
+    },
+    {
+      "round": 0,
+      "page": 2,
+      "planningMs": 0.018,
+      "executionMs": 546.514,
+      "sharedHits": 1211,
+      "tempRead": 1300,
+      "tempWritten": 650
+    },
+    {
+      "round": 1,
+      "page": 1,
+      "planningMs": 0.009,
+      "executionMs": 514.417,
+      "sharedHits": 1208,
+      "tempRead": 1300,
+      "tempWritten": 650
+    },
+    {
+      "round": 1,
+      "page": 2,
+      "planningMs": 0.015,
+      "executionMs": 515.213,
+      "sharedHits": 1211,
+      "tempRead": 1300,
+      "tempWritten": 650
+    },
+    {
+      "round": 2,
+      "page": 1,
+      "planningMs": 0.008,
+      "executionMs": 522.177,
+      "sharedHits": 1208,
+      "tempRead": 1300,
+      "tempWritten": 650
+    },
+    {
+      "round": 2,
+      "page": 2,
+      "planningMs": 0.009,
+      "executionMs": 520.753,
+      "sharedHits": 1211,
+      "tempRead": 1300,
+      "tempWritten": 650
+    },
+    {
+      "round": 3,
+      "page": 1,
+      "planningMs": 0.009,
+      "executionMs": 517.442,
+      "sharedHits": 1208,
+      "tempRead": 1300,
+      "tempWritten": 650
+    },
+    {
+      "round": 3,
+      "page": 2,
+      "planningMs": 0.009,
+      "executionMs": 515.287,
+      "sharedHits": 1211,
+      "tempRead": 1300,
+      "tempWritten": 650
+    },
+    {
+      "round": 4,
+      "page": 1,
+      "planningMs": 0.008,
+      "executionMs": 518.17,
+      "sharedHits": 1208,
+      "tempRead": 1300,
+      "tempWritten": 650
+    },
+    {
+      "round": 4,
+      "page": 2,
+      "planningMs": 0.012,
+      "executionMs": 521.365,
+      "sharedHits": 1211,
+      "tempRead": 1300,
+      "tempWritten": 650
+    },
+    {
+      "round": 5,
+      "page": 1,
+      "planningMs": 0.009,
+      "executionMs": 522.802,
+      "sharedHits": 1208,
+      "tempRead": 1300,
+      "tempWritten": 650
+    },
+    {
+      "round": 5,
+      "page": 2,
+      "planningMs": 0.012,
+      "executionMs": 528.838,
+      "sharedHits": 1211,
+      "tempRead": 1300,
+      "tempWritten": 650
+    }
+  ],
+  "medians": [
+    {
+      "page": 1,
+      "executionMs": 518.17
+    },
+    {
+      "page": 2,
+      "executionMs": 520.753
+    }
+  ]
+}

@@ -1,0 +1,683 @@
+{
+  "capturedAt": "2026-10-04T05:51:37.145Z",
+  "scope": "HTTP anon without app session; SQL analyst read-only",
+  "dataCounts": {
+    "sales": 9351,
+    "details": 15837,
+    "customers": 6671
+  },
+  "legacySampleAvailable": true,
+  "cases": [
+    {
+      "name": "A_all_page1",
+      "input": {
+        "p_page": 1,
+        "p_limit": 20
+      },
+      "http": {
+        "input": {
+          "p_page": 1,
+          "p_limit": 20
+        },
+        "status": 500,
+        "ttfbMs": 6930,
+        "totalMs": 6932,
+        "bytes": 100,
+        "rows": null,
+        "totalCount": null,
+        "errorCode": "57014"
+      },
+      "sql": {
+        "httpMs": 2794,
+        "executionMs": 1752.967,
+        "sharedHits": 12328,
+        "sharedReads": 0,
+        "tempRead": 17012,
+        "tempWritten": 15506
+      }
+    },
+    {
+      "name": "B_all_page2",
+      "input": {
+        "p_page": 2,
+        "p_limit": 20
+      },
+      "http": {
+        "input": {
+          "p_page": 2,
+          "p_limit": 20
+        },
+        "status": 200,
+        "ttfbMs": 1873,
+        "totalMs": 1901,
+        "bytes": 68027,
+        "rows": 20,
+        "totalCount": 9351,
+        "errorCode": null
+      },
+      "sql": {
+        "httpMs": 2573,
+        "executionMs": 1593.481,
+        "sharedHits": 12328,
+        "sharedReads": 0,
+        "tempRead": 17012,
+        "tempWritten": 15506
+      }
+    },
+    {
+      "name": "C_month",
+      "input": {
+        "p_start": "2026-09-01",
+        "p_end": "2026-09-30",
+        "p_page": 1,
+        "p_limit": 20
+      },
+      "http": {
+        "input": {
+          "p_start": "2026-09-01",
+          "p_end": "2026-09-30",
+          "p_page": 1,
+          "p_limit": 20
+        },
+        "status": 200,
+        "ttfbMs": 1094,
+        "totalMs": 1107,
+        "bytes": 28632,
+        "rows": 20,
+        "totalCount": 1764,
+        "errorCode": null
+      },
+      "sql": {
+        "httpMs": 1602,
+        "executionMs": 894.83,
+        "sharedHits": 12320,
+        "sharedReads": 0,
+        "tempRead": 7188,
+        "tempWritten": 6816
+      }
+    },
+    {
+      "name": "D_reference_id_bh",
+      "input": {
+        "p_reference": "[redacted sample/filter]",
+        "p_page": 1,
+        "p_limit": 1
+      },
+      "http": {
+        "input": {
+          "p_reference": "[redacted sample/filter]",
+          "p_page": 1,
+          "p_limit": 1
+        },
+        "status": 200,
+        "ttfbMs": 1921,
+        "totalMs": 1985,
+        "bytes": 1504,
+        "rows": 1,
+        "totalCount": 1,
+        "errorCode": null
+      },
+      "sql": {
+        "httpMs": 3202,
+        "executionMs": 1401.745,
+        "sharedHits": 12325,
+        "sharedReads": 0,
+        "tempRead": 8445,
+        "tempWritten": 8338
+      }
+    },
+    {
+      "name": "E_customer",
+      "input": {
+        "p_customer": "[redacted sample/filter]",
+        "p_page": 1,
+        "p_limit": 20
+      },
+      "http": {
+        "input": {
+          "p_customer": "[redacted sample/filter]",
+          "p_page": 1,
+          "p_limit": 20
+        },
+        "status": 200,
+        "ttfbMs": 2175,
+        "totalMs": 2178,
+        "bytes": 1504,
+        "rows": 1,
+        "totalCount": 1,
+        "errorCode": null
+      },
+      "sql": {
+        "httpMs": 2173,
+        "executionMs": 1428.836,
+        "sharedHits": 12325,
+        "sharedReads": 0,
+        "tempRead": 8445,
+        "tempWritten": 8338
+      }
+    },
+    {
+      "name": "F_branch",
+      "input": {
+        "p_branch": "Bắc Ninh",
+        "p_page": 1,
+        "p_limit": 20
+      },
+      "http": {
+        "input": {
+          "p_branch": "Bắc Ninh",
+          "p_page": 1,
+          "p_limit": 20
+        },
+        "status": 200,
+        "ttfbMs": 2831,
+        "totalMs": 2849,
+        "bytes": 66291,
+        "rows": 20,
+        "totalCount": 3974,
+        "errorCode": null
+      },
+      "sql": {
+        "httpMs": 2787,
+        "executionMs": 1956.285,
+        "sharedHits": 12325,
+        "sharedReads": 0,
+        "tempRead": 11820,
+        "tempWritten": 11120
+      }
+    },
+    {
+      "name": "G_staff",
+      "input": {
+        "p_staff": "[redacted sample/filter]",
+        "p_page": 1,
+        "p_limit": 20
+      },
+      "http": {
+        "input": {
+          "p_staff": "[redacted sample/filter]",
+          "p_page": 1,
+          "p_limit": 20
+        },
+        "status": 200,
+        "ttfbMs": 3031,
+        "totalMs": 3031,
+        "bytes": 174,
+        "rows": 0,
+        "totalCount": 0,
+        "errorCode": null
+      },
+      "sql": {
+        "httpMs": 3515,
+        "executionMs": 2749.745,
+        "sharedHits": 24222,
+        "sharedReads": 0,
+        "tempRead": 8445,
+        "tempWritten": 8338
+      }
+    },
+    {
+      "name": "H_search",
+      "input": {
+        "p_search": "[redacted sample/filter]",
+        "p_page": 1,
+        "p_limit": 20
+      },
+      "http": {
+        "input": {
+          "p_search": "[redacted sample/filter]",
+          "p_page": 1,
+          "p_limit": 20
+        },
+        "status": 200,
+        "ttfbMs": 2443,
+        "totalMs": 2444,
+        "bytes": 174,
+        "rows": 0,
+        "totalCount": 0,
+        "errorCode": null
+      },
+      "sql": {
+        "httpMs": 2344,
+        "executionMs": 1569.843,
+        "sharedHits": 4156,
+        "sharedReads": 0,
+        "tempRead": 4789,
+        "tempWritten": 5518
+      }
+    },
+    {
+      "name": "J_uuid",
+      "input": {
+        "p_reference": "[redacted sample/filter]",
+        "p_page": 1,
+        "p_limit": 1
+      },
+      "http": {
+        "input": {
+          "p_reference": "[redacted sample/filter]",
+          "p_page": 1,
+          "p_limit": 1
+        },
+        "status": 200,
+        "ttfbMs": 1846,
+        "totalMs": 1848,
+        "bytes": 1504,
+        "rows": 1,
+        "totalCount": 1,
+        "errorCode": null
+      },
+      "sql": {
+        "httpMs": 2350,
+        "executionMs": 1408.967,
+        "sharedHits": 12325,
+        "sharedReads": 0,
+        "tempRead": 8445,
+        "tempWritten": 8338
+      }
+    },
+    {
+      "name": "K_detail_branch",
+      "input": {
+        "p_reference": "[redacted sample/filter]",
+        "p_branch": "Bắc Ninh",
+        "p_page": 1,
+        "p_limit": 20
+      },
+      "http": {
+        "input": {
+          "p_reference": "[redacted sample/filter]",
+          "p_branch": "Bắc Ninh",
+          "p_page": 1,
+          "p_limit": 20
+        },
+        "status": 200,
+        "ttfbMs": 1774,
+        "totalMs": 1775,
+        "bytes": 1504,
+        "rows": 1,
+        "totalCount": 1,
+        "errorCode": null
+      },
+      "sql": {
+        "httpMs": 2185,
+        "executionMs": 1347.352,
+        "sharedHits": 12325,
+        "sharedReads": 0,
+        "tempRead": 8445,
+        "tempWritten": 8338
+      }
+    },
+    {
+      "name": "L_customer_history",
+      "input": {
+        "p_customer": "[redacted sample/filter]",
+        "p_start": "2026-10-01",
+        "p_end": "2026-10-31",
+        "p_page": 1,
+        "p_limit": 20
+      },
+      "http": {
+        "input": {
+          "p_customer": "[redacted sample/filter]",
+          "p_start": "2026-10-01",
+          "p_end": "2026-10-31",
+          "p_page": 1,
+          "p_limit": 20
+        },
+        "status": 200,
+        "ttfbMs": 1605,
+        "totalMs": 1607,
+        "bytes": 1504,
+        "rows": 1,
+        "totalCount": 1,
+        "errorCode": null
+      },
+      "sql": {
+        "httpMs": 1469,
+        "executionMs": 609.019,
+        "sharedHits": 12307,
+        "sharedReads": 0,
+        "tempRead": 5509,
+        "tempWritten": 5402
+      }
+    },
+    {
+      "name": "M_positive_staff",
+      "input": {
+        "p_staff": "[redacted sample/filter]",
+        "p_page": 1,
+        "p_limit": 20
+      },
+      "http": {
+        "input": {
+          "p_staff": "[redacted sample/filter]",
+          "p_page": 1,
+          "p_limit": 20
+        },
+        "status": 500,
+        "ttfbMs": 3375,
+        "totalMs": 3376,
+        "bytes": 100,
+        "rows": null,
+        "totalCount": null,
+        "errorCode": "57014"
+      },
+      "sql": {
+        "error": "Management HTTP 400"
+      }
+    },
+    {
+      "name": "N_positive_search_code",
+      "input": {
+        "p_search": "[redacted sample/filter]",
+        "p_page": 1,
+        "p_limit": 20
+      },
+      "http": {
+        "input": {
+          "p_search": "[redacted sample/filter]",
+          "p_page": 1,
+          "p_limit": 20
+        },
+        "status": 500,
+        "ttfbMs": 3862,
+        "totalMs": 3863,
+        "bytes": 100,
+        "rows": null,
+        "totalCount": null,
+        "errorCode": "57014"
+      },
+      "sql": {
+        "httpMs": 2674,
+        "executionMs": 1708.035,
+        "sharedHits": 10909,
+        "sharedReads": 0,
+        "tempRead": 6569,
+        "tempWritten": 5999
+      }
+    },
+    {
+      "name": "I_legacy",
+      "input": {
+        "p_reference": "[redacted sample/filter]",
+        "p_page": 1,
+        "p_limit": 1
+      },
+      "http": {
+        "input": {
+          "p_reference": "[redacted sample/filter]",
+          "p_page": 1,
+          "p_limit": 1
+        },
+        "status": 200,
+        "ttfbMs": 1980,
+        "totalMs": 1981,
+        "bytes": 1504,
+        "rows": 1,
+        "totalCount": 1,
+        "errorCode": null
+      },
+      "sql": {
+        "httpMs": 2566,
+        "executionMs": 1493.696,
+        "sharedHits": 12325,
+        "sharedReads": 0,
+        "tempRead": 8445,
+        "tempWritten": 8338
+      }
+    }
+  ],
+  "allWarm": [
+    {
+      "round": 1,
+      "name": "A_all_page1",
+      "http": {
+        "input": {
+          "p_page": 1,
+          "p_limit": 20
+        },
+        "status": 200,
+        "ttfbMs": 1909,
+        "totalMs": 1942,
+        "bytes": 67507,
+        "rows": 20,
+        "totalCount": 9351,
+        "errorCode": null
+      },
+      "sql": {
+        "httpMs": 4187,
+        "executionMs": 1636.995,
+        "sharedHits": 12328,
+        "sharedReads": 0,
+        "tempRead": 17012,
+        "tempWritten": 15506
+      }
+    },
+    {
+      "round": 1,
+      "name": "B_all_page2",
+      "http": {
+        "input": {
+          "p_page": 2,
+          "p_limit": 20
+        },
+        "status": 200,
+        "ttfbMs": 2175,
+        "totalMs": 2207,
+        "bytes": 68027,
+        "rows": 20,
+        "totalCount": 9351,
+        "errorCode": null
+      },
+      "sql": {
+        "httpMs": 2400,
+        "executionMs": 1613.803,
+        "sharedHits": 12328,
+        "sharedReads": 0,
+        "tempRead": 17012,
+        "tempWritten": 15506
+      }
+    },
+    {
+      "round": 2,
+      "name": "A_all_page1",
+      "http": {
+        "input": {
+          "p_page": 1,
+          "p_limit": 20
+        },
+        "status": 200,
+        "ttfbMs": 1805,
+        "totalMs": 1823,
+        "bytes": 67507,
+        "rows": 20,
+        "totalCount": 9351,
+        "errorCode": null
+      },
+      "sql": {
+        "httpMs": 2397,
+        "executionMs": 1645.873,
+        "sharedHits": 12328,
+        "sharedReads": 0,
+        "tempRead": 17012,
+        "tempWritten": 15506
+      }
+    },
+    {
+      "round": 2,
+      "name": "B_all_page2",
+      "http": {
+        "input": {
+          "p_page": 2,
+          "p_limit": 20
+        },
+        "status": 200,
+        "ttfbMs": 5823,
+        "totalMs": 5873,
+        "bytes": 68027,
+        "rows": 20,
+        "totalCount": 9351,
+        "errorCode": null
+      },
+      "sql": {
+        "httpMs": 3157,
+        "executionMs": 1569.58,
+        "sharedHits": 12328,
+        "sharedReads": 0,
+        "tempRead": 17012,
+        "tempWritten": 15506
+      }
+    },
+    {
+      "round": 3,
+      "name": "A_all_page1",
+      "http": {
+        "input": {
+          "p_page": 1,
+          "p_limit": 20
+        },
+        "status": 200,
+        "ttfbMs": 2023,
+        "totalMs": 2028,
+        "bytes": 67507,
+        "rows": 20,
+        "totalCount": 9351,
+        "errorCode": null
+      },
+      "sql": {
+        "httpMs": 2934,
+        "executionMs": 1590.157,
+        "sharedHits": 12328,
+        "sharedReads": 0,
+        "tempRead": 17012,
+        "tempWritten": 15506
+      }
+    },
+    {
+      "round": 3,
+      "name": "B_all_page2",
+      "http": {
+        "input": {
+          "p_page": 2,
+          "p_limit": 20
+        },
+        "status": 200,
+        "ttfbMs": 2206,
+        "totalMs": 2225,
+        "bytes": 68027,
+        "rows": 20,
+        "totalCount": 9351,
+        "errorCode": null
+      },
+      "sql": {
+        "httpMs": 3727,
+        "executionMs": 1506.118,
+        "sharedHits": 12328,
+        "sharedReads": 0,
+        "tempRead": 17012,
+        "tempWritten": 15506
+      }
+    },
+    {
+      "round": 4,
+      "name": "A_all_page1",
+      "http": {
+        "input": {
+          "p_page": 1,
+          "p_limit": 20
+        },
+        "status": 200,
+        "ttfbMs": 2653,
+        "totalMs": 2657,
+        "bytes": 67507,
+        "rows": 20,
+        "totalCount": 9351,
+        "errorCode": null
+      },
+      "sql": {
+        "httpMs": 2545,
+        "executionMs": 1563.595,
+        "sharedHits": 12328,
+        "sharedReads": 0,
+        "tempRead": 17012,
+        "tempWritten": 15506
+      }
+    },
+    {
+      "round": 4,
+      "name": "B_all_page2",
+      "http": {
+        "input": {
+          "p_page": 2,
+          "p_limit": 20
+        },
+        "status": 200,
+        "ttfbMs": 3251,
+        "totalMs": 3427,
+        "bytes": 68027,
+        "rows": 20,
+        "totalCount": 9351,
+        "errorCode": null
+      },
+      "sql": {
+        "httpMs": 3103,
+        "executionMs": 2352.812,
+        "sharedHits": 12328,
+        "sharedReads": 0,
+        "tempRead": 17012,
+        "tempWritten": 15506
+      }
+    },
+    {
+      "round": 5,
+      "name": "A_all_page1",
+      "http": {
+        "input": {
+          "p_page": 1,
+          "p_limit": 20
+        },
+        "status": 200,
+        "ttfbMs": 2756,
+        "totalMs": 2762,
+        "bytes": 67507,
+        "rows": 20,
+        "totalCount": 9351,
+        "errorCode": null
+      },
+      "sql": {
+        "httpMs": 2353,
+        "executionMs": 1496.57,
+        "sharedHits": 12328,
+        "sharedReads": 0,
+        "tempRead": 17012,
+        "tempWritten": 15506
+      }
+    },
+    {
+      "round": 5,
+      "name": "B_all_page2",
+      "http": {
+        "input": {
+          "p_page": 2,
+          "p_limit": 20
+        },
+        "status": 200,
+        "ttfbMs": 1976,
+        "totalMs": 1980,
+        "bytes": 68027,
+        "rows": 20,
+        "totalCount": 9351,
+        "errorCode": null
+      },
+      "sql": {
+        "httpMs": 2362,
+        "executionMs": 1528.002,
+        "sharedHits": 12328,
+        "sharedReads": 0,
+        "tempRead": 17012,
+        "tempWritten": 15506
+      }
+    }
+  ]
+}

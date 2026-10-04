@@ -1,0 +1,1496 @@
+{
+  "environment": "Local synthetic PGlite; indexed fixture; no production rows copied",
+  "settings": [
+    {
+      "name": "server_version",
+      "setting": "18.3"
+    },
+    {
+      "name": "statement_timeout",
+      "setting": "0"
+    },
+    {
+      "name": "work_mem",
+      "setting": "4096"
+    }
+  ],
+  "fullJsonComparisons": 28,
+  "allWarmRoundsPerVersion": 5,
+  "gate": true,
+  "measurements": [
+    {
+      "version": "old",
+      "name": "A_all_page1",
+      "input": {},
+      "rows": 20,
+      "totalCount": 9343,
+      "fullJsonEqual": true,
+      "medianMs": 1138.62,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 1113.477,
+          "sharedHits": 2205,
+          "sharedReads": 0,
+          "tempRead": 11284,
+          "tempWritten": 10374,
+          "scans": []
+        },
+        {
+          "round": 2,
+          "executionMs": 1138.62,
+          "sharedHits": 2205,
+          "sharedReads": 0,
+          "tempRead": 11284,
+          "tempWritten": 10374,
+          "scans": []
+        },
+        {
+          "round": 3,
+          "executionMs": 1217.235,
+          "sharedHits": 2205,
+          "sharedReads": 0,
+          "tempRead": 11284,
+          "tempWritten": 10374,
+          "scans": []
+        },
+        {
+          "round": 4,
+          "executionMs": 1131.001,
+          "sharedHits": 2205,
+          "sharedReads": 0,
+          "tempRead": 11284,
+          "tempWritten": 10374,
+          "scans": []
+        },
+        {
+          "round": 5,
+          "executionMs": 1165.127,
+          "sharedHits": 2211,
+          "sharedReads": 0,
+          "tempRead": 11284,
+          "tempWritten": 10374,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "old",
+      "name": "B_all_page2",
+      "input": {
+        "p_page": 2
+      },
+      "rows": 20,
+      "totalCount": 9343,
+      "fullJsonEqual": true,
+      "medianMs": 1205.108,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 1277.855,
+          "sharedHits": 2205,
+          "sharedReads": 0,
+          "tempRead": 11284,
+          "tempWritten": 10374,
+          "scans": []
+        },
+        {
+          "round": 2,
+          "executionMs": 1101.172,
+          "sharedHits": 2205,
+          "sharedReads": 0,
+          "tempRead": 11284,
+          "tempWritten": 10374,
+          "scans": []
+        },
+        {
+          "round": 3,
+          "executionMs": 1119.321,
+          "sharedHits": 2205,
+          "sharedReads": 0,
+          "tempRead": 11284,
+          "tempWritten": 10374,
+          "scans": []
+        },
+        {
+          "round": 4,
+          "executionMs": 1205.108,
+          "sharedHits": 2205,
+          "sharedReads": 0,
+          "tempRead": 11284,
+          "tempWritten": 10374,
+          "scans": []
+        },
+        {
+          "round": 5,
+          "executionMs": 1456.551,
+          "sharedHits": 2205,
+          "sharedReads": 0,
+          "tempRead": 11284,
+          "tempWritten": 10374,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "old",
+      "name": "C_month",
+      "input": {
+        "p_start": "2026-09-01",
+        "p_end": "2026-09-30"
+      },
+      "rows": 20,
+      "totalCount": 991,
+      "fullJsonEqual": true,
+      "medianMs": 704.677,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 704.677,
+          "sharedHits": 2205,
+          "sharedReads": 0,
+          "tempRead": 2237,
+          "tempWritten": 2587,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "old",
+      "name": "D_reference",
+      "input": {
+        "p_reference": "PERF-BH-9000",
+        "p_limit": 1
+      },
+      "rows": 1,
+      "totalCount": 1,
+      "fullJsonEqual": true,
+      "medianMs": 1148.946,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 1148.946,
+          "sharedHits": 2205,
+          "sharedReads": 0,
+          "tempRead": 3503,
+          "tempWritten": 3853,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "old",
+      "name": "E_customer",
+      "input": {
+        "p_customer": "PERF-KH-6000"
+      },
+      "rows": 1,
+      "totalCount": 1,
+      "fullJsonEqual": true,
+      "medianMs": 1296.959,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 1296.959,
+          "sharedHits": 2205,
+          "sharedReads": 0,
+          "tempRead": 3503,
+          "tempWritten": 3853,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "old",
+      "name": "F_branch",
+      "input": {
+        "p_branch": "Bắc Ninh"
+      },
+      "rows": 20,
+      "totalCount": 4701,
+      "fullJsonEqual": true,
+      "medianMs": 1937.927,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 1937.927,
+          "sharedHits": 2205,
+          "sharedReads": 0,
+          "tempRead": 7436,
+          "tempWritten": 7149,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "old",
+      "name": "G_staff",
+      "input": {
+        "p_staff": "An"
+      },
+      "rows": 20,
+      "totalCount": 3153,
+      "fullJsonEqual": true,
+      "medianMs": 1841.256,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 1841.256,
+          "sharedHits": 11534,
+          "sharedReads": 0,
+          "tempRead": 3503,
+          "tempWritten": 3853,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "old",
+      "name": "H_search",
+      "input": {
+        "p_search": "thay dau"
+      },
+      "rows": 20,
+      "totalCount": 23,
+      "fullJsonEqual": true,
+      "medianMs": 1519.987,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 1519.987,
+          "sharedHits": 2226,
+          "sharedReads": 0,
+          "tempRead": 2237,
+          "tempWritten": 2587,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "old",
+      "name": "J_uuid",
+      "input": {
+        "p_reference": "20000000-0000-0000-0000-000000009000",
+        "p_limit": 1
+      },
+      "rows": 1,
+      "totalCount": 1,
+      "fullJsonEqual": true,
+      "medianMs": 1163.447,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 1163.447,
+          "sharedHits": 2205,
+          "sharedReads": 0,
+          "tempRead": 3503,
+          "tempWritten": 3853,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "old",
+      "name": "K_detail_branch",
+      "input": {
+        "p_reference": "UUID-C",
+        "p_branch": "Bắc Giang"
+      },
+      "rows": 1,
+      "totalCount": 1,
+      "fullJsonEqual": true,
+      "medianMs": 1155.998,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 1155.998,
+          "sharedHits": 2205,
+          "sharedReads": 0,
+          "tempRead": 3503,
+          "tempWritten": 3853,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "old",
+      "name": "L_customer_history",
+      "input": {
+        "p_customer": "00000000-0000-0000-0000-000000000001",
+        "p_start": "2026-10-01",
+        "p_end": "2026-10-31"
+      },
+      "rows": 20,
+      "totalCount": 64,
+      "fullJsonEqual": true,
+      "medianMs": 500.141,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 500.141,
+          "sharedHits": 2205,
+          "sharedReads": 0,
+          "tempRead": 2237,
+          "tempWritten": 2587,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "old",
+      "name": "M_positive_staff",
+      "input": {
+        "p_staff": "NV1"
+      },
+      "rows": 20,
+      "totalCount": 3153,
+      "fullJsonEqual": true,
+      "medianMs": 2364.732,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 2364.732,
+          "sharedHits": 8381,
+          "sharedReads": 0,
+          "tempRead": 3503,
+          "tempWritten": 3853,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "old",
+      "name": "N_positive_search_code",
+      "input": {
+        "p_search": "PERF-BH-9000"
+      },
+      "rows": 1,
+      "totalCount": 1,
+      "fullJsonEqual": true,
+      "medianMs": 1443.419,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 1443.419,
+          "sharedHits": 2226,
+          "sharedReads": 0,
+          "tempRead": 2237,
+          "tempWritten": 2587,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "old",
+      "name": "I_legacy",
+      "input": {
+        "p_reference": "LEGACY-ABC/09",
+        "p_limit": 1
+      },
+      "rows": 1,
+      "totalCount": 1,
+      "fullJsonEqual": true,
+      "medianMs": 1163.589,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 1163.589,
+          "sharedHits": 2205,
+          "sharedReads": 0,
+          "tempRead": 3503,
+          "tempWritten": 3853,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "p05",
+      "name": "A_all_page1",
+      "input": {},
+      "rows": 20,
+      "totalCount": 9343,
+      "fullJsonEqual": true,
+      "medianMs": 712.642,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 703.69,
+          "sharedHits": 2166,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        },
+        {
+          "round": 2,
+          "executionMs": 685.691,
+          "sharedHits": 2166,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        },
+        {
+          "round": 3,
+          "executionMs": 712.642,
+          "sharedHits": 2166,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        },
+        {
+          "round": 4,
+          "executionMs": 768.289,
+          "sharedHits": 2166,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        },
+        {
+          "round": 5,
+          "executionMs": 1604.062,
+          "sharedHits": 54997,
+          "sharedReads": 67,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "p05",
+      "name": "B_all_page2",
+      "input": {
+        "p_page": 2
+      },
+      "rows": 20,
+      "totalCount": 9343,
+      "fullJsonEqual": true,
+      "medianMs": 1586.402,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 2083.748,
+          "sharedHits": 55153,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        },
+        {
+          "round": 2,
+          "executionMs": 1586.402,
+          "sharedHits": 55153,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        },
+        {
+          "round": 3,
+          "executionMs": 1540.929,
+          "sharedHits": 55153,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        },
+        {
+          "round": 4,
+          "executionMs": 1720.462,
+          "sharedHits": 55153,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        },
+        {
+          "round": 5,
+          "executionMs": 1516.413,
+          "sharedHits": 55153,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "p05",
+      "name": "C_month",
+      "input": {
+        "p_start": "2026-09-01",
+        "p_end": "2026-09-30"
+      },
+      "rows": 20,
+      "totalCount": 991,
+      "fullJsonEqual": true,
+      "medianMs": 607.005,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 607.005,
+          "sharedHits": 7477,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "p05",
+      "name": "D_reference",
+      "input": {
+        "p_reference": "PERF-BH-9000",
+        "p_limit": 1
+      },
+      "rows": 1,
+      "totalCount": 1,
+      "fullJsonEqual": true,
+      "medianMs": 324.279,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 324.279,
+          "sharedHits": 758,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "p05",
+      "name": "E_customer",
+      "input": {
+        "p_customer": "PERF-KH-6000"
+      },
+      "rows": 1,
+      "totalCount": 1,
+      "fullJsonEqual": true,
+      "medianMs": 518.444,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 518.444,
+          "sharedHits": 835,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "p05",
+      "name": "F_branch",
+      "input": {
+        "p_branch": "Bắc Ninh"
+      },
+      "rows": 20,
+      "totalCount": 4701,
+      "fullJsonEqual": true,
+      "medianMs": 1581.425,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 1581.425,
+          "sharedHits": 54988,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "p05",
+      "name": "G_staff",
+      "input": {
+        "p_staff": "An"
+      },
+      "rows": 20,
+      "totalCount": 3153,
+      "fullJsonEqual": true,
+      "medianMs": 1016.042,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 1016.042,
+          "sharedHits": 19860,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "p05",
+      "name": "H_search",
+      "input": {
+        "p_search": "thay dau"
+      },
+      "rows": 20,
+      "totalCount": 23,
+      "fullJsonEqual": true,
+      "medianMs": 959.057,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 959.057,
+          "sharedHits": 2135,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "p05",
+      "name": "J_uuid",
+      "input": {
+        "p_reference": "20000000-0000-0000-0000-000000009000",
+        "p_limit": 1
+      },
+      "rows": 1,
+      "totalCount": 1,
+      "fullJsonEqual": true,
+      "medianMs": 389.496,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 389.496,
+          "sharedHits": 760,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "p05",
+      "name": "K_detail_branch",
+      "input": {
+        "p_reference": "UUID-C",
+        "p_branch": "Bắc Giang"
+      },
+      "rows": 1,
+      "totalCount": 1,
+      "fullJsonEqual": true,
+      "medianMs": 401.768,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 401.768,
+          "sharedHits": 697,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "p05",
+      "name": "L_customer_history",
+      "input": {
+        "p_customer": "00000000-0000-0000-0000-000000000001",
+        "p_start": "2026-10-01",
+        "p_end": "2026-10-31"
+      },
+      "rows": 20,
+      "totalCount": 64,
+      "fullJsonEqual": true,
+      "medianMs": 371.367,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 371.367,
+          "sharedHits": 1120,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "p05",
+      "name": "M_positive_staff",
+      "input": {
+        "p_staff": "NV1"
+      },
+      "rows": 20,
+      "totalCount": 3153,
+      "fullJsonEqual": true,
+      "medianMs": 1007.627,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 1007.627,
+          "sharedHits": 19860,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "p05",
+      "name": "N_positive_search_code",
+      "input": {
+        "p_search": "PERF-BH-9000"
+      },
+      "rows": 1,
+      "totalCount": 1,
+      "fullJsonEqual": true,
+      "medianMs": 717.306,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 717.306,
+          "sharedHits": 1977,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "p05",
+      "name": "I_legacy",
+      "input": {
+        "p_reference": "LEGACY-ABC/09",
+        "p_limit": 1
+      },
+      "rows": 1,
+      "totalCount": 1,
+      "fullJsonEqual": true,
+      "medianMs": 305.299,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 305.299,
+          "sharedHits": 691,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "p06",
+      "name": "A_all_page1",
+      "input": {},
+      "rows": 20,
+      "totalCount": 9343,
+      "fullJsonEqual": true,
+      "medianMs": 479.161,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 434.746,
+          "sharedHits": 785,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        },
+        {
+          "round": 2,
+          "executionMs": 425.535,
+          "sharedHits": 785,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        },
+        {
+          "round": 3,
+          "executionMs": 655.755,
+          "sharedHits": 785,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        },
+        {
+          "round": 4,
+          "executionMs": 663.303,
+          "sharedHits": 785,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        },
+        {
+          "round": 5,
+          "executionMs": 479.161,
+          "sharedHits": 785,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "p06",
+      "name": "B_all_page2",
+      "input": {
+        "p_page": 2
+      },
+      "rows": 20,
+      "totalCount": 9343,
+      "fullJsonEqual": true,
+      "medianMs": 441.539,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 429.319,
+          "sharedHits": 790,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        },
+        {
+          "round": 2,
+          "executionMs": 438.352,
+          "sharedHits": 790,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        },
+        {
+          "round": 3,
+          "executionMs": 453.77,
+          "sharedHits": 790,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        },
+        {
+          "round": 4,
+          "executionMs": 441.539,
+          "sharedHits": 790,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        },
+        {
+          "round": 5,
+          "executionMs": 482.057,
+          "sharedHits": 790,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "p06",
+      "name": "C_month",
+      "input": {
+        "p_start": "2026-09-01",
+        "p_end": "2026-09-30"
+      },
+      "rows": 20,
+      "totalCount": 991,
+      "fullJsonEqual": true,
+      "medianMs": 371.676,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 371.676,
+          "sharedHits": 994,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "p06",
+      "name": "D_reference",
+      "input": {
+        "p_reference": "PERF-BH-9000",
+        "p_limit": 1
+      },
+      "rows": 1,
+      "totalCount": 1,
+      "fullJsonEqual": true,
+      "medianMs": 354.481,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 354.481,
+          "sharedHits": 1013,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "p06",
+      "name": "E_customer",
+      "input": {
+        "p_customer": "PERF-KH-6000"
+      },
+      "rows": 1,
+      "totalCount": 1,
+      "fullJsonEqual": true,
+      "medianMs": 493.743,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 493.743,
+          "sharedHits": 1015,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "p06",
+      "name": "F_branch",
+      "input": {
+        "p_branch": "Bắc Ninh"
+      },
+      "rows": 20,
+      "totalCount": 4701,
+      "fullJsonEqual": true,
+      "medianMs": 817.399,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 817.399,
+          "sharedHits": 1129,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "p06",
+      "name": "G_staff",
+      "input": {
+        "p_staff": "An"
+      },
+      "rows": 20,
+      "totalCount": 3153,
+      "fullJsonEqual": true,
+      "medianMs": 1091.56,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 1091.56,
+          "sharedHits": 1131,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "p06",
+      "name": "H_search",
+      "input": {
+        "p_search": "thay dau"
+      },
+      "rows": 20,
+      "totalCount": 23,
+      "fullJsonEqual": true,
+      "medianMs": 816.196,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 816.196,
+          "sharedHits": 2346,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "p06",
+      "name": "J_uuid",
+      "input": {
+        "p_reference": "20000000-0000-0000-0000-000000009000",
+        "p_limit": 1
+      },
+      "rows": 1,
+      "totalCount": 1,
+      "fullJsonEqual": true,
+      "medianMs": 337.32,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 337.32,
+          "sharedHits": 1015,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "p06",
+      "name": "K_detail_branch",
+      "input": {
+        "p_reference": "UUID-C",
+        "p_branch": "Bắc Giang"
+      },
+      "rows": 1,
+      "totalCount": 1,
+      "fullJsonEqual": true,
+      "medianMs": 317.152,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 317.152,
+          "sharedHits": 997,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "p06",
+      "name": "L_customer_history",
+      "input": {
+        "p_customer": "00000000-0000-0000-0000-000000000001",
+        "p_start": "2026-10-01",
+        "p_end": "2026-10-31"
+      },
+      "rows": 20,
+      "totalCount": 64,
+      "fullJsonEqual": true,
+      "medianMs": 319.337,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 319.337,
+          "sharedHits": 981,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "p06",
+      "name": "M_positive_staff",
+      "input": {
+        "p_staff": "NV1"
+      },
+      "rows": 20,
+      "totalCount": 3153,
+      "fullJsonEqual": true,
+      "medianMs": 1031.641,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 1031.641,
+          "sharedHits": 1131,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "p06",
+      "name": "N_positive_search_code",
+      "input": {
+        "p_search": "PERF-BH-9000"
+      },
+      "rows": 1,
+      "totalCount": 1,
+      "fullJsonEqual": true,
+      "medianMs": 718.337,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 718.337,
+          "sharedHits": 2232,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        }
+      ]
+    },
+    {
+      "version": "p06",
+      "name": "I_legacy",
+      "input": {
+        "p_reference": "LEGACY-ABC/09",
+        "p_limit": 1
+      },
+      "rows": 1,
+      "totalCount": 1,
+      "fullJsonEqual": true,
+      "medianMs": 335.132,
+      "samples": [
+        {
+          "round": 1,
+          "executionMs": 335.132,
+          "sharedHits": 991,
+          "sharedReads": 0,
+          "tempRead": 0,
+          "tempWritten": 0,
+          "scans": []
+        }
+      ]
+    }
+  ],
+  "steadyAll": {
+    "warmupCallsPerVersion": 6,
+    "roundsPerPage": 5,
+    "result": [
+      {
+        "version": "old",
+        "page": 1,
+        "medianMs": 1862.915,
+        "samples": [
+          {
+            "round": 1,
+            "executionMs": 2280.118,
+            "sharedHits": 2205,
+            "sharedReads": 0,
+            "tempRead": 11283,
+            "tempWritten": 10373,
+            "scans": []
+          },
+          {
+            "round": 2,
+            "executionMs": 2401.246,
+            "sharedHits": 2205,
+            "sharedReads": 0,
+            "tempRead": 11283,
+            "tempWritten": 10373,
+            "scans": []
+          },
+          {
+            "round": 3,
+            "executionMs": 1851.947,
+            "sharedHits": 2205,
+            "sharedReads": 0,
+            "tempRead": 11283,
+            "tempWritten": 10373,
+            "scans": []
+          },
+          {
+            "round": 4,
+            "executionMs": 1862.915,
+            "sharedHits": 2205,
+            "sharedReads": 0,
+            "tempRead": 11283,
+            "tempWritten": 10373,
+            "scans": []
+          },
+          {
+            "round": 5,
+            "executionMs": 1756.774,
+            "sharedHits": 2205,
+            "sharedReads": 0,
+            "tempRead": 11283,
+            "tempWritten": 10373,
+            "scans": []
+          }
+        ]
+      },
+      {
+        "version": "old",
+        "page": 2,
+        "medianMs": 2085.343,
+        "samples": [
+          {
+            "round": 1,
+            "executionMs": 4528.264,
+            "sharedHits": 2205,
+            "sharedReads": 0,
+            "tempRead": 11283,
+            "tempWritten": 10373,
+            "scans": []
+          },
+          {
+            "round": 2,
+            "executionMs": 2076.857,
+            "sharedHits": 2205,
+            "sharedReads": 0,
+            "tempRead": 11283,
+            "tempWritten": 10373,
+            "scans": []
+          },
+          {
+            "round": 3,
+            "executionMs": 2018.078,
+            "sharedHits": 2205,
+            "sharedReads": 0,
+            "tempRead": 11283,
+            "tempWritten": 10373,
+            "scans": []
+          },
+          {
+            "round": 4,
+            "executionMs": 3610.06,
+            "sharedHits": 2205,
+            "sharedReads": 0,
+            "tempRead": 11283,
+            "tempWritten": 10373,
+            "scans": []
+          },
+          {
+            "round": 5,
+            "executionMs": 2085.343,
+            "sharedHits": 2205,
+            "sharedReads": 0,
+            "tempRead": 11283,
+            "tempWritten": 10373,
+            "scans": []
+          }
+        ]
+      },
+      {
+        "version": "p05",
+        "page": 1,
+        "medianMs": 2056.836,
+        "samples": [
+          {
+            "round": 1,
+            "executionMs": 1944.698,
+            "sharedHits": 55059,
+            "sharedReads": 0,
+            "tempRead": 0,
+            "tempWritten": 0,
+            "scans": []
+          },
+          {
+            "round": 2,
+            "executionMs": 2053.526,
+            "sharedHits": 55059,
+            "sharedReads": 0,
+            "tempRead": 0,
+            "tempWritten": 0,
+            "scans": []
+          },
+          {
+            "round": 3,
+            "executionMs": 2079.589,
+            "sharedHits": 55059,
+            "sharedReads": 0,
+            "tempRead": 0,
+            "tempWritten": 0,
+            "scans": []
+          },
+          {
+            "round": 4,
+            "executionMs": 2056.836,
+            "sharedHits": 55059,
+            "sharedReads": 0,
+            "tempRead": 0,
+            "tempWritten": 0,
+            "scans": []
+          },
+          {
+            "round": 5,
+            "executionMs": 2106.926,
+            "sharedHits": 55059,
+            "sharedReads": 0,
+            "tempRead": 0,
+            "tempWritten": 0,
+            "scans": []
+          }
+        ]
+      },
+      {
+        "version": "p05",
+        "page": 2,
+        "medianMs": 2196.405,
+        "samples": [
+          {
+            "round": 1,
+            "executionMs": 2431.725,
+            "sharedHits": 55153,
+            "sharedReads": 0,
+            "tempRead": 0,
+            "tempWritten": 0,
+            "scans": []
+          },
+          {
+            "round": 2,
+            "executionMs": 2196.405,
+            "sharedHits": 55153,
+            "sharedReads": 0,
+            "tempRead": 0,
+            "tempWritten": 0,
+            "scans": []
+          },
+          {
+            "round": 3,
+            "executionMs": 2387.452,
+            "sharedHits": 55153,
+            "sharedReads": 0,
+            "tempRead": 0,
+            "tempWritten": 0,
+            "scans": []
+          },
+          {
+            "round": 4,
+            "executionMs": 2173.811,
+            "sharedHits": 55153,
+            "sharedReads": 0,
+            "tempRead": 0,
+            "tempWritten": 0,
+            "scans": []
+          },
+          {
+            "round": 5,
+            "executionMs": 2063.916,
+            "sharedHits": 55153,
+            "sharedReads": 0,
+            "tempRead": 0,
+            "tempWritten": 0,
+            "scans": []
+          }
+        ]
+      },
+      {
+        "version": "p06",
+        "page": 1,
+        "medianMs": 574.429,
+        "samples": [
+          {
+            "round": 1,
+            "executionMs": 593.895,
+            "sharedHits": 785,
+            "sharedReads": 0,
+            "tempRead": 0,
+            "tempWritten": 0,
+            "scans": []
+          },
+          {
+            "round": 2,
+            "executionMs": 585.21,
+            "sharedHits": 785,
+            "sharedReads": 0,
+            "tempRead": 0,
+            "tempWritten": 0,
+            "scans": []
+          },
+          {
+            "round": 3,
+            "executionMs": 574.429,
+            "sharedHits": 785,
+            "sharedReads": 0,
+            "tempRead": 0,
+            "tempWritten": 0,
+            "scans": []
+          },
+          {
+            "round": 4,
+            "executionMs": 550.284,
+            "sharedHits": 785,
+            "sharedReads": 0,
+            "tempRead": 0,
+            "tempWritten": 0,
+            "scans": []
+          },
+          {
+            "round": 5,
+            "executionMs": 536.062,
+            "sharedHits": 785,
+            "sharedReads": 0,
+            "tempRead": 0,
+            "tempWritten": 0,
+            "scans": []
+          }
+        ]
+      },
+      {
+        "version": "p06",
+        "page": 2,
+        "medianMs": 587.101,
+        "samples": [
+          {
+            "round": 1,
+            "executionMs": 545.426,
+            "sharedHits": 790,
+            "sharedReads": 0,
+            "tempRead": 0,
+            "tempWritten": 0,
+            "scans": []
+          },
+          {
+            "round": 2,
+            "executionMs": 599.644,
+            "sharedHits": 790,
+            "sharedReads": 0,
+            "tempRead": 0,
+            "tempWritten": 0,
+            "scans": []
+          },
+          {
+            "round": 3,
+            "executionMs": 640.681,
+            "sharedHits": 790,
+            "sharedReads": 0,
+            "tempRead": 0,
+            "tempWritten": 0,
+            "scans": []
+          },
+          {
+            "round": 4,
+            "executionMs": 583.308,
+            "sharedHits": 790,
+            "sharedReads": 0,
+            "tempRead": 0,
+            "tempWritten": 0,
+            "scans": []
+          },
+          {
+            "round": 5,
+            "executionMs": 587.101,
+            "sharedHits": 790,
+            "sharedReads": 0,
+            "tempRead": 0,
+            "tempWritten": 0,
+            "scans": []
+          }
+        ]
+      }
+    ]
+  },
+  "migrationHash": "e8ff0437eabd7f3ffdb78122fddb591bae3f75fcc410a0ddc1aa1821d68b794b"
+}

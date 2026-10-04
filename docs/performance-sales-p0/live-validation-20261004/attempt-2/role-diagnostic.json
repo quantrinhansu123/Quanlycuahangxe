@@ -1,0 +1,25 @@
+[
+  {
+    "role": "anon",
+    "status": 400,
+    "code": null,
+    "safeMessage": "Failed to run sql query: ERROR:  57014: canceling statement due to user request\n"
+  },
+  {
+    "role": "authenticated",
+    "context": [
+      {
+        "role": "authenticated",
+        "timeout": "6s",
+        "search_path": "\"\\$user\", public, extensions",
+        "visible_sales": 9346
+      }
+    ],
+    "parity": [
+      {
+        "equal": true,
+        "count": 9346
+      }
+    ]
+  }
+]

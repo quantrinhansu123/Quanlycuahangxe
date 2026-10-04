@@ -1,0 +1,431 @@
+{
+  "role": "anon",
+  "snapshot": "101616:101616:",
+  "measurements": [
+    {
+      "page": 1,
+      "warm": true,
+      "round": 5,
+      "result": {
+        "plan": {
+          "Plan": {
+            "Output": [
+              "sales_query(NULL::text, NULL::date, NULL::date, NULL::text, NULL::text, 1, 20, NULL::text, NULL::text)"
+            ],
+            "Node Type": "Result",
+            "Plan Rows": 1,
+            "Plan Width": 32,
+            "Total Cost": 0.26,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Startup Cost": 0,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 1298,
+            "Actual Total Time": 602.687,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 2451,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 602.686,
+            "Temp Written Blocks": 649,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.014,
+          "Execution Time": 602.748,
+          "Query Identifier": -2284303231060466200
+        },
+        "wallMs": 604.012
+      },
+      "version": "new"
+    },
+    {
+      "page": 1,
+      "warm": true,
+      "round": 5,
+      "result": {
+        "plan": {
+          "Plan": {
+            "Output": [
+              "pg_temp.sales_query(NULL::text, NULL::date, NULL::date, NULL::text, NULL::text, 1, 20, NULL::text, NULL::text)"
+            ],
+            "Node Type": "Result",
+            "Plan Rows": 1,
+            "Plan Width": 32,
+            "Total Cost": 0.26,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Startup Cost": 0,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 17020,
+            "Actual Total Time": 1566.04,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 10066,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 1566.039,
+            "Temp Written Blocks": 15513,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.013,
+          "Execution Time": 1566.057,
+          "Query Identifier": 3182347756022971400
+        },
+        "wallMs": 1567.238
+      },
+      "version": "old"
+    },
+    {
+      "page": 2,
+      "warm": true,
+      "round": 5,
+      "result": {
+        "plan": {
+          "Plan": {
+            "Output": [
+              "sales_query(NULL::text, NULL::date, NULL::date, NULL::text, NULL::text, 2, 20, NULL::text, NULL::text)"
+            ],
+            "Node Type": "Result",
+            "Plan Rows": 1,
+            "Plan Width": 32,
+            "Total Cost": 0.26,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Startup Cost": 0,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 1298,
+            "Actual Total Time": 517.662,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 1198,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 517.661,
+            "Temp Written Blocks": 649,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.015,
+          "Execution Time": 517.682,
+          "Query Identifier": -2284303231060466200
+        },
+        "wallMs": 518.061
+      },
+      "version": "new"
+    },
+    {
+      "page": 2,
+      "warm": true,
+      "round": 5,
+      "result": {
+        "plan": {
+          "Plan": {
+            "Output": [
+              "pg_temp.sales_query(NULL::text, NULL::date, NULL::date, NULL::text, NULL::text, 2, 20, NULL::text, NULL::text)"
+            ],
+            "Node Type": "Result",
+            "Plan Rows": 1,
+            "Plan Width": 32,
+            "Total Cost": 0.26,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Startup Cost": 0,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 17020,
+            "Actual Total Time": 2498.981,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 9964,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 2498.98,
+            "Temp Written Blocks": 15513,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.015,
+          "Execution Time": 2499.004,
+          "Query Identifier": 3182347756022971400
+        },
+        "wallMs": 2510.536
+      },
+      "version": "old"
+    },
+    {
+      "page": 1,
+      "warm": false,
+      "round": 5,
+      "result": {
+        "plan": {
+          "Plan": {
+            "Output": [
+              "sales_query(NULL::text, NULL::date, NULL::date, NULL::text, NULL::text, 1, 20, NULL::text, NULL::text)"
+            ],
+            "Node Type": "Result",
+            "Plan Rows": 1,
+            "Plan Width": 32,
+            "Total Cost": 0.26,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Startup Cost": 0,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 1298,
+            "Actual Total Time": 1838.454,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 1221,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 1838.453,
+            "Temp Written Blocks": 649,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.017,
+          "Execution Time": 1838.476,
+          "Query Identifier": -2284303231060466200
+        },
+        "wallMs": 1839.554
+      },
+      "version": "new"
+    },
+    {
+      "page": 1,
+      "warm": false,
+      "round": 5,
+      "result": {
+        "plan": {
+          "Plan": {
+            "Output": [
+              "pg_temp.sales_query(NULL::text, NULL::date, NULL::date, NULL::text, NULL::text, 1, 20, NULL::text, NULL::text)"
+            ],
+            "Node Type": "Result",
+            "Plan Rows": 1,
+            "Plan Width": 32,
+            "Total Cost": 0.26,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Startup Cost": 0,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 17020,
+            "Actual Total Time": 1708.064,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 9964,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 1708.063,
+            "Temp Written Blocks": 15513,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.013,
+          "Execution Time": 1708.081,
+          "Query Identifier": 3182347756022971400
+        },
+        "wallMs": 1709.166
+      },
+      "version": "old"
+    },
+    {
+      "page": 2,
+      "warm": false,
+      "round": 5,
+      "result": {
+        "plan": {
+          "Plan": {
+            "Output": [
+              "sales_query(NULL::text, NULL::date, NULL::date, NULL::text, NULL::text, 2, 20, NULL::text, NULL::text)"
+            ],
+            "Node Type": "Result",
+            "Plan Rows": 1,
+            "Plan Width": 32,
+            "Total Cost": 0.26,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Startup Cost": 0,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 1298,
+            "Actual Total Time": 1186.217,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 1198,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 1186.216,
+            "Temp Written Blocks": 649,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.014,
+          "Execution Time": 1186.237,
+          "Query Identifier": -2284303231060466200
+        },
+        "wallMs": 1186.623
+      },
+      "version": "new"
+    },
+    {
+      "page": 2,
+      "warm": false,
+      "round": 5,
+      "result": {
+        "plan": {
+          "Plan": {
+            "Output": [
+              "pg_temp.sales_query(NULL::text, NULL::date, NULL::date, NULL::text, NULL::text, 2, 20, NULL::text, NULL::text)"
+            ],
+            "Node Type": "Result",
+            "Plan Rows": 1,
+            "Plan Width": 32,
+            "Total Cost": 0.26,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Startup Cost": 0,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 17020,
+            "Actual Total Time": 2660.986,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 9964,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 2660.986,
+            "Temp Written Blocks": 15513,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.015,
+          "Execution Time": 2661.006,
+          "Query Identifier": 3182347756022971400
+        },
+        "wallMs": 2661.404
+      },
+      "version": "old"
+    }
+  ],
+  "fullJsonEqual": true
+}

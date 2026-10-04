@@ -1,0 +1,86 @@
+[
+  {
+    "name": "A_all_page1",
+    "role": "anon",
+    "equal": true,
+    "count": 9354,
+    "statement_timeout": "6s"
+  },
+  {
+    "name": "B_all_page2",
+    "role": "anon",
+    "equal": true,
+    "count": 9354,
+    "statement_timeout": "6s"
+  },
+  {
+    "name": "D_reference_id_bh",
+    "role": "anon",
+    "equal": true,
+    "count": 1,
+    "statement_timeout": "6s"
+  },
+  {
+    "name": "M_positive_staff",
+    "role": "anon",
+    "equal": true,
+    "count": 2777,
+    "statement_timeout": "6s"
+  },
+  {
+    "name": "E_customer",
+    "role": "anon",
+    "equal": true,
+    "count": 2,
+    "statement_timeout": "6s"
+  },
+  {
+    "name": "L_customer_history",
+    "role": "anon",
+    "equal": true,
+    "count": 1,
+    "statement_timeout": "6s"
+  },
+  {
+    "name": "A_all_page1",
+    "role": "authenticated",
+    "equal": true,
+    "count": 9354,
+    "statement_timeout": "6s"
+  },
+  {
+    "name": "B_all_page2",
+    "role": "authenticated",
+    "equal": true,
+    "count": 9354,
+    "statement_timeout": "6s"
+  },
+  {
+    "name": "D_reference_id_bh",
+    "role": "authenticated",
+    "equal": true,
+    "count": 1,
+    "statement_timeout": "6s"
+  },
+  {
+    "name": "M_positive_staff",
+    "role": "authenticated",
+    "equal": true,
+    "count": 2777,
+    "statement_timeout": "6s"
+  },
+  {
+    "name": "E_customer",
+    "role": "authenticated",
+    "equal": true,
+    "count": 2,
+    "statement_timeout": "6s"
+  },
+  {
+    "name": "L_customer_history",
+    "role": "authenticated",
+    "equal": true,
+    "count": 1,
+    "statement_timeout": "6s"
+  }
+]

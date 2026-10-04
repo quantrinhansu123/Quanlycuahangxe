@@ -1,0 +1,212 @@
+{
+  "at": "2026-10-04T10:31:46.158Z",
+  "salesRefCases": [
+    {
+      "refs": 0,
+      "rows": 0,
+      "equal": true
+    },
+    {
+      "refs": 1,
+      "rows": 0,
+      "equal": true
+    },
+    {
+      "refs": 1,
+      "rows": 1,
+      "equal": true
+    },
+    {
+      "refs": 1,
+      "rows": 1,
+      "equal": true
+    },
+    {
+      "refs": 4,
+      "rows": 1,
+      "equal": true
+    },
+    {
+      "refs": 6,
+      "rows": 6,
+      "equal": true
+    },
+    {
+      "refs": 1,
+      "rows": 0,
+      "equal": true
+    },
+    {
+      "refs": 40,
+      "rows": 20,
+      "equal": true
+    },
+    {
+      "refs": 20,
+      "rows": 20,
+      "equal": true
+    },
+    {
+      "refs": 1,
+      "rows": 1,
+      "equal": true
+    },
+    {
+      "refs": 3,
+      "rows": 3,
+      "equal": true
+    }
+  ],
+  "financialCases": [
+    {
+      "input": {},
+      "rows": 20,
+      "total": 1034,
+      "equal": true
+    },
+    {
+      "input": {
+        "page": 2
+      },
+      "rows": 20,
+      "total": 1034,
+      "equal": true
+    },
+    {
+      "input": {
+        "from": "2026-09-10",
+        "to": "2026-09-20"
+      },
+      "rows": 20,
+      "total": 380,
+      "equal": true
+    },
+    {
+      "input": {
+        "branches": [
+          "A"
+        ]
+      },
+      "rows": 20,
+      "total": 517,
+      "equal": true
+    },
+    {
+      "input": {
+        "types": [
+          "phiếu chi"
+        ]
+      },
+      "rows": 20,
+      "total": 344,
+      "equal": true
+    },
+    {
+      "input": {
+        "branches": [
+          "B"
+        ],
+        "types": [
+          "phiếu thu"
+        ],
+        "from": "2026-09-05"
+      },
+      "rows": 20,
+      "total": 310,
+      "equal": true
+    },
+    {
+      "input": {
+        "search": "UUID-C"
+      },
+      "rows": 20,
+      "total": 517,
+      "equal": true
+    },
+    {
+      "input": {
+        "search": "00000000-0000-0000-0000-000000000102"
+      },
+      "rows": 20,
+      "total": 517,
+      "equal": true
+    },
+    {
+      "input": {
+        "search": "missing"
+      },
+      "rows": 0,
+      "total": 0,
+      "equal": true
+    },
+    {
+      "input": {
+        "search": "Bình"
+      },
+      "rows": 20,
+      "total": 1034,
+      "equal": true
+    },
+    {
+      "input": {
+        "search": "ghi chú 27"
+      },
+      "rows": 11,
+      "total": 11,
+      "equal": true
+    },
+    {
+      "input": {
+        "search": "11.25"
+      },
+      "rows": 11,
+      "total": 11,
+      "equal": true
+    },
+    {
+      "input": {
+        "search": "%"
+      },
+      "rows": 20,
+      "total": 1034,
+      "equal": true
+    },
+    {
+      "input": {
+        "search": "'"
+      },
+      "rows": 0,
+      "total": 0,
+      "equal": true
+    },
+    {
+      "input": {
+        "search": "(),_"
+      },
+      "rows": 0,
+      "total": 0,
+      "equal": true
+    },
+    {
+      "input": {
+        "from": "2030-01-01"
+      },
+      "rows": 0,
+      "total": 0,
+      "equal": true
+    },
+    {
+      "input": {
+        "limit": 0
+      },
+      "rows": 0,
+      "total": 1034,
+      "equal": true
+    }
+  ],
+  "scope": "PGlite fixture, P0 unchanged; OLD SQL/client aggregate equivalence. Existing REST search parser was broken; search compares intended SQL LIKE semantics.",
+  "chartsAll1034Aggregated": true,
+  "rlsScopes": 2,
+  "rollbackVerified": true,
+  "p0DefinitionsUnchanged": true
+}

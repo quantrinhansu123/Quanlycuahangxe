@@ -1,0 +1,146 @@
+{
+  "error": "page.evaluate: Object",
+  "network": [
+    {
+      "method": "POST",
+      "endpoint": "sales_query",
+      "status": 200,
+      "durationMs": 2247,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 268,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "nhan_su",
+      "status": 200,
+      "durationMs": 753,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 870,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "dich_vu",
+      "status": 200,
+      "durationMs": 948,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "dich_vu",
+      "status": 200,
+      "durationMs": 663,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_query",
+      "status": 200,
+      "durationMs": 1871,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "nhan_su",
+      "status": 200,
+      "durationMs": 219,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 232,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 259,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_query",
+      "status": 200,
+      "durationMs": 1646,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 192,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "nhan_su",
+      "status": 200,
+      "durationMs": 202,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 213,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_query",
+      "status": 200,
+      "durationMs": 2442,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_query",
+      "status": 200,
+      "durationMs": 2199,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_query",
+      "status": 200,
+      "durationMs": 2277,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_query",
+      "status": 200,
+      "durationMs": 2375,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_query",
+      "status": 200,
+      "durationMs": 3259,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_query",
+      "status": 500,
+      "durationMs": 4124,
+      "errorCode": "57014"
+    }
+  ],
+  "blockedWrites": []
+}

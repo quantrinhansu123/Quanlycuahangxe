@@ -1,0 +1,1088 @@
+[
+  {
+    "name": "A_all_page1",
+    "oldHelper": {
+      "executionMs": 1415.424,
+      "tempRead": 6527,
+      "tempWritten": 6420,
+      "sharedHits": 9780,
+      "sharedReads": 0,
+      "sorts": [
+        {
+          "method": "external merge",
+          "space": 8208,
+          "type": "Disk",
+          "rows": 13333,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1412,
+          "type": "Memory",
+          "rows": 14824,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1720,
+          "type": "Memory",
+          "rows": 24665,
+          "loops": 1
+        }
+      ],
+      "scans": [
+        {
+          "relation": "dich_vu",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "the_ban_hang",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 9346,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang_ct",
+          "index": "sales_detail_ref_search",
+          "type": "Index Scan",
+          "rows": 15831,
+          "loops": 1
+        },
+        {
+          "relation": "dich_vu",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 1267,
+          "loops": 1
+        }
+      ]
+    },
+    "main": {
+      "executionMs": 1623.168,
+      "tempRead": 1298,
+      "tempWritten": 649,
+      "sharedHits": 55043,
+      "sharedReads": 0,
+      "sorts": [
+        {
+          "method": "top-N heapsort",
+          "space": 33,
+          "type": "Memory",
+          "rows": 20,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1114,
+          "type": "Memory",
+          "rows": 9346,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 616,
+          "type": "Memory",
+          "rows": 9336,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 29,
+          "type": "Memory",
+          "rows": 20,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 968,
+          "type": "Memory",
+          "rows": 9346,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 85,
+          "type": "Memory",
+          "rows": 256,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1260,
+          "type": "Memory",
+          "rows": 9346,
+          "loops": 1
+        }
+      ],
+      "scans": []
+    },
+    "filtered": {
+      "executionMs": 496.45,
+      "tempRead": 470,
+      "tempWritten": 235,
+      "sharedHits": 1082,
+      "sharedReads": 0,
+      "sorts": [
+        {
+          "method": "quicksort",
+          "space": 25,
+          "type": "Memory",
+          "rows": 0,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1478,
+          "type": "Memory",
+          "rows": 13333,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1990,
+          "type": "Memory",
+          "rows": 9346,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 722,
+          "type": "Memory",
+          "rows": 9966,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1412,
+          "type": "Memory",
+          "rows": 14824,
+          "loops": 1
+        }
+      ],
+      "scans": [
+        {
+          "relation": "khach_hang",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 6667,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang",
+          "index": "sales_customer_ref_search",
+          "type": "Index Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "dich_vu",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "nhan_su",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "nhan_su",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "the_ban_hang",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 9346,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang_ct",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 15831,
+          "loops": 1
+        },
+        {
+          "relation": "dich_vu",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 1267,
+          "loops": 1
+        }
+      ]
+    },
+    "pageRows": 20,
+    "jsonAggregateInputRows": 20,
+    "pageFunction": "one app_sales_page_json expression per page input row; no function rewrite or instrumentation on production"
+  },
+  {
+    "name": "B_all_page2",
+    "oldHelper": {
+      "executionMs": 1107.915,
+      "tempRead": 6527,
+      "tempWritten": 6420,
+      "sharedHits": 9780,
+      "sharedReads": 0,
+      "sorts": [
+        {
+          "method": "external merge",
+          "space": 8208,
+          "type": "Disk",
+          "rows": 13333,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1412,
+          "type": "Memory",
+          "rows": 14824,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1720,
+          "type": "Memory",
+          "rows": 24665,
+          "loops": 1
+        }
+      ],
+      "scans": [
+        {
+          "relation": "dich_vu",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "the_ban_hang",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 9346,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang_ct",
+          "index": "sales_detail_ref_search",
+          "type": "Index Scan",
+          "rows": 15831,
+          "loops": 1
+        },
+        {
+          "relation": "dich_vu",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 1267,
+          "loops": 1
+        }
+      ]
+    },
+    "main": {
+      "executionMs": 1637.416,
+      "tempRead": 1298,
+      "tempWritten": 649,
+      "sharedHits": 55908,
+      "sharedReads": 0,
+      "sorts": [
+        {
+          "method": "top-N heapsort",
+          "space": 43,
+          "type": "Memory",
+          "rows": 40,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1114,
+          "type": "Memory",
+          "rows": 9346,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 616,
+          "type": "Memory",
+          "rows": 9336,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 29,
+          "type": "Memory",
+          "rows": 20,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 968,
+          "type": "Memory",
+          "rows": 9346,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 85,
+          "type": "Memory",
+          "rows": 256,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1260,
+          "type": "Memory",
+          "rows": 9346,
+          "loops": 1
+        }
+      ],
+      "scans": []
+    },
+    "filtered": {
+      "executionMs": 501.612,
+      "tempRead": 470,
+      "tempWritten": 235,
+      "sharedHits": 1082,
+      "sharedReads": 0,
+      "sorts": [
+        {
+          "method": "quicksort",
+          "space": 25,
+          "type": "Memory",
+          "rows": 0,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1478,
+          "type": "Memory",
+          "rows": 13333,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1990,
+          "type": "Memory",
+          "rows": 9346,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 722,
+          "type": "Memory",
+          "rows": 9966,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1412,
+          "type": "Memory",
+          "rows": 14824,
+          "loops": 1
+        }
+      ],
+      "scans": [
+        {
+          "relation": "khach_hang",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 6667,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang",
+          "index": "sales_customer_ref_search",
+          "type": "Index Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "dich_vu",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "nhan_su",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "nhan_su",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "the_ban_hang",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 9346,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang_ct",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 15831,
+          "loops": 1
+        },
+        {
+          "relation": "dich_vu",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 1267,
+          "loops": 1
+        }
+      ]
+    },
+    "pageRows": 20,
+    "jsonAggregateInputRows": 20,
+    "pageFunction": "one app_sales_page_json expression per page input row; no function rewrite or instrumentation on production"
+  },
+  {
+    "name": "D_reference_id_bh",
+    "oldHelper": {
+      "executionMs": 1210.309,
+      "tempRead": 6527,
+      "tempWritten": 6420,
+      "sharedHits": 9780,
+      "sharedReads": 0,
+      "sorts": [
+        {
+          "method": "external merge",
+          "space": 8208,
+          "type": "Disk",
+          "rows": 13333,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1412,
+          "type": "Memory",
+          "rows": 14824,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1720,
+          "type": "Memory",
+          "rows": 24665,
+          "loops": 1
+        }
+      ],
+      "scans": [
+        {
+          "relation": "dich_vu",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "the_ban_hang",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 9346,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang_ct",
+          "index": "sales_detail_ref_search",
+          "type": "Index Scan",
+          "rows": 15831,
+          "loops": 1
+        },
+        {
+          "relation": "dich_vu",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 1267,
+          "loops": 1
+        }
+      ]
+    },
+    "main": {
+      "executionMs": 393.837,
+      "tempRead": 0,
+      "tempWritten": 0,
+      "sharedHits": 3454,
+      "sharedReads": 0,
+      "sorts": [
+        {
+          "method": "quicksort",
+          "space": 25,
+          "type": "Memory",
+          "rows": 1,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 25,
+          "type": "Memory",
+          "rows": 1,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 25,
+          "type": "Memory",
+          "rows": 1,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 25,
+          "type": "Memory",
+          "rows": 1,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 25,
+          "type": "Memory",
+          "rows": 1,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 25,
+          "type": "Memory",
+          "rows": 1,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 25,
+          "type": "Memory",
+          "rows": 1,
+          "loops": 1
+        }
+      ],
+      "scans": []
+    },
+    "filtered": {
+      "executionMs": 179.09,
+      "tempRead": 0,
+      "tempWritten": 0,
+      "sharedHits": 1085,
+      "sharedReads": 0,
+      "sorts": [
+        {
+          "method": "quicksort",
+          "space": 25,
+          "type": "Memory",
+          "rows": 0,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1478,
+          "type": "Memory",
+          "rows": 13333,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 25,
+          "type": "Memory",
+          "rows": 1,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 25,
+          "type": "Memory",
+          "rows": 1,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 722,
+          "type": "Memory",
+          "rows": 6296,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 25,
+          "type": "Memory",
+          "rows": 1,
+          "loops": 1
+        }
+      ],
+      "scans": [
+        {
+          "relation": "khach_hang",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 6667,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang",
+          "index": "sales_customer_ref_search",
+          "type": "Index Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "dich_vu",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "nhan_su",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "nhan_su",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "the_ban_hang",
+          "index": "idx_the_ban_hang_id_bh_ref",
+          "type": "Index Scan",
+          "rows": 1,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 1,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang_ct",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 15831,
+          "loops": 1
+        },
+        {
+          "relation": "dich_vu",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 1267,
+          "loops": 1
+        }
+      ]
+    },
+    "pageRows": 1,
+    "jsonAggregateInputRows": 1,
+    "pageFunction": "one app_sales_page_json expression per page input row; no function rewrite or instrumentation on production"
+  },
+  {
+    "name": "G_staff",
+    "oldHelper": {
+      "executionMs": 1174.564,
+      "tempRead": 6527,
+      "tempWritten": 6420,
+      "sharedHits": 9780,
+      "sharedReads": 0,
+      "sorts": [
+        {
+          "method": "external merge",
+          "space": 8208,
+          "type": "Disk",
+          "rows": 13333,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1412,
+          "type": "Memory",
+          "rows": 14824,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1720,
+          "type": "Memory",
+          "rows": 24665,
+          "loops": 1
+        }
+      ],
+      "scans": [
+        {
+          "relation": "dich_vu",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "the_ban_hang",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 9346,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang_ct",
+          "index": "sales_detail_ref_search",
+          "type": "Index Scan",
+          "rows": 15831,
+          "loops": 1
+        },
+        {
+          "relation": "dich_vu",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 1267,
+          "loops": 1
+        }
+      ]
+    },
+    "main": {
+      "executionMs": 125.962,
+      "tempRead": 0,
+      "tempWritten": 0,
+      "sharedHits": 1610,
+      "sharedReads": 0,
+      "sorts": [
+        {
+          "method": "quicksort",
+          "space": 25,
+          "type": "Memory",
+          "rows": 0,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 25,
+          "type": "Memory",
+          "rows": 0,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 25,
+          "type": "Memory",
+          "rows": 0,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 25,
+          "type": "Memory",
+          "rows": 0,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 25,
+          "type": "Memory",
+          "rows": 0,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 25,
+          "type": "Memory",
+          "rows": 0,
+          "loops": 1
+        }
+      ],
+      "scans": []
+    },
+    "filtered": {
+      "executionMs": 127.146,
+      "tempRead": 0,
+      "tempWritten": 0,
+      "sharedHits": 254,
+      "sharedReads": 0,
+      "sorts": [
+        {
+          "method": "quicksort",
+          "space": 25,
+          "type": "Memory",
+          "rows": 0,
+          "loops": 1
+        }
+      ],
+      "scans": [
+        {
+          "relation": "khach_hang",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "the_ban_hang",
+          "index": "sales_customer_ref_search",
+          "type": "Index Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "dich_vu",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "nhan_su",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 10,
+          "loops": 1
+        },
+        {
+          "relation": "nhan_su",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 10,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 0,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang_ct",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "dich_vu",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        }
+      ]
+    },
+    "pageRows": 0,
+    "jsonAggregateInputRows": 0,
+    "pageFunction": "one app_sales_page_json expression per page input row; no function rewrite or instrumentation on production"
+  },
+  {
+    "name": "H_search",
+    "oldHelper": {
+      "executionMs": 1382.974,
+      "tempRead": 4855,
+      "tempWritten": 5580,
+      "sharedHits": 2300,
+      "sharedReads": 0,
+      "sorts": [
+        {
+          "method": "external merge",
+          "space": 8208,
+          "type": "Disk",
+          "rows": 13333,
+          "loops": 1
+        }
+      ],
+      "scans": [
+        {
+          "relation": "dich_vu",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 0,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 9346,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang_ct",
+          "index": "sales_detail_ref_search",
+          "type": "Index Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "dich_vu",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        }
+      ]
+    },
+    "main": {
+      "executionMs": 569.089,
+      "tempRead": 0,
+      "tempWritten": 0,
+      "sharedHits": 3574,
+      "sharedReads": 0,
+      "sorts": [
+        {
+          "method": "quicksort",
+          "space": 25,
+          "type": "Memory",
+          "rows": 0,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 25,
+          "type": "Memory",
+          "rows": 0,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 25,
+          "type": "Memory",
+          "rows": 0,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 25,
+          "type": "Memory",
+          "rows": 0,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 25,
+          "type": "Memory",
+          "rows": 0,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 25,
+          "type": "Memory",
+          "rows": 0,
+          "loops": 1
+        }
+      ],
+      "scans": []
+    },
+    "filtered": {
+      "executionMs": 568.421,
+      "tempRead": 263,
+      "tempWritten": 264,
+      "sharedHits": 1824,
+      "sharedReads": 0,
+      "sorts": [
+        {
+          "method": "quicksort",
+          "space": 58,
+          "type": "Memory",
+          "rows": 426,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1478,
+          "type": "Memory",
+          "rows": 13333,
+          "loops": 1
+        },
+        {
+          "method": "external merge",
+          "space": 2104,
+          "type": "Disk",
+          "rows": 9346,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 722,
+          "type": "Memory",
+          "rows": 9966,
+          "loops": 1
+        }
+      ],
+      "scans": [
+        {
+          "relation": "khach_hang",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 6667,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang",
+          "index": "sales_customer_ref_search",
+          "type": "Index Scan",
+          "rows": 0,
+          "loops": 426
+        },
+        {
+          "relation": "dich_vu",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 0,
+          "loops": 1
+        },
+        {
+          "relation": "nhan_su",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "nhan_su",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "the_ban_hang",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 9346,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang_ct",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "dich_vu",
+          "index": null,
+          "type": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        }
+      ]
+    },
+    "pageRows": 0,
+    "jsonAggregateInputRows": 0,
+    "pageFunction": "one app_sales_page_json expression per page input row; no function rewrite or instrumentation on production"
+  }
+]

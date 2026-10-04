@@ -1,0 +1,12 @@
+{
+  "at": "2026-10-04T08:10:03.261Z",
+  "p1Pass": true,
+  "scope": "Local business regression, mocked UI mutations, actual page loaders with LIVE anon GET responses, Management REPEATABLE READ READ ONLY plans/catalog; no production authenticated session or business write",
+  "changesInWorkingTree": true,
+  "deployed": false,
+  "productionWrites": 0,
+  "salesLiveState": "P0.6 NEW unchanged from P0.7 snapshot",
+  "stoppedAt": "P1",
+  "proceededToP2": false,
+  "report": "BAO-CAO.md"
+}

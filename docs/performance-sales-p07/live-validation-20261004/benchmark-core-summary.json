@@ -1,0 +1,96 @@
+{
+  "at": "2026-10-04T07:15:55.697Z",
+  "warmRoundsPerPage": 5,
+  "summary": [
+    {
+      "name": "A_all_page1",
+      "oldSqlMedian": 1692.091,
+      "newSqlMedian": 560.904,
+      "oldHttpMedian": 2304,
+      "newHttpMedian": 1064,
+      "oldHttpStatuses": [
+        200,
+        200,
+        200,
+        200,
+        200
+      ],
+      "newHttpStatuses": [
+        200,
+        200,
+        200,
+        200,
+        200
+      ],
+      "newHttpRange": [
+        675,
+        2063
+      ],
+      "oldHits": 12328,
+      "newHits": 3468,
+      "oldTemp": [
+        17020,
+        15513
+      ],
+      "newTemp": [
+        1298,
+        649
+      ],
+      "oldBytes": 67624,
+      "newBytes": 67624,
+      "oldHttpMedianIncludesFailedRequests": false,
+      "oldHttpSuccessfulOnlyMedian": 2304,
+      "oldHttpSuccessfulOnlyCount": 5
+    },
+    {
+      "name": "B_all_page2",
+      "oldSqlMedian": 1661.601,
+      "newSqlMedian": 597.674,
+      "oldHttpMedian": 3113,
+      "newHttpMedian": 1061,
+      "oldHttpStatuses": [
+        500,
+        200,
+        200,
+        200,
+        200
+      ],
+      "newHttpStatuses": [
+        200,
+        200,
+        200,
+        200,
+        200
+      ],
+      "newHttpRange": [
+        709,
+        1451
+      ],
+      "oldHits": 12328,
+      "newHits": 3445,
+      "oldTemp": [
+        17020,
+        15513
+      ],
+      "newTemp": [
+        1298,
+        649
+      ],
+      "oldBytes": 67942,
+      "newBytes": 67942,
+      "oldHttpMedianIncludesFailedRequests": true,
+      "oldHttpSuccessfulOnlyMedian": 2962,
+      "oldHttpSuccessfulOnlyCount": 4
+    }
+  ],
+  "parityCases": 14,
+  "pagination": {
+    "complete40": true,
+    "duplicatecount": 0,
+    "samesummary": true,
+    "samegroupedsummary": true
+  },
+  "publicNewTemporary": false,
+  "allValidationCompleted": true,
+  "finalDatabaseState": "P0.6 NEW"
+}

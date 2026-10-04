@@ -1,0 +1,273 @@
+import { supabase } from '../lib/supabase';
+import type { PostgrestError } from '@supabase/supabase-js';
+
+export interface NhanSu {
+  id: string;
+  id_nhan_su?: string | null;
+  ho_ten: string;
+  /** Giữ trên bảng cho tài khoản/legacy; không hiển thị trên form quản lý nhân sự. */
+  email?: string | null;
+  ngay_vao_lam?: string | null;
+  ngay_sinh?: string | null;
+  ghi_chu_noi_bo?: string | null;
+  luong_co_ban?: number | null;
+  sdt: string | null;
+  password?: string | null;
+  hinh_anh: string | null;
+  vi_tri: string;
+  co_so: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+function formatPostgrestErr(err: PostgrestError): string {
+  const parts = [
+    err.message || 'Lỗi PostgREST',
+    err.code ? `(code: ${err.code})` : '',
+    err.details ? `details: ${err.details}` : '',
+    err.hint ? `hint: ${err.hint}` : '',
+  ].filter(Boolean);
+  return parts.join(' | ');
+}
+
+function getMissingColumnFromErr(err: PostgrestError): string | null {
+  // Ví dụ: "Could not find the 'luong_co_ban' column of 'nhan_su' in the schema cache"
+  const m = (err.message || '').match(/Could not find the '([^']+)' column/i);
+  return m?.[1] ?? null;
+}
+
+let personnelCache: { rows: NhanSu[]; expires: number } | null = null;
+let personnelRequest: Promise<NhanSu[]> | null = null;
+export const getPersonnel = async (): Promise<NhanSu[]> => {
+  if (personnelCache && personnelCache.expires > Date.now()) return personnelCache.rows;
+  if (personnelRequest) return personnelRequest;
+  personnelRequest = (async () => {
+  const { data, error } = await supabase
+    .from('nhan_su')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching personnel:', error);
+    throw error;
+  }
+  const rows = data as NhanSu[];
+  personnelCache = { rows, expires: Date.now() + 15000 };
+  return rows;
+  })();
+  try { return await personnelRequest; } finally { personnelRequest = null; }
+};
+
+export const upsertPersonnel = async (personnel: Partial<NhanSu>): Promise<NhanSu> => {
+  let { data, error } = await supabase
+    .from('nhan_su')
+    .upsert(personnel)
+    .select()
+    .single();
+
+  // Fallback tạm thời cho môi trường DB chưa chạy migration mới (thiếu cột như luong_co_ban).
+  if (error?.code === 'PGRST204') {
+    const missingCol = getMissingColumnFromErr(error);
+    // Không được âm thầm bỏ ghi_chu_noi_bo: nếu migration chưa chạy, giao diện phải báo lỗi
+    // thay vì báo lưu thành công rồi làm mất ghi chú của người dùng.
+    if (missingCol && missingCol !== 'ghi_chu_noi_bo' && Object.prototype.hasOwnProperty.call(personnel, missingCol)) {
+      const retryPayload = { ...personnel } as Record<string, unknown>;
+      delete retryPayload[missingCol];
+      const retry = await supabase
+        .from('nhan_su')
+        .upsert(retryPayload)
+        .select()
+        .single();
+      data = retry.data;
+      error = retry.error;
+      if (!error) {
+        console.warn(
+          `[nhan_su] DB chưa có cột '${missingCol}', đã lưu lại sau khi bỏ cột này. Hãy chạy migration mới để đồng bộ schema.`
+        );
+      }
+    }
+  }
+
+  if (error) {
+    if (getMissingColumnFromErr(error) === 'ghi_chu_noi_bo') {
+      throw new Error('Database chưa có cột ghi_chu_noi_bo. Hãy chạy migration 202608290001_nhan_su_internal_notes.sql trước khi lưu ghi chú.');
+    }
+    const detail = formatPostgrestErr(error);
+    console.error(`Error upserting personnel: ${detail}`);
+    console.error('Personnel payload:', personnel);
+    throw new Error(formatPostgrestErr(error));
+  }
+  return data as NhanSu;
+};
+
+export const bulkUpsertPersonnel = async (personnel: Partial<NhanSu>[]): Promise<void> => {
+  const toUpdate = personnel.filter(p => p.id);
+  const toInsert = personnel.filter(p => !p.id);
+
+  if (toUpdate.length > 0) {
+    const { error } = await supabase.from('nhan_su').upsert(toUpdate);
+    if (error) {
+      console.error('Error upserting personnel (bulk update):', formatPostgrestErr(error), {
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      });
+      throw new Error(formatPostgrestErr(error));
+    }
+  }
+  if (toInsert.length > 0) {
+    const cleanInserts = toInsert.map(row => { const copy = { ...row }; delete copy.id; return copy; });
+    const { error } = await supabase.from('nhan_su').insert(cleanInserts);
+    if (error) {
+      console.error('Error inserting personnel (bulk insert):', formatPostgrestErr(error), {
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      });
+      throw new Error(formatPostgrestErr(error));
+    }
+  }
+};
+
+/** Kiểm tra tài khoản nhân sự còn tồn tại (dùng xác thực phiên đăng nhập). */
+export const fetchNhanVienById = async (id: string): Promise<{
+  id: string;
+  id_nhan_su: string | null;
+  ho_ten: string;
+  vi_tri: string;
+  co_so: string;
+  email: string | null;
+  sdt: string | null;
+  auth_user_id: string | null;
+} | null> => {
+  const { data, error } = await supabase
+    .from('nhan_su')
+    .select('id, id_nhan_su, ho_ten, vi_tri, co_so, email, sdt, auth_user_id')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error) {
+    console.error('fetchNhanVienById:', error);
+    return null;
+  }
+  if (!data) return null;
+  return {
+    id: data.id,
+    id_nhan_su: data.id_nhan_su ?? null,
+    ho_ten: data.ho_ten,
+    vi_tri: data.vi_tri,
+    co_so: data.co_so,
+    email: data.email ?? null,
+    sdt: data.sdt ?? null,
+    auth_user_id: data.auth_user_id ?? null,
+  };
+};
+
+export const deletePersonnel = async (id: string): Promise<void> => {
+  const { error } = await supabase
+    .from('nhan_su')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting personnel:', error);
+    throw error;
+  }
+};
+
+export const bulkDeletePersonnel = async (): Promise<void> => {
+  const { error } = await supabase
+    .from('nhan_su')
+    .delete()
+    .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all rows
+
+  if (error) {
+    console.error('Error bulk deleting personnel:', error);
+    throw error;
+  }
+};
+
+export const uploadPersonnelImage = async (file: File): Promise<string> => {
+  const fileExt = file.name.split('.').pop();
+  const fileName = `${Math.random()}.${fileExt}`;
+  const filePath = `personnel/${fileName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('images') // Use unified images bucket
+    .upload(filePath, file);
+
+  if (uploadError) {
+    throw uploadError;
+  }
+
+  const { data } = supabase.storage
+    .from('images')
+    .getPublicUrl(filePath);
+
+  return data.publicUrl;
+};
+
+export interface PersonnelFilters {
+  branches?: string[];
+  positions?: string[];
+}
+
+export const getPersonnelPaginated = async (
+  page: number,
+  pageSize: number,
+  searchQuery?: string,
+  filters?: PersonnelFilters
+): Promise<{ data: NhanSu[], totalCount: number }> => {
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  let query = supabase
+    .from('nhan_su')
+    .select('*', { count: 'exact' });
+
+  if (searchQuery) {
+    query = query.or(`ho_ten.ilike.%${searchQuery}%,sdt.ilike.%${searchQuery}%,id_nhan_su.ilike.%${searchQuery}%`);
+  }
+
+  if (filters?.branches?.length) {
+    query = query.in('co_so', filters.branches);
+  }
+  
+  if (filters?.positions?.length) {
+    query = query.in('vi_tri', filters.positions);
+  }
+
+  const { data, count, error } = await query
+    .order('created_at', { ascending: false })
+    .range(from, to);
+
+  if (error) {
+    console.error('Error fetching paginated personnel:', error);
+    throw error;
+  }
+
+  return {
+    data: (data as NhanSu[]) || [],
+    totalCount: count || 0
+  };
+};
+/** Tạo mã NV-#### kế tiếp: lấy max số trong các mã đúng dạng NV-số (không phụ thuộc sort chuỗi). */
+export const getNextPersonnelCode = async (): Promise<string> => {
+  const { data, error } = await supabase.from('nhan_su').select('id_nhan_su');
+
+  if (error) {
+    console.error('Error fetching next personnel code:', error);
+    return 'NV-0001';
+  }
+
+  if (!data?.length) return 'NV-0001';
+
+  let max = 0;
+  for (const row of data) {
+    const m = String(row.id_nhan_su || '').match(/^NV-(\d+)$/i);
+    if (m) max = Math.max(max, parseInt(m[1], 10));
+  }
+
+  if (max === 0) return 'NV-0001';
+  return `NV-${String(max + 1).padStart(4, '0')}`;
+};

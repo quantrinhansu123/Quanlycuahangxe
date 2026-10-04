@@ -1,0 +1,263 @@
+{
+  "capturedAt": "2026-10-04T06:53:33.733Z",
+  "functions": [
+    {
+      "name": "app_branch",
+      "signature": "app_branch(text)",
+      "identity_arguments": "value text",
+      "result": "text",
+      "definition": "CREATE OR REPLACE FUNCTION public.app_branch(value text)\n RETURNS text\n LANGUAGE sql\n IMMUTABLE PARALLEL SAFE\nAS $function$\r\n  SELECT regexp_replace(btrim(public.app_search_text(value)), '^co so\\s+', '');\r\n$function$\n",
+      "owner": "postgres",
+      "proacl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+      "provolatile": "i",
+      "prosecdef": false,
+      "proconfig": null,
+      "language": "sql"
+    },
+    {
+      "name": "app_customer_matches",
+      "signature": "app_customer_matches(jsonb,text)",
+      "identity_arguments": "c jsonb, term text",
+      "result": "boolean",
+      "definition": "CREATE OR REPLACE FUNCTION public.app_customer_matches(c jsonb, term text)\n RETURNS boolean\n LANGUAGE sql\n IMMUTABLE PARALLEL SAFE\nAS $function$\r\n WITH input AS (\r\n   SELECT btrim(coalesce(term, '')) raw,\r\n     public.app_search_text(term) search_text,\r\n     public.app_plate(term) plate,\r\n     public.app_phone(term) phone,\r\n     btrim(coalesce(term, '')) ~ '^[+0-9 .()-]+$' looks_like_phone\r\n )\r\n SELECT input.raw = ''\r\n OR (nullif(public.app_search_text(c->>'ho_va_ten'), '') IS NOT NULL AND NOT EXISTS (\r\n   SELECT 1 FROM regexp_split_to_table(input.search_text, ' ') token\r\n   WHERE position(token IN public.app_search_text(c->>'ho_va_ten')) = 0))\r\n OR position(lower(input.raw) IN lower(coalesce(c->>'ma_khach_hang', ''))) > 0\r\n OR position(lower(input.raw) IN lower(coalesce(c->>'id', ''))) > 0\r\n OR (input.plate <> '' AND position(input.plate IN public.app_plate(c->>'bien_so_xe')) > 0)\r\n OR CASE WHEN input.looks_like_phone AND length(input.phone) >= 8\r\n   THEN position(input.phone IN public.app_phone(c->>'so_dien_thoai')) > 0\r\n   ELSE false END\r\n FROM input;\r\n$function$\n",
+      "owner": "postgres",
+      "proacl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+      "provolatile": "i",
+      "prosecdef": false,
+      "proconfig": null,
+      "language": "sql"
+    },
+    {
+      "name": "app_customer_name",
+      "signature": "app_customer_name(text)",
+      "identity_arguments": "value text",
+      "result": "text",
+      "definition": "CREATE OR REPLACE FUNCTION public.app_customer_name(value text)\n RETURNS text\n LANGUAGE sql\n IMMUTABLE PARALLEL SAFE\nAS $function$\r\n SELECT CASE WHEN btrim(coalesce(value, '')) IN ('', '---', '—', 'chưa có thông tin', 'Chưa có thông tin')\r\n THEN NULL ELSE btrim(value) END;\r\n$function$\n",
+      "owner": "postgres",
+      "proacl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+      "provolatile": "i",
+      "prosecdef": false,
+      "proconfig": null,
+      "language": "sql"
+    },
+    {
+      "name": "app_customer_rows",
+      "signature": "app_customer_rows()",
+      "identity_arguments": "",
+      "result": "SETOF jsonb",
+      "definition": "CREATE OR REPLACE FUNCTION public.app_customer_rows()\n RETURNS SETOF jsonb\n LANGUAGE sql\n STABLE\n SET search_path TO 'public'\nAS $function$\r\n WITH customers AS MATERIALIZED (\r\n   SELECT to_jsonb(row) j FROM (SELECT c.id, c.ho_va_ten, c.so_dien_thoai, c.dia_chi_hien_tai, c.bien_so_xe, c.ngay_dang_ky, c.so_km, c.so_ngay_thay_dau, c.ngay_thay_dau, c.created_at, c.ma_khach_hang, c.lich_su_thay_dau, c.updated_at, c.nhan_vien_id, c.last_order_at FROM khach_hang c) row\r\n ), missing_refs AS (\r\n   SELECT DISTINCT c.j->>'id' customer_id, ref\r\n   FROM customers c CROSS JOIN LATERAL\r\n     (VALUES (lower(c.j->>'id')), (lower(btrim(c.j->>'ma_khach_hang')))) refs(ref)\r\n   WHERE app_customer_name(c.j->>'ho_va_ten') IS NULL AND nullif(ref, '') IS NOT NULL\r\n ), recovered AS (\r\n   SELECT DISTINCT ON (r.customer_id) r.customer_id, app_customer_name(s.ten_khach_hang) name\r\n   FROM missing_refs r JOIN the_ban_hang s ON lower(btrim(s.khach_hang_id)) = r.ref\r\n   WHERE app_customer_name(s.ten_khach_hang) IS NOT NULL\r\n   ORDER BY r.customer_id, s.ngay DESC, s.gio DESC, s.id DESC\r\n )\r\n SELECT c.j || jsonb_build_object('ho_va_ten',\r\n   coalesce(app_customer_name(c.j->>'ho_va_ten'), n.name, ''))\r\n FROM customers c LEFT JOIN recovered n ON n.customer_id = c.j->>'id';\r\n $function$\n",
+      "owner": "postgres",
+      "proacl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+      "provolatile": "s",
+      "prosecdef": false,
+      "proconfig": [
+        "search_path=public"
+      ],
+      "language": "sql"
+    },
+    {
+      "name": "app_phone",
+      "signature": "app_phone(text)",
+      "identity_arguments": "value text",
+      "result": "text",
+      "definition": "CREATE OR REPLACE FUNCTION public.app_phone(value text)\n RETURNS text\n LANGUAGE sql\n IMMUTABLE PARALLEL SAFE\nAS $function$\r\n WITH d AS (SELECT regexp_replace(coalesce(value, ''), '[^0-9]', '', 'g') v)\r\n SELECT ltrim(CASE WHEN v LIKE '84%' AND length(v) >= 10 THEN substr(v, 3) ELSE v END, '0') FROM d;\r\n$function$\n",
+      "owner": "postgres",
+      "proacl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+      "provolatile": "i",
+      "prosecdef": false,
+      "proconfig": null,
+      "language": "sql"
+    },
+    {
+      "name": "app_plate",
+      "signature": "app_plate(text)",
+      "identity_arguments": "value text",
+      "result": "text",
+      "definition": "CREATE OR REPLACE FUNCTION public.app_plate(value text)\n RETURNS text\n LANGUAGE sql\n IMMUTABLE PARALLEL SAFE\nAS $function$\r\n SELECT regexp_replace(lower(coalesce(value, '')), '[^a-z0-9]', '', 'g');\r\n$function$\n",
+      "owner": "postgres",
+      "proacl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+      "provolatile": "i",
+      "prosecdef": false,
+      "proconfig": null,
+      "language": "sql"
+    },
+    {
+      "name": "app_sales_customer_identities",
+      "signature": "app_sales_customer_identities(boolean)",
+      "identity_arguments": "p_recover_names boolean",
+      "result": "TABLE(id text, code text, name text, phone text, branch text, plate text)",
+      "definition": "CREATE OR REPLACE FUNCTION public.app_sales_customer_identities(p_recover_names boolean DEFAULT true)\n RETURNS TABLE(id text, code text, name text, phone text, branch text, plate text)\n LANGUAGE sql\n STABLE\n SET search_path TO 'public'\nAS $function$\n WITH customers AS MATERIALIZED (\n   SELECT c.id::text id, c.ma_khach_hang code, app_customer_name(c.ho_va_ten) name,\n     c.so_dien_thoai::text phone, c.dia_chi_hien_tai branch, c.bien_so_xe plate\n   FROM khach_hang c\n ), missing_refs AS (\n   SELECT DISTINCT c.id customer_id, ref FROM customers c CROSS JOIN LATERAL\n     (VALUES (lower(c.id)), (lower(btrim(c.code)))) refs(ref)\n   WHERE p_recover_names AND c.name IS NULL AND nullif(ref, '') IS NOT NULL\n ), recovered AS (\n   SELECT DISTINCT ON (r.customer_id) r.customer_id, app_customer_name(s.ten_khach_hang) name\n   FROM missing_refs r JOIN the_ban_hang s ON lower(btrim(s.khach_hang_id)) = r.ref\n   WHERE app_customer_name(s.ten_khach_hang) IS NOT NULL\n   ORDER BY r.customer_id, s.ngay DESC, s.gio DESC, s.id DESC\n )\n SELECT c.id, c.code, coalesce(c.name, n.name, ''), c.phone, c.branch, c.plate\n FROM customers c LEFT JOIN recovered n ON n.customer_id = c.id;\n$function$\n",
+      "owner": "postgres",
+      "proacl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+      "provolatile": "s",
+      "prosecdef": false,
+      "proconfig": [
+        "search_path=public"
+      ],
+      "language": "sql"
+    },
+    {
+      "name": "app_sales_filtered_typed",
+      "signature": "app_sales_filtered_typed(date,date,text,text,text,text,text)",
+      "identity_arguments": "p_start date, p_end date, p_search text, p_staff text, p_branch text, p_reference text, p_customer text",
+      "result": "TABLE(id uuid, ngay date, gio time without time zone, customer_id text, customer_name text, customer_key text, resolved_amount numeric, order_branches text[])",
+      "definition": "CREATE OR REPLACE FUNCTION public.app_sales_filtered_typed(p_start date, p_end date, p_search text, p_staff text, p_branch text, p_reference text, p_customer text)\n RETURNS TABLE(id uuid, ngay date, gio time without time zone, customer_id text, customer_name text, customer_key text, resolved_amount numeric, order_branches text[])\n LANGUAGE plpgsql\n STABLE\n SET search_path TO 'public'\nAS $function$\nBEGIN\n -- A custom plan sees the real filter cardinality. The SQL-function generic\n -- plan estimated a narrow dataset even for ALL, causing two detail index\n -- probes per sale. One shared query body preserves every filter semantics.\n RETURN QUERY EXECUTE $typed$\n WITH input AS MATERIALIZED (\n   -- Parse the search/staff input once, rather than normalizing it per sale/token.\n   SELECT btrim(coalesce($3, '')) raw, lower(btrim(coalesce($3, ''))) raw_lower,\n     string_to_array(app_search_text($3), ' ') tokens, app_plate($3) plate,\n     app_phone($3) phone, btrim(coalesce($3, '')) ~ '^[+0-9 .()-]+$' looks_like_phone,\n     app_search_text(btrim($4)) staff\n ), customers AS MATERIALIZED (\n   SELECT c.*, app_phone(c.phone) normalized_phone,\n     CASE WHEN nullif(btrim($3), '') IS NOT NULL THEN app_search_text(c.name) END name_text,\n     CASE WHEN nullif(btrim($3), '') IS NOT NULL THEN app_plate(c.plate) END plate_text\n   FROM app_sales_customer_identities(nullif(btrim($3), '') IS NOT NULL) c\n ), refs AS MATERIALIZED (\n   SELECT DISTINCT ON (ref) ref, id FROM (\n     SELECT lower(id) ref, id, 0 priority FROM customers\n     UNION ALL SELECT lower(btrim(code)), id, 1 FROM customers\n   ) r WHERE nullif(ref, '') IS NOT NULL ORDER BY ref, priority, id\n ), phones AS MATERIALIZED (\n   SELECT normalized_phone phone, min(id) id FROM customers\n   WHERE length(normalized_phone) >= 8 GROUP BY normalized_phone HAVING count(*) = 1\n ), matching_customers AS MATERIALIZED (\n   SELECT c.id FROM customers c CROSS JOIN input i WHERE i.raw = ''\n     OR (nullif(c.name_text, '') IS NOT NULL AND NOT EXISTS (\n       SELECT 1 FROM unnest(i.tokens) token WHERE position(token IN c.name_text) = 0))\n     OR position(i.raw_lower IN lower(coalesce(c.code, ''))) > 0\n     OR position(i.raw_lower IN lower(c.id)) > 0\n     OR (i.plate <> '' AND position(i.plate IN c.plate_text) > 0)\n     OR (i.looks_like_phone AND length(i.phone) >= 8 AND position(i.phone IN c.normalized_phone) > 0)\n ), matching_services AS MATERIALIZED (\n   SELECT ref FROM dich_vu v CROSS JOIN LATERAL\n     (VALUES (lower(v.id::text)), (lower(v.id_dich_vu)), (lower(v.ten_dich_vu))) refs(ref)\n   WHERE position(app_search_text(btrim($3)) IN app_search_text(v.ten_dich_vu)) > 0\n ), staff_tokens AS MATERIALIZED (\n   SELECT staff token FROM input\n   UNION SELECT app_search_text(ns.ho_ten) FROM nhan_su ns CROSS JOIN input i\n     WHERE i.staff IN (app_search_text(ns.ho_ten), app_search_text(ns.id_nhan_su))\n   UNION SELECT app_search_text(ns.id_nhan_su) FROM nhan_su ns CROSS JOIN input i\n     WHERE i.staff IN (app_search_text(ns.ho_ten), app_search_text(ns.id_nhan_su))\n ), reference_ids AS MATERIALIZED (\n   SELECT s.id FROM the_ban_hang s WHERE s.id =\n     CASE WHEN btrim($6) ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'\n       THEN btrim($6)::uuid ELSE NULL END\n   UNION SELECT s.id FROM the_ban_hang s\n     -- Use the existing normalized-reference index as a candidate lookup, then\n     -- verify the OLD raw-code equality (padded legacy codes must not start matching).\n     WHERE s.id_bh IS NOT NULL AND length(btrim(s.id_bh)) > 0\n       AND lower(btrim(coalesce(s.id_bh, ''))) = lower(btrim($6))\n       AND lower(s.id_bh) = lower(btrim($6))\n ), headers AS MATERIALIZED (\n   SELECT s.id, s.ngay, s.gio, s.id_bh, s.khach_hang_id, s.so_dien_thoai::text,\n     s.ten_khach_hang, s.tong_tien, lower(btrim(s.dich_vu_id)) service_ref,\n     lower(btrim(s.khach_hang_id)) customer_ref\n   FROM the_ban_hang s\n   WHERE ($1 IS NULL OR s.ngay >= $1) AND ($2 IS NULL OR s.ngay <= $2)\n     AND (nullif(btrim($6), '') IS NULL OR s.id IN (SELECT id FROM reference_ids))\n     AND (nullif(btrim($4), '') IS NULL OR EXISTS (\n       SELECT 1 FROM regexp_split_to_table(s.nhan_vien_id, ',') token\n       WHERE app_search_text(btrim(token)) IN (SELECT token FROM staff_tokens)\n     ))\n ), resolved AS MATERIALIZED (\n   SELECT s.*, c.id customer_id, c.name customer_name, c.branch customer_branch,\n     CASE WHEN c.id IS NOT NULL THEN 'id:' || c.id\n       WHEN nullif(btrim(s.khach_hang_id), '') IS NOT NULL THEN 'ref:' || s.customer_ref\n       WHEN length(app_phone(s.so_dien_thoai)) >= 8 THEN 'phone:' || app_phone(s.so_dien_thoai)\n       ELSE NULL END customer_key\n   FROM headers s LEFT JOIN refs r ON r.ref = s.customer_ref\n   LEFT JOIN phones p ON r.id IS NULL\n     AND (length(app_phone(s.so_dien_thoai)) >= 8 OR btrim(s.khach_hang_id) ~ '^[+0-9 .()-]+$')\n     AND p.phone = app_phone(coalesce(nullif(s.so_dien_thoai, ''), s.khach_hang_id))\n   LEFT JOIN customers c ON c.id = coalesce(r.id, p.id) CROSS JOIN input i\n   WHERE ($7 IS NULL OR $7 IN (c.id, c.code))\n     AND (nullif(btrim($3), '') IS NULL\n       OR c.id IN (SELECT id FROM matching_customers)\n       OR (nullif(app_search_text(coalesce(app_customer_name(c.name), app_customer_name(s.ten_khach_hang))), '') IS NOT NULL\n         AND NOT EXISTS (SELECT 1 FROM unnest(i.tokens) token WHERE position(token IN\n           app_search_text(coalesce(app_customer_name(c.name), app_customer_name(s.ten_khach_hang)))) = 0))\n       OR position(i.raw_lower IN lower(coalesce(s.khach_hang_id, ''))) > 0\n       OR position(i.raw_lower IN s.id::text) > 0\n       OR (i.looks_like_phone AND length(i.phone) >= 8 AND position(i.phone IN app_phone(s.so_dien_thoai)) > 0)\n       OR position(i.raw_lower IN lower(coalesce(s.id_bh, ''))) > 0\n       OR s.service_ref IN (SELECT ref FROM matching_services))\n ), order_refs AS (\n   -- UUID and code can coincide; DISTINCT prevents counting the same detail twice.\n   SELECT DISTINCT s.id, ref FROM resolved s CROSS JOIN LATERAL\n     (VALUES (lower(s.id::text)), (lower(btrim(s.id_bh)))) refs(ref)\n   WHERE nullif(ref, '') IS NOT NULL\n ), details AS MATERIALIZED (\n   SELECT r.id,\n     sum(coalesce(ct.thanh_tien, coalesce(ct.gia_ban, 0) * coalesce(ct.so_luong, 1))) amount,\n     array_agg(DISTINCT ct.co_so) FILTER (WHERE nullif(btrim(ct.co_so), '') IS NOT NULL) branches\n   FROM order_refs r JOIN the_ban_hang_ct ct ON lower(btrim(ct.id_don_hang)) = r.ref GROUP BY r.id\n ), service_prices AS MATERIALIZED (\n   -- Keep OLD service-ref whitespace and MAX semantics, scoped to relevant refs.\n   SELECT ref, max(v.gia_ban) amount FROM dich_vu v CROSS JOIN LATERAL\n     (VALUES (lower(v.id::text)), (lower(v.id_dich_vu)), (lower(v.ten_dich_vu))) refs(ref)\n   WHERE ref IN (SELECT service_ref FROM resolved) GROUP BY ref\n )\n SELECT s.id, s.ngay, s.gio, s.customer_id, s.customer_name,\n   s.customer_key, coalesce(d.amount, nullif(s.tong_tien, 0), v.amount, s.tong_tien, 0),\n   coalesce(d.branches, ARRAY[s.customer_branch])\n FROM resolved s LEFT JOIN details d ON d.id = s.id LEFT JOIN service_prices v ON v.ref = s.service_ref\n WHERE nullif(btrim($5), '') IS NULL OR EXISTS (\n   SELECT 1 FROM unnest(coalesce(d.branches, ARRAY[s.customer_branch])) b\n   WHERE app_branch(b) = app_branch($5));\n$typed$ USING p_start, p_end, p_search, p_staff, p_branch, p_reference, p_customer;\nEND;\n$function$\n",
+      "owner": "postgres",
+      "proacl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+      "provolatile": "s",
+      "prosecdef": false,
+      "proconfig": [
+        "search_path=public"
+      ],
+      "language": "plpgsql"
+    },
+    {
+      "name": "app_sales_first_dates",
+      "signature": "app_sales_first_dates()",
+      "identity_arguments": "",
+      "result": "TABLE(customer_key text, first_date text)",
+      "definition": "CREATE OR REPLACE FUNCTION public.app_sales_first_dates()\n RETURNS TABLE(customer_key text, first_date text)\n LANGUAGE sql\n STABLE\n SET search_path TO 'public'\nAS $function$\n SELECT * FROM app_sales_first_dates_for_keys(NULL);\n$function$\n",
+      "owner": "postgres",
+      "proacl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+      "provolatile": "s",
+      "prosecdef": false,
+      "proconfig": [
+        "search_path=public"
+      ],
+      "language": "sql"
+    },
+    {
+      "name": "app_sales_first_dates_for_keys",
+      "signature": "app_sales_first_dates_for_keys(text[])",
+      "identity_arguments": "p_keys text[]",
+      "result": "TABLE(customer_key text, first_date text)",
+      "definition": "CREATE OR REPLACE FUNCTION public.app_sales_first_dates_for_keys(p_keys text[])\n RETURNS TABLE(customer_key text, first_date text)\n LANGUAGE sql\n STABLE\n SET search_path TO 'public'\nAS $function$\n WITH customers AS MATERIALIZED (\n   SELECT id::text id, lower(btrim(ma_khach_hang)) code, app_phone(so_dien_thoai::text) phone FROM khach_hang\n   WHERE p_keys IS NULL OR cardinality(p_keys) > 0\n ), refs AS MATERIALIZED (\n   SELECT DISTINCT ON (ref) ref, id FROM (\n     SELECT id ref, id, 0 priority FROM customers UNION ALL SELECT code, id, 1 FROM customers\n   ) r WHERE nullif(ref, '') IS NOT NULL ORDER BY ref, priority, id\n ), phones AS MATERIALIZED (\n   SELECT phone, min(id) id FROM customers WHERE length(phone) >= 8 GROUP BY phone HAVING count(*) = 1\n ), identities AS (\n   -- Deliberately NO date predicate: first purchase means full visible history.\n   SELECT s.ngay, CASE WHEN coalesce(c.id, p.id) IS NOT NULL THEN 'id:' || coalesce(c.id, p.id)\n     WHEN nullif(btrim(s.khach_hang_id), '') IS NOT NULL THEN 'ref:' || lower(btrim(s.khach_hang_id))\n     WHEN length(app_phone(s.so_dien_thoai::text)) >= 8 THEN 'phone:' || app_phone(s.so_dien_thoai::text)\n     ELSE NULL END key\n   FROM the_ban_hang s LEFT JOIN refs c ON c.ref = lower(btrim(s.khach_hang_id))\n   LEFT JOIN phones p ON c.id IS NULL\n     AND (length(app_phone(s.so_dien_thoai::text)) >= 8 OR btrim(s.khach_hang_id) ~ '^[+0-9 .()-]+$')\n     AND p.phone = app_phone(coalesce(nullif(s.so_dien_thoai::text, ''), s.khach_hang_id))\n   WHERE p_keys IS NULL OR cardinality(p_keys) > 0\n ) SELECT key, min(ngay)::text FROM identities\n WHERE p_keys IS NULL OR key = ANY(p_keys) GROUP BY key;\n$function$\n",
+      "owner": "postgres",
+      "proacl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+      "provolatile": "s",
+      "prosecdef": false,
+      "proconfig": [
+        "search_path=public"
+      ],
+      "language": "sql"
+    },
+    {
+      "name": "app_sales_page_json",
+      "signature": "app_sales_page_json(uuid,text,text,text,numeric,text[])",
+      "identity_arguments": "sale_id uuid, customer_id text, customer_name text, customer_key text, amount numeric, branches text[]",
+      "result": "jsonb",
+      "definition": "CREATE OR REPLACE FUNCTION public.app_sales_page_json(sale_id uuid, customer_id text, customer_name text, customer_key text, amount numeric, branches text[])\n RETURNS jsonb\n LANGUAGE sql\n STABLE\n SET search_path TO 'public'\nAS $function$\n SELECT to_jsonb(s) || jsonb_build_object(\n   'khach_hang', CASE WHEN c.id IS NULL THEN NULL ELSE to_jsonb(c) ||\n     jsonb_build_object('ho_va_ten', coalesce(app_customer_name(c.ho_va_ten), app_customer_name(customer_name), n.name, '')) END,\n   'ten_khach_hang', coalesce(app_customer_name(c.ho_va_ten), app_customer_name(customer_name), n.name, app_customer_name(s.ten_khach_hang)),\n   'customer_key', customer_key,\n   'resolved_amount', amount, 'order_branches', to_jsonb(branches))\n FROM the_ban_hang s LEFT JOIN (SELECT c.id, c.ho_va_ten, c.so_dien_thoai, c.dia_chi_hien_tai, c.bien_so_xe, c.ngay_dang_ky, c.so_km, c.so_ngay_thay_dau, c.ngay_thay_dau, c.created_at, c.ma_khach_hang, c.lich_su_thay_dau, c.updated_at, c.nhan_vien_id, c.last_order_at FROM khach_hang c) c ON c.id = CASE\n   -- Resolved IDs are canonical UUID text. Parse the parameter, leaving the\n   -- indexed UUID column typed; reject noncanonical text just as OLD did.\n   WHEN customer_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'\n   THEN customer_id::uuid ELSE NULL END\n LEFT JOIN LATERAL (\n   -- Without search, missing-name recovery is needed only for page customers.\n   SELECT app_customer_name(h.ten_khach_hang) name FROM the_ban_hang h\n   WHERE c.id IS NOT NULL AND app_customer_name(c.ho_va_ten) IS NULL\n     AND app_customer_name(customer_name) IS NULL\n     AND lower(btrim(h.khach_hang_id)) IN (lower(c.id::text), lower(btrim(c.ma_khach_hang)))\n     AND app_customer_name(h.ten_khach_hang) IS NOT NULL\n   ORDER BY h.ngay DESC, h.gio DESC, h.id DESC LIMIT 1\n ) n ON true\n WHERE s.id = sale_id;\n $function$\n",
+      "owner": "postgres",
+      "proacl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+      "provolatile": "s",
+      "prosecdef": false,
+      "proconfig": [
+        "search_path=public"
+      ],
+      "language": "sql"
+    },
+    {
+      "name": "app_sales_rows",
+      "signature": "app_sales_rows()",
+      "identity_arguments": "",
+      "result": "SETOF jsonb",
+      "definition": "CREATE OR REPLACE FUNCTION public.app_sales_rows()\n RETURNS SETOF jsonb\n LANGUAGE sql\n STABLE\n SET search_path TO 'public'\nAS $function$\r\n WITH customers AS MATERIALIZED (\r\n   SELECT c j, app_phone(c->>'so_dien_thoai') phone FROM app_customer_rows() c\r\n ), customer_refs AS MATERIALIZED (\r\n   SELECT DISTINCT ON (ref) ref, j FROM (\r\n     SELECT lower(j->>'id') ref, j, 0 priority FROM customers\r\n     UNION ALL\r\n     SELECT lower(btrim(j->>'ma_khach_hang')), j, 1 FROM customers\r\n   ) refs WHERE nullif(ref, '') IS NOT NULL\r\n   ORDER BY ref, priority, j->>'id'\r\n ), phones AS MATERIALIZED (\r\n   SELECT phone, (array_agg(j))[1] j FROM customers\r\n   WHERE length(phone) >= 8 GROUP BY phone HAVING count(*) = 1\r\n ), sales AS MATERIALIZED (\r\n   SELECT s.*, lower(btrim(s.khach_hang_id)) customer_ref,\r\n     lower(btrim(s.dich_vu_id)) service_ref FROM the_ban_hang s\r\n ), order_refs AS (\r\n   SELECT DISTINCT s.id, ref FROM sales s CROSS JOIN LATERAL\r\n     (VALUES (lower(s.id::text)), (lower(btrim(s.id_bh)))) refs(ref)\r\n   WHERE nullif(ref, '') IS NOT NULL\r\n ), details AS MATERIALIZED (\r\n   SELECT r.id,\r\n     sum(coalesce(ct.thanh_tien, coalesce(ct.gia_ban, 0) * coalesce(ct.so_luong, 1))) amount,\r\n     jsonb_agg(DISTINCT ct.co_so) FILTER (WHERE nullif(btrim(ct.co_so), '') IS NOT NULL) branches\r\n   FROM order_refs r JOIN the_ban_hang_ct ct ON lower(btrim(ct.id_don_hang)) = r.ref\r\n   GROUP BY r.id\r\n ), service_prices AS MATERIALIZED (\r\n   SELECT ref, max(v.gia_ban) amount FROM dich_vu v CROSS JOIN LATERAL\r\n     (VALUES (lower(v.id::text)), (lower(v.id_dich_vu)), (lower(v.ten_dich_vu))) refs(ref)\r\n   WHERE ref IS NOT NULL GROUP BY ref\r\n )\r\n SELECT (to_jsonb(s) - 'customer_ref' - 'service_ref') || jsonb_build_object(\r\n   'khach_hang', c.j,\r\n   'ten_khach_hang', coalesce(app_customer_name(c.j->>'ho_va_ten'), app_customer_name(s.ten_khach_hang)),\r\n   'resolved_amount', coalesce(d.amount, nullif(s.tong_tien, 0), dv.amount, s.tong_tien, 0),\r\n   'customer_key', CASE WHEN c.j IS NOT NULL THEN 'id:' || (c.j->>'id')\r\n     WHEN nullif(btrim(s.khach_hang_id), '') IS NOT NULL THEN 'ref:' || s.customer_ref\r\n     WHEN length(app_phone(s.so_dien_thoai::text)) >= 8 THEN 'phone:' || app_phone(s.so_dien_thoai::text)\r\n     ELSE NULL END,\r\n   'order_branches', coalesce(d.branches, jsonb_build_array(c.j->>'dia_chi_hien_tai')))\r\n FROM sales s\r\n LEFT JOIN customer_refs explicit ON explicit.ref = s.customer_ref\r\n LEFT JOIN phones phone ON explicit.j IS NULL\r\n   AND (length(app_phone(s.so_dien_thoai::text)) >= 8 OR btrim(s.khach_hang_id) ~ '^[+0-9 .()-]+$')\r\n   AND phone.phone = app_phone(coalesce(nullif(s.so_dien_thoai::text, ''), s.khach_hang_id))\r\n CROSS JOIN LATERAL (SELECT coalesce(explicit.j, phone.j) j) c\r\n LEFT JOIN details d ON d.id = s.id\r\n LEFT JOIN service_prices dv ON dv.ref = s.service_ref;\r\n$function$\n",
+      "owner": "postgres",
+      "proacl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+      "provolatile": "s",
+      "prosecdef": false,
+      "proconfig": [
+        "search_path=public"
+      ],
+      "language": "sql"
+    },
+    {
+      "name": "app_sales_rows_searched",
+      "signature": "app_sales_rows_searched(date,date,text)",
+      "identity_arguments": "p_start date, p_end date, p_search text",
+      "result": "SETOF jsonb",
+      "definition": "CREATE OR REPLACE FUNCTION public.app_sales_rows_searched(p_start date, p_end date, p_search text)\n RETURNS SETOF jsonb\n LANGUAGE sql\n STABLE\n SET search_path TO 'public'\nAS $function$\n SELECT app_sales_page_json(id, customer_id, customer_name, customer_key, resolved_amount, order_branches)\n FROM app_sales_filtered_typed(p_start, p_end, p_search, NULL, NULL, NULL, NULL);\n$function$\n",
+      "owner": "postgres",
+      "proacl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+      "provolatile": "s",
+      "prosecdef": false,
+      "proconfig": [
+        "search_path=public"
+      ],
+      "language": "sql"
+    },
+    {
+      "name": "app_search_text",
+      "signature": "app_search_text(text)",
+      "identity_arguments": "value text",
+      "result": "text",
+      "definition": "CREATE OR REPLACE FUNCTION public.app_search_text(value text)\n RETURNS text\n LANGUAGE sql\n IMMUTABLE PARALLEL SAFE\nAS $function$\r\n  SELECT regexp_replace(btrim(lower(translate(regexp_replace(normalize(coalesce(value, ''), NFD),\r\n    U&'[\\0300-\\036f]', '', 'g'), 'Đđ', 'Dd'))), '\\s+', ' ', 'g');\r\n$function$\n",
+      "owner": "postgres",
+      "proacl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+      "provolatile": "i",
+      "prosecdef": false,
+      "proconfig": null,
+      "language": "sql"
+    },
+    {
+      "name": "customer_order_stats",
+      "signature": "customer_order_stats(text[])",
+      "identity_arguments": "p_ids text[]",
+      "result": "jsonb",
+      "definition": "CREATE OR REPLACE FUNCTION public.customer_order_stats(p_ids text[])\n RETURNS jsonb\n LANGUAGE plpgsql\n STABLE\n SET search_path TO 'public'\nAS $function$\nBEGIN\n  IF coalesce(cardinality(p_ids), 0) = 0 THEN\n    RETURN jsonb_build_object('lastOrderDates', '{}'::jsonb, 'stats', '{}'::jsonb);\n  END IF;\n\n  RETURN (\n    WITH customers AS MATERIALIZED (\n      SELECT id::text id, ma_khach_hang code, app_phone(so_dien_thoai::text) phone\n      FROM khach_hang\n    ), refs AS MATERIALIZED (\n      -- Resolve ALL visible refs first: UUID wins over code; duplicate normalized\n      -- codes choose the same smallest UUID as app_sales_rows(). Filtering this\n      -- map to p_ids would incorrectly allow phone fallback for another owner.\n      SELECT DISTINCT ON (ref) ref, id, code FROM (\n        SELECT lower(id) ref, id, code, 0 priority FROM customers\n        UNION ALL\n        SELECT lower(btrim(code)), id, code, 1 FROM customers\n      ) r WHERE nullif(ref, '') IS NOT NULL ORDER BY ref, priority, id\n    ), phones AS MATERIALIZED (\n      -- Uniqueness covers every visible vehicle, including unrequested ones.\n      SELECT phone, min(id) id, min(code) code FROM customers\n      WHERE length(phone) >= 8 GROUP BY phone HAVING count(*) = 1\n    ), sales AS MATERIALIZED (\n      SELECT s.id, s.id_bh, s.ngay, s.gio, s.so_km, s.tong_tien,\n        lower(btrim(s.dich_vu_id)) service_ref,\n        coalesce(r.id, p.id) customer_id,\n        CASE WHEN r.id IS NOT NULL THEN r.code ELSE p.code END customer_code\n      FROM the_ban_hang s\n      LEFT JOIN refs r ON r.ref = lower(btrim(s.khach_hang_id))\n      LEFT JOIN phones p ON r.id IS NULL\n        AND (length(app_phone(s.so_dien_thoai::text)) >= 8\n          OR btrim(s.khach_hang_id) ~ '^[+0-9 .()-]+$')\n        AND p.phone = app_phone(coalesce(nullif(s.so_dien_thoai::text, ''), s.khach_hang_id))\n      WHERE coalesce(r.id, p.id) = ANY(p_ids)\n    ), order_refs AS (\n      SELECT DISTINCT s.id, ref FROM sales s CROSS JOIN LATERAL\n        (VALUES (lower(s.id::text)), (lower(btrim(s.id_bh)))) refs(ref)\n      WHERE nullif(ref, '') IS NOT NULL\n    ), details AS MATERIALIZED (\n      SELECT r.id,\n        sum(coalesce(ct.thanh_tien, coalesce(ct.gia_ban, 0) * coalesce(ct.so_luong, 1))) amount\n      FROM order_refs r JOIN the_ban_hang_ct ct ON lower(btrim(ct.id_don_hang)) = r.ref\n      GROUP BY r.id\n    ), service_prices AS MATERIALIZED (\n      -- Match the existing service normalization exactly (no extra btrim).\n      SELECT ref, max(v.gia_ban) amount FROM dich_vu v CROSS JOIN LATERAL\n        (VALUES (lower(v.id::text)), (lower(v.id_dich_vu)), (lower(v.ten_dich_vu))) refs(ref)\n      WHERE ref IN (SELECT service_ref FROM sales) GROUP BY ref\n    ), grouped AS (\n      SELECT s.customer_id id, s.customer_code code, max(s.ngay)::text latest,\n        jsonb_build_object(\n          'totalRevenue', sum(coalesce(d.amount, nullif(s.tong_tien, 0), v.amount, s.tong_tien, 0)),\n          'visitCount', count(*),\n          'latestSoKm', (array_agg(s.so_km::numeric ORDER BY s.ngay DESC, s.gio DESC, s.id DESC)\n            FILTER (WHERE s.so_km > 0))[1]\n        ) stats\n      FROM sales s LEFT JOIN details d ON d.id = s.id\n      LEFT JOIN service_prices v ON v.ref = s.service_ref\n      GROUP BY s.customer_id, s.customer_code\n    ), keys AS (\n      SELECT id key, latest, stats FROM grouped\n      UNION ALL SELECT code, latest, stats FROM grouped WHERE nullif(code, '') IS NOT NULL\n    ) SELECT jsonb_build_object(\n      'lastOrderDates', coalesce(jsonb_object_agg(key, latest), '{}'::jsonb),\n      'stats', coalesce(jsonb_object_agg(key, stats), '{}'::jsonb)\n    ) FROM keys\n  );\nEND;\n$function$\n",
+      "owner": "postgres",
+      "proacl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+      "provolatile": "s",
+      "prosecdef": false,
+      "proconfig": [
+        "search_path=public"
+      ],
+      "language": "plpgsql"
+    },
+    {
+      "name": "sales_details",
+      "signature": "sales_details(text[])",
+      "identity_arguments": "p_refs text[]",
+      "result": "SETOF the_ban_hang_ct",
+      "definition": "CREATE OR REPLACE FUNCTION public.sales_details(p_refs text[])\n RETURNS SETOF the_ban_hang_ct\n LANGUAGE sql\n STABLE\n SET search_path TO 'public'\nAS $function$\r\n SELECT ct.* FROM the_ban_hang_ct ct WHERE lower(btrim(ct.id_don_hang)) IN\r\n   (SELECT lower(btrim(ref)) FROM unnest(p_refs) ref) ORDER BY ct.id;\r\n$function$\n",
+      "owner": "postgres",
+      "proacl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+      "provolatile": "s",
+      "prosecdef": false,
+      "proconfig": [
+        "search_path=public"
+      ],
+      "language": "sql"
+    },
+    {
+      "name": "sales_lookup",
+      "signature": "sales_lookup(text[])",
+      "identity_arguments": "p_ids text[]",
+      "result": "jsonb",
+      "definition": "CREATE OR REPLACE FUNCTION public.sales_lookup(p_ids text[])\n RETURNS jsonb\n LANGUAGE sql\n STABLE\n SET search_path TO 'public'\nAS $function$\r\n SELECT coalesce(jsonb_agg(j), '[]'::jsonb) FROM app_sales_rows() j WHERE j->>'id' = ANY(p_ids);\r\n$function$\n",
+      "owner": "postgres",
+      "proacl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+      "provolatile": "s",
+      "prosecdef": false,
+      "proconfig": [
+        "search_path=public"
+      ],
+      "language": "sql"
+    },
+    {
+      "name": "sales_query",
+      "signature": "sales_query(text,date,date,text,text,integer,integer,text,text)",
+      "identity_arguments": "p_search text, p_start date, p_end date, p_staff text, p_branch text, p_page integer, p_limit integer, p_reference text, p_customer text",
+      "result": "jsonb",
+      "definition": "CREATE OR REPLACE FUNCTION public.sales_query(p_search text DEFAULT NULL::text, p_start date DEFAULT NULL::date, p_end date DEFAULT NULL::date, p_staff text DEFAULT NULL::text, p_branch text DEFAULT NULL::text, p_page integer DEFAULT 1, p_limit integer DEFAULT 20, p_reference text DEFAULT NULL::text, p_customer text DEFAULT NULL::text)\n RETURNS jsonb\n LANGUAGE sql\n STABLE\n SET search_path TO 'public'\nAS $function$\n WITH filtered AS MATERIALIZED (\n   SELECT * FROM app_sales_filtered_typed(p_start, p_end, p_search, p_staff, p_branch, p_reference, p_customer)\n ), page_rows AS MATERIALIZED (\n   -- Preserve OLD text sort (including NULLS FIRST and unusual BC dates).\n   -- Sorting these narrow columns does not carry customer/header JSON.\n   SELECT * FROM filtered ORDER BY ngay::text DESC, gio::text DESC, id::text DESC\n   LIMIT greatest(0, least(p_limit, 1000)) OFFSET (greatest(p_page, 1) - 1) * greatest(0, least(p_limit, 1000))\n ), first_dates AS MATERIALIZED (\n   -- ALL includes the entire caller-visible history already resolved by the\n   -- typed helper. Reuse those exact keys: no second identity/history pass and\n   -- no membership comparison against thousands of requested keys per sale.\n   SELECT customer_key, min(ngay)::text first_date FROM filtered\n   WHERE p_search IS NULL AND p_start IS NULL AND p_end IS NULL AND p_staff IS NULL\n     AND p_branch IS NULL AND p_reference IS NULL AND p_customer IS NULL\n   GROUP BY customer_key\n   UNION ALL\n   SELECT * FROM app_sales_first_dates_for_keys(CASE\n     WHEN p_search IS NULL AND p_start IS NULL AND p_end IS NULL AND p_staff IS NULL\n       AND p_branch IS NULL AND p_reference IS NULL AND p_customer IS NULL\n     THEN ARRAY[]::text[]\n     ELSE ARRAY(SELECT DISTINCT customer_key FROM filtered WHERE customer_key IS NOT NULL) END)\n ), classified AS MATERIALIZED (\n   SELECT f.ngay::text date, f.gio::text time, f.customer_key, f.resolved_amount, d.first_date\n   FROM filtered f LEFT JOIN first_dates d ON d.customer_key = f.customer_key\n ), daily AS (\n   SELECT date, jsonb_build_object('date', date, 'totalCount', count(*),\n     'totalAmount', coalesce(sum(resolved_amount), 0), 'totalCustomers', count(DISTINCT customer_key),\n     'latestTime', max(time),\n     'newCustomersCount', count(DISTINCT customer_key) FILTER (WHERE first_date = date),\n     'returningCustomersCount', count(DISTINCT customer_key) FILTER (WHERE first_date < date)) result\n   FROM classified GROUP BY date\n )\n SELECT jsonb_build_object('data', coalesce((SELECT jsonb_agg(\n     app_sales_page_json(id, customer_id, customer_name, customer_key, resolved_amount, order_branches)\n     ORDER BY ngay::text DESC, gio::text DESC, id::text DESC) FROM page_rows), '[]'::jsonb),\n   'totalCount', (SELECT count(*) FROM filtered),\n   'summary', (SELECT jsonb_build_object('totalCount', count(*),\n     'totalAmount', coalesce(sum(resolved_amount), 0), 'totalCustomers', count(DISTINCT customer_key),\n     'newCustomersCount', count(DISTINCT customer_key) FILTER (WHERE p_start IS NULL OR first_date >= p_start::text),\n     'returningCustomersCount', count(DISTINCT customer_key) FILTER (WHERE first_date < p_start::text)) FROM classified),\n   'groupedSummary', coalesce((SELECT jsonb_agg(result ORDER BY date DESC) FROM daily), '[]'::jsonb));\n$function$\n",
+      "owner": "postgres",
+      "proacl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+      "provolatile": "s",
+      "prosecdef": false,
+      "proconfig": [
+        "search_path=public"
+      ],
+      "language": "sql"
+    }
+  ]
+}

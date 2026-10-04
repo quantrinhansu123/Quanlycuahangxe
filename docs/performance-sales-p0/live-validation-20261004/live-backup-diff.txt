@@ -1,0 +1,1 @@
+No SQL content differences. Audit definitions, signatures and rollback match LIVE after Windows line-ending normalization.

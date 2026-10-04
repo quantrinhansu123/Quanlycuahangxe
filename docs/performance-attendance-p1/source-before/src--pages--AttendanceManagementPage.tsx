@@ -1,0 +1,1578 @@
+import ManualAttendanceModal from '../components/ManualAttendanceModal';
+// Attendance Management Page
+import { clsx } from 'clsx';
+import { getErrorDetails } from '../lib/errorDetails';
+import {
+  ArrowLeft,
+  Calendar,
+  Camera,
+  ChevronDown,
+  Clock,
+  Download,
+  Edit2,
+  History,
+  List,
+  Loader2,
+  Plus,
+  Search,
+  Trash2,
+  Upload,
+  User,
+  X
+} from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
+import * as XLSX from 'xlsx';
+import Pagination from '../components/Pagination';
+import { useAuth } from '../context/AuthContext';
+import { useAttendanceSettings } from '../hooks/useAttendanceSettings';
+import type { AttendanceRecord } from '../data/attendanceData';
+import {
+  bulkUpsertAttendanceRecords,
+  createAttendanceRecord,
+  deleteAttendanceRecord,
+  formatAttendanceSaveError,
+  getAllAttendanceRecords,
+  getAttendanceRecords,
+  getStaffAttendanceNameVariants,
+  resolveStaffNameForUser,
+  staffNamesMatch,
+  upsertAttendanceRecord
+} from '../data/attendanceData';
+import { getPersonnel, type NhanSu } from '../data/personnelData';
+import { formatDateTime24h, formatDateVi, formatLocalIsoDate } from '../utils/datetimeFormat';
+import DateInputVi from '../components/ui/DateInputVi';
+import { matchImportedAttendancePairs } from '../utils/attendanceImport';
+import {
+  workDaysForDayShifts,
+  attendanceCreditBreakdownForDay,
+  calculateAttendanceStatus,
+  formatMinutesToHours,
+  overtimeMinutesForDayShifts,
+  parseTimeStringToMinutes,
+} from '../utils/timekeeping';
+
+type DisplayAttendanceRecord = AttendanceRecord & { isMockAbsent?: boolean };
+
+interface DailyAttendanceStat {
+  present: number;
+  total: number;
+}
+
+const attendancePersonnelKey = (name: string, personnel: NhanSu[]): string => {
+  const matched = personnel.find(
+    (p) =>
+      staffNamesMatch(name, p.id) || staffNamesMatch(name, p.ho_ten) ||
+      (p.id_nhan_su != null && staffNamesMatch(name, p.id_nhan_su))
+  );
+  return matched ? `personnel:${matched.id}` : `name:${name.trim().toLowerCase()}`;
+};
+
+const hasAttendanceTime = (record: AttendanceRecord): boolean =>
+  Boolean(
+    (record.checkin && String(record.checkin).trim()) ||
+    (record.checkout && String(record.checkout).trim())
+  );
+
+const AttendanceManagementPage: React.FC = () => {
+  const { nhanVien, isAdmin, canModifyData, isTechnician, hasViewAccess } = useAuth();
+  const { settings: attendanceSettings, loading: attendanceSettingsLoading } = useAttendanceSettings();
+
+  /** Kỹ thuật viên / chỉ có quyền chấm công: không xem bảng của người khác */
+  const restrictToSelf =
+    isTechnician ||
+    (!isAdmin && hasViewAccess('cham-cong') && !hasViewAccess('nhan-su'));
+  const navigate = useNavigate();
+  const [allRecords, setAllRecords] = useState<AttendanceRecord[]>([]);
+  const [personnel, setPersonnel] = useState<NhanSu[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [totalCount, setTotalCount] = useState(0);
+
+  const safePage = Math.min(currentPage, Math.max(1, Math.ceil(allRecords.length / pageSize)));
+  const records = React.useMemo(() => allRecords.slice((safePage - 1) * pageSize, safePage * pageSize), [allRecords, safePage, pageSize]);
+  const attendanceRequest = useRef(0);
+  const attendanceAbort = useRef<AbortController | null>(null);
+  const [loadError, setLoadError] = useState('');
+  // Filter states
+  const [selectedStaff, setSelectedStaff] = useState<string>('');
+  const [startDate, setStartDate] = useState<string>(() => formatLocalIsoDate().slice(0, 7) + '-01');
+  const [endDate, setEndDate] = useState<string>(() => { const d = new Date(); return formatLocalIsoDate(new Date(d.getFullYear(), d.getMonth() + 1, 0)); });
+  const [selectedMonth, setSelectedMonth] = useState<string>(() => formatLocalIsoDate().slice(0, 7));
+  const [summaryStats, setSummaryStats] = useState({
+    tongCong: 0,
+    tongPhutMuon: 0,
+    tongBuoiNghi: 0,
+  });
+  const [dailyAttendanceStats, setDailyAttendanceStats] = useState<Record<string, DailyAttendanceStat>>({});
+
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const [manualDraft, setManualDraft] = useState<{ person?: string; day?: string } | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isNewRecord, setIsNewRecord] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const savingRef = useRef(false);
+  const [formData, setFormData] = useState<Partial<AttendanceRecord>>({});
+  const [originalRecord, setOriginalRecord] = useState<AttendanceRecord | null>(null);
+  const [showHistoryRecord, setShowHistoryRecord] = useState<AttendanceRecord | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const STORAGE_KEY_COLUMNS = 'attendance_visible_columns';
+  const [visibleColumns, setVisibleColumns] = useState<string[]>(() => {
+    const defaults = ['id_cham_cong', 'anh', 'nhan_su', 'ngay', 'trang_thai', 'checkin', 'checkout', 'di_muon', 'tang_ca', 'actions'];
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_COLUMNS);
+      if (!saved) return defaults;
+      const parsed = JSON.parse(saved);
+      // Merge defaults to ensure new columns show up for returning users
+      return Array.from(new Set([...parsed, ...['trang_thai', 'di_muon', 'tang_ca']]));
+    } catch {
+      return defaults;
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_COLUMNS, JSON.stringify(visibleColumns));
+  }, [visibleColumns]);
+
+  const allColumns = [
+    { id: 'id_cham_cong', label: 'Mã CC' },
+    { id: 'anh', label: 'Ảnh' },
+    { id: 'nhan_su', label: 'Nhân sự' },
+    { id: 'ngay', label: 'Ngày' },
+    { id: 'trang_thai', label: 'Trạng thái' },
+    { id: 'checkin', label: 'Giờ vào' },
+    { id: 'checkout', label: 'Giờ ra' },
+    { id: 'di_muon', label: 'Đi muộn' },
+    { id: 'tang_ca', label: 'Tăng ca' },
+    { id: 'vi_tri', label: 'Vị trí' },
+    { id: 'actions', label: 'Thao tác' }
+  ];
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const loadRecords = React.useCallback(async (showLoading = true) => {
+    if (attendanceSettingsLoading) return;
+    const request = ++attendanceRequest.current;
+    attendanceAbort.current?.abort();
+    const controller = new AbortController(); attendanceAbort.current = controller;
+    try {
+      setLoadError('');
+      if (showLoading) setLoading(true);
+      const personnelData = await getPersonnel();
+      if (request !== attendanceRequest.current) return;
+      const selfStaffNames = getStaffAttendanceNameVariants(nhanVien, personnelData);
+      const staffScope = restrictToSelf
+        ? selfStaffNames
+        : isAdmin
+          ? undefined
+          : selfStaffNames;
+      const selectedPersonnel = selectedStaff
+        ? personnelData.find((p) => staffNamesMatch(p.ho_ten, selectedStaff))
+        : undefined;
+      const searchedPersonnel = debouncedSearch ? personnelData.filter(p =>
+        p.ho_ten.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        p.id_nhan_su?.toLowerCase().includes(debouncedSearch.toLowerCase())) : [];
+      const staffFilter = restrictToSelf
+        ? undefined
+        : selectedStaff
+          ? [selectedStaff, selectedPersonnel?.id_nhan_su, selectedPersonnel?.id].filter(
+              (value): value is string => Boolean(value)
+            )
+          : searchedPersonnel.length ? searchedPersonnel.flatMap(p => [p.ho_ten, p.id, p.id_nhan_su || p.id]) : undefined;
+
+      if (restrictToSelf && selfStaffNames.length === 0) {
+        setAllRecords([]);
+        setTotalCount(0);
+        setSummaryStats({ tongCong: 0, tongPhutMuon: 0, tongBuoiNghi: 0 });
+        setDailyAttendanceStats({});
+        setPersonnel(personnelData);
+        return;
+      }
+
+      // Tải đủ dữ liệu trước khi ghép Có mặt/Vắng. Nếu phân trang DB trước bước này,
+      // bản ghi mới sẽ chiếm chỗ và làm người ở cuối trang bị hiểu nhầm là vắng.
+      const summaryRows = await getAllAttendanceRecords(
+        staffScope,
+        !restrictToSelf && searchedPersonnel.length ? '' : debouncedSearch,
+        {
+          nhan_su: staffFilter,
+          startDate,
+          endDate,
+        }, controller.signal
+      );
+      if (request !== attendanceRequest.current) return;
+
+      let datesToProcess: string[] = [];
+      if (summaryRows.length > 0) {
+        datesToProcess = Array.from(new Set(summaryRows.map(r => r.ngay).filter(Boolean)));
+      } else if (startDate && endDate && startDate === endDate) {
+        datesToProcess = [startDate];
+      }
+
+      const todayString = formatLocalIsoDate();
+      if (!endDate && !datesToProcess.includes(todayString)) {
+         if (!startDate || startDate <= todayString) {
+            datesToProcess.unshift(todayString);
+         }
+      }
+
+      const relevantPersonnel = personnelData.filter((p) => {
+        if (restrictToSelf) {
+          if (selfStaffNames.length === 0) return false;
+          return (
+            selfStaffNames.some((n) => staffNamesMatch(p.ho_ten, n)) ||
+            (p.id_nhan_su != null &&
+              selfStaffNames.some((n) => staffNamesMatch(p.id_nhan_su, n)))
+          );
+        }
+        if (selectedStaff && selectedStaff !== p.ho_ten) return false;
+        if (debouncedSearch && !p.ho_ten.toLowerCase().includes(debouncedSearch.toLowerCase())) {
+          return false;
+        }
+        return true;
+      });
+
+      // —— Tổng hợp theo bộ lọc ——
+      let tongCong = 0;
+      let tongPhutMuon = 0;
+
+      const byPersonDay = new Map<string, AttendanceRecord[]>();
+      for (const r of summaryRows) {
+        if (!r.ngay || !r.nhan_su) continue;
+        const key = `${r.ngay}|||${attendancePersonnelKey(r.nhan_su, personnelData)}`;
+        const rows = byPersonDay.get(key) || [];
+        rows.push(r);
+        byPersonDay.set(key, rows);
+      }
+
+      const personDayKey = (date: string, p: NhanSu) =>
+        `${date}|||personnel:${p.id}`;
+      const personPresentOnDate = (date: string, p: NhanSu) =>
+        (byPersonDay.get(personDayKey(date, p)) || []).some(hasAttendanceTime);
+
+      byPersonDay.forEach((dayRows) => {
+        let dayLateMinutes = 0;
+        dayRows.forEach((r) => {
+          const st = calculateAttendanceStatus(r.checkin, r.checkout, attendanceSettings);
+          if (st.isLate) dayLateMinutes = Math.max(dayLateMinutes, st.lateMinutes);
+        });
+        if (dayLateMinutes > 0) tongPhutMuon += dayLateMinutes;
+      });
+
+      byPersonDay.forEach((dayRows) => { tongCong += workDaysForDayShifts(dayRows, attendanceSettings); });
+
+      let datesForAbsent: string[] = [];
+      if (startDate && endDate) {
+        const cursor = new Date(`${startDate}T12:00:00`);
+        const end = new Date(`${endDate}T12:00:00`);
+        while (cursor <= end) {
+          const y = cursor.getFullYear();
+          const m = String(cursor.getMonth() + 1).padStart(2, '0');
+          const d = String(cursor.getDate()).padStart(2, '0');
+          datesForAbsent.push(`${y}-${m}-${d}`);
+          cursor.setDate(cursor.getDate() + 1);
+        }
+      } else {
+        datesForAbsent = Array.from(new Set(summaryRows.map((r) => r.ngay).filter(Boolean)));
+        if (!datesForAbsent.includes(todayString) && (!startDate || startDate <= todayString)) {
+          datesForAbsent.push(todayString);
+        }
+      }
+
+      let tongBuoiNghi = 0;
+      for (const date of datesForAbsent) {
+        for (const p of relevantPersonnel) {
+          if (!personPresentOnDate(date, p)) tongBuoiNghi += 1;
+        }
+      }
+
+      setSummaryStats({
+        tongCong,
+        tongPhutMuon,
+        tongBuoiNghi,
+      });
+
+      const finalRecords: DisplayAttendanceRecord[] = [...summaryRows];
+      datesToProcess.forEach(date => {
+         const absentees = relevantPersonnel.filter(
+           (p) => !byPersonDay.has(personDayKey(date, p))
+         );
+
+         const fakeAbsentRecords: DisplayAttendanceRecord[] = absentees.map(p => ({
+           id: `fake-absent-${date}-${p.id}`,
+           id_cham_cong: null,
+           nhan_su: p.ho_ten,
+           ngay: date,
+           checkin: null,
+           checkout: null,
+           anh: p.hinh_anh || null,
+           vi_tri: null,
+           isMockAbsent: true
+         }));
+
+         finalRecords.push(...fakeAbsentRecords);
+      });
+
+      // Giữ vị trí của mỗi nhân sự ổn định: Vắng -> Có mặt không làm xáo trộn
+      // danh sách, còn nhiều lượt trong ngày vẫn nằm cạnh nhau.
+      finalRecords.sort((a, b) => {
+        const dateOrder = (b.ngay || '').localeCompare(a.ngay || '');
+        if (dateOrder !== 0) return dateOrder;
+        const personA = attendancePersonnelKey(a.nhan_su, personnelData);
+        const personB = attendancePersonnelKey(b.nhan_su, personnelData);
+        const personOrder = personA.localeCompare(personB, 'vi');
+        if (personOrder !== 0) return personOrder;
+        if (Boolean(a.isMockAbsent) !== Boolean(b.isMockAbsent)) return a.isMockAbsent ? 1 : -1;
+        return (a.created_at || '').localeCompare(b.created_at || '');
+      });
+
+      const nextDailyStats: Record<string, DailyAttendanceStat> = {};
+      for (const date of datesToProcess) {
+        const totalPeople = new Set<string>();
+        const presentPeople = new Set<string>();
+
+        relevantPersonnel.forEach((p) => totalPeople.add(`personnel:${p.id}`));
+        summaryRows.forEach((r) => {
+          if (r.ngay !== date || !r.nhan_su) return;
+          const key = attendancePersonnelKey(r.nhan_su, personnelData);
+          totalPeople.add(key);
+          if (hasAttendanceTime(r)) presentPeople.add(key);
+        });
+        nextDailyStats[date] = { present: presentPeople.size, total: totalPeople.size };
+      }
+
+      setAllRecords(finalRecords);
+      setTotalCount(finalRecords.length);
+      setDailyAttendanceStats(nextDailyStats);
+      setPersonnel(personnelData);
+
+    } catch (error) {
+      if (request === attendanceRequest.current) setLoadError(formatAttendanceSaveError(error));
+    } finally {
+      if (request === attendanceRequest.current) setLoading(false);
+    }
+  }, [
+    debouncedSearch,
+    selectedStaff,
+    startDate,
+    endDate,
+    isAdmin,
+    restrictToSelf,
+    nhanVien,
+    attendanceSettings,
+    attendanceSettingsLoading,
+  ]);
+
+  useEffect(() => {
+    void loadRecords(true);
+    return () => { attendanceRequest.current++; attendanceAbort.current?.abort(); };
+  }, [loadRecords]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setOpenDropdown(null);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const toggleDropdown = (id: string) => {
+    setOpenDropdown(prev => prev === id ? null : id);
+  };
+
+  const formatDateForDisplay = (dateStr: string | undefined) => formatDateVi(dateStr);
+
+  const handleOpenModal = (record: AttendanceRecord) => {
+    if (!canModifyData) {
+      window.alert('Kỹ thuật viên chỉ được xem dữ liệu chấm công.');
+      return;
+    }
+    const isMockAbsent = (record as AttendanceRecord & { isMockAbsent?: boolean }).isMockAbsent;
+    if (isMockAbsent && isAdmin) {
+      const person = personnel.find(p => staffNamesMatch(p.ho_ten, record.nhan_su) || staffNamesMatch(p.id_nhan_su, record.nhan_su));
+      setManualDraft({ person: person?.id, day: record.ngay });
+      return;
+    }
+    if (isMockAbsent) {
+      setIsNewRecord(true);
+      setOriginalRecord(null);
+      setFormData({
+        nhan_su: record.nhan_su,
+        ngay: record.ngay || '',
+        checkin: null,
+        checkout: null,
+        anh: record.anh || null,
+        vi_tri: null,
+        id_cham_cong: null
+      });
+    } else {
+      setIsNewRecord(false);
+      setOriginalRecord(record);
+      setFormData({ ...record });
+    }
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setIsNewRecord(false);
+  };
+
+  const getLocation = () => {
+    if (!("geolocation" in navigator)) {
+      console.warn("Trình duyệt không hỗ trợ định vị.");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setFormData(prev => ({
+          ...prev,
+          vi_tri: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`
+        }));
+      },
+      (error) => {
+        console.error("Lỗi lấy vị trí:", error);
+      },
+      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+    );
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData(prev => ({ ...prev, anh: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+      getLocation();
+    }
+  };
+
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canModifyData || savingRef.current) return;
+
+    savingRef.current = true;
+    setIsSaving(true);
+    try {
+      const updatedData = { ...formData };
+
+      if (isNewRecord) {
+        if (!updatedData.nhan_su || !updatedData.ngay) {
+          alert('Vui lòng chọn nhân sự và ngày.');
+          return;
+        }
+        let nhan_su = updatedData.nhan_su;
+        if (restrictToSelf && nhanVien) {
+          const me = resolveStaffNameForUser(nhanVien, personnel);
+          if (me) nhan_su = me;
+        }
+        await createAttendanceRecord({
+          nhan_su,
+          ngay: updatedData.ngay,
+          checkin: updatedData.checkin ?? null,
+          checkout: updatedData.checkout ?? null,
+          anh: updatedData.anh ?? null,
+          vi_tri: updatedData.vi_tri ?? null,
+          id_cham_cong: updatedData.id_cham_cong ?? undefined
+        });
+        await loadRecords(false);
+        handleCloseModal();
+        return;
+      }
+
+      // If editing existing record, track history
+      if (originalRecord) {
+        const changes: { truong: string; gia_tri_cu: string | number | null; gia_tri_moi: string | number | null }[] = [];
+        
+        const fieldsToTrack: { key: 'nhan_su' | 'ngay' | 'checkin' | 'checkout' | 'vi_tri'; label: string }[] = [
+          { key: 'nhan_su', label: 'Nhân sự' },
+          { key: 'ngay', label: 'Ngày' },
+          { key: 'checkin', label: 'Giờ vào' },
+          { key: 'checkout', label: 'Giờ ra' },
+          { key: 'vi_tri', label: 'Vị trí' },
+        ];
+
+        fieldsToTrack.forEach(({ key, label }) => {
+          if (originalRecord[key] !== updatedData[key]) {
+            changes.push({
+              truong: label,
+              gia_tri_cu: originalRecord[key] || 'Trống',
+              gia_tri_moi: updatedData[key] || 'Trống'
+            });
+          }
+        });
+
+        if (changes.length > 0) {
+          const historyEntry = {
+            thoi_gian: formatDateTime24h(new Date()),
+            nguoi_sua: nhanVien?.ho_ten || 'Admin',
+            thay_doi: changes
+          };
+          
+          updatedData.lich_su_sua = [historyEntry, ...(originalRecord.lich_su_sua || [])];
+        }
+      }
+
+      await upsertAttendanceRecord(updatedData);
+      await loadRecords(false);
+      handleCloseModal();
+    } catch (error) {
+      alert(`Lỗi: ${formatAttendanceSaveError(error)}`);
+    } finally {
+      savingRef.current = false;
+      setIsSaving(false);
+    }
+  };
+
+  const handleDownloadTemplate = () => {
+    const example = {
+      "Ngày": "2024-03-24",
+      "Ảnh": "",
+      "vị trí": "21.273, 106.194",
+      "Nhân sự": "Nguyễn Văn A"
+    };
+    const templateData = attendanceSettings.splitShiftEnabled
+      ? [
+          { "id": "CC-001", ...example, "Checkin": attendanceSettings.morningStart, "Checkout": attendanceSettings.morningEnd },
+          { "id": "CC-002", ...example, "Checkin": attendanceSettings.afternoonStart, "Checkout": attendanceSettings.afternoonEnd },
+        ]
+      : [
+          { "id": "CC-001", ...example, "Checkin": attendanceSettings.fullDayStart, "Checkout": attendanceSettings.fullDayEnd },
+        ];
+
+    const worksheet = XLSX.utils.json_to_sheet(templateData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "MauChamCong");
+    XLSX.writeFile(workbook, "Mau_nhap_cham_cong.xlsx");
+  };
+
+  const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        console.log('Attendance Sheet Names:', wb.SheetNames);
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const data = XLSX.utils.sheet_to_json<Record<string, string | number | undefined>>(ws);
+
+        if (data.length > 0) {
+          console.log('First Row Keys:', Object.keys(data[0]));
+          console.log('First Row Data:', data[0]);
+        }
+
+        // Helper to convert Excel date/time serial numbers
+        const formatExcelTime = (val: string | number | undefined | null) => {
+          if (val === undefined || val === null || val === '') return null;
+          if (typeof val === 'number') {
+            const totalSeconds = Math.round(val * 24 * 3600);
+            const h = Math.floor(totalSeconds / 3600);
+            const m = Math.floor((totalSeconds % 3600) / 60);
+            const s = totalSeconds % 60;
+            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+          }
+          const str = String(val).trim();
+          if (!str) return null;
+
+          // Case: 9:53:13 PM or 8:56:34 AM
+          const ampmMatch = str.match(/^(\d{1,2}):(\d{2})(:(\d{2}))?\s*(AM|PM)$/i);
+          if (ampmMatch) {
+            let h = parseInt(ampmMatch[1]);
+            const m = ampmMatch[2];
+            const s = ampmMatch[4] || '00';
+            const p = ampmMatch[5].toUpperCase();
+            if (p === 'PM' && h < 12) h += 12;
+            if (p === 'AM' && h === 12) h = 0;
+            return `${String(h).padStart(2, '0')}:${m}:${s}`;
+          }
+
+          // Case: HH:mm:ss
+          if (str.match(/^\d{1,2}:\d{2}:\d{2}$/)) {
+            return str.split(':').map(v => v.padStart(2, '0')).join(':');
+          }
+
+          // Case: HH:mm
+          if (str.match(/^\d{1,2}:\d{2}$/)) {
+            return str.split(':').map(v => v.padStart(2, '0')).join(':') + ':00';
+          }
+
+          return str;
+        };
+
+        const formatExcelDate = (val: string | number | undefined | null) => {
+          if (val === undefined || val === null || val === '') return null;
+          if (typeof val === 'number' && val > 40000) {
+            const d = new Date(Math.round((val - 25569) * 86400 * 1000));
+            return formatLocalIsoDate(d);
+          }
+          const s = String(val).trim();
+          return s || null;
+        };
+
+        const formattedData: Partial<AttendanceRecord>[] = data.map(item => {
+          // Normalize keys (trim whitespace)
+          const norm: Record<string, string | number | undefined> = {};
+          Object.keys(item).forEach(k => {
+            norm[String(k).trim()] = item[k];
+          });
+
+          // Fuzzy Mapping
+          const nhan_su = String(norm["Nhân sự"] || norm["Họ tên Nhân viên"] || norm["Họ tên"] || '').trim();
+          const ngay = formatExcelDate(norm["Ngày"]) || formatLocalIsoDate();
+
+          // Skip if no personnel name
+          if (!nhan_su || nhan_su === 'undefined' || nhan_su === '') {
+            return null;
+          }
+
+          const record: Partial<AttendanceRecord> = {
+            nhan_su,
+            ngay,
+            checkin: formatExcelTime(norm["Checkin"] || norm["Giờ vào"] || norm["Check-in"]),
+            checkout: formatExcelTime(norm["Checkout"] || norm["Giờ ra"] || norm["Check-out"]),
+            vi_tri: (norm["vị trí"] || norm["Vị trí"] || norm["Tọa độ"]) ? String(norm["vị trí"] || norm["Vị trí"] || norm["Tọa độ"]).trim() : null,
+            anh: (norm["Ảnh"] || norm["Hình ảnh"]) ? String(norm["Ảnh"] || norm["Hình ảnh"]).trim() : null
+          };
+
+          const rawId = norm["id"] ? String(norm["id"]).trim() : '';
+
+          if (rawId) {
+            record.id_cham_cong = rawId;
+
+            // Nếu là UUID hợp lệ, dùng làm khóa chính để cập nhật thay vì thêm mới
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            if (uuidRegex.test(rawId)) {
+              record.id = rawId;
+            }
+          }
+
+          return record;
+        }).filter(Boolean) as Partial<AttendanceRecord>[];
+
+        console.log('Formatted Attendance Data for Import:', formattedData);
+
+        if (formattedData.length > 0) {
+          setLoading(true);
+          try {
+            // Check trùng: fetch danh sách hiện có và gán ID nếu tìm thấy bản ghi trùng
+            const existingRecords = await getAttendanceRecords();
+            const matched = matchImportedAttendancePairs(
+              formattedData,
+              existingRecords,
+              (value) => attendancePersonnelKey(value, personnel)
+            );
+            await bulkUpsertAttendanceRecords(matched.records);
+            await loadRecords(false);
+            const newCount = matched.records.length - matched.updatedCount;
+            alert(`✅ Hoàn tất: ${newCount} bản ghi mới, ${matched.updatedCount} bản ghi cập nhật.`);
+          } catch (err) {
+            console.error('Database Error details:', err);
+            alert(`Lỗi khi lưu dữ liệu chấm công: ${getErrorDetails(err).message || 'Lỗi DB'}`);
+          }
+        } else {
+          alert("Không tìm thấy dữ liệu chấm công hợp lệ.");
+        }
+      } catch (error) {
+        console.error('Import Pipeline Error:', error);
+        alert("Lỗi khi đọc file Excel.");
+      } finally {
+        setLoading(false);
+        if (e.target) e.target.value = '';
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!canModifyData) {
+      return;
+    }
+    if (window.confirm('Bạn có chắc chắn muốn xóa bản ghi chấm công này?')) {
+      try {
+        await deleteAttendanceRecord(id);
+        await loadRecords(false);
+      } catch {
+        alert('Lỗi: Không thể xóa bản ghi.');
+      }
+    }
+  };
+
+  const groupedRecords = React.useMemo(() => {
+    const groups: { [key: string]: typeof records } = {};
+    records.forEach(r => {
+      const dateKey = r.ngay || 'Chưa xác định';
+      if (!groups[dateKey]) groups[dateKey] = [];
+      groups[dateKey].push(r);
+    });
+    // Sort dates descending
+    return Object.entries(groups).sort(([a], [b]) => {
+      if (a === 'Chưa xác định') return 1;
+      if (b === 'Chưa xác định') return -1;
+      return new Date(b).getTime() - new Date(a).getTime();
+    });
+  }, [records]);
+
+  /** Tổng phút tăng ca trong ngày (cùng nhân sự): theo mốc cấu hình, nhiều lượt → giờ ra muộn nhất. */
+  const tangCaPhutTrongNgay = React.useMemo(() => {
+    const map = new Map<string, number>();
+    const buckets: Record<string, AttendanceRecord[]> = {};
+    for (const r of records) {
+      if ((r as { isMockAbsent?: boolean }).isMockAbsent) continue;
+      if (!r.ngay || !r.nhan_su) continue;
+      const k = `${r.ngay}|||${r.nhan_su}`;
+      if (!buckets[k]) buckets[k] = [];
+      buckets[k].push(r);
+    }
+    for (const [k, list] of Object.entries(buckets)) {
+      const phut = overtimeMinutesForDayShifts(
+        list.map((x) => ({ checkin: x.checkin, checkout: x.checkout })),
+        attendanceSettings
+      );
+      map.set(k, phut);
+    }
+    return map;
+  }, [records, attendanceSettings]);
+
+  const tangCaKey = (r: AttendanceRecord) =>
+    r.ngay && r.nhan_su ? `${r.ngay}|||${r.nhan_su}` : '';
+
+  const titleTangCaKhiKhongHien = (r: AttendanceRecord): string => {
+    if ((r as { isMockAbsent?: boolean }).isMockAbsent) return '';
+    const p = r.checkout ? parseTimeStringToMinutes(r.checkout) : null;
+    if (p == null) return 'Chưa có giờ ra — chưa tính tăng ca';
+    const overtimeStart = parseTimeStringToMinutes(attendanceSettings.overtimeStart)!;
+    if (p < overtimeStart) {
+      return `Tăng ca: chỉ tính phút làm sau ${attendanceSettings.overtimeStart} (giờ ra hiện trước mốc nên 0p). Nếu làm tối, hãy chấm thêm lượt có giờ ra sau ${attendanceSettings.overtimeStart} cùng ngày.`;
+    }
+    return '';
+  };
+
+  const tableColSpan = 1 + visibleColumns.length;
+
+  const selfDisplayName = resolveStaffNameForUser(nhanVien, personnel);
+  const displayStaffName = (value: string) => personnel.find(p =>
+    [p.id, p.id_nhan_su, p.ho_ten].some(token => staffNamesMatch(value, token)))?.ho_ten || value;
+  const dailyCredits = React.useMemo(() => {
+    const groups = new Map<string, AttendanceRecord[]>();
+    for (const row of allRecords) {
+      const key = `${row.ngay}|${attendancePersonnelKey(row.nhan_su, personnel)}`;
+      groups.set(key, [...(groups.get(key) || []), row]);
+    }
+    return new Map([...groups].map(([key, rows]) => [key, attendanceCreditBreakdownForDay(rows, attendanceSettings)]));
+  }, [allRecords, personnel, attendanceSettings]);
+  const dayCredit = (row: AttendanceRecord) => dailyCredits.get(`${row.ngay}|${attendancePersonnelKey(row.nhan_su, personnel)}`)
+    ?? { morning: 0, afternoon: 0, total: 0, fullDay: false };
+
+  const handleMonthChange = (monthStr: string) => {
+    setSelectedMonth(monthStr);
+    setCurrentPage(1);
+    if (!monthStr) {
+      setStartDate('');
+      setEndDate('');
+      return;
+    }
+    const [year, month] = monthStr.split('-').map(Number);
+    setStartDate(formatLocalIsoDate(new Date(year, month - 1, 1)));
+    setEndDate(formatLocalIsoDate(new Date(year, month, 0)));
+  };
+
+  const clearDateFilters = () => {
+    setStartDate('');
+    setEndDate('');
+    setSelectedMonth('');
+    setCurrentPage(1);
+  };
+
+  return (
+    <div className="w-full flex-1 animate-in fade-in slide-in-from-bottom-4 duration-500 text-muted-foreground font-sans">
+      <div className="space-y-4">
+        {restrictToSelf && (
+          <div className="rounded-xl border border-primary/30 bg-primary/5 px-4 py-2.5 text-sm text-foreground">
+            Bạn đang xem <span className="font-semibold">chấm công của mình</span>
+            {selfDisplayName ? (
+              <>
+                : <span className="font-semibold text-primary">{selfDisplayName}</span>
+              </>
+            ) : null}
+          </div>
+        )}
+
+        {loadError && <p role="alert" className="text-red-600">{loadError} <button onClick={() => void loadRecords(true)} className="underline">Thử lại</button></p>}
+        {/* Toolbar */}
+        <div className="bg-card p-3 rounded-lg border border-border shadow-sm flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3 flex-1 flex-wrap">
+            {isAdmin && <button onClick={() => setManualDraft({})} className="px-3 py-2 rounded bg-primary text-primary-foreground text-sm">Bổ sung chấm công</button>}
+            <button onClick={() => navigate(-1)} className="flex items-center gap-1.5 px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors">
+              <ArrowLeft size={18} /> Quay lại
+            </button>
+            <div className="relative w-full sm:w-[250px]">
+              <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/60">
+                <Search size={18} />
+              </div>
+              <input
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="w-full pl-9 pr-4 py-1.5 border border-border rounded text-[13px] focus:ring-1 focus:ring-primary focus:border-primary placeholder-slate-400 outline-none"
+                placeholder={restrictToSelf ? 'Tìm theo vị trí...' : 'Tìm nhân sự, vị trí...'}
+                type="text"
+              />
+            </div>
+
+            {isAdmin && (
+              <select
+                value={selectedStaff}
+                onChange={(e) => {
+                  setSelectedStaff(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="px-3 py-1.5 border border-border rounded text-[13px] bg-card outline-none focus:ring-1 focus:ring-primary min-w-[150px]"
+              >
+                <option value="">Tất cả nhân sự</option>
+                {personnel.map(p => (
+                  <option key={p.id} value={p.ho_ten}>{p.ho_ten}</option>
+                ))}
+              </select>
+            )}
+
+            <div className="relative shrink-0">
+              <select
+                value={selectedMonth}
+                onChange={(e) => handleMonthChange(e.target.value)}
+                className="appearance-none min-w-[7.5rem] pl-2.5 pr-7 py-1.5 border border-border rounded text-[13px] bg-card outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+                title="Chọn nhanh theo tháng"
+              >
+                <option value="">Tháng...</option>
+                {Array.from({ length: 12 }, (_, i) => {
+                  const d = new Date();
+                  d.setMonth(d.getMonth() - i);
+                  const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                  return (
+                    <option key={val} value={val}>
+                      Tháng {d.getMonth() + 1}/{d.getFullYear()}
+                    </option>
+                  );
+                })}
+              </select>
+              <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 size-3.5 pointer-events-none text-muted-foreground" />
+            </div>
+
+            <DateInputVi
+              title="Từ ngày"
+              value={startDate}
+              onChange={(iso) => {
+                setStartDate(iso);
+                setSelectedMonth('');
+                setCurrentPage(1);
+              }}
+              className="px-3 py-1.5 border border-border rounded text-[13px] bg-card outline-none focus:ring-1 focus:ring-primary w-[130px]"
+            />
+            <span className="text-muted-foreground text-[12px]">-</span>
+            <DateInputVi
+              title="Đến ngày"
+              value={endDate}
+              onChange={(iso) => {
+                setEndDate(iso);
+                setSelectedMonth('');
+                setCurrentPage(1);
+              }}
+              className="px-3 py-1.5 border border-border rounded text-[13px] bg-card outline-none focus:ring-1 focus:ring-primary w-[130px]"
+            />
+
+            {(searchQuery !== '' || selectedStaff !== '' || startDate !== '' || endDate !== '' || selectedMonth !== '') && (
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedStaff('');
+                  clearDateFilters();
+                }}
+                className="text-[12px] text-destructive hover:underline font-medium ml-2"
+              >
+                Xoá lọc
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              {isAdmin && (
+                <>
+                  <button
+                    onClick={handleDownloadTemplate}
+                    className="flex items-center gap-2 px-2 sm:px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
+                    title="Tải mẫu Excel"
+                  >
+                    <Download size={18} />
+                    <span className="hidden sm:inline">Tải mẫu</span>
+                  </button>
+                  <div className="relative">
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex items-center gap-2 px-2 sm:px-3 py-1.5 border border-border rounded text-[13px] text-muted-foreground hover:bg-accent transition-colors font-medium bg-card"
+                      title="Nhập chấm công từ Excel"
+                    >
+                      <Upload size={18} />
+                      <span className="hidden sm:inline">Nhập Excel</span>
+                    </button>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleImportExcel}
+                      accept=".xlsx, .xls"
+                      className="hidden"
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={() => toggleDropdown('columns')}
+                className={clsx(
+                  "p-1.5 border rounded transition-colors",
+                  openDropdown === 'columns' ? "bg-primary/10 border-primary text-primary" : "border-border text-muted-foreground hover:bg-accent"
+                )}
+                title="Cài đặt cột hiển thị"
+              >
+                <List size={20} />
+              </button>
+              {openDropdown === 'columns' && (
+                <div className="absolute top-10 right-0 z-50 min-w-[200px] bg-card border border-border rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                  <div className="px-4 py-2 bg-muted border-b border-border flex items-center justify-between">
+                    <span className="text-[12px] font-bold text-foreground">Cài đặt hiển thị cột</span>
+                    <button onClick={() => setVisibleColumns(allColumns.map(c => c.id))} className="text-[10px] text-primary hover:underline">Hiện tất cả</button>
+                  </div>
+                  <ul className="py-2 text-[13px] text-muted-foreground max-h-[300px] overflow-y-auto custom-scrollbar">
+                    {allColumns.map(col => (
+                      <li
+                        key={col.id}
+                        onClick={() => {
+                          setVisibleColumns(prev => prev.includes(col.id) ? prev.filter(c => c !== col.id) : [...prev, col.id]);
+                        }}
+                        className="px-4 py-2 hover:bg-accent cursor-pointer flex items-center gap-3 transition-colors"
+                      >
+                        <div className={clsx(
+                          "w-4 h-4 rounded border flex items-center justify-center transition-colors",
+                          visibleColumns.includes(col.id) ? "bg-primary border-primary" : "border-border"
+                        )}>
+                          {visibleColumns.includes(col.id) && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                        </div>
+                        {col.label}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Ô tổng hợp theo bộ lọc */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
+          <div className="px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl bg-primary/5 border border-primary/20 flex items-center justify-between gap-2">
+            <span className="text-[10px] sm:text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+              Tổng công
+            </span>
+            <span className="text-base sm:text-lg font-black text-primary tabular-nums">
+              {loading ? '…' : summaryStats.tongCong}
+              <span className="text-[11px] font-bold text-muted-foreground ml-1">công</span>
+            </span>
+          </div>
+          <div className="px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl bg-amber-500/5 border border-amber-500/20 flex items-center justify-between gap-2">
+            <span className="text-[10px] sm:text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+              Tổng giờ đi muộn
+            </span>
+            <span className="text-base sm:text-lg font-black text-amber-600 tabular-nums">
+              {loading
+                ? '…'
+                : summaryStats.tongPhutMuon > 0
+                  ? formatMinutesToHours(summaryStats.tongPhutMuon)
+                  : '0p'}
+            </span>
+          </div>
+          <div className="px-3 py-2.5 sm:px-4 sm:py-3 rounded-xl bg-rose-500/5 border border-rose-500/20 flex items-center justify-between gap-2">
+            <span className="text-[10px] sm:text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+              Tổng buổi nghỉ
+            </span>
+            <span className="text-base sm:text-lg font-black text-rose-600 tabular-nums">
+              {loading ? '…' : summaryStats.tongBuoiNghi}
+              <span className="text-[11px] font-bold text-muted-foreground ml-1">buổi</span>
+            </span>
+          </div>
+        </div>
+
+        {/* Data Table */}
+        <div className="bg-card rounded-lg border border-border shadow-sm overflow-hidden">
+          {/* Desktop Table */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-muted border-b border-border text-muted-foreground text-[12px] font-bold uppercase tracking-wider">
+                  <th className="px-4 py-3 w-10 text-center"><input className="rounded border-border text-primary size-4" type="checkbox" /></th>
+                  {visibleColumns.includes('id_cham_cong') && <th className="px-4 py-3 font-semibold">Mã CC</th>}
+                  {visibleColumns.includes('anh') && <th className="px-4 py-3 font-semibold">Ảnh</th>}
+                  {visibleColumns.includes('nhan_su') && <th className="px-4 py-3 font-semibold">Nhân sự</th>}
+                  {visibleColumns.includes('ngay') && <th className="px-4 py-3 font-semibold">Ngày</th>}
+                  {visibleColumns.includes('trang_thai') && <th className="px-4 py-3 font-semibold">Trạng thái</th>}
+                  {visibleColumns.includes('checkin') && <th className="px-4 py-3 font-semibold">Giờ vào</th>}
+                  {visibleColumns.includes('checkout') && <th className="px-4 py-3 font-semibold">Giờ ra</th>}
+                  {visibleColumns.includes('di_muon') && <th className="px-4 py-3 font-semibold">Đi muộn</th>}
+                  {visibleColumns.includes('tang_ca') && <th className="px-4 py-3 font-semibold">Tăng ca</th>}
+                  {visibleColumns.includes('vi_tri') && <th className="px-4 py-3 font-semibold">Vị trí</th>}
+                  {visibleColumns.includes('actions') && <th className="px-4 py-3 text-center font-semibold">Thao tác</th>}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-[13px]">
+                {loading ? (
+                  <tr>
+                    <td colSpan={tableColSpan} className="px-4 py-12 text-center text-muted-foreground">
+                      <Loader2 className="animate-spin inline-block mr-2" size={20} />
+                      Đang tải dữ liệu...
+                    </td>
+                  </tr>
+                ) : groupedRecords.map(([date, dateRecords]) => (
+                  <React.Fragment key={date}>
+                    <tr className="bg-muted/40 font-semibold border-y border-border">
+                       <td colSpan={tableColSpan} className="px-4 py-2 text-primary font-bold bg-primary/5 uppercase text-[12px]">
+                         <div className="flex items-center justify-between w-full md:w-auto md:justify-start md:gap-6">
+                           <div className="flex items-center gap-2">
+                              <Calendar size={14} className="text-primary/70" />
+                              {formatDateForDisplay(date)}
+                           </div>
+                           <span className="text-[11px] text-muted-foreground lowercase font-medium bg-white/50 px-2 py-0.5 rounded border border-border tracking-normal">
+                             {dailyAttendanceStats[date]
+                               ? `Có mặt: ${dailyAttendanceStats[date].present}/${dailyAttendanceStats[date].total} nhân sự`
+                               : `Tổng: ${dateRecords.length} nhân sự`}
+                           </span>
+                         </div>
+                       </td>
+                    </tr>
+                    {dateRecords.map(record => {
+                  const status = calculateAttendanceStatus(record.checkin, record.checkout, attendanceSettings);
+                  const isMockAbsent = ('isMockAbsent' in record && record.isMockAbsent);
+                  const phutTangCaNgay = isMockAbsent
+                    ? 0
+                    : (tangCaPhutTrongNgay.get(tangCaKey(record)) ?? 0);
+
+                  return (
+                    <tr key={record.id} className={clsx("transition-colors", isMockAbsent ? "bg-red-50/50 hover:bg-red-50" : "hover:bg-muted/80")}>
+                      <td className="px-4 py-4 text-center">
+                        {!isMockAbsent && <input className="rounded border-border text-primary size-4" type="checkbox" />}
+                      </td>
+                      {visibleColumns.includes('id_cham_cong') && (
+                        <td className="px-4 py-4 font-medium text-blue-600">{record.id_cham_cong || '—'}</td>
+                      )}
+                      {visibleColumns.includes('anh') && (
+                        <td className="px-4 py-4">
+                          <div className="w-10 h-10 rounded bg-primary/10 flex items-center justify-center text-primary overflow-hidden border border-border shadow-sm">
+                            {record.anh ? (
+                              <img src={record.anh} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <User size={20} />
+                            )}
+                          </div>
+                        </td>
+                      )}
+                      {visibleColumns.includes('nhan_su') && <td className="px-4 py-4 font-semibold text-foreground whitespace-nowrap">{displayStaffName(record.nhan_su)}
+                        {record.ghi_chu && <p className="text-xs font-normal whitespace-normal">Bổ sung: {record.ghi_chu} — {displayStaffName(record.bo_sung_boi || '')}</p>}
+                      </td>}
+                      {visibleColumns.includes('ngay') && <td className="px-4 py-4 text-muted-foreground whitespace-nowrap">{formatDateForDisplay(record.ngay)}<p className="text-xs" title={dayCredit(record).fullDay ? 'Một cặp Vào/Ra xuyên ngày' : 'Tính riêng theo hai buổi'}>Sáng: {dayCredit(record).morning} · Chiều: {dayCredit(record).afternoon} · Tổng: {dayCredit(record).total}{dayCredit(record).fullDay ? ' (full)' : ''}</p></td>}
+                      
+                      {visibleColumns.includes('trang_thai') && (
+                        <td className="px-4 py-4">
+                          {isMockAbsent ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-red-100/80 text-red-700 text-[12px] font-semibold border border-red-200">
+                              Vắng mặt
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-emerald-100/80 text-emerald-700 text-[12px] font-semibold border border-emerald-200">
+                              Có mặt
+                            </span>
+                          )}
+                        </td>
+                      )}
+
+                      {visibleColumns.includes('checkin') && <td className="px-4 py-4 text-emerald-600 font-bold">{record.checkin || '—'}</td>}
+                      {visibleColumns.includes('checkout') && <td className="px-4 py-4 text-orange-600 font-bold">{record.checkout || '—'}</td>}
+                      
+                      {visibleColumns.includes('di_muon') && (
+                        <td className="px-4 py-4 font-bold">
+                          {status.isLate && !isMockAbsent ? (
+                            <span className="text-red-600">Đi muộn {status.lateMinutes}p</span>
+                          ) : '—'}
+                        </td>
+                      )}
+
+                      {visibleColumns.includes('tang_ca') && (
+                        <td
+                          className="px-4 py-4 font-bold"
+                          title={
+                            !isMockAbsent && phutTangCaNgay > 0
+                              ? `Tổng tăng ca trong ngày (sau ${attendanceSettings.overtimeStart}; nhiều lượt chấm: lấy giờ ra muộn nhất)`
+                              : !isMockAbsent
+                                ? titleTangCaKhiKhongHien(record) || 'Không phát sinh tăng ca'
+                                : undefined
+                          }
+                        >
+                          {!isMockAbsent && phutTangCaNgay > 0 ? (
+                            <span className="text-orange-600">{formatMinutesToHours(phutTangCaNgay)}</span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                      )}
+
+                      {visibleColumns.includes('vi_tri') && (
+                        <td className="px-4 py-4 text-muted-foreground text-[12px] truncate max-w-[200px]" title={record.vi_tri || ''}>
+                          {record.vi_tri || '—'}
+                        </td>
+                      )}
+                      {visibleColumns.includes('actions') && (
+                        <td className="px-4 py-4 min-w-[8.5rem]">
+                          {isMockAbsent ? (
+                            canModifyData ? (
+                            <div className="flex items-center justify-center">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenModal(record)}
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-2.5 py-1.5 text-[12px] font-bold text-primary hover:bg-primary/20"
+                                title="Bổ sung bản ghi chấm công cho ngày này"
+                              >
+                                <Plus size={16} className="shrink-0" />
+                                Bổ sung
+                              </button>
+                            </div>
+                            ) : (
+                              <span className="text-[11px] text-muted-foreground italic">—</span>
+                            )
+                          ) : (
+                            <div className="flex items-center justify-center gap-2 sm:gap-3 flex-nowrap">
+                              {canModifyData && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenModal(record)}
+                                className="shrink-0 p-1 text-primary hover:text-blue-700"
+                                title="Sửa bản ghi"
+                              >
+                                <Edit2 size={18} />
+                              </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => (record.lich_su_sua && record.lich_su_sua.length > 0 ? setShowHistoryRecord(record) : undefined)}
+                                disabled={!record.lich_su_sua || record.lich_su_sua.length === 0}
+                                className="shrink-0 p-1 text-orange-500 hover:text-orange-600 disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:text-orange-500"
+                                title={record.lich_su_sua && record.lich_su_sua.length > 0 ? 'Xem lịch sử sửa' : 'Chưa có lịch sử sửa'}
+                              >
+                                <History size={18} />
+                              </button>
+                              {isAdmin && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDelete(record.id)}
+                                  className="shrink-0 p-1 text-destructive hover:text-destructive/80"
+                                  title="Xoá bản ghi"
+                                >
+                                  <Trash2 size={18} />
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
+                  </React.Fragment>
+                ))}
+                {!loading && records.length === 0 && (
+                  <tr>
+                    <td colSpan={tableColSpan} className="px-4 py-8 text-center text-muted-foreground">
+                      Không tìm thấy bản ghi chấm công nào.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile Card List */}
+          <div className="md:hidden">
+            {loading ? (
+              <div className="px-4 py-12 text-center text-muted-foreground">
+                <Loader2 className="animate-spin inline-block mr-2" size={20} />
+                Đang tải dữ liệu...
+              </div>
+            ) : records.length === 0 ? (
+              <div className="px-4 py-8 text-center text-muted-foreground text-[13px]">Không tìm thấy bản ghi chấm công nào.</div>
+            ) : (
+              <div className="space-y-4">
+                {groupedRecords.map(([date, dateRecords]) => (
+                  <div key={date} className="bg-card rounded-xl border border-border overflow-hidden shadow-sm">
+                    <div className="px-4 py-2 bg-muted/60 border-b border-border/50 text-[12px] font-bold text-primary flex items-center justify-between uppercase">
+                       <div className="flex items-center gap-2">
+                         <Calendar size={14} className="text-primary/70" />
+                         {formatDateForDisplay(date)}
+                       </div>
+                       <span className="text-[10px] text-muted-foreground font-medium bg-background px-1.5 py-0.5 rounded border border-border lowercase tracking-normal">
+                         {dailyAttendanceStats[date]
+                           ? `Có mặt ${dailyAttendanceStats[date].present}/${dailyAttendanceStats[date].total} NV`
+                           : `Tổng ${dateRecords.length} NV`}
+                       </span>
+                    </div>
+                    <div className="divide-y divide-border/50">
+                      {dateRecords.map(record => {
+                        const status = calculateAttendanceStatus(record.checkin, record.checkout, attendanceSettings);
+                  const isMockAbsent = ('isMockAbsent' in record && record.isMockAbsent);
+                  const phutTangCaNgay = isMockAbsent
+                    ? 0
+                    : (tangCaPhutTrongNgay.get(tangCaKey(record)) ?? 0);
+                  
+                  return (
+                  <div key={record.id} className={clsx("p-4 flex items-start gap-3 transition-colors", isMockAbsent ? "bg-red-50/50 hover:bg-red-50" : "hover:bg-muted/50")}>
+                    {/* Avatar */}
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary overflow-hidden border border-border shadow-sm shrink-0">
+                      {record.anh ? (
+                        <img src={record.anh} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <User size={18} />
+                      )}
+                    </div>
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2 min-w-0">
+                          {record.id_cham_cong && !isMockAbsent && (
+                            <span className="bg-blue-50 text-blue-600 text-[10px] px-1.5 py-0.5 rounded font-bold border border-blue-100 shrink-0">
+                              {record.id_cham_cong}
+                            </span>
+                          )}
+                          <span className="font-semibold text-foreground text-[14px] truncate">{displayStaffName(record.nhan_su)}</span>
+                        </div>
+                        <span className="text-[11px] text-muted-foreground shrink-0 ml-2">{formatDateForDisplay(record.ngay)}</span>
+                      </div>
+                      
+                      <p className="text-xs" title={dayCredit(record).fullDay ? 'Một cặp Vào/Ra xuyên ngày' : 'Tính riêng theo hai buổi'}>Sáng: {dayCredit(record).morning} · Chiều: {dayCredit(record).afternoon} · Tổng: {dayCredit(record).total}{dayCredit(record).fullDay ? ' (full)' : ''}{record.ghi_chu ? ` · Bổ sung: ${record.ghi_chu}` : ''}</p>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        {isMockAbsent ? (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-100/80 text-red-700 text-[11px] font-bold border border-red-200">
+                            Vắng mặt
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-100/80 text-emerald-700 text-[11px] font-bold border border-emerald-200">
+                            Có mặt
+                          </span>
+                        )}
+                        
+                        {!isMockAbsent && status.isLate && (
+                           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-50 text-red-600 text-[11px] font-bold border border-red-100">
+                             Đi muộn {status.lateMinutes}p
+                           </span>
+                        )}
+
+                        {!isMockAbsent && phutTangCaNgay > 0 && (
+                           <span
+                             className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-orange-50 text-orange-600 text-[11px] font-bold border border-orange-100"
+                              title={`Tổng tăng ca trong ngày (sau ${attendanceSettings.overtimeStart}; nhiều lượt: giờ ra muộn nhất)`}
+                           >
+                             OT: {formatMinutesToHours(phutTangCaNgay)}
+                           </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-4 text-[13px] mt-1">
+                        <span className="flex items-center gap-1">
+                          <Clock size={12} className="text-emerald-500" />
+                          <span className="text-emerald-600 font-bold">{record.checkin || '—'}</span>
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Clock size={12} className="text-orange-500" />
+                          <span className="text-orange-600 font-bold">{record.checkout || '—'}</span>
+                        </span>
+                      </div>
+                      {record.vi_tri && (
+                        <p className="text-[11px] text-muted-foreground mt-1.5 truncate">📍 {record.vi_tri}</p>
+                      )}
+                    </div>
+                    {/* Actions */}
+                    {isMockAbsent ? (
+                      canModifyData ? (
+                      <div className="flex flex-col items-end gap-1 shrink-0 pt-0.5">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenModal(record)}
+                          className="inline-flex items-center gap-1 rounded-lg border border-primary/40 bg-primary/10 px-2 py-1.5 text-[11px] font-bold text-primary"
+                        >
+                          <Plus size={14} />
+                          Bổ sung
+                        </button>
+                      </div>
+                      ) : null
+                    ) : (
+                      <div className="flex items-center gap-1 shrink-0 pt-0.5">
+                        {canModifyData && (
+                        <button type="button" onClick={() => handleOpenModal(record)} className="p-1.5 rounded-lg text-primary hover:bg-primary/10 transition-colors" title="Sửa">
+                          <Edit2 size={16} />
+                        </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => (record.lich_su_sua && record.lich_su_sua.length > 0 ? setShowHistoryRecord(record) : undefined)}
+                          disabled={!record.lich_su_sua || record.lich_su_sua.length === 0}
+                          className="p-1.5 rounded-lg text-orange-500 hover:bg-orange-50 transition-colors disabled:opacity-35 disabled:cursor-not-allowed"
+                          title={record.lich_su_sua && record.lich_su_sua.length > 0 ? 'Lịch sử' : 'Chưa có lịch sử'}
+                        >
+                          <History size={16} />
+                        </button>
+                        {isAdmin && (
+                          <button type="button" onClick={() => handleDelete(record.id)} className="p-1.5 rounded-lg text-destructive hover:bg-red-50 transition-colors" title="Xóa">
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )})}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <Pagination
+            currentPage={safePage}
+            pageSize={pageSize}
+            totalCount={totalCount}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }}
+            loading={loading}
+          />
+        </div>
+      </div>
+
+      {isAdmin && manualDraft && <ManualAttendanceModal personnel={personnel} initialPerson={manualDraft.person}
+        initialDay={manualDraft.day} onClose={() => setManualDraft(null)} onSaved={() => loadRecords(false)} />}
+      {/* Modal - Add/Edit Attendance */}
+      {isModalOpen && createPortal(
+        <div className="fixed inset-0 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" style={{ zIndex: 9999999 }}>
+          <div className="bg-card w-full max-w-lg rounded-3xl border border-border shadow-2xl flex flex-col max-h-[90vh] animate-in fade-in duration-300" style={{ zIndex: 10000000 }}>
+            <div className="px-8 py-5 border-b border-border flex items-center justify-between bg-muted/30 shrink-0">
+              <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+                <Edit2 size={20} className="text-primary" />
+                {isNewRecord ? 'Thêm bản ghi chấm công' : 'Chỉnh sửa bản ghi'}
+              </h3>
+              <button onClick={handleCloseModal} className="p-2 rounded-full hover:bg-muted transition-colors text-muted-foreground"><X size={20} /></button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="overflow-y-auto p-8 flex-1 custom-scrollbar">
+              <div className="grid grid-cols-1 gap-6">
+                <div className="flex flex-col items-center mb-4">
+                  <div className="relative group">
+                    <div className="w-24 h-24 rounded-2xl border-4 border-card bg-primary/10 flex items-center justify-center text-3xl font-bold text-primary overflow-hidden shadow-inner">
+                      {formData.anh ? <img src={formData.anh} alt="Preview" className="w-full h-full object-cover" /> : <Camera size={40} />}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="absolute bottom-0 right-0 w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-all"
+                    >
+                      <Camera size={16} />
+                    </button>
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
+                  </div>
+                </div>
+
+
+
+                <div className="space-y-1.5">
+                  <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                    <User size={14} className="text-primary/70" />
+                    Nhân sự <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={formData.nhan_su || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, nhan_su: e.target.value }))}
+                    className="w-full px-4 py-2.5 bg-card border border-border rounded-xl font-bold text-[14px] text-foreground focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                  >
+                    <option value="">Chọn nhân sự</option>
+                    {formData.nhan_su && !personnel.some(p => p.ho_ten === formData.nhan_su) && (
+                      <option value={formData.nhan_su}>{formData.nhan_su}</option>
+                    )}
+                    {personnel.map(p => (
+                      <option key={p.id} value={p.ho_ten}>{p.ho_ten}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                    <Calendar size={14} className="text-primary/70" />
+                    Ngày <span className="text-red-500">*</span>
+                  </label>
+                  <DateInputVi
+                    value={formData.ngay || ''}
+                    onChange={(iso) => setFormData((prev) => ({ ...prev, ngay: iso }))}
+                    className="w-full px-4 py-2.5 bg-card border border-border rounded-xl font-bold text-[14px] text-foreground focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                      <Clock size={14} className="text-emerald-600" />
+                      Giờ vào
+                    </label>
+                    <input
+                      type="time"
+                      step="1"
+                      value={formData.checkin || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, checkin: e.target.value }))}
+                      className="w-full px-4 py-2.5 bg-card border border-border rounded-xl font-bold text-[14px] text-foreground focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                      <Clock size={14} className="text-orange-600" />
+                      Giờ ra
+                    </label>
+                    <input
+                      type="time"
+                      step="1"
+                      value={formData.checkout || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, checkout: e.target.value }))}
+                      className="w-full px-4 py-2.5 bg-card border border-border rounded-xl font-bold text-[14px] text-foreground focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider">Vị trí (tọa độ / mô tả)</label>
+                    <button
+                      type="button"
+                      onClick={getLocation}
+                      className="text-[11px] font-bold text-primary hover:underline"
+                    >
+                      Lấy vị trí
+                    </button>
+                  </div>
+                  <textarea
+                    value={formData.vi_tri || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, vi_tri: e.target.value || null }))}
+                    rows={2}
+                    placeholder="Ví dụ: 21.273, 105.834"
+                    className="w-full px-4 py-2.5 bg-card border border-border rounded-xl text-[14px] text-foreground focus:ring-2 focus:ring-primary/20 outline-none transition-all resize-y min-h-[72px]"
+                  />
+                </div>
+              </div>
+
+                <div className="mt-10 flex items-center justify-end gap-3 pt-6 border-t border-border">
+                  <button type="button" onClick={handleCloseModal} disabled={isSaving} className="px-6 py-2.5 rounded-xl text-sm font-bold text-muted-foreground hover:bg-muted border border-border disabled:opacity-50">Đóng lại</button>
+                  <button
+                    type="submit"
+                    disabled={isSaving}
+                    className="flex items-center gap-2 px-8 py-2.5 rounded-xl text-sm font-bold text-white bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Edit2 size={16} />}
+                    {isSaving ? 'Đang lưu...' : isNewRecord ? 'Lưu bản ghi' : 'Lưu thay đổi'}
+                  </button>
+                </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+      {/* History Modal */}
+      {showHistoryRecord && createPortal(
+        <div className="fixed inset-0 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" style={{ zIndex: 9999999 }}>
+          <div className="bg-card w-full max-w-md rounded-3xl border border-border shadow-2xl flex flex-col max-h-[80vh] overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-muted/30">
+              <h4 className="font-bold text-foreground flex items-center gap-2 text-sm">
+                <History size={18} className="text-orange-500" />
+                Lịch sử chỉnh sửa
+              </h4>
+              <button onClick={() => setShowHistoryRecord(null)} className="p-1.5 rounded-full hover:bg-muted transition-colors text-muted-foreground"><X size={18} /></button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+              <div className="flex items-center gap-3 pb-4 border-b border-border">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                  {showHistoryRecord.nhan_su.charAt(0)}
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-foreground">{showHistoryRecord.nhan_su}</p>
+                  <p className="text-[11px] text-muted-foreground">ID: {showHistoryRecord.id_cham_cong || '—'}</p>
+                </div>
+              </div>
+
+              <div className="space-y-6 relative before:absolute before:left-[17px] before:top-2 before:bottom-2 before:w-[2px] before:bg-border">
+                {showHistoryRecord.lich_su_sua?.map((log, idx) => (
+                  <div key={idx} className="relative pl-10">
+                    <div className="absolute left-0 top-1 w-9 h-9 rounded-full bg-card border-2 border-primary flex items-center justify-center z-10 shadow-sm">
+                      <Clock size={14} className="text-primary" />
+                    </div>
+                    <div className="bg-muted/30 border border-border rounded-2xl p-4 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[11px] font-black text-primary uppercase">{log.nguoi_sua}</p>
+                        <p className="text-[11px] text-muted-foreground font-medium">{log.thoi_gian}</p>
+                      </div>
+                      <div className="space-y-1.5">
+                        {log.thay_doi.map((change, cIdx) => (
+                          <p key={cIdx} className="text-[12px] leading-relaxed">
+                            <span className="font-bold text-foreground opacity-70">[{change.truong}]:</span>{' '}
+                            <span className="text-muted-foreground line-through opacity-50">{change.gia_tri_cu}</span>
+                            {' '}<span className="text-foreground font-semibold">→ {change.gia_tri_moi}</span>
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-6 bg-muted/20 border-t border-border">
+              <button 
+                onClick={() => setShowHistoryRecord(null)}
+                className="w-full py-3 bg-foreground text-background font-black rounded-xl hover:opacity-90 transition-all active:scale-95"
+              >
+                ĐÓNG LẠI
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+};
+export default AttendanceManagementPage;

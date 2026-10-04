@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { readRequest } from '../lib/readRequest';
 
 export interface ThuChi {
   id: string;
@@ -182,104 +183,41 @@ export interface TransactionFilters {
   dateTo?: string;
 }
 
-/** Same filters for list, count, and batched sum (PostgREST default row cap ~1000 break naive "fetch all"). */
-interface TransactionFiltersQuery<Q> {
-  or(filters: string): Q;
-  in(column: string, values: readonly string[]): Q;
-  gte(column: string, value: string): Q;
-  lte(column: string, value: string): Q;
+export interface FinancialChartSummary {
+  totalCount: number;
+  totalIncome: number;
+  totalExpense: number;
+  charts: {
+    daily: { date: string; income: number; expense: number }[];
+    categories: { name: string; value: number }[];
+    branches: { name: string; income: number; expense: number }[];
+  };
 }
 
-function applyTransactionFilters<Q extends TransactionFiltersQuery<Q>>(
-  query: Q,
-  searchQuery: string | undefined,
-  filters: TransactionFilters | undefined
-) {
-  if (searchQuery) {
-    query = query.or(
-      `danh_muc.ilike.%${searchQuery}%,ghi_chu.ilike.%${searchQuery}%,id_don.ilike.%${searchQuery}%,id_khach_hang.ilike.%${searchQuery}%,so_tien::text.ilike.%${searchQuery}%,nguoi_nhan.ilike.%${searchQuery}%,nguoi_chi.ilike.%${searchQuery}%`
-    );
-  }
-  if (filters?.branches?.length) {
-    query = query.in('co_so', filters.branches);
-  }
-  if (filters?.types?.length) {
-    query = query.in('loai_phieu', filters.types);
-  }
-  if (filters?.dateFrom) {
-    query = query.gte('ngay', filters.dateFrom);
-  }
-  if (filters?.dateTo) {
-    query = query.lte('ngay', filters.dateTo);
-  }
-  return query;
+export async function getFinancialChartSummary(range?: { from: string; to: string }, signal?: AbortSignal): Promise<FinancialChartSummary> {
+  const { data, error } = await readRequest('financial_chart_summary', s => supabase.rpc('financial_p2_query', {
+    p_limit: 0, p_charts: true, p_from: range?.from || null, p_to: range?.to || null,
+  }).abortSignal(s), signal);
+  if (error) throw error;
+  return data;
 }
 
 const THU_CHI_BATCH = 1000;
-
-async function sumTransactionTotalsForFilters(
-  searchQuery: string | undefined,
-  filters: TransactionFilters | undefined
-): Promise<{ totalIncome: number; totalExpense: number }> {
-  let totalIncome = 0;
-  let totalExpense = 0;
-  let lastId: string | null = null;
-  for (;;) {
-    let q = supabase.from('thu_chi').select('id, so_tien, loai_phieu, trang_thai');
-    q = applyTransactionFilters(q, searchQuery, filters);
-    if (lastId) q = q.gt('id', lastId);
-    const { data: batch, error } = await q
-      .order('id', { ascending: true })
-      .limit(THU_CHI_BATCH);
-    if (error) {
-      console.error('Error aggregating thu_chi totals:', error);
-      throw error;
-    }
-    if (!batch?.length) break;
-    for (const t of batch) {
-      if (t.trang_thai === 'Hoàn thành') {
-        if (t.loai_phieu === 'phiếu thu') totalIncome += Number(t.so_tien);
-        else if (t.loai_phieu === 'phiếu chi') totalExpense += Number(t.so_tien);
-      }
-    }
-    lastId = batch[batch.length - 1].id;
-    if (batch.length < THU_CHI_BATCH) break;
-  }
-  return { totalIncome, totalExpense };
-}
 
 export const getTransactionsPaginated = async (
   page: number,
   pageSize: number,
   searchQuery?: string,
-  filters?: TransactionFilters
+  filters?: TransactionFilters,
+  signal?: AbortSignal
 ): Promise<{ data: ThuChi[]; totalCount: number; totalIncome: number; totalExpense: number }> => {
-  const from = (page - 1) * pageSize;
-  const to = from + pageSize - 1;
-
-  const paged = (async () => {
-    let dataQuery = supabase.from('thu_chi').select('*', { count: 'exact' });
-    dataQuery = applyTransactionFilters(dataQuery, searchQuery, filters);
-    return dataQuery
-      .order('ngay', { ascending: false })
-      .order('gio', { ascending: false })
-      .range(from, to);
-  })();
-
-  const [listRes, totals] = await Promise.all([paged, sumTransactionTotalsForFilters(searchQuery, filters)]);
-
-  const { data, count, error } = listRes;
-  if (error) {
-    console.error('Error fetching paginated transactions:', error);
-    throw error;
-  }
-
-  return {
-    data: (data as ThuChi[]) || [],
-    totalCount: count ?? 0,
-    totalIncome: totals.totalIncome,
-    totalExpense: totals.totalExpense
-  };
+  const { data, error } = await readRequest('financial_page_summary', s => supabase.rpc('financial_p2_query', {
+    p_page: page, p_limit: pageSize, p_search: searchQuery || null,
+    p_branches: filters?.branches || [], p_types: filters?.types || [],
+    p_from: filters?.dateFrom || null, p_to: filters?.dateTo || null,
+  }).abortSignal(s), signal);
+  if (error) throw error;
+  return data;
 };
 
 function chunkArray<T>(items: T[], size: number): T[][] {

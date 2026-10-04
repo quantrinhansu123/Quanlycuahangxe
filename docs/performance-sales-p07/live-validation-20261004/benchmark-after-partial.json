@@ -1,0 +1,52 @@
+{
+  "cases": [
+    {
+      "name": "A_all_page1",
+      "input": {
+        "p_page": 1,
+        "p_limit": 20
+      },
+      "http": {
+        "input": {
+          "p_page": 1,
+          "p_limit": 20
+        },
+        "status": 200,
+        "ttfbMs": 2418,
+        "totalMs": 2424,
+        "bytes": 67624,
+        "rows": 20,
+        "totalCount": 9354,
+        "errorCode": null
+      },
+      "sql": {
+        "httpMs": 1754,
+        "executionMs": 551.312,
+        "sharedHits": 3468,
+        "sharedReads": 0,
+        "tempRead": 1298,
+        "tempWritten": 649
+      }
+    },
+    {
+      "name": "B_all_page2",
+      "input": {
+        "p_page": 2,
+        "p_limit": 20
+      },
+      "http": {
+        "input": {
+          "p_page": 2,
+          "p_limit": 20
+        },
+        "status": 200,
+        "ttfbMs": 974,
+        "totalMs": 980,
+        "bytes": 67942,
+        "rows": 20,
+        "totalCount": 9354,
+        "errorCode": null
+      }
+    }
+  ]
+}

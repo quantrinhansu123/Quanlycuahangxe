@@ -1,0 +1,435 @@
+{
+  "comparisons": 33,
+  "actualPageCalculationBlock": true,
+  "results": [
+    {
+      "name": "month",
+      "splitShiftEnabled": true,
+      "logs": 34,
+      "personDays": 17,
+      "uiRows": 68,
+      "summary": {
+        "tongCong": 8.5,
+        "tongPhutMuon": 300,
+        "tongBuoiNghi": 73
+      },
+      "equal": true
+    },
+    {
+      "name": "one-date",
+      "splitShiftEnabled": true,
+      "logs": 2,
+      "personDays": 1,
+      "uiRows": 4,
+      "summary": {
+        "tongCong": 1,
+        "tongPhutMuon": 0,
+        "tongBuoiNghi": 2
+      },
+      "equal": true
+    },
+    {
+      "name": "empty-date",
+      "splitShiftEnabled": true,
+      "logs": 0,
+      "personDays": 0,
+      "uiRows": 3,
+      "summary": {
+        "tongCong": 0,
+        "tongPhutMuon": 0,
+        "tongBuoiNghi": 3
+      },
+      "equal": true
+    },
+    {
+      "name": "empty-month",
+      "splitShiftEnabled": true,
+      "logs": 0,
+      "personDays": 0,
+      "uiRows": 0,
+      "summary": {
+        "tongCong": 0,
+        "tongPhutMuon": 0,
+        "tongBuoiNghi": 90
+      },
+      "equal": true
+    },
+    {
+      "name": "no-bounds",
+      "splitShiftEnabled": true,
+      "logs": 34,
+      "personDays": 17,
+      "uiRows": 71,
+      "summary": {
+        "tongCong": 8.5,
+        "tongPhutMuon": 300,
+        "tongBuoiNghi": 37
+      },
+      "equal": true
+    },
+    {
+      "name": "selected-person",
+      "splitShiftEnabled": true,
+      "logs": 12,
+      "personDays": 6,
+      "uiRows": 13,
+      "summary": {
+        "tongCong": 3,
+        "tongPhutMuon": 130,
+        "tongBuoiNghi": 1
+      },
+      "equal": true
+    },
+    {
+      "name": "search-name",
+      "splitShiftEnabled": true,
+      "logs": 12,
+      "personDays": 6,
+      "uiRows": 13,
+      "summary": {
+        "tongCong": 3,
+        "tongPhutMuon": 130,
+        "tongBuoiNghi": 1
+      },
+      "equal": true
+    },
+    {
+      "name": "search-code-existing-semantics",
+      "splitShiftEnabled": true,
+      "logs": 12,
+      "personDays": 6,
+      "uiRows": 12,
+      "summary": {
+        "tongCong": 3,
+        "tongPhutMuon": 130,
+        "tongBuoiNghi": 0
+      },
+      "equal": true
+    },
+    {
+      "name": "self",
+      "splitShiftEnabled": true,
+      "logs": 12,
+      "personDays": 6,
+      "uiRows": 13,
+      "summary": {
+        "tongCong": 3,
+        "tongPhutMuon": 130,
+        "tongBuoiNghi": 1
+      },
+      "equal": true
+    },
+    {
+      "name": "RLS-company-A-visible-only",
+      "splitShiftEnabled": true,
+      "logs": 34,
+      "personDays": 17,
+      "uiRows": 53,
+      "summary": {
+        "tongCong": 8.5,
+        "tongPhutMuon": 300,
+        "tongBuoiNghi": 19
+      },
+      "equal": true
+    },
+    {
+      "name": "RLS-company-B-no-logs",
+      "splitShiftEnabled": true,
+      "logs": 0,
+      "personDays": 0,
+      "uiRows": 1,
+      "summary": {
+        "tongCong": 0,
+        "tongPhutMuon": 0,
+        "tongBuoiNghi": 1
+      },
+      "equal": true
+    },
+    {
+      "name": "month",
+      "splitShiftEnabled": false,
+      "logs": 34,
+      "personDays": 17,
+      "uiRows": 68,
+      "summary": {
+        "tongCong": 0,
+        "tongPhutMuon": 300,
+        "tongBuoiNghi": 73
+      },
+      "equal": true
+    },
+    {
+      "name": "one-date",
+      "splitShiftEnabled": false,
+      "logs": 2,
+      "personDays": 1,
+      "uiRows": 4,
+      "summary": {
+        "tongCong": 0,
+        "tongPhutMuon": 0,
+        "tongBuoiNghi": 2
+      },
+      "equal": true
+    },
+    {
+      "name": "empty-date",
+      "splitShiftEnabled": false,
+      "logs": 0,
+      "personDays": 0,
+      "uiRows": 3,
+      "summary": {
+        "tongCong": 0,
+        "tongPhutMuon": 0,
+        "tongBuoiNghi": 3
+      },
+      "equal": true
+    },
+    {
+      "name": "empty-month",
+      "splitShiftEnabled": false,
+      "logs": 0,
+      "personDays": 0,
+      "uiRows": 0,
+      "summary": {
+        "tongCong": 0,
+        "tongPhutMuon": 0,
+        "tongBuoiNghi": 90
+      },
+      "equal": true
+    },
+    {
+      "name": "no-bounds",
+      "splitShiftEnabled": false,
+      "logs": 34,
+      "personDays": 17,
+      "uiRows": 71,
+      "summary": {
+        "tongCong": 0,
+        "tongPhutMuon": 300,
+        "tongBuoiNghi": 37
+      },
+      "equal": true
+    },
+    {
+      "name": "selected-person",
+      "splitShiftEnabled": false,
+      "logs": 12,
+      "personDays": 6,
+      "uiRows": 13,
+      "summary": {
+        "tongCong": 0,
+        "tongPhutMuon": 130,
+        "tongBuoiNghi": 1
+      },
+      "equal": true
+    },
+    {
+      "name": "search-name",
+      "splitShiftEnabled": false,
+      "logs": 12,
+      "personDays": 6,
+      "uiRows": 13,
+      "summary": {
+        "tongCong": 0,
+        "tongPhutMuon": 130,
+        "tongBuoiNghi": 1
+      },
+      "equal": true
+    },
+    {
+      "name": "search-code-existing-semantics",
+      "splitShiftEnabled": false,
+      "logs": 12,
+      "personDays": 6,
+      "uiRows": 12,
+      "summary": {
+        "tongCong": 0,
+        "tongPhutMuon": 130,
+        "tongBuoiNghi": 0
+      },
+      "equal": true
+    },
+    {
+      "name": "self",
+      "splitShiftEnabled": false,
+      "logs": 12,
+      "personDays": 6,
+      "uiRows": 13,
+      "summary": {
+        "tongCong": 0,
+        "tongPhutMuon": 130,
+        "tongBuoiNghi": 1
+      },
+      "equal": true
+    },
+    {
+      "name": "RLS-company-A-visible-only",
+      "splitShiftEnabled": false,
+      "logs": 34,
+      "personDays": 17,
+      "uiRows": 53,
+      "summary": {
+        "tongCong": 0,
+        "tongPhutMuon": 300,
+        "tongBuoiNghi": 19
+      },
+      "equal": true
+    },
+    {
+      "name": "RLS-company-B-no-logs",
+      "splitShiftEnabled": false,
+      "logs": 0,
+      "personDays": 0,
+      "uiRows": 1,
+      "summary": {
+        "tongCong": 0,
+        "tongPhutMuon": 0,
+        "tongBuoiNghi": 1
+      },
+      "equal": true
+    },
+    {
+      "name": "month",
+      "splitShiftEnabled": true,
+      "logs": 34,
+      "personDays": 17,
+      "uiRows": 68,
+      "summary": {
+        "tongCong": 6,
+        "tongPhutMuon": 1950,
+        "tongBuoiNghi": 73
+      },
+      "equal": true
+    },
+    {
+      "name": "one-date",
+      "splitShiftEnabled": true,
+      "logs": 2,
+      "personDays": 1,
+      "uiRows": 4,
+      "summary": {
+        "tongCong": 0,
+        "tongPhutMuon": 240,
+        "tongBuoiNghi": 2
+      },
+      "equal": true
+    },
+    {
+      "name": "empty-date",
+      "splitShiftEnabled": true,
+      "logs": 0,
+      "personDays": 0,
+      "uiRows": 3,
+      "summary": {
+        "tongCong": 0,
+        "tongPhutMuon": 0,
+        "tongBuoiNghi": 3
+      },
+      "equal": true
+    },
+    {
+      "name": "empty-month",
+      "splitShiftEnabled": true,
+      "logs": 0,
+      "personDays": 0,
+      "uiRows": 0,
+      "summary": {
+        "tongCong": 0,
+        "tongPhutMuon": 0,
+        "tongBuoiNghi": 90
+      },
+      "equal": true
+    },
+    {
+      "name": "no-bounds",
+      "splitShiftEnabled": true,
+      "logs": 34,
+      "personDays": 17,
+      "uiRows": 71,
+      "summary": {
+        "tongCong": 6,
+        "tongPhutMuon": 1950,
+        "tongBuoiNghi": 37
+      },
+      "equal": true
+    },
+    {
+      "name": "selected-person",
+      "splitShiftEnabled": true,
+      "logs": 12,
+      "personDays": 6,
+      "uiRows": 13,
+      "summary": {
+        "tongCong": 2,
+        "tongPhutMuon": 730,
+        "tongBuoiNghi": 1
+      },
+      "equal": true
+    },
+    {
+      "name": "search-name",
+      "splitShiftEnabled": true,
+      "logs": 12,
+      "personDays": 6,
+      "uiRows": 13,
+      "summary": {
+        "tongCong": 2,
+        "tongPhutMuon": 730,
+        "tongBuoiNghi": 1
+      },
+      "equal": true
+    },
+    {
+      "name": "search-code-existing-semantics",
+      "splitShiftEnabled": true,
+      "logs": 12,
+      "personDays": 6,
+      "uiRows": 12,
+      "summary": {
+        "tongCong": 2,
+        "tongPhutMuon": 730,
+        "tongBuoiNghi": 0
+      },
+      "equal": true
+    },
+    {
+      "name": "self",
+      "splitShiftEnabled": true,
+      "logs": 12,
+      "personDays": 6,
+      "uiRows": 13,
+      "summary": {
+        "tongCong": 2,
+        "tongPhutMuon": 730,
+        "tongBuoiNghi": 1
+      },
+      "equal": true
+    },
+    {
+      "name": "RLS-company-A-visible-only",
+      "splitShiftEnabled": true,
+      "logs": 34,
+      "personDays": 17,
+      "uiRows": 53,
+      "summary": {
+        "tongCong": 6,
+        "tongPhutMuon": 1950,
+        "tongBuoiNghi": 19
+      },
+      "equal": true
+    },
+    {
+      "name": "RLS-company-B-no-logs",
+      "splitShiftEnabled": true,
+      "logs": 0,
+      "personDays": 0,
+      "uiRows": 1,
+      "summary": {
+        "tongCong": 0,
+        "tongPhutMuon": 0,
+        "tongBuoiNghi": 1
+      },
+      "equal": true
+    }
+  ]
+}

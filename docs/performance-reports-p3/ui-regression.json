@@ -1,0 +1,16 @@
+{
+  "at": "2026-10-04T10:30:37.126Z",
+  "passed": true,
+  "checks": [
+    "One full CT dataset (2347 rows / 3 pages), repeated shared-tab navigation does not remount/refetch",
+    "Personnel/charts lazy-load compact headers once, retain results across tab switches",
+    "Financial-only sources/inventory are lazy/compact, current CT reused, returning to tab needs no reads",
+    "Changed period invalidates/reloads snapshot; rapid changes abort stale results; table filters remain local",
+    "Failed read shows retry; explicit refresh fetches changed data instead of stale global cache",
+    "Same user with changed branch/role scope invalidates prior snapshot"
+  ],
+  "reads": 29,
+  "allRemoteMocked": true,
+  "liveWrites": 0,
+  "errors": []
+}

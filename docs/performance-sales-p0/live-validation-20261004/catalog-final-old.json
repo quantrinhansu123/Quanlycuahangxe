@@ -1,0 +1,1290 @@
+{
+  "at": "2026-10-04T05:13:33.070Z",
+  "rls": [
+    {
+      "polcmd": null,
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "polname": null,
+      "relname": "app_sessions",
+      "polroles": null,
+      "polpermissive": null,
+      "relrowsecurity": true,
+      "check_expression": null,
+      "using_expression": null,
+      "relforcerowsecurity": false
+    },
+    {
+      "polcmd": null,
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres",
+        "anon=r/postgres",
+        "authenticated=r/postgres"
+      ],
+      "polname": null,
+      "relname": "attendance_settings",
+      "polroles": null,
+      "polpermissive": null,
+      "relrowsecurity": false,
+      "check_expression": null,
+      "using_expression": null,
+      "relforcerowsecurity": false
+    },
+    {
+      "polcmd": "r",
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "polname": "bang_luong: manager or self read",
+      "relname": "bang_luong",
+      "polroles": [
+        "0"
+      ],
+      "polpermissive": true,
+      "relrowsecurity": true,
+      "check_expression": null,
+      "using_expression": "(is_app_payroll_manager() OR ((nhan_su_id = current_app_nhan_su_uuid()) AND (trang_thai <> ALL (ARRAY['Bản nháp'::text, 'Chưa gửi'::text]))))",
+      "relforcerowsecurity": false
+    },
+    {
+      "polcmd": "*",
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "polname": "bang_luong: manager write",
+      "relname": "bang_luong",
+      "polroles": [
+        "0"
+      ],
+      "polpermissive": true,
+      "relrowsecurity": true,
+      "check_expression": "is_app_payroll_manager()",
+      "using_expression": "is_app_payroll_manager()",
+      "relforcerowsecurity": false
+    },
+    {
+      "polcmd": "r",
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "polname": "bang_luong_chi_tiet: manager or self read",
+      "relname": "bang_luong_chi_tiet",
+      "polroles": [
+        "0"
+      ],
+      "polpermissive": true,
+      "relrowsecurity": true,
+      "check_expression": null,
+      "using_expression": "(EXISTS ( SELECT 1\n   FROM bang_luong bl\n  WHERE (bl.id = bang_luong_chi_tiet.bang_luong_id)))",
+      "relforcerowsecurity": false
+    },
+    {
+      "polcmd": "*",
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "polname": "bang_luong_chi_tiet: manager write",
+      "relname": "bang_luong_chi_tiet",
+      "polroles": [
+        "0"
+      ],
+      "polpermissive": true,
+      "relrowsecurity": true,
+      "check_expression": "is_app_payroll_manager()",
+      "using_expression": "is_app_payroll_manager()",
+      "relforcerowsecurity": false
+    },
+    {
+      "polcmd": "r",
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "polname": "bang_luong_lich_su: manager or owner read",
+      "relname": "bang_luong_lich_su",
+      "polroles": [
+        "0"
+      ],
+      "polpermissive": true,
+      "relrowsecurity": true,
+      "check_expression": null,
+      "using_expression": "(is_app_payroll_manager() OR (EXISTS ( SELECT 1\n   FROM bang_luong bl\n  WHERE ((bl.id = bang_luong_lich_su.bang_luong_id) AND (bl.nhan_su_id = current_app_nhan_su_uuid())))))",
+      "relforcerowsecurity": false
+    },
+    {
+      "polcmd": null,
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "polname": null,
+      "relname": "bieu_thue_tncn",
+      "polroles": null,
+      "polpermissive": null,
+      "relrowsecurity": false,
+      "check_expression": null,
+      "using_expression": null,
+      "relforcerowsecurity": false
+    },
+    {
+      "polcmd": "d",
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "polname": "cham_cong: delete admin or self non technician",
+      "relname": "cham_cong",
+      "polroles": [
+        "0"
+      ],
+      "polpermissive": true,
+      "relrowsecurity": false,
+      "check_expression": null,
+      "using_expression": "(is_admin() OR ((NOT is_technician()) AND cham_cong_matched_logged_in_nhan_su(nhan_su)))",
+      "relforcerowsecurity": false
+    },
+    {
+      "polcmd": "w",
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "polname": "cham_cong: update admin or self non technician",
+      "relname": "cham_cong",
+      "polroles": [
+        "0"
+      ],
+      "polpermissive": true,
+      "relrowsecurity": false,
+      "check_expression": "(is_admin() OR ((NOT is_technician()) AND cham_cong_matched_logged_in_nhan_su(nhan_su)))",
+      "using_expression": "(is_admin() OR ((NOT is_technician()) AND cham_cong_matched_logged_in_nhan_su(nhan_su)))",
+      "relforcerowsecurity": false
+    },
+    {
+      "polcmd": null,
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "polname": null,
+      "relname": "chinh_sach_phu_cap",
+      "polroles": null,
+      "polpermissive": null,
+      "relrowsecurity": false,
+      "check_expression": null,
+      "using_expression": null,
+      "relforcerowsecurity": false
+    },
+    {
+      "polcmd": "a",
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwDxtm/postgres",
+        "authenticated=arwDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "polname": "co_so_create_admin",
+      "relname": "co_so",
+      "polroles": [
+        "16484",
+        "16485"
+      ],
+      "polpermissive": true,
+      "relrowsecurity": true,
+      "check_expression": "can_create_branch()",
+      "using_expression": null,
+      "relforcerowsecurity": false
+    },
+    {
+      "polcmd": "r",
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwDxtm/postgres",
+        "authenticated=arwDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "polname": "co_so_read",
+      "relname": "co_so",
+      "polroles": [
+        "16484",
+        "16485"
+      ],
+      "polpermissive": true,
+      "relrowsecurity": true,
+      "check_expression": null,
+      "using_expression": "true",
+      "relforcerowsecurity": false
+    },
+    {
+      "polcmd": null,
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "polname": null,
+      "relname": "dich_vu",
+      "polroles": null,
+      "polpermissive": null,
+      "relrowsecurity": false,
+      "check_expression": null,
+      "using_expression": null,
+      "relforcerowsecurity": false
+    },
+    {
+      "polcmd": null,
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "polname": null,
+      "relname": "ds_san_pham",
+      "polroles": null,
+      "polpermissive": null,
+      "relrowsecurity": false,
+      "check_expression": null,
+      "using_expression": null,
+      "relforcerowsecurity": false
+    },
+    {
+      "polcmd": "*",
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "polname": "khach_hang: allow all for app",
+      "relname": "khach_hang",
+      "polroles": [
+        "0"
+      ],
+      "polpermissive": true,
+      "relrowsecurity": false,
+      "check_expression": "true",
+      "using_expression": "true",
+      "relforcerowsecurity": false
+    },
+    {
+      "polcmd": "w",
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "polname": "khach_hang: nv sua khach cua minh non technician",
+      "relname": "khach_hang",
+      "polroles": [
+        "0"
+      ],
+      "polpermissive": true,
+      "relrowsecurity": false,
+      "check_expression": "((NOT is_technician()) AND ((nhan_vien_id = get_my_ho_ten()) OR (nhan_vien_id = get_my_nhan_su_id())))",
+      "using_expression": "((NOT is_technician()) AND ((nhan_vien_id = get_my_ho_ten()) OR (nhan_vien_id = get_my_nhan_su_id())))",
+      "relforcerowsecurity": false
+    },
+    {
+      "polcmd": null,
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "polname": null,
+      "relname": "nhan_su",
+      "polroles": null,
+      "polpermissive": null,
+      "relrowsecurity": false,
+      "check_expression": null,
+      "using_expression": null,
+      "relforcerowsecurity": false
+    },
+    {
+      "polcmd": null,
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "polname": null,
+      "relname": "nhap_xuat_kho",
+      "polroles": null,
+      "polpermissive": null,
+      "relrowsecurity": false,
+      "check_expression": null,
+      "using_expression": null,
+      "relforcerowsecurity": false
+    },
+    {
+      "polcmd": "r",
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=rDxtm/postgres",
+        "authenticated=rDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "polname": "phieu_nhap_hang_select_policy",
+      "relname": "phieu_nhap_hang",
+      "polroles": [
+        "16484",
+        "16485"
+      ],
+      "polpermissive": true,
+      "relrowsecurity": true,
+      "check_expression": null,
+      "using_expression": "can_view_purchase_receipt(co_so)",
+      "relforcerowsecurity": false
+    },
+    {
+      "polcmd": "r",
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=rDxtm/postgres",
+        "authenticated=rDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "polname": "phieu_nhap_hang_ct_select_policy",
+      "relname": "phieu_nhap_hang_ct",
+      "polroles": [
+        "16484",
+        "16485"
+      ],
+      "polpermissive": true,
+      "relrowsecurity": true,
+      "check_expression": null,
+      "using_expression": "(EXISTS ( SELECT 1\n   FROM phieu_nhap_hang p\n  WHERE ((p.id = phieu_nhap_hang_ct.phieu_nhap_id) AND can_view_purchase_receipt(p.co_so))))",
+      "relforcerowsecurity": false
+    },
+    {
+      "polcmd": null,
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "polname": null,
+      "relname": "recalc_tong_agg_staging",
+      "polroles": null,
+      "polpermissive": null,
+      "relrowsecurity": true,
+      "check_expression": null,
+      "using_expression": null,
+      "relforcerowsecurity": false
+    },
+    {
+      "polcmd": null,
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "polname": null,
+      "relname": "thanh_phan_luong",
+      "polroles": null,
+      "polpermissive": null,
+      "relrowsecurity": false,
+      "check_expression": null,
+      "using_expression": null,
+      "relforcerowsecurity": false
+    },
+    {
+      "polcmd": "*",
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "polname": "Allow all actions for the_ban_hang",
+      "relname": "the_ban_hang",
+      "polroles": [
+        "0"
+      ],
+      "polpermissive": true,
+      "relrowsecurity": true,
+      "check_expression": null,
+      "using_expression": "true",
+      "relforcerowsecurity": false
+    },
+    {
+      "polcmd": "w",
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "polname": "the_ban_hang: nv sua phieu cua minh non technician",
+      "relname": "the_ban_hang",
+      "polroles": [
+        "0"
+      ],
+      "polpermissive": true,
+      "relrowsecurity": true,
+      "check_expression": "((NOT is_technician()) AND ((nhan_vien_id = get_my_ho_ten()) OR (nhan_vien_id = get_my_nhan_su_id())))",
+      "using_expression": "((NOT is_technician()) AND ((nhan_vien_id = get_my_ho_ten()) OR (nhan_vien_id = get_my_nhan_su_id())))",
+      "relforcerowsecurity": false
+    },
+    {
+      "polcmd": "r",
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "polname": "the_ban_hang_ct: nv doc phieu cua minh",
+      "relname": "the_ban_hang_ct",
+      "polroles": [
+        "0"
+      ],
+      "polpermissive": true,
+      "relrowsecurity": false,
+      "check_expression": null,
+      "using_expression": "(EXISTS ( SELECT 1\n   FROM the_ban_hang tbh\n  WHERE ((tbh.id_bh = the_ban_hang_ct.id_don_hang) AND ((tbh.nhan_vien_id = get_my_ho_ten()) OR (tbh.nhan_vien_id = get_my_nhan_su_id())))))",
+      "relforcerowsecurity": false
+    },
+    {
+      "polcmd": "w",
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "polname": "the_ban_hang_ct: nv sua chi_tiet phieu cua minh non technician",
+      "relname": "the_ban_hang_ct",
+      "polroles": [
+        "0"
+      ],
+      "polpermissive": true,
+      "relrowsecurity": false,
+      "check_expression": "((NOT is_technician()) AND (EXISTS ( SELECT 1\n   FROM the_ban_hang tbh\n  WHERE ((tbh.id_bh = the_ban_hang_ct.id_don_hang) AND ((tbh.nhan_vien_id = get_my_ho_ten()) OR (tbh.nhan_vien_id = get_my_nhan_su_id()))))))",
+      "using_expression": "((NOT is_technician()) AND (EXISTS ( SELECT 1\n   FROM the_ban_hang tbh\n  WHERE ((tbh.id_bh = the_ban_hang_ct.id_don_hang) AND ((tbh.nhan_vien_id = get_my_ho_ten()) OR (tbh.nhan_vien_id = get_my_nhan_su_id()))))))",
+      "relforcerowsecurity": false
+    },
+    {
+      "polcmd": "a",
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "polname": "the_ban_hang_ct: nv tao chi_tiet phieu cua minh",
+      "relname": "the_ban_hang_ct",
+      "polroles": [
+        "0"
+      ],
+      "polpermissive": true,
+      "relrowsecurity": false,
+      "check_expression": "(EXISTS ( SELECT 1\n   FROM the_ban_hang tbh\n  WHERE ((tbh.id_bh = the_ban_hang_ct.id_don_hang) AND ((tbh.nhan_vien_id = get_my_ho_ten()) OR (tbh.nhan_vien_id = get_my_nhan_su_id())))))",
+      "using_expression": null,
+      "relforcerowsecurity": false
+    },
+    {
+      "polcmd": "d",
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "polname": "the_ban_hang_ct: nv xoa chi_tiet phieu cua minh non technician",
+      "relname": "the_ban_hang_ct",
+      "polroles": [
+        "0"
+      ],
+      "polpermissive": true,
+      "relrowsecurity": false,
+      "check_expression": null,
+      "using_expression": "((NOT is_technician()) AND (EXISTS ( SELECT 1\n   FROM the_ban_hang tbh\n  WHERE ((tbh.id_bh = the_ban_hang_ct.id_don_hang) AND ((tbh.nhan_vien_id = get_my_ho_ten()) OR (tbh.nhan_vien_id = get_my_nhan_su_id()))))))",
+      "relforcerowsecurity": false
+    },
+    {
+      "polcmd": null,
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "polname": null,
+      "relname": "the_ban_hang_lich_su",
+      "polroles": null,
+      "polpermissive": null,
+      "relrowsecurity": false,
+      "check_expression": null,
+      "using_expression": null,
+      "relforcerowsecurity": false
+    },
+    {
+      "polcmd": "d",
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "polname": "thong_bao: manager or recipient delete",
+      "relname": "thong_bao_ung_dung",
+      "polroles": [
+        "0"
+      ],
+      "polpermissive": true,
+      "relrowsecurity": true,
+      "check_expression": null,
+      "using_expression": "(is_app_payroll_manager() OR (nguoi_nhan_id = current_app_nhan_su_uuid()))",
+      "relforcerowsecurity": false
+    },
+    {
+      "polcmd": "r",
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "polname": "thong_bao: manager or recipient read",
+      "relname": "thong_bao_ung_dung",
+      "polroles": [
+        "0"
+      ],
+      "polpermissive": true,
+      "relrowsecurity": true,
+      "check_expression": null,
+      "using_expression": "(is_app_payroll_manager() OR (nguoi_nhan_id = current_app_nhan_su_uuid()))",
+      "relforcerowsecurity": false
+    },
+    {
+      "polcmd": "w",
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "polname": "thong_bao: manager or recipient update",
+      "relname": "thong_bao_ung_dung",
+      "polroles": [
+        "0"
+      ],
+      "polpermissive": true,
+      "relrowsecurity": true,
+      "check_expression": "(is_app_payroll_manager() OR (nguoi_nhan_id = current_app_nhan_su_uuid()))",
+      "using_expression": "(is_app_payroll_manager() OR (nguoi_nhan_id = current_app_nhan_su_uuid()))",
+      "relforcerowsecurity": false
+    },
+    {
+      "polcmd": null,
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "polname": null,
+      "relname": "thong_so_luong",
+      "polroles": null,
+      "polpermissive": null,
+      "relrowsecurity": false,
+      "check_expression": null,
+      "using_expression": null,
+      "relforcerowsecurity": false
+    },
+    {
+      "polcmd": null,
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "polname": null,
+      "relname": "thu_chi",
+      "polroles": null,
+      "polpermissive": null,
+      "relrowsecurity": false,
+      "check_expression": null,
+      "using_expression": null,
+      "relforcerowsecurity": false
+    },
+    {
+      "polcmd": "*",
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "polname": "Allow all actions for anyone",
+      "relname": "zns_chien_dich",
+      "polroles": [
+        "0"
+      ],
+      "polpermissive": true,
+      "relrowsecurity": true,
+      "check_expression": "true",
+      "using_expression": "true",
+      "relforcerowsecurity": false
+    },
+    {
+      "polcmd": "*",
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "polname": "Allow all actions for anyone",
+      "relname": "zns_danh_gia",
+      "polroles": [
+        "0"
+      ],
+      "polpermissive": true,
+      "relrowsecurity": true,
+      "check_expression": "true",
+      "using_expression": "true",
+      "relforcerowsecurity": false
+    },
+    {
+      "polcmd": "*",
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "polname": "Allow all actions for anyone",
+      "relname": "zns_gui_log",
+      "polroles": [
+        "0"
+      ],
+      "polpermissive": true,
+      "relrowsecurity": true,
+      "check_expression": "true",
+      "using_expression": "true",
+      "relforcerowsecurity": false
+    },
+    {
+      "polcmd": null,
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "polname": null,
+      "relname": "zns_oa_token",
+      "polroles": null,
+      "polpermissive": null,
+      "relrowsecurity": true,
+      "check_expression": null,
+      "using_expression": null,
+      "relforcerowsecurity": false
+    },
+    {
+      "polcmd": "*",
+      "relacl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "polname": "Allow all actions for zns_order_message_queue",
+      "relname": "zns_order_message_queue",
+      "polroles": [
+        "0"
+      ],
+      "polpermissive": true,
+      "relrowsecurity": true,
+      "check_expression": "true",
+      "using_expression": "true",
+      "relforcerowsecurity": false
+    }
+  ],
+  "context": {
+    "role": "supabase_read_only_user",
+    "version": "PostgreSQL 17.6 on aarch64-unknown-linux-gnu, compiled by gcc (GCC) 15.2.0, 64-bit",
+    "TimeZone": "UTC",
+    "work_mem": "2184kB",
+    "DateStyle": "ISO, MDY",
+    "statement_timeout": "2min"
+  },
+  "indexes": [
+    {
+      "indexdef": "CREATE UNIQUE INDEX dich_vu_id_dich_vu_key ON public.dich_vu USING btree (id_dich_vu)",
+      "indexname": "dich_vu_id_dich_vu_key",
+      "tablename": "dich_vu",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX dich_vu_pkey ON public.dich_vu USING btree (id)",
+      "indexname": "dich_vu_pkey",
+      "tablename": "dich_vu",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX idx_dich_vu_id_dich_vu ON public.dich_vu USING btree (id_dich_vu)",
+      "indexname": "idx_dich_vu_id_dich_vu",
+      "tablename": "dich_vu",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX idx_khach_hang_bien_so_xe ON public.khach_hang USING btree (bien_so_xe)",
+      "indexname": "idx_khach_hang_bien_so_xe",
+      "tablename": "khach_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX idx_khach_hang_ho_va_ten ON public.khach_hang USING btree (ho_va_ten)",
+      "indexname": "idx_khach_hang_ho_va_ten",
+      "tablename": "khach_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX idx_khach_hang_last_order_at ON public.khach_hang USING btree (last_order_at DESC NULLS LAST)",
+      "indexname": "idx_khach_hang_last_order_at",
+      "tablename": "khach_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX idx_khach_hang_ma_khach_hang ON public.khach_hang USING btree (ma_khach_hang)",
+      "indexname": "idx_khach_hang_ma_khach_hang",
+      "tablename": "khach_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX idx_khach_hang_nhan_vien_id ON public.khach_hang USING btree (nhan_vien_id)",
+      "indexname": "idx_khach_hang_nhan_vien_id",
+      "tablename": "khach_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX idx_khach_hang_so_dien_thoai ON public.khach_hang USING btree (so_dien_thoai)",
+      "indexname": "idx_khach_hang_so_dien_thoai",
+      "tablename": "khach_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX khach_hang_code_trgm ON public.khach_hang USING gin (ma_khach_hang gin_trgm_ops)",
+      "indexname": "khach_hang_code_trgm",
+      "tablename": "khach_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX khach_hang_phone_search ON public.khach_hang USING btree (app_phone(so_dien_thoai))",
+      "indexname": "khach_hang_phone_search",
+      "tablename": "khach_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX khach_hang_pkey ON public.khach_hang USING btree (id)",
+      "indexname": "khach_hang_pkey",
+      "tablename": "khach_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX khach_hang_plate_search ON public.khach_hang USING btree (app_plate(bien_so_xe))",
+      "indexname": "khach_hang_plate_search",
+      "tablename": "khach_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX khach_hang_plate_suffix_search ON public.khach_hang USING btree (reverse(app_plate(bien_so_xe)) text_pattern_ops)",
+      "indexname": "khach_hang_plate_suffix_search",
+      "tablename": "khach_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX khach_hang_plate_trgm ON public.khach_hang USING gin (bien_so_xe gin_trgm_ops)",
+      "indexname": "khach_hang_plate_trgm",
+      "tablename": "khach_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX idx_nhan_su_id_nhan_su ON public.nhan_su USING btree (id_nhan_su)",
+      "indexname": "idx_nhan_su_id_nhan_su",
+      "tablename": "nhan_su",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX nhan_su_auth_user_id_key ON public.nhan_su USING btree (auth_user_id)",
+      "indexname": "nhan_su_auth_user_id_key",
+      "tablename": "nhan_su",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX nhan_su_pkey ON public.nhan_su USING btree (id)",
+      "indexname": "nhan_su_pkey",
+      "tablename": "nhan_su",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX idx_the_ban_hang_dich_vu ON public.the_ban_hang USING btree (dich_vu_id)",
+      "indexname": "idx_the_ban_hang_dich_vu",
+      "tablename": "the_ban_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX idx_the_ban_hang_id_bh ON public.the_ban_hang USING btree (id_bh)",
+      "indexname": "idx_the_ban_hang_id_bh",
+      "tablename": "the_ban_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX idx_the_ban_hang_id_bh_ref ON public.the_ban_hang USING btree (lower(TRIM(BOTH FROM COALESCE(id_bh, ''::text)))) WHERE ((id_bh IS NOT NULL) AND (length(TRIM(BOTH FROM id_bh)) > 0))",
+      "indexname": "idx_the_ban_hang_id_bh_ref",
+      "tablename": "the_ban_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX idx_the_ban_hang_khach_hang ON public.the_ban_hang USING btree (khach_hang_id)",
+      "indexname": "idx_the_ban_hang_khach_hang",
+      "tablename": "the_ban_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX idx_the_ban_hang_ngay ON public.the_ban_hang USING btree (ngay)",
+      "indexname": "idx_the_ban_hang_ngay",
+      "tablename": "the_ban_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX idx_the_ban_hang_nhan_vien ON public.the_ban_hang USING btree (nhan_vien_id)",
+      "indexname": "idx_the_ban_hang_nhan_vien",
+      "tablename": "the_ban_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX idx_the_ban_hang_ten_khach_hang_norm ON public.the_ban_hang USING btree (lower(btrim(ten_khach_hang)))",
+      "indexname": "idx_the_ban_hang_ten_khach_hang_norm",
+      "tablename": "the_ban_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX sales_code_trgm ON public.the_ban_hang USING gin (id_bh gin_trgm_ops)",
+      "indexname": "sales_code_trgm",
+      "tablename": "the_ban_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX sales_customer_ref_search ON public.the_ban_hang USING btree (lower(btrim(khach_hang_id)))",
+      "indexname": "sales_customer_ref_search",
+      "tablename": "the_ban_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX sales_customer_trgm ON public.the_ban_hang USING gin (khach_hang_id gin_trgm_ops)",
+      "indexname": "sales_customer_trgm",
+      "tablename": "the_ban_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX sales_date_page ON public.the_ban_hang USING btree (ngay DESC, gio DESC, id DESC)",
+      "indexname": "sales_date_page",
+      "tablename": "the_ban_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX the_ban_hang_id_bh_key ON public.the_ban_hang USING btree (id_bh)",
+      "indexname": "the_ban_hang_id_bh_key",
+      "tablename": "the_ban_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX the_ban_hang_pkey ON public.the_ban_hang USING btree (id)",
+      "indexname": "the_ban_hang_pkey",
+      "tablename": "the_ban_hang",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX idx_the_ban_hang_ct_id_don_hang ON public.the_ban_hang_ct USING btree (id_don_hang)",
+      "indexname": "idx_the_ban_hang_ct_id_don_hang",
+      "tablename": "the_ban_hang_ct",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX idx_the_ban_hang_ct_id_don_hang_norm ON public.the_ban_hang_ct USING btree (lower(btrim(id_don_hang)))",
+      "indexname": "idx_the_ban_hang_ct_id_don_hang_norm",
+      "tablename": "the_ban_hang_ct",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX idx_the_ban_hang_ct_id_don_hang_ref ON public.the_ban_hang_ct USING btree (lower(TRIM(BOTH FROM id_don_hang))) WHERE ((id_don_hang IS NOT NULL) AND (length(TRIM(BOTH FROM id_don_hang)) > 0))",
+      "indexname": "idx_the_ban_hang_ct_id_don_hang_ref",
+      "tablename": "the_ban_hang_ct",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX sales_detail_date_id ON public.the_ban_hang_ct USING btree (ngay, id)",
+      "indexname": "sales_detail_date_id",
+      "tablename": "the_ban_hang_ct",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX sales_detail_ref_search ON public.the_ban_hang_ct USING btree (lower(btrim(id_don_hang)))",
+      "indexname": "sales_detail_ref_search",
+      "tablename": "the_ban_hang_ct",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX the_ban_hang_ct_pkey ON public.the_ban_hang_ct USING btree (id)",
+      "indexname": "the_ban_hang_ct_pkey",
+      "tablename": "the_ban_hang_ct",
+      "schemaname": "public",
+      "tablespace": null
+    }
+  ],
+  "functions": [
+    {
+      "name": "app_branch",
+      "owner": "postgres",
+      "proacl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "result": "text",
+      "language": "sql",
+      "proconfig": null,
+      "prosecdef": false,
+      "signature": "app_branch(text)",
+      "definition": "CREATE OR REPLACE FUNCTION public.app_branch(value text)\n RETURNS text\n LANGUAGE sql\n IMMUTABLE PARALLEL SAFE\nAS $function$\r\n  SELECT regexp_replace(btrim(public.app_search_text(value)), '^co so\\s+', '');\r\n$function$\n",
+      "provolatile": "i",
+      "identity_arguments": "value text"
+    },
+    {
+      "name": "app_customer_matches",
+      "owner": "postgres",
+      "proacl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "result": "boolean",
+      "language": "sql",
+      "proconfig": null,
+      "prosecdef": false,
+      "signature": "app_customer_matches(jsonb,text)",
+      "definition": "CREATE OR REPLACE FUNCTION public.app_customer_matches(c jsonb, term text)\n RETURNS boolean\n LANGUAGE sql\n IMMUTABLE PARALLEL SAFE\nAS $function$\r\n WITH input AS (\r\n   SELECT btrim(coalesce(term, '')) raw,\r\n     public.app_search_text(term) search_text,\r\n     public.app_plate(term) plate,\r\n     public.app_phone(term) phone,\r\n     btrim(coalesce(term, '')) ~ '^[+0-9 .()-]+$' looks_like_phone\r\n )\r\n SELECT input.raw = ''\r\n OR (nullif(public.app_search_text(c->>'ho_va_ten'), '') IS NOT NULL AND NOT EXISTS (\r\n   SELECT 1 FROM regexp_split_to_table(input.search_text, ' ') token\r\n   WHERE position(token IN public.app_search_text(c->>'ho_va_ten')) = 0))\r\n OR position(lower(input.raw) IN lower(coalesce(c->>'ma_khach_hang', ''))) > 0\r\n OR position(lower(input.raw) IN lower(coalesce(c->>'id', ''))) > 0\r\n OR (input.plate <> '' AND position(input.plate IN public.app_plate(c->>'bien_so_xe')) > 0)\r\n OR CASE WHEN input.looks_like_phone AND length(input.phone) >= 8\r\n   THEN position(input.phone IN public.app_phone(c->>'so_dien_thoai')) > 0\r\n   ELSE false END\r\n FROM input;\r\n$function$\n",
+      "provolatile": "i",
+      "identity_arguments": "c jsonb, term text"
+    },
+    {
+      "name": "app_customer_name",
+      "owner": "postgres",
+      "proacl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "result": "text",
+      "language": "sql",
+      "proconfig": null,
+      "prosecdef": false,
+      "signature": "app_customer_name(text)",
+      "definition": "CREATE OR REPLACE FUNCTION public.app_customer_name(value text)\n RETURNS text\n LANGUAGE sql\n IMMUTABLE PARALLEL SAFE\nAS $function$\r\n SELECT CASE WHEN btrim(coalesce(value, '')) IN ('', '---', '—', 'chưa có thông tin', 'Chưa có thông tin')\r\n THEN NULL ELSE btrim(value) END;\r\n$function$\n",
+      "provolatile": "i",
+      "identity_arguments": "value text"
+    },
+    {
+      "name": "app_customer_rows",
+      "owner": "postgres",
+      "proacl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "result": "SETOF jsonb",
+      "language": "sql",
+      "proconfig": [
+        "search_path=public"
+      ],
+      "prosecdef": false,
+      "signature": "app_customer_rows()",
+      "definition": "CREATE OR REPLACE FUNCTION public.app_customer_rows()\n RETURNS SETOF jsonb\n LANGUAGE sql\n STABLE\n SET search_path TO 'public'\nAS $function$\r\n WITH customers AS MATERIALIZED (\r\n   SELECT to_jsonb(row) j FROM (SELECT c.id, c.ho_va_ten, c.so_dien_thoai, c.dia_chi_hien_tai, c.bien_so_xe, c.ngay_dang_ky, c.so_km, c.so_ngay_thay_dau, c.ngay_thay_dau, c.created_at, c.ma_khach_hang, c.lich_su_thay_dau, c.updated_at, c.nhan_vien_id, c.last_order_at FROM khach_hang c) row\r\n ), missing_refs AS (\r\n   SELECT DISTINCT c.j->>'id' customer_id, ref\r\n   FROM customers c CROSS JOIN LATERAL\r\n     (VALUES (lower(c.j->>'id')), (lower(btrim(c.j->>'ma_khach_hang')))) refs(ref)\r\n   WHERE app_customer_name(c.j->>'ho_va_ten') IS NULL AND nullif(ref, '') IS NOT NULL\r\n ), recovered AS (\r\n   SELECT DISTINCT ON (r.customer_id) r.customer_id, app_customer_name(s.ten_khach_hang) name\r\n   FROM missing_refs r JOIN the_ban_hang s ON lower(btrim(s.khach_hang_id)) = r.ref\r\n   WHERE app_customer_name(s.ten_khach_hang) IS NOT NULL\r\n   ORDER BY r.customer_id, s.ngay DESC, s.gio DESC, s.id DESC\r\n )\r\n SELECT c.j || jsonb_build_object('ho_va_ten',\r\n   coalesce(app_customer_name(c.j->>'ho_va_ten'), n.name, ''))\r\n FROM customers c LEFT JOIN recovered n ON n.customer_id = c.j->>'id';\r\n $function$\n",
+      "provolatile": "s",
+      "identity_arguments": ""
+    },
+    {
+      "name": "app_phone",
+      "owner": "postgres",
+      "proacl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "result": "text",
+      "language": "sql",
+      "proconfig": null,
+      "prosecdef": false,
+      "signature": "app_phone(text)",
+      "definition": "CREATE OR REPLACE FUNCTION public.app_phone(value text)\n RETURNS text\n LANGUAGE sql\n IMMUTABLE PARALLEL SAFE\nAS $function$\r\n WITH d AS (SELECT regexp_replace(coalesce(value, ''), '[^0-9]', '', 'g') v)\r\n SELECT ltrim(CASE WHEN v LIKE '84%' AND length(v) >= 10 THEN substr(v, 3) ELSE v END, '0') FROM d;\r\n$function$\n",
+      "provolatile": "i",
+      "identity_arguments": "value text"
+    },
+    {
+      "name": "app_plate",
+      "owner": "postgres",
+      "proacl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "result": "text",
+      "language": "sql",
+      "proconfig": null,
+      "prosecdef": false,
+      "signature": "app_plate(text)",
+      "definition": "CREATE OR REPLACE FUNCTION public.app_plate(value text)\n RETURNS text\n LANGUAGE sql\n IMMUTABLE PARALLEL SAFE\nAS $function$\r\n SELECT regexp_replace(lower(coalesce(value, '')), '[^a-z0-9]', '', 'g');\r\n$function$\n",
+      "provolatile": "i",
+      "identity_arguments": "value text"
+    },
+    {
+      "name": "app_sales_first_dates",
+      "owner": "postgres",
+      "proacl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "result": "TABLE(customer_key text, first_date text)",
+      "language": "sql",
+      "proconfig": [
+        "search_path=public"
+      ],
+      "prosecdef": false,
+      "signature": "app_sales_first_dates()",
+      "definition": "CREATE OR REPLACE FUNCTION public.app_sales_first_dates()\n RETURNS TABLE(customer_key text, first_date text)\n LANGUAGE sql\n STABLE\n SET search_path TO 'public'\nAS $function$\r\n WITH customers AS MATERIALIZED (\r\n   SELECT id::text id, lower(btrim(ma_khach_hang)) code, app_phone(so_dien_thoai::text) phone FROM khach_hang\r\n ), refs AS MATERIALIZED (\r\n   SELECT DISTINCT ON (ref) ref, id FROM (\r\n     SELECT id ref, id, 0 priority FROM customers\r\n     UNION ALL SELECT code, id, 1 FROM customers\r\n   ) r WHERE nullif(ref, '') IS NOT NULL ORDER BY ref, priority, id\r\n ), phones AS MATERIALIZED (\r\n   SELECT phone, min(id) id FROM customers WHERE length(phone) >= 8 GROUP BY phone HAVING count(*) = 1\r\n ), identities AS (\r\n   SELECT s.ngay, CASE WHEN coalesce(c.id, p.id) IS NOT NULL THEN 'id:' || coalesce(c.id, p.id)\r\n     WHEN nullif(btrim(s.khach_hang_id), '') IS NOT NULL THEN 'ref:' || lower(btrim(s.khach_hang_id))\r\n     WHEN length(app_phone(s.so_dien_thoai::text)) >= 8 THEN 'phone:' || app_phone(s.so_dien_thoai::text)\r\n     ELSE NULL END key\r\n   FROM the_ban_hang s LEFT JOIN refs c ON c.ref = lower(btrim(s.khach_hang_id))\r\n   LEFT JOIN phones p ON c.id IS NULL\r\n     AND (length(app_phone(s.so_dien_thoai::text)) >= 8 OR btrim(s.khach_hang_id) ~ '^[+0-9 .()-]+$')\r\n     AND p.phone = app_phone(coalesce(nullif(s.so_dien_thoai::text, ''), s.khach_hang_id))\r\n ) SELECT key, min(ngay)::text FROM identities GROUP BY key;\r\n$function$\n",
+      "provolatile": "s",
+      "identity_arguments": ""
+    },
+    {
+      "name": "app_sales_rows",
+      "owner": "postgres",
+      "proacl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "result": "SETOF jsonb",
+      "language": "sql",
+      "proconfig": [
+        "search_path=public"
+      ],
+      "prosecdef": false,
+      "signature": "app_sales_rows()",
+      "definition": "CREATE OR REPLACE FUNCTION public.app_sales_rows()\n RETURNS SETOF jsonb\n LANGUAGE sql\n STABLE\n SET search_path TO 'public'\nAS $function$\r\n WITH customers AS MATERIALIZED (\r\n   SELECT c j, app_phone(c->>'so_dien_thoai') phone FROM app_customer_rows() c\r\n ), customer_refs AS MATERIALIZED (\r\n   SELECT DISTINCT ON (ref) ref, j FROM (\r\n     SELECT lower(j->>'id') ref, j, 0 priority FROM customers\r\n     UNION ALL\r\n     SELECT lower(btrim(j->>'ma_khach_hang')), j, 1 FROM customers\r\n   ) refs WHERE nullif(ref, '') IS NOT NULL\r\n   ORDER BY ref, priority, j->>'id'\r\n ), phones AS MATERIALIZED (\r\n   SELECT phone, (array_agg(j))[1] j FROM customers\r\n   WHERE length(phone) >= 8 GROUP BY phone HAVING count(*) = 1\r\n ), sales AS MATERIALIZED (\r\n   SELECT s.*, lower(btrim(s.khach_hang_id)) customer_ref,\r\n     lower(btrim(s.dich_vu_id)) service_ref FROM the_ban_hang s\r\n ), order_refs AS (\r\n   SELECT DISTINCT s.id, ref FROM sales s CROSS JOIN LATERAL\r\n     (VALUES (lower(s.id::text)), (lower(btrim(s.id_bh)))) refs(ref)\r\n   WHERE nullif(ref, '') IS NOT NULL\r\n ), details AS MATERIALIZED (\r\n   SELECT r.id,\r\n     sum(coalesce(ct.thanh_tien, coalesce(ct.gia_ban, 0) * coalesce(ct.so_luong, 1))) amount,\r\n     jsonb_agg(DISTINCT ct.co_so) FILTER (WHERE nullif(btrim(ct.co_so), '') IS NOT NULL) branches\r\n   FROM order_refs r JOIN the_ban_hang_ct ct ON lower(btrim(ct.id_don_hang)) = r.ref\r\n   GROUP BY r.id\r\n ), service_prices AS MATERIALIZED (\r\n   SELECT ref, max(v.gia_ban) amount FROM dich_vu v CROSS JOIN LATERAL\r\n     (VALUES (lower(v.id::text)), (lower(v.id_dich_vu)), (lower(v.ten_dich_vu))) refs(ref)\r\n   WHERE ref IS NOT NULL GROUP BY ref\r\n )\r\n SELECT (to_jsonb(s) - 'customer_ref' - 'service_ref') || jsonb_build_object(\r\n   'khach_hang', c.j,\r\n   'ten_khach_hang', coalesce(app_customer_name(c.j->>'ho_va_ten'), app_customer_name(s.ten_khach_hang)),\r\n   'resolved_amount', coalesce(d.amount, nullif(s.tong_tien, 0), dv.amount, s.tong_tien, 0),\r\n   'customer_key', CASE WHEN c.j IS NOT NULL THEN 'id:' || (c.j->>'id')\r\n     WHEN nullif(btrim(s.khach_hang_id), '') IS NOT NULL THEN 'ref:' || s.customer_ref\r\n     WHEN length(app_phone(s.so_dien_thoai::text)) >= 8 THEN 'phone:' || app_phone(s.so_dien_thoai::text)\r\n     ELSE NULL END,\r\n   'order_branches', coalesce(d.branches, jsonb_build_array(c.j->>'dia_chi_hien_tai')))\r\n FROM sales s\r\n LEFT JOIN customer_refs explicit ON explicit.ref = s.customer_ref\r\n LEFT JOIN phones phone ON explicit.j IS NULL\r\n   AND (length(app_phone(s.so_dien_thoai::text)) >= 8 OR btrim(s.khach_hang_id) ~ '^[+0-9 .()-]+$')\r\n   AND phone.phone = app_phone(coalesce(nullif(s.so_dien_thoai::text, ''), s.khach_hang_id))\r\n CROSS JOIN LATERAL (SELECT coalesce(explicit.j, phone.j) j) c\r\n LEFT JOIN details d ON d.id = s.id\r\n LEFT JOIN service_prices dv ON dv.ref = s.service_ref;\r\n$function$\n",
+      "provolatile": "s",
+      "identity_arguments": ""
+    },
+    {
+      "name": "app_sales_rows_searched",
+      "owner": "postgres",
+      "proacl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "result": "SETOF jsonb",
+      "language": "sql",
+      "proconfig": [
+        "search_path=public"
+      ],
+      "prosecdef": false,
+      "signature": "app_sales_rows_searched(date,date,text)",
+      "definition": "CREATE OR REPLACE FUNCTION public.app_sales_rows_searched(p_start date, p_end date, p_search text)\n RETURNS SETOF jsonb\n LANGUAGE sql\n STABLE\n SET search_path TO 'public'\nAS $function$\r\n WITH customers AS MATERIALIZED (\r\n   SELECT c j, app_phone(c->>'so_dien_thoai') phone FROM app_customer_rows() c\r\n ), customer_refs AS MATERIALIZED (\r\n   SELECT DISTINCT ON (ref) ref, j FROM (\r\n     SELECT lower(j->>'id') ref, j, 0 priority FROM customers\r\n     UNION ALL\r\n     SELECT lower(btrim(j->>'ma_khach_hang')), j, 1 FROM customers\r\n   ) refs WHERE nullif(ref, '') IS NOT NULL\r\n   ORDER BY ref, priority, j->>'id'\r\n ), phones AS MATERIALIZED (\r\n   SELECT phone, (array_agg(j))[1] j FROM customers\r\n   WHERE length(phone) >= 8 GROUP BY phone HAVING count(*) = 1\r\n ), matching_customers AS MATERIALIZED (\r\n   SELECT j->>'id' id FROM customers WHERE app_customer_matches(j, p_search)\r\n ), matching_services AS MATERIALIZED (\r\n   SELECT ref FROM dich_vu v CROSS JOIN LATERAL\r\n     (VALUES (lower(v.id::text)), (lower(v.id_dich_vu)), (lower(v.ten_dich_vu))) refs(ref)\r\n   WHERE position(app_search_text(btrim(p_search)) IN app_search_text(v.ten_dich_vu)) > 0\r\n ), sales AS MATERIALIZED (\r\n   SELECT s.*, lower(btrim(s.khach_hang_id)) customer_ref,\r\n     lower(btrim(s.dich_vu_id)) service_ref FROM the_ban_hang s\r\n   LEFT JOIN customer_refs customer ON customer.ref = lower(btrim(s.khach_hang_id))\r\n   LEFT JOIN phones fallback ON customer.j IS NULL\r\n     AND (length(app_phone(s.so_dien_thoai::text)) >= 8 OR btrim(s.khach_hang_id) ~ '^[+0-9 .()-]+$')\r\n     AND fallback.phone = app_phone(coalesce(nullif(s.so_dien_thoai::text, ''), s.khach_hang_id))\r\n   WHERE (p_start IS NULL OR s.ngay >= p_start) AND (p_end IS NULL OR s.ngay <= p_end)\r\n   AND (nullif(btrim(p_search), '') IS NULL\r\n     OR coalesce(customer.j->>'id', fallback.j->>'id') IN (SELECT id FROM matching_customers)\r\n     OR app_customer_matches(jsonb_build_object('ho_va_ten',\r\n          coalesce(app_customer_name(coalesce(customer.j, fallback.j)->>'ho_va_ten'), app_customer_name(s.ten_khach_hang)),\r\n          'so_dien_thoai', s.so_dien_thoai, 'ma_khach_hang', s.khach_hang_id, 'id', s.id), p_search)\r\n     OR position(lower(btrim(p_search)) IN lower(coalesce(s.id_bh, ''))) > 0\r\n     OR lower(btrim(s.dich_vu_id)) IN (SELECT ref FROM matching_services))\r\n ), order_refs AS (\r\n   SELECT DISTINCT s.id, ref FROM sales s CROSS JOIN LATERAL\r\n     (VALUES (lower(s.id::text)), (lower(btrim(s.id_bh)))) refs(ref)\r\n   WHERE nullif(ref, '') IS NOT NULL\r\n ), details AS MATERIALIZED (\r\n   SELECT r.id,\r\n     sum(coalesce(ct.thanh_tien, coalesce(ct.gia_ban, 0) * coalesce(ct.so_luong, 1))) amount,\r\n     jsonb_agg(DISTINCT ct.co_so) FILTER (WHERE nullif(btrim(ct.co_so), '') IS NOT NULL) branches\r\n   FROM order_refs r JOIN the_ban_hang_ct ct ON lower(btrim(ct.id_don_hang)) = r.ref\r\n   GROUP BY r.id\r\n ), service_prices AS MATERIALIZED (\r\n   SELECT ref, max(v.gia_ban) amount FROM dich_vu v CROSS JOIN LATERAL\r\n     (VALUES (lower(v.id::text)), (lower(v.id_dich_vu)), (lower(v.ten_dich_vu))) refs(ref)\r\n   WHERE ref IS NOT NULL GROUP BY ref\r\n )\r\n SELECT (to_jsonb(s) - 'customer_ref' - 'service_ref') || jsonb_build_object(\r\n   'khach_hang', c.j,\r\n   'ten_khach_hang', coalesce(app_customer_name(c.j->>'ho_va_ten'), app_customer_name(s.ten_khach_hang)),\r\n   'resolved_amount', coalesce(d.amount, nullif(s.tong_tien, 0), dv.amount, s.tong_tien, 0),\r\n   'customer_key', CASE WHEN c.j IS NOT NULL THEN 'id:' || (c.j->>'id')\r\n     WHEN nullif(btrim(s.khach_hang_id), '') IS NOT NULL THEN 'ref:' || s.customer_ref\r\n     WHEN length(app_phone(s.so_dien_thoai::text)) >= 8 THEN 'phone:' || app_phone(s.so_dien_thoai::text)\r\n     ELSE NULL END,\r\n   'order_branches', coalesce(d.branches, jsonb_build_array(c.j->>'dia_chi_hien_tai')))\r\n FROM sales s\r\n LEFT JOIN customer_refs explicit ON explicit.ref = s.customer_ref\r\n LEFT JOIN phones phone ON explicit.j IS NULL\r\n   AND (length(app_phone(s.so_dien_thoai::text)) >= 8 OR btrim(s.khach_hang_id) ~ '^[+0-9 .()-]+$')\r\n   AND phone.phone = app_phone(coalesce(nullif(s.so_dien_thoai::text, ''), s.khach_hang_id))\r\n CROSS JOIN LATERAL (SELECT coalesce(explicit.j, phone.j) j) c\r\n LEFT JOIN details d ON d.id = s.id\r\n LEFT JOIN service_prices dv ON dv.ref = s.service_ref;\r\n$function$\n",
+      "provolatile": "s",
+      "identity_arguments": "p_start date, p_end date, p_search text"
+    },
+    {
+      "name": "app_search_text",
+      "owner": "postgres",
+      "proacl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "result": "text",
+      "language": "sql",
+      "proconfig": null,
+      "prosecdef": false,
+      "signature": "app_search_text(text)",
+      "definition": "CREATE OR REPLACE FUNCTION public.app_search_text(value text)\n RETURNS text\n LANGUAGE sql\n IMMUTABLE PARALLEL SAFE\nAS $function$\r\n  SELECT regexp_replace(btrim(lower(translate(regexp_replace(normalize(coalesce(value, ''), NFD),\r\n    U&'[\\0300-\\036f]', '', 'g'), 'Đđ', 'Dd'))), '\\s+', ' ', 'g');\r\n$function$\n",
+      "provolatile": "i",
+      "identity_arguments": "value text"
+    },
+    {
+      "name": "customer_order_stats",
+      "owner": "postgres",
+      "proacl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "result": "jsonb",
+      "language": "plpgsql",
+      "proconfig": [
+        "search_path=public"
+      ],
+      "prosecdef": false,
+      "signature": "customer_order_stats(text[])",
+      "definition": "CREATE OR REPLACE FUNCTION public.customer_order_stats(p_ids text[])\n RETURNS jsonb\n LANGUAGE plpgsql\n STABLE\n SET search_path TO 'public'\nAS $function$\nBEGIN\n  IF coalesce(cardinality(p_ids), 0) = 0 THEN\n    RETURN jsonb_build_object('lastOrderDates', '{}'::jsonb, 'stats', '{}'::jsonb);\n  END IF;\n\n  RETURN (\n    WITH customers AS MATERIALIZED (\n      SELECT id::text id, ma_khach_hang code, app_phone(so_dien_thoai::text) phone\n      FROM khach_hang\n    ), refs AS MATERIALIZED (\n      -- Resolve ALL visible refs first: UUID wins over code; duplicate normalized\n      -- codes choose the same smallest UUID as app_sales_rows(). Filtering this\n      -- map to p_ids would incorrectly allow phone fallback for another owner.\n      SELECT DISTINCT ON (ref) ref, id, code FROM (\n        SELECT lower(id) ref, id, code, 0 priority FROM customers\n        UNION ALL\n        SELECT lower(btrim(code)), id, code, 1 FROM customers\n      ) r WHERE nullif(ref, '') IS NOT NULL ORDER BY ref, priority, id\n    ), phones AS MATERIALIZED (\n      -- Uniqueness covers every visible vehicle, including unrequested ones.\n      SELECT phone, min(id) id, min(code) code FROM customers\n      WHERE length(phone) >= 8 GROUP BY phone HAVING count(*) = 1\n    ), sales AS MATERIALIZED (\n      SELECT s.id, s.id_bh, s.ngay, s.gio, s.so_km, s.tong_tien,\n        lower(btrim(s.dich_vu_id)) service_ref,\n        coalesce(r.id, p.id) customer_id,\n        CASE WHEN r.id IS NOT NULL THEN r.code ELSE p.code END customer_code\n      FROM the_ban_hang s\n      LEFT JOIN refs r ON r.ref = lower(btrim(s.khach_hang_id))\n      LEFT JOIN phones p ON r.id IS NULL\n        AND (length(app_phone(s.so_dien_thoai::text)) >= 8\n          OR btrim(s.khach_hang_id) ~ '^[+0-9 .()-]+$')\n        AND p.phone = app_phone(coalesce(nullif(s.so_dien_thoai::text, ''), s.khach_hang_id))\n      WHERE coalesce(r.id, p.id) = ANY(p_ids)\n    ), order_refs AS (\n      SELECT DISTINCT s.id, ref FROM sales s CROSS JOIN LATERAL\n        (VALUES (lower(s.id::text)), (lower(btrim(s.id_bh)))) refs(ref)\n      WHERE nullif(ref, '') IS NOT NULL\n    ), details AS MATERIALIZED (\n      SELECT r.id,\n        sum(coalesce(ct.thanh_tien, coalesce(ct.gia_ban, 0) * coalesce(ct.so_luong, 1))) amount\n      FROM order_refs r JOIN the_ban_hang_ct ct ON lower(btrim(ct.id_don_hang)) = r.ref\n      GROUP BY r.id\n    ), service_prices AS MATERIALIZED (\n      -- Match the existing service normalization exactly (no extra btrim).\n      SELECT ref, max(v.gia_ban) amount FROM dich_vu v CROSS JOIN LATERAL\n        (VALUES (lower(v.id::text)), (lower(v.id_dich_vu)), (lower(v.ten_dich_vu))) refs(ref)\n      WHERE ref IN (SELECT service_ref FROM sales) GROUP BY ref\n    ), grouped AS (\n      SELECT s.customer_id id, s.customer_code code, max(s.ngay)::text latest,\n        jsonb_build_object(\n          'totalRevenue', sum(coalesce(d.amount, nullif(s.tong_tien, 0), v.amount, s.tong_tien, 0)),\n          'visitCount', count(*),\n          'latestSoKm', (array_agg(s.so_km::numeric ORDER BY s.ngay DESC, s.gio DESC, s.id DESC)\n            FILTER (WHERE s.so_km > 0))[1]\n        ) stats\n      FROM sales s LEFT JOIN details d ON d.id = s.id\n      LEFT JOIN service_prices v ON v.ref = s.service_ref\n      GROUP BY s.customer_id, s.customer_code\n    ), keys AS (\n      SELECT id key, latest, stats FROM grouped\n      UNION ALL SELECT code, latest, stats FROM grouped WHERE nullif(code, '') IS NOT NULL\n    ) SELECT jsonb_build_object(\n      'lastOrderDates', coalesce(jsonb_object_agg(key, latest), '{}'::jsonb),\n      'stats', coalesce(jsonb_object_agg(key, stats), '{}'::jsonb)\n    ) FROM keys\n  );\nEND;\n$function$\n",
+      "provolatile": "s",
+      "identity_arguments": "p_ids text[]"
+    },
+    {
+      "name": "sales_details",
+      "owner": "postgres",
+      "proacl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "result": "SETOF the_ban_hang_ct",
+      "language": "sql",
+      "proconfig": [
+        "search_path=public"
+      ],
+      "prosecdef": false,
+      "signature": "sales_details(text[])",
+      "definition": "CREATE OR REPLACE FUNCTION public.sales_details(p_refs text[])\n RETURNS SETOF the_ban_hang_ct\n LANGUAGE sql\n STABLE\n SET search_path TO 'public'\nAS $function$\r\n SELECT ct.* FROM the_ban_hang_ct ct WHERE lower(btrim(ct.id_don_hang)) IN\r\n   (SELECT lower(btrim(ref)) FROM unnest(p_refs) ref) ORDER BY ct.id;\r\n$function$\n",
+      "provolatile": "s",
+      "identity_arguments": "p_refs text[]"
+    },
+    {
+      "name": "sales_lookup",
+      "owner": "postgres",
+      "proacl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "result": "jsonb",
+      "language": "sql",
+      "proconfig": [
+        "search_path=public"
+      ],
+      "prosecdef": false,
+      "signature": "sales_lookup(text[])",
+      "definition": "CREATE OR REPLACE FUNCTION public.sales_lookup(p_ids text[])\n RETURNS jsonb\n LANGUAGE sql\n STABLE\n SET search_path TO 'public'\nAS $function$\r\n SELECT coalesce(jsonb_agg(j), '[]'::jsonb) FROM app_sales_rows() j WHERE j->>'id' = ANY(p_ids);\r\n$function$\n",
+      "provolatile": "s",
+      "identity_arguments": "p_ids text[]"
+    },
+    {
+      "name": "sales_query",
+      "owner": "postgres",
+      "proacl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "result": "jsonb",
+      "language": "sql",
+      "proconfig": [
+        "search_path=public"
+      ],
+      "prosecdef": false,
+      "signature": "sales_query(text,date,date,text,text,integer,integer,text,text)",
+      "definition": "CREATE OR REPLACE FUNCTION public.sales_query(p_search text DEFAULT NULL::text, p_start date DEFAULT NULL::date, p_end date DEFAULT NULL::date, p_staff text DEFAULT NULL::text, p_branch text DEFAULT NULL::text, p_page integer DEFAULT 1, p_limit integer DEFAULT 20, p_reference text DEFAULT NULL::text, p_customer text DEFAULT NULL::text)\n RETURNS jsonb\n LANGUAGE sql\n STABLE\n SET search_path TO 'public'\nAS $function$\r\n WITH filtered AS MATERIALIZED (\r\n SELECT j FROM app_sales_rows_searched(p_start, p_end, p_search) j WHERE\r\n   (p_start IS NULL OR (j->>'ngay')::date >= p_start)\r\n   AND (p_end IS NULL OR (j->>'ngay')::date <= p_end)\r\n   AND (nullif(btrim(p_staff), '') IS NULL OR EXISTS (\r\n     SELECT 1 FROM regexp_split_to_table(j->>'nhan_vien_id', ',') token\r\n     WHERE app_search_text(btrim(token)) = app_search_text(btrim(p_staff))\r\n       OR EXISTS (SELECT 1 FROM nhan_su ns WHERE app_search_text(btrim(p_staff)) IN\r\n          (app_search_text(ns.ho_ten), app_search_text(ns.id_nhan_su))\r\n          AND app_search_text(btrim(token)) IN (app_search_text(ns.ho_ten), app_search_text(ns.id_nhan_su)))\r\n   ))\r\n   AND (nullif(btrim(p_branch), '') IS NULL OR EXISTS (\r\n     SELECT 1 FROM jsonb_array_elements_text(j->'order_branches') b WHERE app_branch(b) = app_branch(p_branch)))\r\n   AND (nullif(btrim(p_reference), '') IS NULL OR lower(btrim(p_reference)) IN (lower(j->>'id'), lower(j->>'id_bh')))\r\n   AND (p_customer IS NULL OR p_customer IN (j->'khach_hang'->>'id', j->'khach_hang'->>'ma_khach_hang'))\r\n\r\n ), first_dates AS (\r\n   SELECT customer_key key, first_date FROM app_sales_first_dates()\r\n ), classified AS MATERIALIZED (\r\n   SELECT f.j, d.first_date FROM filtered f LEFT JOIN first_dates d ON d.key = f.j->>'customer_key'\r\n ), daily AS (\r\n   SELECT j->>'ngay' date, jsonb_build_object('date', j->>'ngay', 'totalCount', count(*),\r\n     'totalAmount', coalesce(sum((j->>'resolved_amount')::numeric), 0),\r\n     'totalCustomers', count(DISTINCT j->>'customer_key'), 'latestTime', max(j->>'gio'),\r\n     'newCustomersCount', count(DISTINCT j->>'customer_key') FILTER (WHERE first_date = j->>'ngay'),\r\n     'returningCustomersCount', count(DISTINCT j->>'customer_key') FILTER (WHERE first_date < j->>'ngay')) result\r\n   FROM classified GROUP BY j->>'ngay'\r\n ), page_rows AS (\r\n   SELECT j FROM filtered ORDER BY j->>'ngay' DESC, j->>'gio' DESC, j->>'id' DESC\r\n   LIMIT greatest(0, least(p_limit, 1000)) OFFSET (greatest(p_page, 1) - 1) * greatest(0, least(p_limit, 1000))\r\n )\r\n SELECT jsonb_build_object('data', coalesce((SELECT jsonb_agg(j) FROM page_rows), '[]'::jsonb),\r\n   'totalCount', (SELECT count(*) FROM filtered),\r\n   'summary', (SELECT jsonb_build_object('totalCount', count(*),\r\n     'totalAmount', coalesce(sum((j->>'resolved_amount')::numeric), 0), 'totalCustomers', count(DISTINCT j->>'customer_key'),\r\n     'newCustomersCount', count(DISTINCT j->>'customer_key') FILTER (WHERE p_start IS NULL OR first_date >= p_start::text),\r\n     'returningCustomersCount', count(DISTINCT j->>'customer_key') FILTER (WHERE first_date < p_start::text)) FROM classified),\r\n   'groupedSummary', coalesce((SELECT jsonb_agg(result ORDER BY date DESC) FROM daily), '[]'::jsonb));\r\n$function$\n",
+      "provolatile": "s",
+      "identity_arguments": "p_search text, p_start date, p_end date, p_staff text, p_branch text, p_page integer, p_limit integer, p_reference text, p_customer text"
+    }
+  ]
+}

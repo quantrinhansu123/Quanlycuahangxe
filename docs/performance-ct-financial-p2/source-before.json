@@ -1,0 +1,87 @@
+{
+  "at": "2026-10-04T08:21:39.959Z",
+  "files": [
+    {
+      "file": "src/data/salesCardData.ts",
+      "hash": "6d61db1b23d30f244da52fff04951a667a1b9760877e506f365fab44873dfa10"
+    },
+    {
+      "file": "src/data/salesQueryData.ts",
+      "hash": "5a889282d9c13be1151bd282f03773a856878c660e2140e0b8adcc4ca83743a2"
+    },
+    {
+      "file": "src/data/salesCardCTData.ts",
+      "hash": "3460bcb3dc467f3a5ba336f6460578473953352434d28689aaf89004bca9aca7"
+    },
+    {
+      "file": "src/data/financialData.ts",
+      "hash": "46f97088f2713c78eb3f16e79c2f5769bfd5a8d82dd40c47fb07c82e51c21b8e"
+    },
+    {
+      "file": "src/data/cashBookData.ts",
+      "hash": "a644f906ef69d68cae9cd1f9380f5e9d23f0e8c0016a2ad9f061ff4aeb798ba6"
+    },
+    {
+      "file": "src/data/customerData.ts",
+      "hash": "b50afb3aac477eaef059a251ff399a505100275f844203bba488d1527bb0e1b7"
+    },
+    {
+      "file": "src/data/serviceData.ts",
+      "hash": "f5cf3f83229e7ac6409fe49000a1838b8a633e4904d0590d16f011a30289a0f1"
+    },
+    {
+      "file": "src/pages/SalesCardCTManagementPage.tsx",
+      "hash": "67d940dbf0512d781ceced49eb40bdd66ab7a55dd6515cb7e0c00ae6e5f65aab"
+    },
+    {
+      "file": "src/pages/FinancialManagementPage.tsx",
+      "hash": "ea97e86bb43d2fa6b9df46d5fbe02575bd7592e94fba69b80776dc1254aabdcf"
+    },
+    {
+      "file": "src/components/SalesCardCTFormModal.tsx",
+      "hash": "2b67ba52dea0b625c8609d8d1142d8bc787200a0733dde22fc7421998d8e6096"
+    },
+    {
+      "file": "src/components/FinancialFormModal.tsx",
+      "hash": "6b2fe73bddc9fcf8e245ea9163b675b6674ea5c25ecfa3b72b0e9185c529de88"
+    },
+    {
+      "file": "package.json",
+      "hash": "bddd619b48b4c691873ef7c839531d9e3da1afe4aafdf2076615f605384aa7ef"
+    },
+    {
+      "file": "src/components/FinancialCharts.tsx",
+      "hash": "14763a0a4727c6ee0a4106d4c86273986730ea2e705484a6e209d3b4623f4931"
+    },
+    {
+      "file": "scripts/test-cashbook-ui.mjs",
+      "hash": "9452d94f3dd838883c5aae870ea5301a5965ce5797678201d19fd62cef00878b"
+    }
+  ],
+  "protected": [
+    {
+      "file": "supabase/migrations/202610040001_sales_p0.sql",
+      "hash": "e8ff0437eabd7f3ffdb78122fddb591bae3f75fcc410a0ddc1aa1821d68b794b"
+    },
+    {
+      "file": "src/data/attendanceData.ts",
+      "hash": "f6955d3dd5c7b1e512f95e0a73c721fcf8cb40c1b8ea26a53b557573e4d3b8ea"
+    },
+    {
+      "file": "src/pages/AttendanceManagementPage.tsx",
+      "hash": "5d4ee57290363ff7b21050c3030f99498b4aa4b7189a9d3641cf1a0b5536fa04"
+    },
+    {
+      "file": "src/pages/AddAttendancePage.tsx",
+      "hash": "e71eb918e653986040725a38f303be7f66970d20271599e8d588248bc3aabca9"
+    },
+    {
+      "file": "src/data/reportData.ts",
+      "hash": "7cd77247523753478bfa5426d0a2756e2721d49467d6bda6ecf35fa4683f3a76"
+    },
+    {
+      "file": "src/pages/RevenueReportPage.tsx",
+      "hash": "f30659b889849e751302afbae067c15c03377ebdc53c448df65b34c441d1e233"
+    }
+  ]
+}

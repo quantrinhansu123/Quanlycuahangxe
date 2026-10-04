@@ -1,0 +1,18 @@
+{
+  "source": "synthetic local PGlite; audited OLD definitions",
+  "cases": 67,
+  "scopes": [
+    {
+      "role": "p0_reader",
+      "totalCount": 5,
+      "cases": 67
+    },
+    {
+      "role": "p0_other",
+      "totalCount": 1,
+      "cases": 67
+    }
+  ],
+  "fieldDifferences": [],
+  "businessDataHashPreserved": true
+}

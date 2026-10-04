@@ -1,0 +1,33 @@
+{
+  "at": "2026-10-04T05:13:57.720Z",
+  "p0Pass": false,
+  "productionMigrationApplied": false,
+  "finalDatabaseState": "OLD",
+  "reason": "Smoke B_all_page2: HTTP 500/57014",
+  "mandatorySmokeFailedCase": "B_all_page2",
+  "httpStatus": 500,
+  "sqlstate": "57014",
+  "rollbackVerified": {
+    "at": "2026-10-04T05:13:33.070Z",
+    "status": 201,
+    "restoredLiveDefinitionsAndAcl": true,
+    "removedNewHelpers": true,
+    "rlsAndTableAclUnchanged": true,
+    "indexesUnchanged": true,
+    "settingsUnchanged": true,
+    "finalDatabaseState": "OLD",
+    "readOnly": true,
+    "aclTransportNormalized": true
+  },
+  "temporaryOldNewFullEqualityCases": 14,
+  "temporaryPaginationPassed": true,
+  "productionCallerNewValidated": false,
+  "productionRoleNewValidated": false,
+  "frontendDeployed": false,
+  "businessDml": false,
+  "envChanged": false,
+  "committed": false,
+  "pushed": false,
+  "merged": false,
+  "stoppedAt": "P0.5; mandatory NEW RPC smoke failure; no further apply"
+}

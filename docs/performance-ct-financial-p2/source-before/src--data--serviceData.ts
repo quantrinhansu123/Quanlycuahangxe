@@ -1,0 +1,547 @@
+import { branchKey } from '../lib/branchCatalog';
+import type { PostgrestError } from '@supabase/supabase-js';
+import { supabase } from '../lib/supabase';
+import { invalidateServiceLookupCache } from './salesCardData';
+
+export function formatServiceSaveError(error: unknown): string {
+  const e = error as PostgrestError & { status?: number };
+  const msg = (e?.message || '').toLowerCase();
+  if (e?.code === '23505' || e?.status === 409) {
+    if (msg.includes('id_dich_vu')) {
+      return 'Mã dịch vụ bị trùng. Vui lòng thử lưu lại.';
+    }
+    if (msg.includes('ten_dich_vu')) {
+      return 'Tên dịch vụ đã tồn tại tại cơ sở này. Vui lòng đổi tên hoặc sửa bản ghi cũ.';
+    }
+    return 'Dịch vụ trùng mã hoặc tên. Vui lòng kiểm tra lại.';
+  }
+  return e?.message ? `Không thể lưu dịch vụ: ${e.message}` : 'Không thể lưu dịch vụ.';
+}
+
+export interface DichVu {
+  id: string;
+  id_dich_vu?: string | null;
+  co_so: string;
+  ten_dich_vu: string;
+  gia_nhap: number;
+  gia_ban: number;
+  anh: string | null;
+  hoa_hong: number;
+  tu_ngay: string | null;
+  toi_ngay: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export const SERVICE_BRANCH_MAIN = 'Cơ sở chính';
+
+/** Dịch vụ thuộc tab Cơ sở chính (theo cột co_so). */
+export function isMainServiceBranch(coSo: string | null | undefined): boolean {
+  return !coSo?.trim() || branchKey(coSo) === 'chinh';
+}
+
+const SERVICE_FETCH_BATCH = 1000;
+
+/** PostgREST mặc định tối đa 1000 dòng — phải lấy theo lô. */
+export const getServices = async (): Promise<DichVu[]> => {
+  const all: DichVu[] = [];
+  let offset = 0;
+  for (;;) {
+    const { data, error } = await supabase
+      .from('dich_vu')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .range(offset, offset + SERVICE_FETCH_BATCH - 1);
+
+    if (error) {
+      console.error('Error fetching services:', error);
+      throw error;
+    }
+    const batch = (data || []) as DichVu[];
+    all.push(...batch);
+    if (batch.length < SERVICE_FETCH_BATCH) break;
+    offset += SERVICE_FETCH_BATCH;
+  }
+  return all;
+};
+
+type ServiceUsageOrder = {
+  id: string;
+  id_bh: string | null;
+  khach_hang_id: string | null;
+  so_km: number | null;
+  ngay: string;
+  gio: string;
+};
+
+/** Một lần khách dùng dịch vụ đã lọc, kèm cơ sở của phiếu bán tương ứng. */
+export type ServiceUsageDate = {
+  ngay: string;
+  co_so: string;
+  so_km: number | null;
+};
+
+export type ServiceUsageLatest = {
+  ngay: string;
+  gio: string;
+  so_km: number | null;
+  co_so: string;
+};
+
+/** Cơ sở gắn với 1 phiếu — lấy từ cột co_so trên dòng chi tiết phiếu bán. */
+function resolveUsageBranch(order: ServiceUsageOrder, detailBranchByRef: Map<string, string>): string {
+  const byBh = order.id_bh ? detailBranchByRef.get(order.id_bh.trim().toLowerCase()) : undefined;
+  const byId = detailBranchByRef.get(order.id.trim().toLowerCase());
+  return (byBh || byId || '').trim();
+}
+
+const SERVICE_USAGE_QUERY_CHUNK = 50;
+const SERVICE_USAGE_PAGE_SIZE = 1000;
+
+function serviceUsageChunks<T>(rows: T[]): T[][] {
+  const result: T[][] = [];
+  for (let i = 0; i < rows.length; i += SERVICE_USAGE_QUERY_CHUNK) {
+    result.push(rows.slice(i, i + SERVICE_USAGE_QUERY_CHUNK));
+  }
+  return result;
+}
+
+/**
+ * Các ngày khách đã dùng một trong những dịch vụ được chọn.
+ *
+ * Dữ liệu cũ có thể lưu UUID, mã hoặc tên dịch vụ; dữ liệu nhiều hạng mục lại
+ * nằm trong `the_ban_hang_ct.san_pham`. Vì vậy phải kiểm tra cả phiếu chính lẫn
+ * chi tiết phiếu, rồi trả map theo `khach_hang_id` (UUID hoặc mã khách hàng).
+ */
+export async function getServiceUsageDatesMap(serviceValues: string[]): Promise<Map<string, ServiceUsageDate[]>> {
+  const map = new Map<string, ServiceUsageDate[]>();
+  const values = [...new Set(serviceValues.map((value) => value.trim()).filter(Boolean))];
+  if (values.length === 0) return map;
+
+  const orders = new Map<string, ServiceUsageOrder>();
+  const detailOrderRefs = new Set<string>();
+  const detailBranchByRef = new Map<string, string>();
+
+  for (const valueChunk of serviceUsageChunks(values)) {
+    for (let from = 0; ; from += SERVICE_USAGE_PAGE_SIZE) {
+      const { data, error } = await supabase
+        .from('the_ban_hang')
+        .select('id, id_bh, khach_hang_id, so_km, ngay, gio')
+        .in('dich_vu_id', valueChunk)
+        .not('khach_hang_id', 'is', null)
+        .order('id', { ascending: true })
+        .range(from, from + SERVICE_USAGE_PAGE_SIZE - 1);
+
+      if (error) {
+        console.error('Error fetching service usage from sales cards:', error);
+        throw error;
+      }
+
+      const rows = (data as ServiceUsageOrder[]) || [];
+      rows.forEach((row) => orders.set(row.id, row));
+      if (rows.length < SERVICE_USAGE_PAGE_SIZE) break;
+    }
+
+    for (let from = 0; ; from += SERVICE_USAGE_PAGE_SIZE) {
+      const { data, error } = await supabase
+        .from('the_ban_hang_ct')
+        .select('id, id_don_hang, co_so')
+        .in('san_pham', valueChunk)
+        .not('id_don_hang', 'is', null)
+        .order('id', { ascending: true })
+        .range(from, from + SERVICE_USAGE_PAGE_SIZE - 1);
+
+      if (error) {
+        console.error('Error fetching service usage from sales card details:', error);
+        throw error;
+      }
+
+      const rows = (data as { id: string; id_don_hang: string | null; co_so: string | null }[]) || [];
+      rows.forEach((row) => {
+        const ref = row.id_don_hang?.trim();
+        if (!ref) return;
+        detailOrderRefs.add(ref);
+        const branch = (row.co_so || '').trim();
+        if (branch && !detailBranchByRef.has(ref.toLowerCase())) {
+          detailBranchByRef.set(ref.toLowerCase(), branch);
+        }
+      });
+      if (rows.length < SERVICE_USAGE_PAGE_SIZE) break;
+    }
+  }
+
+  const refs = [...detailOrderRefs];
+  for (const refChunk of serviceUsageChunks(refs)) {
+    const uuidRefs = refChunk.filter((ref) => /^[0-9a-f-]{36}$/i.test(ref));
+    const byCodeResult = await supabase
+      .from('the_ban_hang')
+      .select('id, id_bh, khach_hang_id, so_km, ngay, gio')
+      .in('id_bh', refChunk);
+    const byIdResult = uuidRefs.length > 0
+      ? await supabase
+        .from('the_ban_hang')
+        .select('id, id_bh, khach_hang_id, so_km, ngay, gio')
+        .in('id', uuidRefs)
+      : { data: [] as ServiceUsageOrder[], error: null };
+
+    const { data: byCode, error: byCodeError } = byCodeResult;
+    const { data: byId, error: byIdError } = byIdResult;
+
+    if (byCodeError || byIdError) {
+      const error = byCodeError || byIdError;
+      console.error('Error resolving sales cards for service details:', error);
+      throw error;
+    }
+
+    [...((byCode as ServiceUsageOrder[]) || []), ...((byId as ServiceUsageOrder[]) || [])]
+      .forEach((row) => orders.set(row.id, row));
+  }
+
+  for (const order of orders.values()) {
+    if (!order.khach_hang_id || !order.ngay) continue;
+    const customerKey = order.khach_hang_id.trim().toLowerCase();
+    const co_so = resolveUsageBranch(order, detailBranchByRef);
+    const entries = map.get(customerKey) || [];
+    if (!entries.some((entry) => entry.ngay === order.ngay && entry.co_so === co_so)) {
+      entries.push({ ngay: order.ngay, co_so, so_km: order.so_km });
+    }
+    map.set(customerKey, entries);
+  }
+
+  map.forEach((entries) => entries.sort((a, b) => a.ngay.localeCompare(b.ngay)));
+
+  return map;
+}
+
+/** Lần dùng gần nhất của từng khách trong các dịch vụ được chọn, kèm số Km trên đơn đó. */
+export async function getServiceUsageLatestMap(serviceValues: string[]): Promise<Map<string, ServiceUsageLatest>> {
+  const map = new Map<string, ServiceUsageLatest>();
+  const values = [...new Set(serviceValues.map((value) => value.trim()).filter(Boolean))];
+  if (values.length === 0) return map;
+
+  const orders = new Map<string, ServiceUsageOrder>();
+  const detailOrderRefs = new Set<string>();
+  const detailBranchByRef = new Map<string, string>();
+
+  for (const valueChunk of serviceUsageChunks(values)) {
+    for (let from = 0; ; from += SERVICE_USAGE_PAGE_SIZE) {
+      const { data, error } = await supabase
+        .from('the_ban_hang')
+        .select('id, id_bh, khach_hang_id, so_km, ngay, gio')
+        .in('dich_vu_id', valueChunk)
+        .not('khach_hang_id', 'is', null)
+        .order('id', { ascending: true })
+        .range(from, from + SERVICE_USAGE_PAGE_SIZE - 1);
+
+      if (error) {
+        console.error('Error fetching latest service usage from sales cards:', error);
+        throw error;
+      }
+
+      const rows = (data as ServiceUsageOrder[]) || [];
+      rows.forEach((row) => orders.set(row.id, row));
+      if (rows.length < SERVICE_USAGE_PAGE_SIZE) break;
+    }
+
+    for (let from = 0; ; from += SERVICE_USAGE_PAGE_SIZE) {
+      const { data, error } = await supabase
+        .from('the_ban_hang_ct')
+        .select('id, id_don_hang, co_so')
+        .in('san_pham', valueChunk)
+        .not('id_don_hang', 'is', null)
+        .order('id', { ascending: true })
+        .range(from, from + SERVICE_USAGE_PAGE_SIZE - 1);
+
+      if (error) {
+        console.error('Error fetching latest service usage from sales card details:', error);
+        throw error;
+      }
+
+      const rows = (data as { id: string; id_don_hang: string | null; co_so: string | null }[]) || [];
+      rows.forEach((row) => {
+        const ref = row.id_don_hang?.trim();
+        if (!ref) return;
+        detailOrderRefs.add(ref);
+        const branch = (row.co_so || '').trim();
+        if (branch && !detailBranchByRef.has(ref.toLowerCase())) {
+          detailBranchByRef.set(ref.toLowerCase(), branch);
+        }
+      });
+      if (rows.length < SERVICE_USAGE_PAGE_SIZE) break;
+    }
+  }
+
+  const refs = [...detailOrderRefs];
+  for (const refChunk of serviceUsageChunks(refs)) {
+    const uuidRefs = refChunk.filter((ref) => /^[0-9a-f-]{36}$/i.test(ref));
+    const byCodeResult = await supabase
+      .from('the_ban_hang')
+      .select('id, id_bh, khach_hang_id, so_km, ngay, gio')
+      .in('id_bh', refChunk);
+    const byIdResult = uuidRefs.length > 0
+      ? await supabase
+        .from('the_ban_hang')
+        .select('id, id_bh, khach_hang_id, so_km, ngay, gio')
+        .in('id', uuidRefs)
+      : { data: [] as ServiceUsageOrder[], error: null };
+
+    const { data: byCode, error: byCodeError } = byCodeResult;
+    const { data: byId, error: byIdError } = byIdResult;
+    if (byCodeError || byIdError) {
+      const error = byCodeError || byIdError;
+      console.error('Error resolving latest service usage orders:', error);
+      throw error;
+    }
+
+    [...((byCode as ServiceUsageOrder[]) || []), ...((byId as ServiceUsageOrder[]) || [])]
+      .forEach((row) => orders.set(row.id, row));
+  }
+
+  for (const order of orders.values()) {
+    if (!order.khach_hang_id || !order.ngay) continue;
+    const customerKey = order.khach_hang_id.trim().toLowerCase();
+    const previous = map.get(customerKey);
+    if (
+      !previous ||
+      order.ngay > previous.ngay ||
+      (order.ngay === previous.ngay && order.gio > previous.gio)
+    ) {
+      map.set(customerKey, {
+        ngay: order.ngay,
+        gio: order.gio,
+        so_km: order.so_km,
+        co_so: resolveUsageBranch(order, detailBranchByRef),
+      });
+    }
+  }
+
+  return map;
+}
+
+export const upsertService = async (service: Partial<DichVu>): Promise<DichVu> => {
+  try {
+    return await upsertServiceInternal(service);
+  } finally {
+    // Tên/giá dịch vụ đổi -> cache tra tên ở salesCardData phải nạp lại.
+    invalidateServiceLookupCache();
+  }
+};
+
+const upsertServiceInternal = async (service: Partial<DichVu>): Promise<DichVu> => {
+  const cleanData = { ...service };
+
+  if (cleanData.tu_ngay === '') cleanData.tu_ngay = null;
+  if (cleanData.toi_ngay === '') cleanData.toi_ngay = null;
+
+  if (cleanData.id) {
+    const { id, ...updatePayload } = cleanData;
+    if (updatePayload.id_dich_vu?.trim()) {
+      const codeFree = await isServiceCodeAvailable(updatePayload.id_dich_vu, id);
+      if (!codeFree) {
+        const err = { code: '23505', message: 'duplicate key id_dich_vu' } as PostgrestError;
+        throw err;
+      }
+    }
+    const { data, error } = await supabase
+      .from('dich_vu')
+      .update(updatePayload)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating service:', error);
+      throw error;
+    }
+    return data as DichVu;
+  }
+
+  const insertOnce = async (payload: Omit<Partial<DichVu>, 'id'>) => {
+    const { data, error } = await supabase
+      .from('dich_vu')
+      .insert(payload)
+      .select()
+      .single();
+    return { data: data as DichVu | null, error };
+  };
+
+  const { id: _omit, ...insertPayload } = cleanData;
+  void _omit;
+  const reserved = new Set<string>();
+  let code = await resolveInsertServiceCode(insertPayload.id_dich_vu);
+  const maxAttempts = 6;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    reserved.add(code.toUpperCase());
+    const { data, error } = await insertOnce({ ...insertPayload, id_dich_vu: code });
+
+    if (!error && data) return data;
+
+    if (error?.code === '23505' && isIdDichVuConflict(error)) {
+      code = await getNextServiceCode(reserved);
+      continue;
+    }
+
+    console.error('Error inserting service:', error);
+    throw error;
+  }
+
+  const err = { code: '23505', message: 'duplicate key id_dich_vu' } as PostgrestError;
+  throw err;
+};
+
+export const bulkUpsertServices = async (services: Partial<DichVu>[]): Promise<void> => {
+  invalidateServiceLookupCache();
+  const toUpdate = services.filter(s => s.id);
+  const toInsert = services.filter(s => !s.id);
+
+  if (toUpdate.length > 0) {
+    // Deduplicate by ID: if multiple items have the same ID, take the last one
+    const uniqueToUpdate = Array.from(new Map(toUpdate.map(item => [item.id, item])).values());
+    const { error } = await supabase.from('dich_vu').upsert(uniqueToUpdate);
+    if (error) { console.error('Error upserting services:', error); throw error; }
+  }
+  if (toInsert.length > 0) {
+    const cleanInserts = await Promise.all(
+      toInsert.map(async ({ id, ...rest }) => {
+        void id;
+        const raw = (rest.id_dich_vu || '').trim();
+        const id_dich_vu =
+          raw && (await isServiceCodeAvailable(raw)) ? raw : await getNextServiceCode();
+        return { ...rest, id_dich_vu };
+      })
+    );
+    const { error } = await supabase.from('dich_vu').insert(cleanInserts);
+    if (error) { console.error('Error inserting services:', error); throw error; }
+  }
+};
+
+export const deleteService = async (id: string): Promise<void> => {
+  invalidateServiceLookupCache();
+  const { error } = await supabase
+    .from('dich_vu')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('Error deleting service:', error);
+    throw error;
+  }
+};
+
+export const uploadServiceImage = async (file: File): Promise<string> => {
+  const fileExt = file.name.split('.').pop();
+  const fileName = `${Math.random()}.${fileExt}`;
+  const filePath = `services/${fileName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('images') // Use unified images bucket
+    .upload(filePath, file);
+
+  if (uploadError) {
+    throw uploadError;
+  }
+
+  const { data } = supabase.storage
+    .from('images')
+    .getPublicUrl(filePath);
+
+  return data.publicUrl;
+};
+
+export const deleteAllServices = async (): Promise<void> => {
+  invalidateServiceLookupCache();
+  const { error } = await supabase
+    .from('dich_vu')
+    .delete()
+    .neq('id', '00000000-0000-0000-0000-000000000000');
+
+  if (error) {
+    console.error('Error deleting all services:', error);
+    throw error;
+  }
+};
+
+export interface ServiceFilters {
+  branches?: string[];
+}
+
+export const getServicesPaginated = async (
+  page: number,
+  pageSize: number,
+  searchQuery?: string,
+  filters?: ServiceFilters
+): Promise<{ data: DichVu[], totalCount: number }> => {
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  let query = supabase.rpc('services_for_branches', { p_branches: filters?.branches || null }, { count: 'exact' }).select('*');
+
+  if (searchQuery) {
+    query = query.or(`ten_dich_vu.ilike.%${searchQuery}%,id_dich_vu.ilike.%${searchQuery}%`);
+  }
+
+
+  const { data, count, error } = await query
+    .order('created_at', { ascending: false })
+    .range(from, to);
+
+  if (error) {
+    console.error('Error fetching paginated services:', error);
+    throw error;
+  }
+
+  return {
+    data: (data as DichVu[]) || [],
+    totalCount: count || 0
+  };
+};
+
+function isIdDichVuConflict(error: PostgrestError | null): boolean {
+  return (error?.message || '').toLowerCase().includes('id_dich_vu');
+}
+
+/** Mã dịch vụ unique: DV-20260529-A3F2B1 (ngày + 6 ký tự ngẫu nhiên). */
+export function generateUniqueServiceCode(): string {
+  const d = new Date();
+  const ymd = [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, '0'),
+    String(d.getDate()).padStart(2, '0'),
+  ].join('');
+  const tail =
+    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID().replace(/-/g, '').slice(0, 6).toUpperCase()
+      : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`.slice(-6).toUpperCase();
+  return `DV-${ymd}-${tail}`;
+}
+
+async function isServiceCodeAvailable(code: string, excludeId?: string): Promise<boolean> {
+  const trimmed = code.trim();
+  if (!trimmed) return false;
+
+  let query = supabase.from('dich_vu').select('id').eq('id_dich_vu', trimmed).limit(1);
+  if (excludeId) query = query.neq('id', excludeId);
+
+  const { data, error } = await query;
+  if (error) {
+    console.error('Error checking service code:', error);
+    return false;
+  }
+  return !data?.length;
+}
+
+export const getNextServiceCode = async (reserved = new Set<string>()): Promise<string> => {
+  for (let attempt = 0; attempt < 25; attempt++) {
+    const code = generateUniqueServiceCode();
+    if (reserved.has(code.toUpperCase())) continue;
+    if (await isServiceCodeAvailable(code)) return code;
+  }
+  const fallback = `DV-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+  return fallback;
+};
+
+async function resolveInsertServiceCode(_requested?: string | null): Promise<string> {
+  void _requested;
+  return getNextServiceCode();
+}

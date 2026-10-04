@@ -1,0 +1,182 @@
+{
+  "at": "2026-10-04T09:26:55.131Z",
+  "scope": "Actual source loaders, LIVE anon reads; HTTP phases have separate snapshots; drift is recorded and requires same-snapshot SQL validation",
+  "period": [
+    "2026-09-01",
+    "2026-09-30"
+  ],
+  "results": [
+    {
+      "workload": "CT",
+      "phase": "after",
+      "durationMs": 1957,
+      "requests": 2,
+      "payloadBytes": 18997,
+      "salesHeadersFetched": 9,
+      "detailRowsFetched": 20,
+      "financialRowsFetched": 0,
+      "detailBatches": 0,
+      "financialBatches": 0,
+      "salesRefBatches": 1,
+      "concurrencyCap": 6,
+      "peakConcurrency": 1,
+      "error": null,
+      "network": [
+        {
+          "endpoint": "the_ban_hang_ct",
+          "method": "GET",
+          "status": 206,
+          "durationMs": 874,
+          "bytes": 7997,
+          "rows": 20,
+          "errorCode": null
+        },
+        {
+          "endpoint": "sales_p2_lookup",
+          "method": "POST",
+          "status": 200,
+          "durationMs": 620,
+          "bytes": 11000,
+          "rows": 9,
+          "errorCode": null
+        }
+      ],
+      "blockedWrites": [],
+      "pageRows": 20,
+      "totalCount": 15854,
+      "salesHeadersLoaded": 9,
+      "customerRowsLoaded": 0,
+      "pageHash": "24b12b19bd5f21f26b6f50b05c5804d563a9ea264a20d9e8d622d90a0f26e0c3",
+      "selectedHeadersHash": "d6875e57a85add8aa3c654cdc754a37035c49fbc601b41ab5fa992ed2f6f08d3",
+      "pageIdsHash": "bbf7a3f1d7b9bc0b4b53c7177512694ebef030952635a96c8cf9dd6905068430",
+      "crossPhaseParity": {
+        "equal": false,
+        "differingMetrics": [
+          "pageHash",
+          "selectedHeadersHash",
+          "totalCount"
+        ],
+        "sameSnapshotSqlParity": true
+      }
+    },
+    {
+      "workload": "Thu chi",
+      "phase": "after",
+      "durationMs": 1029,
+      "requests": 3,
+      "payloadBytes": 38336,
+      "salesHeadersFetched": 20,
+      "detailRowsFetched": 0,
+      "financialRowsFetched": 20,
+      "detailBatches": 0,
+      "financialBatches": 0,
+      "salesRefBatches": 1,
+      "concurrencyCap": 6,
+      "peakConcurrency": 2,
+      "error": null,
+      "network": [
+        {
+          "endpoint": "financial_p2_query",
+          "method": "POST",
+          "status": 200,
+          "durationMs": 185,
+          "bytes": 12634,
+          "rows": 20,
+          "errorCode": null
+        },
+        {
+          "endpoint": "khach_hang",
+          "method": "GET",
+          "status": 200,
+          "durationMs": 612,
+          "bytes": 2383,
+          "rows": 19,
+          "errorCode": null
+        },
+        {
+          "endpoint": "sales_p2_lookup",
+          "method": "POST",
+          "status": 200,
+          "durationMs": 629,
+          "bytes": 23319,
+          "rows": 20,
+          "errorCode": null
+        }
+      ],
+      "blockedWrites": [],
+      "pageRows": 20,
+      "totalCount": 1764,
+      "totalIncome": 430975000,
+      "totalExpense": 0,
+      "closingBalance": 430975000,
+      "salesHeadersLoaded": 20,
+      "customerRowsLoaded": 19,
+      "pageHash": "207ddb39e54610fd41a03589dffd8872407f2c78e9eb116af0e4aa86184c7f98",
+      "selectedHeadersHash": "23c2b3503338683dca70b4566c62cc9ff76b302f4a3702be0267cc8ca4498725",
+      "pageIdsHash": "0ed58747127ef6f84f7c20c20e13beb5f39bc0caf9eca938497283d76721619b",
+      "crossPhaseParity": {
+        "equal": true
+      }
+    },
+    {
+      "workload": "Sổ quỹ",
+      "phase": "after",
+      "durationMs": 2487,
+      "requests": 3,
+      "payloadBytes": 38336,
+      "salesHeadersFetched": 20,
+      "detailRowsFetched": 0,
+      "financialRowsFetched": 20,
+      "detailBatches": 0,
+      "financialBatches": 0,
+      "salesRefBatches": 1,
+      "concurrencyCap": 6,
+      "peakConcurrency": 2,
+      "error": null,
+      "network": [
+        {
+          "endpoint": "financial_p2_query",
+          "method": "POST",
+          "status": 200,
+          "durationMs": 503,
+          "bytes": 12634,
+          "rows": 20,
+          "errorCode": null
+        },
+        {
+          "endpoint": "khach_hang",
+          "method": "GET",
+          "status": 200,
+          "durationMs": 484,
+          "bytes": 2383,
+          "rows": 19,
+          "errorCode": null
+        },
+        {
+          "endpoint": "sales_p2_lookup",
+          "method": "POST",
+          "status": 200,
+          "durationMs": 1728,
+          "bytes": 23319,
+          "rows": 20,
+          "errorCode": null
+        }
+      ],
+      "blockedWrites": [],
+      "pageRows": 20,
+      "totalCount": 1764,
+      "totalIncome": 430975000,
+      "totalExpense": 0,
+      "closingBalance": 430975000,
+      "salesHeadersLoaded": 20,
+      "customerRowsLoaded": 19,
+      "pageHash": "207ddb39e54610fd41a03589dffd8872407f2c78e9eb116af0e4aa86184c7f98",
+      "selectedHeadersHash": "23c2b3503338683dca70b4566c62cc9ff76b302f4a3702be0267cc8ca4498725",
+      "pageIdsHash": "0ed58747127ef6f84f7c20c20e13beb5f39bc0caf9eca938497283d76721619b",
+      "crossPhaseParity": {
+        "equal": true
+      }
+    }
+  ],
+  "productionWrites": 0
+}

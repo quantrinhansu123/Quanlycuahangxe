@@ -1,0 +1,69 @@
+ M package.json
+ M scripts/test-cashbook-ui.mjs
+ M src/components/FinancialCharts.tsx
+ M src/components/FinancialFormModal.tsx
+ M src/components/SalesCardCTFormModal.tsx
+ M src/data/attendanceData.ts
+ M src/data/financialData.ts
+ M src/data/salesCardCTData.ts
+ M src/pages/AddAttendancePage.tsx
+ M src/pages/AttendanceManagementPage.tsx
+ M src/pages/FinancialManagementPage.tsx
+ M src/pages/SalesCardCTManagementPage.tsx
+?? docs/performance-attendance-p1/
+?? docs/performance-ct-financial-p2/
+?? docs/performance-sales-p0/
+?? docs/performance-sales-p06/
+?? docs/performance-sales-p07/
+?? scripts/analyze-sales-p06.mjs
+?? scripts/attendance-p1-business.mjs
+?? scripts/attendance-p1-fixture.mjs
+?? scripts/build-ct-financial-p2-sql.mjs
+?? scripts/ct-financial-p2-live.mjs
+?? scripts/ct-financial-p2-validation-sql.mjs
+?? scripts/measure-attendance-p1-loader.mjs
+?? scripts/measure-attendance-p1-sql.mjs
+?? scripts/measure-attendance-p1.mjs
+?? scripts/measure-ct-financial-p2-ui-live.mjs
+?? scripts/measure-ct-financial-p2.mjs
+?? scripts/measure-sales-p0-http.mjs
+?? scripts/measure-sales-p0.mjs
+?? scripts/measure-sales-p06-all.mjs
+?? scripts/measure-sales-p06.mjs
+?? scripts/prepare-ct-financial-p2-ui.mjs
+?? scripts/report-ct-financial-p2.mjs
+?? scripts/report-sales-p07.mjs
+?? scripts/sales-p0-fixture.mjs
+?? scripts/sales-p0-readonly.mjs
+?? scripts/sales-p05-callers.mjs
+?? scripts/sales-p05-live.mjs
+?? scripts/sales-p05-role-parity.mjs
+?? scripts/sales-p05-role-preflight.mjs
+?? scripts/sales-p05-validator.mjs
+?? scripts/sales-p06-final-check.mjs
+?? scripts/sales-p06-fixture.mjs
+?? scripts/sales-p06-live.mjs
+?? scripts/sales-p06-validator.mjs
+?? scripts/sales-p07-final-check.mjs
+?? scripts/sales-p07-live.mjs
+?? scripts/sales-p07-paired.mjs
+?? scripts/sales-p07-public-components.mjs
+?? scripts/sales-p07-readonly.mjs
+?? scripts/sales-p07-run-temp.mjs
+?? scripts/sales-p07-sql.mjs
+?? scripts/sales-p07-temp-probe.mjs
+?? scripts/sales-p07-validator.mjs
+?? scripts/test-attendance-p1-ui.mjs
+?? scripts/test-attendance-p1.mjs
+?? scripts/test-ct-financial-p2-pagination.mjs
+?? scripts/test-ct-financial-p2-sql-probe.mjs
+?? scripts/test-ct-financial-p2-ui.mjs
+?? scripts/test-ct-financial-p2.mjs
+?? scripts/test-sales-p0.mjs
+?? scripts/test-sales-p07-diagnostic.mjs
+?? scripts/test-sales-p07-paired.mjs
+?? scripts/test-sales-p07-temp-probe.mjs
+?? src/data/ctFinancialLookupData.ts
+?? supabase/migrations/202610040001_sales_p0.sql
+?? supabase/migrations/202610040002_ct_financial_p2.sql
+?? supabase/rollback/

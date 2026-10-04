@@ -1,0 +1,32 @@
+{
+  "readOnly": true,
+  "liveIsOld": true,
+  "results": [
+    {
+      "role": "anon",
+      "status": 201,
+      "durationMs": 6865,
+      "result": [
+        {
+          "equal": true,
+          "count": 9346,
+          "role": "anon",
+          "statement_timeout": "6s"
+        }
+      ]
+    },
+    {
+      "role": "authenticated",
+      "status": 201,
+      "durationMs": 6339,
+      "result": [
+        {
+          "equal": true,
+          "count": 9346,
+          "role": "authenticated",
+          "statement_timeout": "6s"
+        }
+      ]
+    }
+  ]
+}

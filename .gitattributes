@@ -1,0 +1,8 @@
+# Evidence hashes and OLD source backups describe the original file bytes.
+docs/performance-*/** -text whitespace=cr-at-eol
+docs/performance-*/source-before/** -whitespace
+# Preserve the exact OLD dump, including its original CR-CR-LF line endings.
+supabase/rollback/202610040001_sales_p0.sql -text -whitespace
+# Migration hashes are pinned by the LIVE validation and P2 SQL generator.
+supabase/migrations/202610040001_sales_p0.sql text eol=lf
+supabase/migrations/202610040002_ct_financial_p2.sql text eol=lf

@@ -19,7 +19,7 @@ import {
   Filter,
   Banknote,
 } from 'lucide-react';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   Area,
@@ -36,11 +36,9 @@ import {
   YAxis,
 } from 'recharts';
 import {
-  getReportSummary,
-  getRevenueByBranch,
-  getRevenueByDay,
+  loadReportSnapshot,
   getRevenueByPersonnel,
-  getRevenueByService,
+  type ReportSnapshot,
   type ReportSummary,
   type RevenueByBranch,
   type RevenueByDay,
@@ -48,6 +46,9 @@ import {
   type RevenueByService,
 } from '../data/reportData';
 import BusinessReportsPanel from '../components/reports/BusinessReportsPanel';
+import { getBusinessReportData, type BusinessReportData } from '../data/businessReportData';
+import { useAuth } from '../context/AuthContext';
+import { getErrorDetails } from '../lib/errorDetails';
 
 // ──────────── Formatters ────────────
 const fmt = (n: number) =>
@@ -1429,6 +1430,7 @@ function RevenueComparisonView({
 }
 
 const RevenueReportPage: React.FC = () => {
+  const { nhanVien, session } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { tab: tabFromParams } = useParams<{ tab: string }>();
@@ -1447,6 +1449,15 @@ const RevenueReportPage: React.FC = () => {
   });
   const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [snapshot, setSnapshot] = useState<ReportSnapshot | null>(null);
+  const loadController = useRef<AbortController | null>(null);
+  const loadVersion = useRef(0);
+  const personnelPending = useRef(false);
+  const financialPending = useRef(false);
+  const [personnelError, setPersonnelError] = useState('');
+  const [lazyRetry, setLazyRetry] = useState(0);
+  const [financialResult, setFinancialResult] = useState<{ key: string; data: BusinessReportData | null; error: string }>({ key: '', data: null, error: '' });
 
   const [summary, setSummary] = useState<ReportSummary | null>(null);
   const [serviceData, setServiceData] = useState<RevenueByService[]>([]);
@@ -1459,28 +1470,58 @@ const RevenueReportPage: React.FC = () => {
   } | null>(null);
 
   const loadAll = useCallback(async () => {
+    const version = ++loadVersion.current;
+    loadController.current?.abort();
+    const controller = new AbortController(); loadController.current = controller;
+    personnelPending.current = false; financialPending.current = false;
+    setSnapshot(null); setPersonnelData(null); setPersonnelError('');
+    setFinancialResult({ key: '', data: null, error: '' });
     setLoading(true);
+    setLoadError('');
     try {
-      const [sum, svc, day, branch, personnel] = await Promise.all([
-        getReportSummary(startDate, endDate),
-        getRevenueByService(startDate, endDate),
-        getRevenueByDay(startDate, endDate),
-        getRevenueByBranch(startDate, endDate),
-        getRevenueByPersonnel(startDate, endDate),
-      ]);
-      setSummary(sum);
-      setServiceData(svc);
-      setDayData(day);
-      setBranchData(branch);
-      setPersonnelData(personnel);
+      const data = await loadReportSnapshot(startDate, endDate, controller.signal);
+      if (controller.signal.aborted || version !== loadVersion.current) return;
+      setSnapshot(data); setSummary(data.summary); setServiceData(data.services);
+      setDayData(data.days); setBranchData(data.branches);
     } catch (e) {
-      console.error(e);
+      if (!controller.signal.aborted && version === loadVersion.current) setLoadError(getErrorDetails(e).message || 'Không tải được báo cáo.');
     } finally {
-      setLoading(false);
+      if (version === loadVersion.current) setLoading(false);
     }
-  }, [startDate, endDate]);
+  }, [startDate, endDate, nhanVien?.id, nhanVien?.co_so, nhanVien?.vi_tri, session?.access_token]);
 
-  useEffect(() => { loadAll(); }, [loadAll]);
+  useEffect(() => {
+    void loadAll();
+    return () => { loadVersion.current++; loadController.current?.abort(); };
+  }, [loadAll]);
+
+  // Only this mounted page owns the data. Tab navigation reuses it; filter,
+  // refresh, identity change and leaving Reports invalidate the entire snapshot.
+  const needsPersonnel = activeTab === 'personnel' || activeTab === 'chart';
+  const needsFinancial = activeTab === 'financial';
+  useEffect(() => {
+    if (!snapshot || snapshot.startDate !== startDate || snapshot.endDate !== endDate) return;
+    const version = loadVersion.current;
+    const signal = loadController.current?.signal;
+    if (needsPersonnel && !personnelData && !personnelPending.current) {
+      personnelPending.current = true; setPersonnelError('');
+      void getRevenueByPersonnel(startDate, endDate, snapshot.records, signal).then(data => {
+        if (!signal?.aborted && version === loadVersion.current) setPersonnelData(data);
+      }).catch(error => {
+        if (!signal?.aborted && version === loadVersion.current) setPersonnelError(getErrorDetails(error).message || 'Không tải được báo cáo nhân sự.');
+      });
+    }
+    if (needsFinancial && !financialResult.data && !financialPending.current) {
+      financialPending.current = true;
+      void getBusinessReportData(startDate, endDate, snapshot.records, signal).then(data => {
+        if (!signal?.aborted && version === loadVersion.current) setFinancialResult({ key: `${startDate}:${endDate}`, data, error: '' });
+      }).catch(error => {
+        if (!signal?.aborted && version === loadVersion.current) setFinancialResult({ key: `${startDate}:${endDate}`, data: null, error: getErrorDetails(error).message || 'Không tải được báo cáo tài chính.' });
+      });
+    }
+  }, [snapshot, startDate, endDate, needsPersonnel, needsFinancial, personnelData, financialResult.data, lazyRetry]);
+
+  const retryFinancial = () => { financialPending.current = false; setFinancialResult({ key: '', data: null, error: '' }); setLazyRetry(n => n + 1); };
 
   return (
     <div className="w-full h-full flex flex-col p-4 lg:p-6 overflow-y-auto pt-8">
@@ -1507,6 +1548,7 @@ const RevenueReportPage: React.FC = () => {
 
           {/* Global date range filter */}
           <div className="flex items-center gap-2 flex-wrap justify-end">
+            <button type="button" onClick={() => void loadAll()} disabled={loading} className="px-3 py-2 rounded-xl border border-border text-[12px] font-bold">Làm mới</button>
             <button
               type="button"
               onClick={() => setActiveTab('chart')}
@@ -1525,7 +1567,7 @@ const RevenueReportPage: React.FC = () => {
           </div>
         </div>
 
-        {loading ? (
+        {loadError ? <p role="alert">{loadError} <button type="button" onClick={() => void loadAll()}>Thử lại</button></p> : loading ? (
           <div className="flex items-center justify-center py-24 text-muted-foreground gap-2">
             <Loader2 size={18} className="animate-spin" />
             <span className="text-[13px]">Đang tải dữ liệu...</span>
@@ -1559,8 +1601,10 @@ const RevenueReportPage: React.FC = () => {
                 {activeTab === 'service' && <ServiceTable data={serviceData} />}
                 {activeTab === 'day' && <DayTable data={dayData} summary={summary} />}
                 {activeTab === 'branch' && <BranchTable data={branchData} />}
-                {activeTab === 'personnel' && personnelData && <PersonnelTable data={personnelData} />}
-                {activeTab === 'chart' && (
+                {needsPersonnel && personnelError && <p role="alert">{personnelError} <button type="button" onClick={() => { personnelPending.current = false; setLazyRetry(n => n + 1); }}>Thử lại</button></p>}
+                {activeTab === 'personnel' && (personnelData ? <PersonnelTable data={personnelData} /> : !personnelError && <p>Đang tải báo cáo nhân sự...</p>)}
+                {activeTab === 'chart' && !personnelData && !personnelError && <p>Đang tải báo cáo nhân sự...</p>}
+                {activeTab === 'chart' && personnelData && (
                   <RevenueComparisonView
                     startDate={startDate}
                     endDate={endDate}
@@ -1570,7 +1614,7 @@ const RevenueReportPage: React.FC = () => {
                     personnelData={personnelData?.personnel ?? []}
                   />
                 )}
-                {activeTab === 'financial' && <BusinessReportsPanel startDate={startDate} endDate={endDate} />}
+                {activeTab === 'financial' && <BusinessReportsPanel startDate={startDate} endDate={endDate} sharedResult={{ ...financialResult, retry: retryFinancial }} />}
               </div>
             </div>
           </>

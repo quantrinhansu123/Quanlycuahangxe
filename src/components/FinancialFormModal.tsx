@@ -4,6 +4,7 @@ import { clsx } from 'clsx';
 import type { ThuChi } from '../data/financialData';
 import { uploadTransactionImage } from '../data/financialData';
 import { SearchableSelect } from './ui/SearchableSelect';
+import { loadFinancialCustomerOptions } from '../data/ctFinancialLookupData';
 
 interface FinancialFormModalProps {
   isOpen: boolean;
@@ -32,6 +33,12 @@ const FinancialFormModal: React.FC<FinancialFormModalProps> = React.memo(({
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const amountInputRef = useRef<HTMLInputElement>(null);
+  const [remoteCustomerOptions, setRemoteCustomerOptions] = useState<typeof customerOptions>([]);
+  const loadCustomerOptions = React.useCallback(async (search: string, signal: AbortSignal) => {
+    const options = await loadFinancialCustomerOptions(search, signal);
+    if (!signal.aborted) setRemoteCustomerOptions(options);
+    return options;
+  }, []);
 
   // Auto-focus on mount
   useEffect(() => {
@@ -45,7 +52,7 @@ const FinancialFormModal: React.FC<FinancialFormModalProps> = React.memo(({
 
   // Robust Fallback: Inject a customer if formData.id_khach_hang exists but is missing from the list.
   const extendedCustomerOptions = React.useMemo(() => {
-    let options = [...customerOptions];
+    let options = [...customerOptions, ...remoteCustomerOptions];
     if (formData.id_khach_hang && !options.find(o => o.value === formData.id_khach_hang)) {
       const fallbackName = 
          initialData?.khach_hang?.ho_va_ten ||
@@ -61,7 +68,7 @@ const FinancialFormModal: React.FC<FinancialFormModalProps> = React.memo(({
       ];
     }
     return options;
-  }, [customerOptions, formData.id_khach_hang, initialData]);
+  }, [customerOptions, remoteCustomerOptions, formData.id_khach_hang, initialData]);
 
   if (!isOpen) return null;
 
@@ -156,6 +163,7 @@ const FinancialFormModal: React.FC<FinancialFormModalProps> = React.memo(({
                     <div tabIndex={10}>
                       <SearchableSelect
                         options={extendedCustomerOptions}
+                        loadOptions={loadCustomerOptions}
                         value={formData.id_khach_hang || undefined}
                         onValueChange={(val: string) => setFormData(prev => ({ ...prev, id_khach_hang: val }))}
                         placeholder="-- Chọn hoặc tìm khách hàng --"

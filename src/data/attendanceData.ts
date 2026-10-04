@@ -155,7 +155,9 @@ export const normalizeAttendanceForDb = <T extends Partial<AttendanceRecord>>(re
   ...record,
   checkin: emptyToNull(record.checkin as string | null | undefined) as T['checkin'],
   checkout: emptyToNull(record.checkout as string | null | undefined) as T['checkout'],
-  anh: emptyToNull(record.anh) as T['anh'],
+  // Compact reads deliberately omit photos. A time-only update must not clear
+  // an existing photo simply because it was not selected.
+  ...('anh' in record ? { anh: emptyToNull(record.anh) as T['anh'] } : {}),
   vi_tri: emptyToNull(record.vi_tri) as T['vi_tri'],
 });
 
@@ -174,7 +176,7 @@ export interface AttendanceRecord {
   ngay: string;
   checkin: string | null;
   checkout: string | null;
-  anh: string | null;
+  anh?: string | null;
   vi_tri: string | null;
   nhan_su: string;
   created_at?: string;
@@ -190,6 +192,20 @@ export interface AttendanceRecord {
       gia_tri_moi: string | number | boolean | null;
     }[];
   }[];
+}
+
+/** List/calculation fields from the actual cham_cong schema; no inline photos/history. */
+export type AttendanceListRecord = Omit<AttendanceRecord, 'anh' | 'lich_su_sua'>;
+export const ATTENDANCE_LIST_COLUMNS =
+  'id,id_cham_cong,nhan_su,ngay,checkin,checkout,vi_tri,created_at,ghi_chu,bo_sung_boi,bo_sung_luc';
+const ATTENDANCE_DETAIL_COLUMNS = `${ATTENDANCE_LIST_COLUMNS},anh,lich_su_sua`;
+
+/** Read the full record only when opening a photo/history/editor, under caller RLS. */
+export async function getAttendanceRecord(id: string, signal?: AbortSignal): Promise<AttendanceRecord> {
+  const { data, error } = await readRequest('attendance_detail', s => supabase
+    .from('cham_cong').select(ATTENDANCE_DETAIL_COLUMNS).eq('id', id).abortSignal(s).single(), signal);
+  if (error) throw error;
+  return data as AttendanceRecord;
 }
 
 /** Chỉ dùng cho tổng hợp tiền ăn: khoảng ngày, các trường tối thiểu. */
@@ -236,7 +252,7 @@ export async function getChamCongTrongKhoang(
 
 export const getAttendanceRecords = async (
   staffName?: StaffNameFilter
-): Promise<AttendanceRecord[]> => {
+): Promise<AttendanceListRecord[]> => {
   return getAllAttendanceRecords(staffName);
 };
 
@@ -323,9 +339,6 @@ export interface AttendanceFilters {
   endDate?: string;
 }
 
-const attendanceReadCache = new Map<string, { rows: AttendanceRecord[]; expires: number }>();
-const attendanceReadPending = new Map<string, Promise<AttendanceRecord[]>>();
-
 export const getAttendancePaginated = async (
   page: number,
   pageSize: number,
@@ -334,13 +347,13 @@ export const getAttendancePaginated = async (
   filters?: AttendanceFilters,
   signal?: AbortSignal,
   countRows = true
-): Promise<{ data: AttendanceRecord[], totalCount: number }> => {
+): Promise<{ data: AttendanceListRecord[], totalCount: number }> => {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
   let query = supabase
     .from('cham_cong')
-    .select('*', countRows ? { count: 'exact' } : {});
+    .select(ATTENDANCE_LIST_COLUMNS, countRows ? { count: 'exact' } : {});
 
   // RBAC: chỉ bản ghi của một nhân sự (họ tên / mã NV, không phân biệt hoa thường)
   query = applyStaffNameFilter(query, staffName);
@@ -378,7 +391,7 @@ export const getAttendancePaginated = async (
   }
 
   return {
-    data: (data as AttendanceRecord[]) || [],
+    data: (data as AttendanceListRecord[]) || [],
     totalCount: count || 0
   };
 };
@@ -392,16 +405,12 @@ export const getAllAttendanceRecords = async (
   searchQuery?: string,
   filters?: AttendanceFilters,
   signal?: AbortSignal
-): Promise<AttendanceRecord[]> => {
-  const cacheKey = JSON.stringify([staffName, searchQuery, filters]);
-  const cached = attendanceReadCache.get(cacheKey);
-  if (cached && cached.expires > Date.now()) return cached.rows;
-  const pending = attendanceReadPending.get(cacheKey);
-  if (pending) return pending;
-  const run = (async (): Promise<AttendanceRecord[]> => {
+): Promise<AttendanceListRecord[]> => {
+  // No cross-request attendance cache: edits/check-outs/imports refresh immediately,
+  // and one caller's AbortSignal or user scope cannot affect a different caller.
   const chunkSize = 1000;
   let expected = Infinity;
-  const allRows: AttendanceRecord[] = [];
+  const allRows: AttendanceListRecord[] = [];
 
   for (let page = 1; ; page += 1) {
     const result = await getAttendancePaginated(
@@ -422,11 +431,7 @@ export const getAllAttendanceRecords = async (
     }
   }
 
-  attendanceReadCache.set(cacheKey, { rows: allRows, expires: Date.now() + 5000 });
   return allRows;
-  })();
-  attendanceReadPending.set(cacheKey, run);
-  try { return await run; } finally { attendanceReadPending.delete(cacheKey); }
 };
 
 export async function addManualAttendance(input: {

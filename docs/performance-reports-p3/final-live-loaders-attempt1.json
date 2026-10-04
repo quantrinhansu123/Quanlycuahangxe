@@ -1,0 +1,166 @@
+{
+  "at": "2026-10-04T10:25:43.994Z",
+  "scope": "Actual source read modules, fresh browser, anon; no payroll auto-sync mount",
+  "checks": [
+    {
+      "name": "Sales warm pages",
+      "round": 0,
+      "totalCount": 9364,
+      "pageRows": 40,
+      "summaryEqual": true
+    },
+    {
+      "name": "Sales warm pages",
+      "round": 1,
+      "totalCount": 9364,
+      "pageRows": 40,
+      "summaryEqual": true
+    },
+    {
+      "name": "Sales warm pages",
+      "round": 2,
+      "totalCount": 9364,
+      "pageRows": 40,
+      "summaryEqual": true
+    },
+    {
+      "name": "Sales warm pages",
+      "round": 3,
+      "totalCount": 9364,
+      "pageRows": 40,
+      "summaryEqual": true
+    },
+    {
+      "name": "Sales warm pages",
+      "round": 4,
+      "totalCount": 9364,
+      "pageRows": 40,
+      "summaryEqual": true
+    },
+    {
+      "name": "Sales warm pages",
+      "round": 5,
+      "totalCount": 9364,
+      "pageRows": 40,
+      "summaryEqual": true
+    },
+    {
+      "name": "Payroll read/reconciliation",
+      "revenueStaff": 12,
+      "orders": 2018,
+      "payrollRows": 0,
+      "personnelRows": 10
+    }
+  ],
+  "passed": false,
+  "network": [
+    {
+      "endpoint": "attendance_settings",
+      "status": 200,
+      "ms": 1530
+    },
+    {
+      "endpoint": "sales_query",
+      "status": 200,
+      "ms": 1574
+    },
+    {
+      "endpoint": "sales_query",
+      "status": 200,
+      "ms": 785
+    },
+    {
+      "endpoint": "sales_query",
+      "status": 200,
+      "ms": 711
+    },
+    {
+      "endpoint": "sales_query",
+      "status": 200,
+      "ms": 715
+    },
+    {
+      "endpoint": "sales_query",
+      "status": 200,
+      "ms": 718
+    },
+    {
+      "endpoint": "sales_query",
+      "status": 200,
+      "ms": 734
+    },
+    {
+      "endpoint": "sales_query",
+      "status": 200,
+      "ms": 716
+    },
+    {
+      "endpoint": "sales_query",
+      "status": 200,
+      "ms": 690
+    },
+    {
+      "endpoint": "sales_query",
+      "status": 200,
+      "ms": 737
+    },
+    {
+      "endpoint": "sales_query",
+      "status": 200,
+      "ms": 722
+    },
+    {
+      "endpoint": "sales_query",
+      "status": 200,
+      "ms": 718
+    },
+    {
+      "endpoint": "sales_query",
+      "status": 200,
+      "ms": 712
+    },
+    {
+      "endpoint": "nhan_su",
+      "status": 200,
+      "ms": 398
+    },
+    {
+      "endpoint": "bang_luong",
+      "status": 200,
+      "ms": 514
+    },
+    {
+      "endpoint": "the_ban_hang_ct",
+      "status": 200,
+      "ms": 548
+    },
+    {
+      "endpoint": "the_ban_hang_ct",
+      "status": 200,
+      "ms": 397
+    },
+    {
+      "endpoint": "the_ban_hang_ct",
+      "status": 200,
+      "ms": 287
+    },
+    {
+      "endpoint": "sales_query",
+      "status": 200,
+      "ms": 2089
+    },
+    {
+      "endpoint": "sales_query",
+      "status": 200,
+      "ms": 1412
+    }
+  ],
+  "blocked": [
+    {
+      "endpoint": "css2",
+      "method": "GET"
+    }
+  ],
+  "liveWrites": 0,
+  "error": "Expected values to be strictly deep-equal:\n+ actual - expected\n\n+ [\n+   {\n+     endpoint: 'css2',\n+     method: 'GET'\n+   }\n+ ]\n- []\n"
+}

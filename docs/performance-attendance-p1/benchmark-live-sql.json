@@ -1,0 +1,1424 @@
+{
+  "rls": {
+    "acl": [
+      "postgres=arwdDxtm/postgres",
+      "anon=arwdDxtm/postgres",
+      "authenticated=arwdDxtm/postgres",
+      "service_role=arwdDxtm/postgres"
+    ],
+    "forced": false,
+    "enabled": false
+  },
+  "role": "supabase_read_only_user",
+  "columns": [
+    "id",
+    "id_cham_cong",
+    "ngay",
+    "checkin",
+    "checkout",
+    "anh",
+    "vi_tri",
+    "nhan_su",
+    "created_at",
+    "lich_su_sua",
+    "ghi_chu",
+    "bo_sung_boi",
+    "bo_sung_luc"
+  ],
+  "samples": [
+    {
+      "plan": [
+        {
+          "Plan": {
+            "Plans": [
+              {
+                "Alias": "cham_cong",
+                "Node Type": "Index Scan",
+                "Plan Rows": 254,
+                "Index Cond": "((ngay >= '2026-09-01'::date) AND (ngay <= '2026-09-30'::date))",
+                "Index Name": "attendance_date_created_id",
+                "Plan Width": 156,
+                "Total Cost": 21.48,
+                "Actual Rows": 285,
+                "Actual Loops": 1,
+                "Startup Cost": 0.28,
+                "Async Capable": false,
+                "Relation Name": "cham_cong",
+                "Parallel Aware": false,
+                "Scan Direction": "Forward",
+                "Local Hit Blocks": 0,
+                "Temp Read Blocks": 0,
+                "Actual Total Time": 7.732,
+                "Local Read Blocks": 0,
+                "Shared Hit Blocks": 63,
+                "Shared Read Blocks": 0,
+                "Actual Startup Time": 0.409,
+                "Parent Relationship": "Outer",
+                "Temp Written Blocks": 0,
+                "Local Dirtied Blocks": 0,
+                "Local Written Blocks": 0,
+                "Shared Dirtied Blocks": 0,
+                "Shared Written Blocks": 0,
+                "Rows Removed by Index Recheck": 0
+              }
+            ],
+            "Node Type": "Limit",
+            "Plan Rows": 254,
+            "Plan Width": 156,
+            "Total Cost": 21.48,
+            "Actual Rows": 285,
+            "Actual Loops": 1,
+            "Startup Cost": 0.28,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Actual Total Time": 7.763,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 63,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 0.41,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 220,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 30.714,
+          "Execution Time": 8.221
+        }
+      ],
+      "round": 0,
+      "version": "old"
+    },
+    {
+      "plan": [
+        {
+          "Plan": {
+            "Plans": [
+              {
+                "Alias": "cham_cong",
+                "Node Type": "Index Scan",
+                "Plan Rows": 254,
+                "Index Cond": "((ngay >= '2026-09-01'::date) AND (ngay <= '2026-09-30'::date))",
+                "Index Name": "attendance_date_created_id",
+                "Plan Width": 125,
+                "Total Cost": 21.48,
+                "Actual Rows": 285,
+                "Actual Loops": 1,
+                "Startup Cost": 0.28,
+                "Async Capable": false,
+                "Relation Name": "cham_cong",
+                "Parallel Aware": false,
+                "Scan Direction": "Forward",
+                "Local Hit Blocks": 0,
+                "Temp Read Blocks": 0,
+                "Actual Total Time": 0.135,
+                "Local Read Blocks": 0,
+                "Shared Hit Blocks": 63,
+                "Shared Read Blocks": 0,
+                "Actual Startup Time": 0.01,
+                "Parent Relationship": "Outer",
+                "Temp Written Blocks": 0,
+                "Local Dirtied Blocks": 0,
+                "Local Written Blocks": 0,
+                "Shared Dirtied Blocks": 0,
+                "Shared Written Blocks": 0,
+                "Rows Removed by Index Recheck": 0
+              }
+            ],
+            "Node Type": "Limit",
+            "Plan Rows": 254,
+            "Plan Width": 125,
+            "Total Cost": 21.48,
+            "Actual Rows": 285,
+            "Actual Loops": 1,
+            "Startup Cost": 0.28,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Actual Total Time": 0.163,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 63,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 0.011,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 8,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.176,
+          "Execution Time": 0.198
+        }
+      ],
+      "round": 0,
+      "version": "new"
+    },
+    {
+      "plan": [
+        {
+          "Plan": {
+            "Plans": [
+              {
+                "Alias": "cham_cong",
+                "Node Type": "Index Scan",
+                "Plan Rows": 254,
+                "Index Cond": "((ngay >= '2026-09-01'::date) AND (ngay <= '2026-09-30'::date))",
+                "Index Name": "attendance_date_created_id",
+                "Plan Width": 125,
+                "Total Cost": 21.48,
+                "Actual Rows": 285,
+                "Actual Loops": 1,
+                "Startup Cost": 0.28,
+                "Async Capable": false,
+                "Relation Name": "cham_cong",
+                "Parallel Aware": false,
+                "Scan Direction": "Forward",
+                "Local Hit Blocks": 0,
+                "Temp Read Blocks": 0,
+                "Actual Total Time": 0.119,
+                "Local Read Blocks": 0,
+                "Shared Hit Blocks": 63,
+                "Shared Read Blocks": 0,
+                "Actual Startup Time": 0.009,
+                "Parent Relationship": "Outer",
+                "Temp Written Blocks": 0,
+                "Local Dirtied Blocks": 0,
+                "Local Written Blocks": 0,
+                "Shared Dirtied Blocks": 0,
+                "Shared Written Blocks": 0,
+                "Rows Removed by Index Recheck": 0
+              }
+            ],
+            "Node Type": "Limit",
+            "Plan Rows": 254,
+            "Plan Width": 125,
+            "Total Cost": 21.48,
+            "Actual Rows": 285,
+            "Actual Loops": 1,
+            "Startup Cost": 0.28,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Actual Total Time": 0.147,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 63,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 0.009,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 8,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.105,
+          "Execution Time": 0.179
+        }
+      ],
+      "round": 1,
+      "version": "new"
+    },
+    {
+      "plan": [
+        {
+          "Plan": {
+            "Plans": [
+              {
+                "Alias": "cham_cong",
+                "Node Type": "Index Scan",
+                "Plan Rows": 254,
+                "Index Cond": "((ngay >= '2026-09-01'::date) AND (ngay <= '2026-09-30'::date))",
+                "Index Name": "attendance_date_created_id",
+                "Plan Width": 156,
+                "Total Cost": 21.48,
+                "Actual Rows": 285,
+                "Actual Loops": 1,
+                "Startup Cost": 0.28,
+                "Async Capable": false,
+                "Relation Name": "cham_cong",
+                "Parallel Aware": false,
+                "Scan Direction": "Forward",
+                "Local Hit Blocks": 0,
+                "Temp Read Blocks": 0,
+                "Actual Total Time": 0.115,
+                "Local Read Blocks": 0,
+                "Shared Hit Blocks": 63,
+                "Shared Read Blocks": 0,
+                "Actual Startup Time": 0.008,
+                "Parent Relationship": "Outer",
+                "Temp Written Blocks": 0,
+                "Local Dirtied Blocks": 0,
+                "Local Written Blocks": 0,
+                "Shared Dirtied Blocks": 0,
+                "Shared Written Blocks": 0,
+                "Rows Removed by Index Recheck": 0
+              }
+            ],
+            "Node Type": "Limit",
+            "Plan Rows": 254,
+            "Plan Width": 156,
+            "Total Cost": 21.48,
+            "Actual Rows": 285,
+            "Actual Loops": 1,
+            "Startup Cost": 0.28,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Actual Total Time": 0.143,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 63,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 0.009,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 8,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.1,
+          "Execution Time": 0.175
+        }
+      ],
+      "round": 1,
+      "version": "old"
+    },
+    {
+      "plan": [
+        {
+          "Plan": {
+            "Plans": [
+              {
+                "Alias": "cham_cong",
+                "Node Type": "Index Scan",
+                "Plan Rows": 254,
+                "Index Cond": "((ngay >= '2026-09-01'::date) AND (ngay <= '2026-09-30'::date))",
+                "Index Name": "attendance_date_created_id",
+                "Plan Width": 156,
+                "Total Cost": 21.48,
+                "Actual Rows": 285,
+                "Actual Loops": 1,
+                "Startup Cost": 0.28,
+                "Async Capable": false,
+                "Relation Name": "cham_cong",
+                "Parallel Aware": false,
+                "Scan Direction": "Forward",
+                "Local Hit Blocks": 0,
+                "Temp Read Blocks": 0,
+                "Actual Total Time": 0.114,
+                "Local Read Blocks": 0,
+                "Shared Hit Blocks": 63,
+                "Shared Read Blocks": 0,
+                "Actual Startup Time": 0.008,
+                "Parent Relationship": "Outer",
+                "Temp Written Blocks": 0,
+                "Local Dirtied Blocks": 0,
+                "Local Written Blocks": 0,
+                "Shared Dirtied Blocks": 0,
+                "Shared Written Blocks": 0,
+                "Rows Removed by Index Recheck": 0
+              }
+            ],
+            "Node Type": "Limit",
+            "Plan Rows": 254,
+            "Plan Width": 156,
+            "Total Cost": 21.48,
+            "Actual Rows": 285,
+            "Actual Loops": 1,
+            "Startup Cost": 0.28,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Actual Total Time": 0.142,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 63,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 0.009,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 8,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.098,
+          "Execution Time": 0.173
+        }
+      ],
+      "round": 2,
+      "version": "old"
+    },
+    {
+      "plan": [
+        {
+          "Plan": {
+            "Plans": [
+              {
+                "Alias": "cham_cong",
+                "Node Type": "Index Scan",
+                "Plan Rows": 254,
+                "Index Cond": "((ngay >= '2026-09-01'::date) AND (ngay <= '2026-09-30'::date))",
+                "Index Name": "attendance_date_created_id",
+                "Plan Width": 125,
+                "Total Cost": 21.48,
+                "Actual Rows": 285,
+                "Actual Loops": 1,
+                "Startup Cost": 0.28,
+                "Async Capable": false,
+                "Relation Name": "cham_cong",
+                "Parallel Aware": false,
+                "Scan Direction": "Forward",
+                "Local Hit Blocks": 0,
+                "Temp Read Blocks": 0,
+                "Actual Total Time": 0.143,
+                "Local Read Blocks": 0,
+                "Shared Hit Blocks": 63,
+                "Shared Read Blocks": 0,
+                "Actual Startup Time": 0.035,
+                "Parent Relationship": "Outer",
+                "Temp Written Blocks": 0,
+                "Local Dirtied Blocks": 0,
+                "Local Written Blocks": 0,
+                "Shared Dirtied Blocks": 0,
+                "Shared Written Blocks": 0,
+                "Rows Removed by Index Recheck": 0
+              }
+            ],
+            "Node Type": "Limit",
+            "Plan Rows": 254,
+            "Plan Width": 125,
+            "Total Cost": 21.48,
+            "Actual Rows": 285,
+            "Actual Loops": 1,
+            "Startup Cost": 0.28,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Actual Total Time": 0.171,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 63,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 0.036,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 8,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.087,
+          "Execution Time": 0.201
+        }
+      ],
+      "round": 2,
+      "version": "new"
+    },
+    {
+      "plan": [
+        {
+          "Plan": {
+            "Plans": [
+              {
+                "Alias": "cham_cong",
+                "Node Type": "Index Scan",
+                "Plan Rows": 254,
+                "Index Cond": "((ngay >= '2026-09-01'::date) AND (ngay <= '2026-09-30'::date))",
+                "Index Name": "attendance_date_created_id",
+                "Plan Width": 125,
+                "Total Cost": 21.48,
+                "Actual Rows": 285,
+                "Actual Loops": 1,
+                "Startup Cost": 0.28,
+                "Async Capable": false,
+                "Relation Name": "cham_cong",
+                "Parallel Aware": false,
+                "Scan Direction": "Forward",
+                "Local Hit Blocks": 0,
+                "Temp Read Blocks": 0,
+                "Actual Total Time": 0.111,
+                "Local Read Blocks": 0,
+                "Shared Hit Blocks": 63,
+                "Shared Read Blocks": 0,
+                "Actual Startup Time": 0.008,
+                "Parent Relationship": "Outer",
+                "Temp Written Blocks": 0,
+                "Local Dirtied Blocks": 0,
+                "Local Written Blocks": 0,
+                "Shared Dirtied Blocks": 0,
+                "Shared Written Blocks": 0,
+                "Rows Removed by Index Recheck": 0
+              }
+            ],
+            "Node Type": "Limit",
+            "Plan Rows": 254,
+            "Plan Width": 125,
+            "Total Cost": 21.48,
+            "Actual Rows": 285,
+            "Actual Loops": 1,
+            "Startup Cost": 0.28,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Actual Total Time": 0.138,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 63,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 0.009,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 8,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.089,
+          "Execution Time": 0.167
+        }
+      ],
+      "round": 3,
+      "version": "new"
+    },
+    {
+      "plan": [
+        {
+          "Plan": {
+            "Plans": [
+              {
+                "Alias": "cham_cong",
+                "Node Type": "Index Scan",
+                "Plan Rows": 254,
+                "Index Cond": "((ngay >= '2026-09-01'::date) AND (ngay <= '2026-09-30'::date))",
+                "Index Name": "attendance_date_created_id",
+                "Plan Width": 156,
+                "Total Cost": 21.48,
+                "Actual Rows": 285,
+                "Actual Loops": 1,
+                "Startup Cost": 0.28,
+                "Async Capable": false,
+                "Relation Name": "cham_cong",
+                "Parallel Aware": false,
+                "Scan Direction": "Forward",
+                "Local Hit Blocks": 0,
+                "Temp Read Blocks": 0,
+                "Actual Total Time": 0.112,
+                "Local Read Blocks": 0,
+                "Shared Hit Blocks": 63,
+                "Shared Read Blocks": 0,
+                "Actual Startup Time": 0.009,
+                "Parent Relationship": "Outer",
+                "Temp Written Blocks": 0,
+                "Local Dirtied Blocks": 0,
+                "Local Written Blocks": 0,
+                "Shared Dirtied Blocks": 0,
+                "Shared Written Blocks": 0,
+                "Rows Removed by Index Recheck": 0
+              }
+            ],
+            "Node Type": "Limit",
+            "Plan Rows": 254,
+            "Plan Width": 156,
+            "Total Cost": 21.48,
+            "Actual Rows": 285,
+            "Actual Loops": 1,
+            "Startup Cost": 0.28,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Actual Total Time": 0.14,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 63,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 0.01,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 8,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.104,
+          "Execution Time": 0.171
+        }
+      ],
+      "round": 3,
+      "version": "old"
+    },
+    {
+      "plan": [
+        {
+          "Plan": {
+            "Plans": [
+              {
+                "Alias": "cham_cong",
+                "Node Type": "Index Scan",
+                "Plan Rows": 254,
+                "Index Cond": "((ngay >= '2026-09-01'::date) AND (ngay <= '2026-09-30'::date))",
+                "Index Name": "attendance_date_created_id",
+                "Plan Width": 156,
+                "Total Cost": 21.48,
+                "Actual Rows": 285,
+                "Actual Loops": 1,
+                "Startup Cost": 0.28,
+                "Async Capable": false,
+                "Relation Name": "cham_cong",
+                "Parallel Aware": false,
+                "Scan Direction": "Forward",
+                "Local Hit Blocks": 0,
+                "Temp Read Blocks": 0,
+                "Actual Total Time": 0.111,
+                "Local Read Blocks": 0,
+                "Shared Hit Blocks": 63,
+                "Shared Read Blocks": 0,
+                "Actual Startup Time": 0.008,
+                "Parent Relationship": "Outer",
+                "Temp Written Blocks": 0,
+                "Local Dirtied Blocks": 0,
+                "Local Written Blocks": 0,
+                "Shared Dirtied Blocks": 0,
+                "Shared Written Blocks": 0,
+                "Rows Removed by Index Recheck": 0
+              }
+            ],
+            "Node Type": "Limit",
+            "Plan Rows": 254,
+            "Plan Width": 156,
+            "Total Cost": 21.48,
+            "Actual Rows": 285,
+            "Actual Loops": 1,
+            "Startup Cost": 0.28,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Actual Total Time": 0.139,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 63,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 0.009,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 8,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.086,
+          "Execution Time": 0.168
+        }
+      ],
+      "round": 4,
+      "version": "old"
+    },
+    {
+      "plan": [
+        {
+          "Plan": {
+            "Plans": [
+              {
+                "Alias": "cham_cong",
+                "Node Type": "Index Scan",
+                "Plan Rows": 254,
+                "Index Cond": "((ngay >= '2026-09-01'::date) AND (ngay <= '2026-09-30'::date))",
+                "Index Name": "attendance_date_created_id",
+                "Plan Width": 125,
+                "Total Cost": 21.48,
+                "Actual Rows": 285,
+                "Actual Loops": 1,
+                "Startup Cost": 0.28,
+                "Async Capable": false,
+                "Relation Name": "cham_cong",
+                "Parallel Aware": false,
+                "Scan Direction": "Forward",
+                "Local Hit Blocks": 0,
+                "Temp Read Blocks": 0,
+                "Actual Total Time": 0.111,
+                "Local Read Blocks": 0,
+                "Shared Hit Blocks": 63,
+                "Shared Read Blocks": 0,
+                "Actual Startup Time": 0.01,
+                "Parent Relationship": "Outer",
+                "Temp Written Blocks": 0,
+                "Local Dirtied Blocks": 0,
+                "Local Written Blocks": 0,
+                "Shared Dirtied Blocks": 0,
+                "Shared Written Blocks": 0,
+                "Rows Removed by Index Recheck": 0
+              }
+            ],
+            "Node Type": "Limit",
+            "Plan Rows": 254,
+            "Plan Width": 125,
+            "Total Cost": 21.48,
+            "Actual Rows": 285,
+            "Actual Loops": 1,
+            "Startup Cost": 0.28,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Actual Total Time": 0.139,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 63,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 0.01,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 8,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.111,
+          "Execution Time": 0.17
+        }
+      ],
+      "round": 4,
+      "version": "new"
+    },
+    {
+      "plan": [
+        {
+          "Plan": {
+            "Plans": [
+              {
+                "Alias": "cham_cong",
+                "Node Type": "Index Scan",
+                "Plan Rows": 254,
+                "Index Cond": "((ngay >= '2026-09-01'::date) AND (ngay <= '2026-09-30'::date))",
+                "Index Name": "attendance_date_created_id",
+                "Plan Width": 125,
+                "Total Cost": 21.48,
+                "Actual Rows": 285,
+                "Actual Loops": 1,
+                "Startup Cost": 0.28,
+                "Async Capable": false,
+                "Relation Name": "cham_cong",
+                "Parallel Aware": false,
+                "Scan Direction": "Forward",
+                "Local Hit Blocks": 0,
+                "Temp Read Blocks": 0,
+                "Actual Total Time": 0.11,
+                "Local Read Blocks": 0,
+                "Shared Hit Blocks": 63,
+                "Shared Read Blocks": 0,
+                "Actual Startup Time": 0.008,
+                "Parent Relationship": "Outer",
+                "Temp Written Blocks": 0,
+                "Local Dirtied Blocks": 0,
+                "Local Written Blocks": 0,
+                "Shared Dirtied Blocks": 0,
+                "Shared Written Blocks": 0,
+                "Rows Removed by Index Recheck": 0
+              }
+            ],
+            "Node Type": "Limit",
+            "Plan Rows": 254,
+            "Plan Width": 125,
+            "Total Cost": 21.48,
+            "Actual Rows": 285,
+            "Actual Loops": 1,
+            "Startup Cost": 0.28,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Actual Total Time": 0.137,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 63,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 0.008,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 8,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.084,
+          "Execution Time": 0.165
+        }
+      ],
+      "round": 5,
+      "version": "new"
+    },
+    {
+      "plan": [
+        {
+          "Plan": {
+            "Plans": [
+              {
+                "Alias": "cham_cong",
+                "Node Type": "Index Scan",
+                "Plan Rows": 254,
+                "Index Cond": "((ngay >= '2026-09-01'::date) AND (ngay <= '2026-09-30'::date))",
+                "Index Name": "attendance_date_created_id",
+                "Plan Width": 156,
+                "Total Cost": 21.48,
+                "Actual Rows": 285,
+                "Actual Loops": 1,
+                "Startup Cost": 0.28,
+                "Async Capable": false,
+                "Relation Name": "cham_cong",
+                "Parallel Aware": false,
+                "Scan Direction": "Forward",
+                "Local Hit Blocks": 0,
+                "Temp Read Blocks": 0,
+                "Actual Total Time": 0.113,
+                "Local Read Blocks": 0,
+                "Shared Hit Blocks": 63,
+                "Shared Read Blocks": 0,
+                "Actual Startup Time": 0.009,
+                "Parent Relationship": "Outer",
+                "Temp Written Blocks": 0,
+                "Local Dirtied Blocks": 0,
+                "Local Written Blocks": 0,
+                "Shared Dirtied Blocks": 0,
+                "Shared Written Blocks": 0,
+                "Rows Removed by Index Recheck": 0
+              }
+            ],
+            "Node Type": "Limit",
+            "Plan Rows": 254,
+            "Plan Width": 156,
+            "Total Cost": 21.48,
+            "Actual Rows": 285,
+            "Actual Loops": 1,
+            "Startup Cost": 0.28,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Actual Total Time": 0.14,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 63,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 0.01,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 8,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.102,
+          "Execution Time": 0.171
+        }
+      ],
+      "round": 5,
+      "version": "old"
+    }
+  ],
+  "version": "PostgreSQL 17.6 on aarch64-unknown-linux-gnu, compiled by gcc (GCC) 15.2.0, 64-bit",
+  "workMem": "2184kB",
+  "policies": [
+    {
+      "cmd": "UPDATE",
+      "qual": "(is_admin() OR ((NOT is_technician()) AND cham_cong_matched_logged_in_nhan_su(nhan_su)))",
+      "roles": [
+        "public"
+      ],
+      "tablename": "cham_cong",
+      "permissive": "PERMISSIVE",
+      "policyname": "cham_cong: update admin or self non technician",
+      "schemaname": "public",
+      "with_check": "(is_admin() OR ((NOT is_technician()) AND cham_cong_matched_logged_in_nhan_su(nhan_su)))"
+    },
+    {
+      "cmd": "DELETE",
+      "qual": "(is_admin() OR ((NOT is_technician()) AND cham_cong_matched_logged_in_nhan_su(nhan_su)))",
+      "roles": [
+        "public"
+      ],
+      "tablename": "cham_cong",
+      "permissive": "PERMISSIVE",
+      "policyname": "cham_cong: delete admin or self non technician",
+      "schemaname": "public",
+      "with_check": null
+    }
+  ],
+  "readOnly": "on",
+  "snapshot": "101617:101617:",
+  "payloadStats": {
+    "logs": 285,
+    "photoBytes": 9876285,
+    "historyBytes": 1929,
+    "inlinePhotos": 3,
+    "maxPhotoBytes": 4790323
+  },
+  "salesFunctions": [
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": null,
+      "signature": "app_branch(text)",
+      "definitionMd5": "d0f4a070cdb950a7a67418a29265c7f6"
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": null,
+      "signature": "app_customer_matches(jsonb,text)",
+      "definitionMd5": "22ab8a1fc212db072f45cf12b3e99671"
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": null,
+      "signature": "app_customer_name(text)",
+      "definitionMd5": "768b2b7277cea9d4f835879adb97dfe6"
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": [
+        "search_path=public"
+      ],
+      "signature": "app_customer_rows()",
+      "definitionMd5": "8f6e7105f039a8733405bf94bc62f5a2"
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": null,
+      "signature": "app_phone(text)",
+      "definitionMd5": "c910b81b8350b10484c153056de8ef12"
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": null,
+      "signature": "app_plate(text)",
+      "definitionMd5": "e4f096766379455c09dc1cb42e5dd211"
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": [
+        "search_path=public"
+      ],
+      "signature": "app_sales_customer_identities(boolean)",
+      "definitionMd5": "7b3e8954594e48842b72388a8c852066"
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": [
+        "search_path=public"
+      ],
+      "signature": "app_sales_filtered_typed(date,date,text,text,text,text,text)",
+      "definitionMd5": "9a9a8e184eb6e0a4169ae75421b33f0b"
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": [
+        "search_path=public"
+      ],
+      "signature": "app_sales_first_dates()",
+      "definitionMd5": "6bc75f3df358d0923adb2695ac6e0eb5"
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": [
+        "search_path=public"
+      ],
+      "signature": "app_sales_first_dates_for_keys(text[])",
+      "definitionMd5": "3028a9d9c6bbfc22d21c9ac51c892b94"
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": [
+        "search_path=public"
+      ],
+      "signature": "app_sales_page_json(uuid,text,text,text,numeric,text[])",
+      "definitionMd5": "c23e117fd725dea3570ad701a5f2ac30"
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": [
+        "search_path=public"
+      ],
+      "signature": "app_sales_rows()",
+      "definitionMd5": "94365f8aa2cebcac0a9115c00be3657a"
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": [
+        "search_path=public"
+      ],
+      "signature": "app_sales_rows_searched(date,date,text)",
+      "definitionMd5": "5e090ad92c4d6e265536ed26de962792"
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": null,
+      "signature": "app_search_text(text)",
+      "definitionMd5": "2b34badbf27f6447ebb6aa1743947544"
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": [
+        "search_path=public"
+      ],
+      "signature": "customer_order_stats(text[])",
+      "definitionMd5": "599f06d8ad169751896b675dcd23791d"
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": [
+        "search_path=public"
+      ],
+      "signature": "sales_details(text[])",
+      "definitionMd5": "cd299e3819ae0cba8021242db1af389e"
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": [
+        "search_path=public"
+      ],
+      "signature": "sales_lookup(text[])",
+      "definitionMd5": "0bb516eead6b0c4cdf1ce56655796412"
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "owner": "postgres",
+      "config": [
+        "search_path=public"
+      ],
+      "signature": "sales_query(text,date,date,text,text,integer,integer,text,text)",
+      "definitionMd5": "5f58e3b9452b951d57f8efab1ae7eb84"
+    }
+  ],
+  "statementTimeout": "6s",
+  "at": "2026-10-04T07:52:05.398Z",
+  "salesP06DefinitionsUnchanged": true,
+  "medians": [
+    {
+      "version": "old",
+      "planningMs": 0.1,
+      "executionMs": 0.171
+    },
+    {
+      "version": "new",
+      "planningMs": 0.089,
+      "executionMs": 0.17
+    }
+  ],
+  "metrics": [
+    {
+      "round": 0,
+      "version": "old",
+      "planningMs": 30.714,
+      "executionMs": 8.221,
+      "rows": 285,
+      "loops": 1,
+      "sharedHits": 63,
+      "sharedReads": 0,
+      "tempRead": 0,
+      "tempWritten": 0
+    },
+    {
+      "round": 0,
+      "version": "new",
+      "planningMs": 0.176,
+      "executionMs": 0.198,
+      "rows": 285,
+      "loops": 1,
+      "sharedHits": 63,
+      "sharedReads": 0,
+      "tempRead": 0,
+      "tempWritten": 0
+    },
+    {
+      "round": 1,
+      "version": "new",
+      "planningMs": 0.105,
+      "executionMs": 0.179,
+      "rows": 285,
+      "loops": 1,
+      "sharedHits": 63,
+      "sharedReads": 0,
+      "tempRead": 0,
+      "tempWritten": 0
+    },
+    {
+      "round": 1,
+      "version": "old",
+      "planningMs": 0.1,
+      "executionMs": 0.175,
+      "rows": 285,
+      "loops": 1,
+      "sharedHits": 63,
+      "sharedReads": 0,
+      "tempRead": 0,
+      "tempWritten": 0
+    },
+    {
+      "round": 2,
+      "version": "old",
+      "planningMs": 0.098,
+      "executionMs": 0.173,
+      "rows": 285,
+      "loops": 1,
+      "sharedHits": 63,
+      "sharedReads": 0,
+      "tempRead": 0,
+      "tempWritten": 0
+    },
+    {
+      "round": 2,
+      "version": "new",
+      "planningMs": 0.087,
+      "executionMs": 0.201,
+      "rows": 285,
+      "loops": 1,
+      "sharedHits": 63,
+      "sharedReads": 0,
+      "tempRead": 0,
+      "tempWritten": 0
+    },
+    {
+      "round": 3,
+      "version": "new",
+      "planningMs": 0.089,
+      "executionMs": 0.167,
+      "rows": 285,
+      "loops": 1,
+      "sharedHits": 63,
+      "sharedReads": 0,
+      "tempRead": 0,
+      "tempWritten": 0
+    },
+    {
+      "round": 3,
+      "version": "old",
+      "planningMs": 0.104,
+      "executionMs": 0.171,
+      "rows": 285,
+      "loops": 1,
+      "sharedHits": 63,
+      "sharedReads": 0,
+      "tempRead": 0,
+      "tempWritten": 0
+    },
+    {
+      "round": 4,
+      "version": "old",
+      "planningMs": 0.086,
+      "executionMs": 0.168,
+      "rows": 285,
+      "loops": 1,
+      "sharedHits": 63,
+      "sharedReads": 0,
+      "tempRead": 0,
+      "tempWritten": 0
+    },
+    {
+      "round": 4,
+      "version": "new",
+      "planningMs": 0.111,
+      "executionMs": 0.17,
+      "rows": 285,
+      "loops": 1,
+      "sharedHits": 63,
+      "sharedReads": 0,
+      "tempRead": 0,
+      "tempWritten": 0
+    },
+    {
+      "round": 5,
+      "version": "new",
+      "planningMs": 0.084,
+      "executionMs": 0.165,
+      "rows": 285,
+      "loops": 1,
+      "sharedHits": 63,
+      "sharedReads": 0,
+      "tempRead": 0,
+      "tempWritten": 0
+    },
+    {
+      "round": 5,
+      "version": "old",
+      "planningMs": 0.102,
+      "executionMs": 0.171,
+      "rows": 285,
+      "loops": 1,
+      "sharedHits": 63,
+      "sharedReads": 0,
+      "tempRead": 0,
+      "tempWritten": 0
+    }
+  ]
+}

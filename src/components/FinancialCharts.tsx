@@ -3,7 +3,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   BarChart, Bar, PieChart, Pie, Cell, LineChart, Line
 } from 'recharts';
-import type { ThuChi } from '../data/financialData';
+import type { FinancialChartSummary, ThuChi } from '../data/financialData';
 import {
   eachDayOfInterval,
   eachMonthOfInterval,
@@ -30,14 +30,16 @@ export interface FinancialChartsDateRange {
 
 interface FinancialChartsProps {
   transactions: ThuChi[];
+  summary?: FinancialChartSummary | null;
   dateRange: FinancialChartsDateRange;
 }
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
 
-const FinancialCharts: React.FC<FinancialChartsProps> = ({ transactions, dateRange }) => {
+const FinancialCharts: React.FC<FinancialChartsProps> = ({ transactions, dateRange, summary }) => {
   // 1. Stats Calculation
   const stats = useMemo(() => {
+    if (summary) return { income: summary.totalIncome, expense: summary.totalExpense, balance: summary.totalIncome-summary.totalExpense, count: summary.totalCount };
     const successTransactions = transactions.filter(t => t.trang_thai === 'Hoàn thành');
     const income = successTransactions.filter(t => t.loai_phieu === 'phiếu thu').reduce((sum, t) => sum + t.so_tien, 0);
     const expense = successTransactions.filter(t => t.loai_phieu === 'phiếu chi').reduce((sum, t) => sum + t.so_tien, 0);
@@ -45,7 +47,7 @@ const FinancialCharts: React.FC<FinancialChartsProps> = ({ transactions, dateRan
     const count = transactions.length;
 
     return { income, expense, balance, count };
-  }, [transactions]);
+  }, [transactions, summary]);
 
   const rangeMeta = useMemo(() => {
     const start = parseLocalYmd(dateRange.start);
@@ -69,6 +71,10 @@ const FinancialCharts: React.FC<FinancialChartsProps> = ({ transactions, dateRan
     if (nDays <= 90) {
       return eachDayOfInterval({ start, end }).map((day) => {
         const key = format(day, 'yyyy-MM-dd');
+        if (summary) {
+          const totals = summary.charts.daily.find(d => d.date === key);
+          return { name: format(day, 'dd/MM', { locale: vi }), income: totals?.income || 0, expense: totals?.expense || 0 };
+        }
         const dtx = transactions.filter((t) => dayKey(t) === key && isDone(t));
         const income = dtx.filter((t) => t.loai_phieu === 'phiếu thu').reduce((s, t) => s + t.so_tien, 0);
         const expense = dtx.filter((t) => t.loai_phieu === 'phiếu chi').reduce((s, t) => s + t.so_tien, 0);
@@ -82,6 +88,10 @@ const FinancialCharts: React.FC<FinancialChartsProps> = ({ transactions, dateRan
 
     return eachMonthOfInterval({ start, end: endOfMonth(end) }).map((monthDate) => {
       const m = format(monthDate, 'yyyy-MM');
+      if (summary) {
+        const totals = summary.charts.daily.filter(d => d.date.slice(0,7) === m);
+        return { name: format(monthDate, 'MM/yyyy', { locale: vi }), income: totals.reduce((n,d)=>n+d.income,0), expense: totals.reduce((n,d)=>n+d.expense,0) };
+      }
       const dtx = transactions.filter((t) => isDone(t) && dayKey(t).slice(0, 7) === m);
       const income = dtx.filter((t) => t.loai_phieu === 'phiếu thu').reduce((s, t) => s + t.so_tien, 0);
       const expense = dtx.filter((t) => t.loai_phieu === 'phiếu chi').reduce((s, t) => s + t.so_tien, 0);
@@ -91,10 +101,11 @@ const FinancialCharts: React.FC<FinancialChartsProps> = ({ transactions, dateRan
         expense,
       };
     });
-  }, [transactions, rangeMeta]);
+  }, [transactions, rangeMeta, summary]);
 
   // 3. Category Data (Doughnut)
   const categoryData = useMemo(() => {
+    if (summary) return { data: summary.charts.categories.slice(0,5), total: summary.charts.categories.reduce((n,c)=>n+c.value,0) };
     const categories: Record<string, number> = {};
     transactions
       .filter(t => t.loai_phieu === 'phiếu chi' && t.trang_thai === 'Hoàn thành')
@@ -109,10 +120,11 @@ const FinancialCharts: React.FC<FinancialChartsProps> = ({ transactions, dateRan
     
     const total = data.reduce((sum, d) => sum + d.value, 0);
     return { data: data.slice(0, 5), total };
-  }, [transactions]);
+  }, [transactions, summary]);
 
   // 4. Branch Distribution (Income vs Expense)
   const branchData = useMemo(() => {
+    if (summary) return summary.charts.branches;
     const branches: Record<string, { income: number; expense: number }> = {};
     transactions
       .filter(t => t.trang_thai === 'Hoàn thành')
@@ -131,7 +143,7 @@ const FinancialCharts: React.FC<FinancialChartsProps> = ({ transactions, dateRan
       name,
       ...stats
     }));
-  }, [transactions]);
+  }, [transactions, summary]);
 
   const formatCurrency = (value: number) => {
     if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;

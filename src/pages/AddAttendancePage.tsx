@@ -9,6 +9,7 @@ import {
   formatAttendanceSaveError,
   createAttendanceRecord,
   getAttendancePaginated,
+  getAttendanceRecord,
   getAllAttendanceRecords,
   getNextAttendanceId,
   getStaffAttendanceNameVariants,
@@ -82,7 +83,8 @@ const AddAttendancePage: React.FC = () => {
 
         if (data && data.length > 0) {
           const todayRecord = data[0];
-          setFormData({ ...todayRecord });
+          // This form edits one record; fetch its photo/history on demand.
+          setFormData(await getAttendanceRecord(todayRecord.id));
         }
 
         // Load monthly records for stats

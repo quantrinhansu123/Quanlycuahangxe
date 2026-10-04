@@ -1,0 +1,268 @@
+{
+  "at": "2026-10-04T07:40:56.381Z",
+  "scope": "Actual local Attendance page and loaders with LIVE anon GET responses; fresh storage; read-only test UI identity, no app-session claims; page date fixed to audit September period",
+  "rounds": 3,
+  "samples": [
+    {
+      "round": 1,
+      "version": "old",
+      "totalLoaderMs": 23415,
+      "requestCount": 3,
+      "payloadBytes": 9981830,
+      "attendanceRows": 285,
+      "requests": [
+        {
+          "table": "attendance_settings",
+          "status": 200,
+          "bytes": 561,
+          "durationMs": 1345,
+          "projection": "*",
+          "rows": 1
+        },
+        {
+          "table": "nhan_su",
+          "status": 200,
+          "bytes": 4413,
+          "durationMs": 412,
+          "projection": "*",
+          "rows": 10
+        },
+        {
+          "table": "cham_cong",
+          "status": 200,
+          "bytes": 9976856,
+          "durationMs": 9677,
+          "projection": "*",
+          "rows": 285
+        }
+      ],
+      "renderedBusinessHash": "77cfb0847c76b42be23d0f09e90dfc12d57d09c489ffb86dbb9676c8961af741",
+      "noPaginationRequests": true
+    },
+    {
+      "round": 1,
+      "version": "new",
+      "totalLoaderMs": 5408,
+      "requestCount": 3,
+      "payloadBytes": 96212,
+      "attendanceRows": 285,
+      "requests": [
+        {
+          "table": "nhan_su",
+          "status": 200,
+          "bytes": 4413,
+          "durationMs": 2458,
+          "projection": "*",
+          "rows": 10
+        },
+        {
+          "table": "attendance_settings",
+          "status": 200,
+          "bytes": 561,
+          "durationMs": 3468,
+          "projection": "*",
+          "rows": 1
+        },
+        {
+          "table": "cham_cong",
+          "status": 200,
+          "bytes": 91238,
+          "durationMs": 906,
+          "projection": "id,id_cham_cong,nhan_su,ngay,checkin,checkout,vi_tri,created_at,ghi_chu,bo_sung_boi,bo_sung_luc",
+          "rows": 285
+        }
+      ],
+      "renderedBusinessHash": "77cfb0847c76b42be23d0f09e90dfc12d57d09c489ffb86dbb9676c8961af741",
+      "noPaginationRequests": true
+    },
+    {
+      "round": 2,
+      "version": "old",
+      "totalLoaderMs": 9658,
+      "requestCount": 3,
+      "payloadBytes": 9981830,
+      "attendanceRows": 285,
+      "requests": [
+        {
+          "table": "attendance_settings",
+          "status": 200,
+          "bytes": 561,
+          "durationMs": 734,
+          "projection": "*",
+          "rows": 1
+        },
+        {
+          "table": "nhan_su",
+          "status": 200,
+          "bytes": 4413,
+          "durationMs": 642,
+          "projection": "*",
+          "rows": 10
+        },
+        {
+          "table": "cham_cong",
+          "status": 200,
+          "bytes": 9976856,
+          "durationMs": 6716,
+          "projection": "*",
+          "rows": 285
+        }
+      ],
+      "renderedBusinessHash": "77cfb0847c76b42be23d0f09e90dfc12d57d09c489ffb86dbb9676c8961af741",
+      "noPaginationRequests": true
+    },
+    {
+      "round": 2,
+      "version": "new",
+      "totalLoaderMs": 1684,
+      "requestCount": 3,
+      "payloadBytes": 96212,
+      "attendanceRows": 285,
+      "requests": [
+        {
+          "table": "attendance_settings",
+          "status": 200,
+          "bytes": 561,
+          "durationMs": 390,
+          "projection": "*",
+          "rows": 1
+        },
+        {
+          "table": "nhan_su",
+          "status": 200,
+          "bytes": 4413,
+          "durationMs": 413,
+          "projection": "*",
+          "rows": 10
+        },
+        {
+          "table": "cham_cong",
+          "status": 200,
+          "bytes": 91238,
+          "durationMs": 426,
+          "projection": "id,id_cham_cong,nhan_su,ngay,checkin,checkout,vi_tri,created_at,ghi_chu,bo_sung_boi,bo_sung_luc",
+          "rows": 285
+        }
+      ],
+      "renderedBusinessHash": "77cfb0847c76b42be23d0f09e90dfc12d57d09c489ffb86dbb9676c8961af741",
+      "noPaginationRequests": true
+    },
+    {
+      "round": 3,
+      "version": "old",
+      "totalLoaderMs": 7070,
+      "requestCount": 3,
+      "payloadBytes": 9981830,
+      "attendanceRows": 285,
+      "requests": [
+        {
+          "table": "attendance_settings",
+          "status": 200,
+          "bytes": 561,
+          "durationMs": 168,
+          "projection": "*",
+          "rows": 1
+        },
+        {
+          "table": "nhan_su",
+          "status": 200,
+          "bytes": 4413,
+          "durationMs": 175,
+          "projection": "*",
+          "rows": 10
+        },
+        {
+          "table": "cham_cong",
+          "status": 200,
+          "bytes": 9976856,
+          "durationMs": 5279,
+          "projection": "*",
+          "rows": 285
+        }
+      ],
+      "renderedBusinessHash": "77cfb0847c76b42be23d0f09e90dfc12d57d09c489ffb86dbb9676c8961af741",
+      "noPaginationRequests": true
+    },
+    {
+      "round": 3,
+      "version": "new",
+      "totalLoaderMs": 1066,
+      "requestCount": 3,
+      "payloadBytes": 96212,
+      "attendanceRows": 285,
+      "requests": [
+        {
+          "table": "attendance_settings",
+          "status": 200,
+          "bytes": 561,
+          "durationMs": 152,
+          "projection": "*",
+          "rows": 1
+        },
+        {
+          "table": "nhan_su",
+          "status": 200,
+          "bytes": 4413,
+          "durationMs": 175,
+          "projection": "*",
+          "rows": 10
+        },
+        {
+          "table": "cham_cong",
+          "status": 200,
+          "bytes": 91238,
+          "durationMs": 270,
+          "projection": "id,id_cham_cong,nhan_su,ngay,checkin,checkout,vi_tri,created_at,ghi_chu,bo_sung_boi,bo_sung_luc",
+          "rows": 285
+        }
+      ],
+      "renderedBusinessHash": "77cfb0847c76b42be23d0f09e90dfc12d57d09c489ffb86dbb9676c8961af741",
+      "noPaginationRequests": true
+    }
+  ],
+  "medianLoaderMs": {
+    "old": 9658,
+    "new": 1684
+  },
+  "renderedBusinessParity": true,
+  "blockedRequests": [
+    {
+      "method": "GET",
+      "endpoint": "14627400.png"
+    },
+    {
+      "method": "GET",
+      "endpoint": "14627400.png"
+    },
+    {
+      "method": "GET",
+      "endpoint": "14627400.png"
+    },
+    {
+      "method": "GET",
+      "endpoint": "14627400.png"
+    },
+    {
+      "method": "GET",
+      "endpoint": "14627400.png"
+    },
+    {
+      "method": "GET",
+      "endpoint": "14627400.png"
+    },
+    {
+      "method": "GET",
+      "endpoint": "14627400.png"
+    },
+    {
+      "method": "GET",
+      "endpoint": "14627400.png"
+    },
+    {
+      "method": "GET",
+      "endpoint": "14627400.png"
+    }
+  ],
+  "businessWrites": 0,
+  "limitations": "Loader duration includes local Vite/module load/render; not deployed production frontend timing. OLD/NEW HTTP phases do not share a DB transaction snapshot."
+}

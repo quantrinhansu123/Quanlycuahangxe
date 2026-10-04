@@ -1,0 +1,200 @@
+{
+  "cases": [
+    {
+      "scope": "all",
+      "equal": true,
+      "ctCalls": [
+        15,
+        3
+      ]
+    },
+    {
+      "scope": "all",
+      "start": "2026-09-01",
+      "end": "2026-09-30",
+      "equal": true,
+      "ctCalls": [
+        15,
+        3
+      ]
+    },
+    {
+      "scope": "all",
+      "start": "2026-09-10",
+      "end": "2026-09-17",
+      "equal": true,
+      "ctCalls": [
+        5,
+        1
+      ]
+    },
+    {
+      "scope": "all",
+      "start": "2026-09-28",
+      "end": "2026-09-30",
+      "equal": true,
+      "ctCalls": [
+        5,
+        1
+      ]
+    },
+    {
+      "scope": "all",
+      "start": "2026-09-02",
+      "end": "2026-09-02",
+      "equal": true,
+      "ctCalls": [
+        5,
+        1
+      ]
+    },
+    {
+      "scope": "all",
+      "start": "2030-01-01",
+      "end": "2030-01-02",
+      "equal": true,
+      "ctCalls": [
+        5,
+        1
+      ]
+    },
+    {
+      "scope": "A",
+      "equal": true,
+      "ctCalls": [
+        10,
+        2
+      ]
+    },
+    {
+      "scope": "A",
+      "start": "2026-09-01",
+      "end": "2026-09-30",
+      "equal": true,
+      "ctCalls": [
+        10,
+        2
+      ]
+    },
+    {
+      "scope": "A",
+      "start": "2026-09-10",
+      "end": "2026-09-17",
+      "equal": true,
+      "ctCalls": [
+        5,
+        1
+      ]
+    },
+    {
+      "scope": "A",
+      "start": "2026-09-28",
+      "end": "2026-09-30",
+      "equal": true,
+      "ctCalls": [
+        5,
+        1
+      ]
+    },
+    {
+      "scope": "A",
+      "start": "2026-09-02",
+      "end": "2026-09-02",
+      "equal": true,
+      "ctCalls": [
+        5,
+        1
+      ]
+    },
+    {
+      "scope": "A",
+      "start": "2030-01-01",
+      "end": "2030-01-02",
+      "equal": true,
+      "ctCalls": [
+        5,
+        1
+      ]
+    },
+    {
+      "scope": "B",
+      "equal": true,
+      "ctCalls": [
+        10,
+        2
+      ]
+    },
+    {
+      "scope": "B",
+      "start": "2026-09-01",
+      "end": "2026-09-30",
+      "equal": true,
+      "ctCalls": [
+        10,
+        2
+      ]
+    },
+    {
+      "scope": "B",
+      "start": "2026-09-10",
+      "end": "2026-09-17",
+      "equal": true,
+      "ctCalls": [
+        5,
+        1
+      ]
+    },
+    {
+      "scope": "B",
+      "start": "2026-09-28",
+      "end": "2026-09-30",
+      "equal": true,
+      "ctCalls": [
+        5,
+        1
+      ]
+    },
+    {
+      "scope": "B",
+      "start": "2026-09-02",
+      "end": "2026-09-02",
+      "equal": true,
+      "ctCalls": [
+        5,
+        1
+      ]
+    },
+    {
+      "scope": "B",
+      "start": "2030-01-01",
+      "end": "2030-01-02",
+      "equal": true,
+      "ctCalls": [
+        5,
+        1
+      ]
+    }
+  ],
+  "businessCases": [
+    {
+      "s": "2026-09-01",
+      "e": "2026-09-30",
+      "fullJsonEqual": true,
+      "currentCtRefetch": false
+    },
+    {
+      "s": "2026-09-10",
+      "e": "2026-09-17",
+      "fullJsonEqual": true,
+      "currentCtRefetch": false
+    },
+    {
+      "s": "2030-01-01",
+      "e": "2030-01-02",
+      "fullJsonEqual": true,
+      "currentCtRefetch": false
+    }
+  ],
+  "scope": "Actual transpiled OLD/NEW source functions on same scalar fixtures. No rewritten business formulas.",
+  "abortAndRefresh": true
+}

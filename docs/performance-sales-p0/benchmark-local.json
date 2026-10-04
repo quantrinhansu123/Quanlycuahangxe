@@ -1,0 +1,1815 @@
+{
+  "environment": "PGlite local synthetic; NOT production HTTP or PostgreSQL hardware",
+  "counts": {
+    "sales": 9343,
+    "details": 15828,
+    "customers": 6665,
+    "services": 1267
+  },
+  "settings": [
+    {
+      "name": "server_version",
+      "setting": "18.3"
+    },
+    {
+      "name": "statement_timeout",
+      "setting": "0"
+    },
+    {
+      "name": "work_mem",
+      "setting": "4096"
+    }
+  ],
+  "results": [
+    {
+      "name": "A_all_page1",
+      "input": {},
+      "before": {
+        "executionMs": 4418.29,
+        "sharedHits": 2205,
+        "sharedReads": 0,
+        "tempRead": 11284,
+        "tempWritten": 10374
+      },
+      "after": {
+        "executionMs": 1780.385,
+        "sharedHits": 2166,
+        "sharedReads": 0,
+        "tempRead": 0,
+        "tempWritten": 0
+      },
+      "filteredRows": 9343,
+      "pageRows": 20,
+      "oldPayloadBytes": 62239,
+      "newPayloadBytes": 62239,
+      "newStatementTimeout": "3s (local read-only transaction; reduced from local default 0)",
+      "fieldDifferences": []
+    },
+    {
+      "name": "B_all_page2",
+      "input": {
+        "p_page": 2
+      },
+      "before": {
+        "executionMs": 3677.296,
+        "sharedHits": 2205,
+        "sharedReads": 0,
+        "tempRead": 11284,
+        "tempWritten": 10374
+      },
+      "after": {
+        "executionMs": 883.75,
+        "sharedHits": 2260,
+        "sharedReads": 0,
+        "tempRead": 0,
+        "tempWritten": 0
+      },
+      "filteredRows": 9343,
+      "pageRows": 20,
+      "oldPayloadBytes": 62276,
+      "newPayloadBytes": 62276,
+      "newStatementTimeout": "3s (local read-only transaction; reduced from local default 0)",
+      "fieldDifferences": []
+    },
+    {
+      "name": "C_month",
+      "input": {
+        "p_start": "2026-09-01",
+        "p_end": "2026-09-30"
+      },
+      "before": {
+        "executionMs": 784.616,
+        "sharedHits": 2069,
+        "sharedReads": 0,
+        "tempRead": 2237,
+        "tempWritten": 2587
+      },
+      "after": {
+        "executionMs": 419.634,
+        "sharedHits": 2002,
+        "sharedReads": 0,
+        "tempRead": 0,
+        "tempWritten": 0
+      },
+      "filteredRows": 991,
+      "pageRows": 20,
+      "oldPayloadBytes": 24320,
+      "newPayloadBytes": 24320,
+      "newStatementTimeout": "3s (local read-only transaction; reduced from local default 0)",
+      "fieldDifferences": []
+    },
+    {
+      "name": "D_reference",
+      "input": {
+        "p_reference": "PERF-BH-9000",
+        "p_limit": 1
+      },
+      "before": {
+        "executionMs": 1344.3,
+        "sharedHits": 2205,
+        "sharedReads": 0,
+        "tempRead": 3503,
+        "tempWritten": 3853
+      },
+      "after": {
+        "executionMs": 373.704,
+        "sharedHits": 1058,
+        "sharedReads": 0,
+        "tempRead": 0,
+        "tempWritten": 0
+      },
+      "filteredRows": 1,
+      "pageRows": 1,
+      "oldPayloadBytes": 1289,
+      "newPayloadBytes": 1289,
+      "newStatementTimeout": "3s (local read-only transaction; reduced from local default 0)",
+      "fieldDifferences": []
+    },
+    {
+      "name": "E_customer",
+      "input": {
+        "p_customer": "PERF-KH-6000"
+      },
+      "before": {
+        "executionMs": 1350.021,
+        "sharedHits": 2205,
+        "sharedReads": 0,
+        "tempRead": 3503,
+        "tempWritten": 3853
+      },
+      "after": {
+        "executionMs": 549.145,
+        "sharedHits": 1134,
+        "sharedReads": 0,
+        "tempRead": 0,
+        "tempWritten": 0
+      },
+      "filteredRows": 1,
+      "pageRows": 1,
+      "oldPayloadBytes": 1288,
+      "newPayloadBytes": 1288,
+      "newStatementTimeout": "3s (local read-only transaction; reduced from local default 0)",
+      "fieldDifferences": []
+    },
+    {
+      "name": "F_branch",
+      "input": {
+        "p_branch": "Bắc Ninh"
+      },
+      "before": {
+        "executionMs": 1485.156,
+        "sharedHits": 2205,
+        "sharedReads": 0,
+        "tempRead": 7436,
+        "tempWritten": 7149
+      },
+      "after": {
+        "executionMs": 602.184,
+        "sharedHits": 2095,
+        "sharedReads": 0,
+        "tempRead": 0,
+        "tempWritten": 0
+      },
+      "filteredRows": 4701,
+      "pageRows": 20,
+      "oldPayloadBytes": 62194,
+      "newPayloadBytes": 62194,
+      "newStatementTimeout": "3s (local read-only transaction; reduced from local default 0)",
+      "fieldDifferences": []
+    },
+    {
+      "name": "G_staff",
+      "input": {
+        "p_staff": "NV1"
+      },
+      "before": {
+        "executionMs": 3010.901,
+        "sharedHits": 8381,
+        "sharedReads": 0,
+        "tempRead": 3503,
+        "tempWritten": 3853
+      },
+      "after": {
+        "executionMs": 1236.442,
+        "sharedHits": 2235,
+        "sharedReads": 0,
+        "tempRead": 0,
+        "tempWritten": 0
+      },
+      "filteredRows": 3153,
+      "pageRows": 20,
+      "oldPayloadBytes": 61844,
+      "newPayloadBytes": 61844,
+      "newStatementTimeout": "3s (local read-only transaction; reduced from local default 0)",
+      "fieldDifferences": []
+    },
+    {
+      "name": "H_search",
+      "input": {
+        "p_search": "khach kiem thu 6001"
+      },
+      "before": {
+        "executionMs": 3040.76,
+        "sharedHits": 2226,
+        "sharedReads": 0,
+        "tempRead": 2237,
+        "tempWritten": 2587
+      },
+      "after": {
+        "executionMs": 1840.376,
+        "sharedHits": 2351,
+        "sharedReads": 0,
+        "tempRead": 0,
+        "tempWritten": 0
+      },
+      "filteredRows": 1,
+      "pageRows": 1,
+      "oldPayloadBytes": 1282,
+      "newPayloadBytes": 1282,
+      "newStatementTimeout": "3s (local read-only transaction; reduced from local default 0)",
+      "fieldDifferences": []
+    },
+    {
+      "name": "I_legacy",
+      "input": {
+        "p_reference": "LEGACY-ABC/09",
+        "p_limit": 1
+      },
+      "before": {
+        "executionMs": 1745.47,
+        "sharedHits": 2205,
+        "sharedReads": 0,
+        "tempRead": 3503,
+        "tempWritten": 3853
+      },
+      "after": {
+        "executionMs": 625.942,
+        "sharedHits": 991,
+        "sharedReads": 0,
+        "tempRead": 0,
+        "tempWritten": 0
+      },
+      "filteredRows": 1,
+      "pageRows": 1,
+      "oldPayloadBytes": 776,
+      "newPayloadBytes": 776,
+      "newStatementTimeout": "3s (local read-only transaction; reduced from local default 0)",
+      "fieldDifferences": []
+    },
+    {
+      "name": "J_uuid",
+      "input": {
+        "p_reference": "20000000-0000-0000-0000-000000009000",
+        "p_limit": 1
+      },
+      "before": {
+        "executionMs": 2183.13,
+        "sharedHits": 2205,
+        "sharedReads": 0,
+        "tempRead": 3503,
+        "tempWritten": 3853
+      },
+      "after": {
+        "executionMs": 524.035,
+        "sharedHits": 1060,
+        "sharedReads": 0,
+        "tempRead": 0,
+        "tempWritten": 0
+      },
+      "filteredRows": 1,
+      "pageRows": 1,
+      "oldPayloadBytes": 1289,
+      "newPayloadBytes": 1289,
+      "newStatementTimeout": "3s (local read-only transaction; reduced from local default 0)",
+      "fieldDifferences": []
+    }
+  ],
+  "inner": [
+    {
+      "name": "A_all_page1",
+      "version": "old",
+      "executionMs": 1738.795,
+      "sharedHits": 1866,
+      "sharedReads": 0,
+      "tempRead": 2237,
+      "tempWritten": 2587,
+      "outputRows": 9343,
+      "sorts": [
+        {
+          "method": "external merge",
+          "space": 7400,
+          "type": "Disk",
+          "rows": 13330,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1308,
+          "type": "Memory",
+          "rows": 15828,
+          "loops": 1
+        }
+      ],
+      "scans": [
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "the_ban_hang",
+          "node": "Seq Scan",
+          "rows": 9343,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang_ct",
+          "node": "Seq Scan",
+          "rows": 15828,
+          "loops": 1
+        },
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 1267,
+          "loops": 1
+        }
+      ]
+    },
+    {
+      "name": "A_all_page1",
+      "version": "new",
+      "executionMs": 1317.453,
+      "sharedHits": 665,
+      "sharedReads": 0,
+      "tempRead": 0,
+      "tempWritten": 0,
+      "outputRows": 9343,
+      "sorts": [
+        {
+          "method": "quicksort",
+          "space": 17,
+          "type": "Memory",
+          "rows": 0,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1350,
+          "type": "Memory",
+          "rows": 13330,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 744,
+          "type": "Memory",
+          "rows": 6665,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 2211,
+          "type": "Memory",
+          "rows": 9343,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1308,
+          "type": "Memory",
+          "rows": 15828,
+          "loops": 1
+        }
+      ],
+      "scans": [
+        {
+          "relation": "khach_hang",
+          "node": "Seq Scan",
+          "rows": 6665,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang",
+          "node": "Index Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "nhan_su",
+          "node": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "nhan_su",
+          "node": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "the_ban_hang",
+          "node": "Seq Scan",
+          "rows": 9343,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang_ct",
+          "node": "Seq Scan",
+          "rows": 15828,
+          "loops": 1
+        },
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 1267,
+          "loops": 1
+        }
+      ]
+    },
+    {
+      "name": "B_all_page2",
+      "version": "old",
+      "executionMs": 2372.638,
+      "sharedHits": 1866,
+      "sharedReads": 0,
+      "tempRead": 2237,
+      "tempWritten": 2587,
+      "outputRows": 9343,
+      "sorts": [
+        {
+          "method": "external merge",
+          "space": 7400,
+          "type": "Disk",
+          "rows": 13330,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1308,
+          "type": "Memory",
+          "rows": 15828,
+          "loops": 1
+        }
+      ],
+      "scans": [
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "the_ban_hang",
+          "node": "Seq Scan",
+          "rows": 9343,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang_ct",
+          "node": "Seq Scan",
+          "rows": 15828,
+          "loops": 1
+        },
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 1267,
+          "loops": 1
+        }
+      ]
+    },
+    {
+      "name": "B_all_page2",
+      "version": "new",
+      "executionMs": 723.37,
+      "sharedHits": 665,
+      "sharedReads": 0,
+      "tempRead": 0,
+      "tempWritten": 0,
+      "outputRows": 9343,
+      "sorts": [
+        {
+          "method": "quicksort",
+          "space": 17,
+          "type": "Memory",
+          "rows": 0,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1350,
+          "type": "Memory",
+          "rows": 13330,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 744,
+          "type": "Memory",
+          "rows": 6665,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 2211,
+          "type": "Memory",
+          "rows": 9343,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1308,
+          "type": "Memory",
+          "rows": 15828,
+          "loops": 1
+        }
+      ],
+      "scans": [
+        {
+          "relation": "khach_hang",
+          "node": "Seq Scan",
+          "rows": 6665,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang",
+          "node": "Index Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "nhan_su",
+          "node": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "nhan_su",
+          "node": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "the_ban_hang",
+          "node": "Seq Scan",
+          "rows": 9343,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang_ct",
+          "node": "Seq Scan",
+          "rows": 15828,
+          "loops": 1
+        },
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 1267,
+          "loops": 1
+        }
+      ]
+    },
+    {
+      "name": "C_month",
+      "version": "old",
+      "executionMs": 499.572,
+      "sharedHits": 1727,
+      "sharedReads": 0,
+      "tempRead": 2237,
+      "tempWritten": 2587,
+      "outputRows": 991,
+      "sorts": [
+        {
+          "method": "external merge",
+          "space": 7400,
+          "type": "Disk",
+          "rows": 13330,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 144,
+          "type": "Memory",
+          "rows": 1680,
+          "loops": 1
+        }
+      ],
+      "scans": [
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "the_ban_hang",
+          "node": "Bitmap Heap Scan",
+          "rows": 991,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang_ct",
+          "node": "Seq Scan",
+          "rows": 15828,
+          "loops": 1
+        },
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 1267,
+          "loops": 1
+        }
+      ]
+    },
+    {
+      "name": "C_month",
+      "version": "new",
+      "executionMs": 257.01,
+      "sharedHits": 526,
+      "sharedReads": 0,
+      "tempRead": 0,
+      "tempWritten": 0,
+      "outputRows": 991,
+      "sorts": [
+        {
+          "method": "quicksort",
+          "space": 17,
+          "type": "Memory",
+          "rows": 0,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1350,
+          "type": "Memory",
+          "rows": 13330,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 224,
+          "type": "Memory",
+          "rows": 991,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 744,
+          "type": "Memory",
+          "rows": 6841,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 144,
+          "type": "Memory",
+          "rows": 1680,
+          "loops": 1
+        }
+      ],
+      "scans": [
+        {
+          "relation": "khach_hang",
+          "node": "Seq Scan",
+          "rows": 6665,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang",
+          "node": "Index Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "nhan_su",
+          "node": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "nhan_su",
+          "node": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "the_ban_hang",
+          "node": "Bitmap Heap Scan",
+          "rows": 991,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang_ct",
+          "node": "Seq Scan",
+          "rows": 15828,
+          "loops": 1
+        },
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 1267,
+          "loops": 1
+        }
+      ]
+    },
+    {
+      "name": "D_reference",
+      "version": "old",
+      "executionMs": 1188.935,
+      "sharedHits": 1866,
+      "sharedReads": 0,
+      "tempRead": 2237,
+      "tempWritten": 2587,
+      "outputRows": 9343,
+      "sorts": [
+        {
+          "method": "external merge",
+          "space": 7400,
+          "type": "Disk",
+          "rows": 13330,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1308,
+          "type": "Memory",
+          "rows": 15828,
+          "loops": 1
+        }
+      ],
+      "scans": [
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "the_ban_hang",
+          "node": "Seq Scan",
+          "rows": 9343,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang_ct",
+          "node": "Seq Scan",
+          "rows": 15828,
+          "loops": 1
+        },
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 1267,
+          "loops": 1
+        }
+      ]
+    },
+    {
+      "name": "D_reference",
+      "version": "new",
+      "executionMs": 306.114,
+      "sharedHits": 668,
+      "sharedReads": 0,
+      "tempRead": 0,
+      "tempWritten": 0,
+      "outputRows": 1,
+      "sorts": [
+        {
+          "method": "quicksort",
+          "space": 17,
+          "type": "Memory",
+          "rows": 0,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1350,
+          "type": "Memory",
+          "rows": 13330,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 17,
+          "type": "Memory",
+          "rows": 1,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 17,
+          "type": "Memory",
+          "rows": 1,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 744,
+          "type": "Memory",
+          "rows": 2352,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 17,
+          "type": "Memory",
+          "rows": 1,
+          "loops": 1
+        }
+      ],
+      "scans": [
+        {
+          "relation": "khach_hang",
+          "node": "Seq Scan",
+          "rows": 6665,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang",
+          "node": "Index Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "nhan_su",
+          "node": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "nhan_su",
+          "node": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "the_ban_hang",
+          "node": "Index Scan",
+          "rows": 1,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang",
+          "node": "Seq Scan",
+          "rows": 1,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang_ct",
+          "node": "Seq Scan",
+          "rows": 15828,
+          "loops": 1
+        },
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 1267,
+          "loops": 1
+        }
+      ]
+    },
+    {
+      "name": "E_customer",
+      "version": "old",
+      "executionMs": 1825.805,
+      "sharedHits": 1866,
+      "sharedReads": 0,
+      "tempRead": 2237,
+      "tempWritten": 2587,
+      "outputRows": 9343,
+      "sorts": [
+        {
+          "method": "external merge",
+          "space": 7400,
+          "type": "Disk",
+          "rows": 13330,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1308,
+          "type": "Memory",
+          "rows": 15828,
+          "loops": 1
+        }
+      ],
+      "scans": [
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "the_ban_hang",
+          "node": "Seq Scan",
+          "rows": 9343,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang_ct",
+          "node": "Seq Scan",
+          "rows": 15828,
+          "loops": 1
+        },
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 1267,
+          "loops": 1
+        }
+      ]
+    },
+    {
+      "name": "E_customer",
+      "version": "new",
+      "executionMs": 422.071,
+      "sharedHits": 665,
+      "sharedReads": 0,
+      "tempRead": 0,
+      "tempWritten": 0,
+      "outputRows": 1,
+      "sorts": [
+        {
+          "method": "quicksort",
+          "space": 17,
+          "type": "Memory",
+          "rows": 0,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1350,
+          "type": "Memory",
+          "rows": 13330,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 17,
+          "type": "Memory",
+          "rows": 2,
+          "loops": 1
+        }
+      ],
+      "scans": [
+        {
+          "relation": "khach_hang",
+          "node": "Seq Scan",
+          "rows": 6665,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang",
+          "node": "Index Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "nhan_su",
+          "node": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "nhan_su",
+          "node": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "the_ban_hang",
+          "node": "Seq Scan",
+          "rows": 9343,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang_ct",
+          "node": "Seq Scan",
+          "rows": 15828,
+          "loops": 1
+        },
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 1267,
+          "loops": 1
+        }
+      ]
+    },
+    {
+      "name": "F_branch",
+      "version": "old",
+      "executionMs": 1371.421,
+      "sharedHits": 1866,
+      "sharedReads": 0,
+      "tempRead": 2237,
+      "tempWritten": 2587,
+      "outputRows": 9343,
+      "sorts": [
+        {
+          "method": "external merge",
+          "space": 7400,
+          "type": "Disk",
+          "rows": 13330,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1308,
+          "type": "Memory",
+          "rows": 15828,
+          "loops": 1
+        }
+      ],
+      "scans": [
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "the_ban_hang",
+          "node": "Seq Scan",
+          "rows": 9343,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang_ct",
+          "node": "Seq Scan",
+          "rows": 15828,
+          "loops": 1
+        },
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 1267,
+          "loops": 1
+        }
+      ]
+    },
+    {
+      "name": "F_branch",
+      "version": "new",
+      "executionMs": 897.183,
+      "sharedHits": 665,
+      "sharedReads": 0,
+      "tempRead": 0,
+      "tempWritten": 0,
+      "outputRows": 4701,
+      "sorts": [
+        {
+          "method": "quicksort",
+          "space": 17,
+          "type": "Memory",
+          "rows": 0,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1350,
+          "type": "Memory",
+          "rows": 13330,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 744,
+          "type": "Memory",
+          "rows": 6665,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 2211,
+          "type": "Memory",
+          "rows": 9343,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1308,
+          "type": "Memory",
+          "rows": 15828,
+          "loops": 1
+        }
+      ],
+      "scans": [
+        {
+          "relation": "khach_hang",
+          "node": "Seq Scan",
+          "rows": 6665,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang",
+          "node": "Index Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "nhan_su",
+          "node": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "nhan_su",
+          "node": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "the_ban_hang",
+          "node": "Seq Scan",
+          "rows": 9343,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang_ct",
+          "node": "Seq Scan",
+          "rows": 15828,
+          "loops": 1
+        },
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 1267,
+          "loops": 1
+        }
+      ]
+    },
+    {
+      "name": "G_staff",
+      "version": "old",
+      "executionMs": 1358.659,
+      "sharedHits": 1866,
+      "sharedReads": 0,
+      "tempRead": 2237,
+      "tempWritten": 2587,
+      "outputRows": 9343,
+      "sorts": [
+        {
+          "method": "external merge",
+          "space": 7400,
+          "type": "Disk",
+          "rows": 13330,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1308,
+          "type": "Memory",
+          "rows": 15828,
+          "loops": 1
+        }
+      ],
+      "scans": [
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "the_ban_hang",
+          "node": "Seq Scan",
+          "rows": 9343,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang_ct",
+          "node": "Seq Scan",
+          "rows": 15828,
+          "loops": 1
+        },
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 1267,
+          "loops": 1
+        }
+      ]
+    },
+    {
+      "name": "G_staff",
+      "version": "new",
+      "executionMs": 447.75,
+      "sharedHits": 667,
+      "sharedReads": 0,
+      "tempRead": 0,
+      "tempWritten": 0,
+      "outputRows": 3153,
+      "sorts": [
+        {
+          "method": "quicksort",
+          "space": 17,
+          "type": "Memory",
+          "rows": 0,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1350,
+          "type": "Memory",
+          "rows": 13330,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 723,
+          "type": "Memory",
+          "rows": 3153,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 744,
+          "type": "Memory",
+          "rows": 7598,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 482,
+          "type": "Memory",
+          "rows": 5318,
+          "loops": 1
+        }
+      ],
+      "scans": [
+        {
+          "relation": "khach_hang",
+          "node": "Seq Scan",
+          "rows": 6665,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang",
+          "node": "Index Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "nhan_su",
+          "node": "Seq Scan",
+          "rows": 10,
+          "loops": 1
+        },
+        {
+          "relation": "nhan_su",
+          "node": "Seq Scan",
+          "rows": 10,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang",
+          "node": "Seq Scan",
+          "rows": 3153,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang_ct",
+          "node": "Seq Scan",
+          "rows": 15828,
+          "loops": 1
+        },
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 1267,
+          "loops": 1
+        }
+      ]
+    },
+    {
+      "name": "H_search",
+      "version": "old",
+      "executionMs": 2640.762,
+      "sharedHits": 1887,
+      "sharedReads": 0,
+      "tempRead": 2237,
+      "tempWritten": 2587,
+      "outputRows": 1,
+      "sorts": [
+        {
+          "method": "external merge",
+          "space": 7400,
+          "type": "Disk",
+          "rows": 13330,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 17,
+          "type": "Memory",
+          "rows": 2,
+          "loops": 1
+        }
+      ],
+      "scans": [
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 0,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang",
+          "node": "Seq Scan",
+          "rows": 9343,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang_ct",
+          "node": "Seq Scan",
+          "rows": 15828,
+          "loops": 1
+        },
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 1267,
+          "loops": 1
+        }
+      ]
+    },
+    {
+      "name": "H_search",
+      "version": "new",
+      "executionMs": 2577.148,
+      "sharedHits": 1887,
+      "sharedReads": 0,
+      "tempRead": 0,
+      "tempWritten": 0,
+      "outputRows": 1,
+      "sorts": [
+        {
+          "method": "quicksort",
+          "space": 53,
+          "type": "Memory",
+          "rows": 446,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1350,
+          "type": "Memory",
+          "rows": 13330,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 749,
+          "type": "Memory",
+          "rows": 6665,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 2908,
+          "type": "Memory",
+          "rows": 9343,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 17,
+          "type": "Memory",
+          "rows": 2,
+          "loops": 1
+        }
+      ],
+      "scans": [
+        {
+          "relation": "khach_hang",
+          "node": "Seq Scan",
+          "rows": 6665,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang",
+          "node": "Index Scan",
+          "rows": 0.69,
+          "loops": 446
+        },
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 0,
+          "loops": 1
+        },
+        {
+          "relation": "nhan_su",
+          "node": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "nhan_su",
+          "node": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "the_ban_hang",
+          "node": "Seq Scan",
+          "rows": 9343,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang_ct",
+          "node": "Seq Scan",
+          "rows": 15828,
+          "loops": 1
+        },
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 1267,
+          "loops": 1
+        }
+      ]
+    },
+    {
+      "name": "I_legacy",
+      "version": "old",
+      "executionMs": 1927.747,
+      "sharedHits": 1866,
+      "sharedReads": 0,
+      "tempRead": 2237,
+      "tempWritten": 2587,
+      "outputRows": 9343,
+      "sorts": [
+        {
+          "method": "external merge",
+          "space": 7400,
+          "type": "Disk",
+          "rows": 13330,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1308,
+          "type": "Memory",
+          "rows": 15828,
+          "loops": 1
+        }
+      ],
+      "scans": [
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "the_ban_hang",
+          "node": "Seq Scan",
+          "rows": 9343,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang_ct",
+          "node": "Seq Scan",
+          "rows": 15828,
+          "loops": 1
+        },
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 1267,
+          "loops": 1
+        }
+      ]
+    },
+    {
+      "name": "I_legacy",
+      "version": "new",
+      "executionMs": 281.511,
+      "sharedHits": 649,
+      "sharedReads": 0,
+      "tempRead": 0,
+      "tempWritten": 0,
+      "outputRows": 1,
+      "sorts": [
+        {
+          "method": "quicksort",
+          "space": 17,
+          "type": "Memory",
+          "rows": 0,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1350,
+          "type": "Memory",
+          "rows": 13330,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 17,
+          "type": "Memory",
+          "rows": 1,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 17,
+          "type": "Memory",
+          "rows": 1,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 17,
+          "type": "Memory",
+          "rows": 1,
+          "loops": 1
+        }
+      ],
+      "scans": [
+        {
+          "relation": "khach_hang",
+          "node": "Seq Scan",
+          "rows": 6665,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang",
+          "node": "Index Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "nhan_su",
+          "node": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "nhan_su",
+          "node": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "the_ban_hang",
+          "node": "Index Scan",
+          "rows": 1,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang",
+          "node": "Seq Scan",
+          "rows": 1,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang_ct",
+          "node": "Seq Scan",
+          "rows": 15828,
+          "loops": 1
+        },
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 1,
+          "loops": 1
+        }
+      ]
+    },
+    {
+      "name": "J_uuid",
+      "version": "old",
+      "executionMs": 2558.128,
+      "sharedHits": 1866,
+      "sharedReads": 0,
+      "tempRead": 2237,
+      "tempWritten": 2587,
+      "outputRows": 9343,
+      "sorts": [
+        {
+          "method": "external merge",
+          "space": 7400,
+          "type": "Disk",
+          "rows": 13330,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1308,
+          "type": "Memory",
+          "rows": 15828,
+          "loops": 1
+        }
+      ],
+      "scans": [
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "the_ban_hang",
+          "node": "Seq Scan",
+          "rows": 9343,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang_ct",
+          "node": "Seq Scan",
+          "rows": 15828,
+          "loops": 1
+        },
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 1267,
+          "loops": 1
+        }
+      ]
+    },
+    {
+      "name": "J_uuid",
+      "version": "new",
+      "executionMs": 393.599,
+      "sharedHits": 670,
+      "sharedReads": 0,
+      "tempRead": 0,
+      "tempWritten": 0,
+      "outputRows": 1,
+      "sorts": [
+        {
+          "method": "quicksort",
+          "space": 17,
+          "type": "Memory",
+          "rows": 0,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1350,
+          "type": "Memory",
+          "rows": 13330,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 17,
+          "type": "Memory",
+          "rows": 1,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 17,
+          "type": "Memory",
+          "rows": 1,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 744,
+          "type": "Memory",
+          "rows": 2352,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 17,
+          "type": "Memory",
+          "rows": 1,
+          "loops": 1
+        }
+      ],
+      "scans": [
+        {
+          "relation": "khach_hang",
+          "node": "Seq Scan",
+          "rows": 6665,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang",
+          "node": "Index Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "nhan_su",
+          "node": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "nhan_su",
+          "node": "Seq Scan",
+          "rows": 0,
+          "loops": 0
+        },
+        {
+          "relation": "the_ban_hang",
+          "node": "Index Only Scan",
+          "rows": 1,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang",
+          "node": "Index Scan",
+          "rows": 0,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang",
+          "node": "Seq Scan",
+          "rows": 1,
+          "loops": 1
+        },
+        {
+          "relation": "the_ban_hang_ct",
+          "node": "Seq Scan",
+          "rows": 15828,
+          "loops": 1
+        },
+        {
+          "relation": "dich_vu",
+          "node": "Seq Scan",
+          "rows": 1267,
+          "loops": 1
+        }
+      ]
+    }
+  ],
+  "serialization": [
+    {
+      "page": 1,
+      "pageJsonCalls": 20,
+      "datasetRows": 9343
+    },
+    {
+      "page": 2,
+      "pageJsonCalls": 20,
+      "datasetRows": 9343
+    }
+  ]
+}

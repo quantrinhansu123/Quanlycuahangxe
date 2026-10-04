@@ -71,7 +71,7 @@ const MainLayout: React.FC = () => {
         )}>
           <AnimatePresence mode="popLayout" initial={false}>
             <motion.div
-              key={location.pathname}
+              key={location.pathname === '/bao-cao' || location.pathname.startsWith('/bao-cao/') ? '/bao-cao' : location.pathname}
               initial={{ opacity: 0, scale: 0.98, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, y: -5 }}

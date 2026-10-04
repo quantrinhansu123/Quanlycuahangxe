@@ -1,0 +1,3985 @@
+[
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\apply-result.json",
+    "bytes": 196,
+    "sha256": "eb8fced8e6d6e8843fcb1a0d5717a73993906808da47b750a4318fdab5c404fe",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-1\\apply-result.json",
+    "bytes": 196,
+    "sha256": "d36f0e538ebd73e4be1cb154b101a27fc1a5e3d9646a627d242292793a4b9ae4",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-1\\A_all_page1-new-plan.json",
+    "bytes": 1000,
+    "sha256": "ab556bb137dbf56ef4d2eceb8ce2a0d94ac66d2fcfc79f86c4303478bf305b33",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.06,
+        "executionMs": 1581.187,
+        "jit": null,
+        "hits": 55455,
+        "temp": [
+          1298,
+          649
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-1\\A_all_page1-old-plan.json",
+    "bytes": 1004,
+    "sha256": "1a4100b093386f0b144405118ab326191eb81bb70f41c3fd672684e216171d37",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.059,
+        "executionMs": 1561.64,
+        "jit": null,
+        "hits": 12318,
+        "temp": [
+          17003,
+          15498
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-1\\benchmark-after-partial.json",
+    "bytes": 8163,
+    "sha256": "6821f5c3baa83d5b419235471ecc8a6a172b0dcfc8739a674f327c6b5adaa992",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-1\\benchmark-before.json",
+    "bytes": 8132,
+    "sha256": "0e8462eeaa269bdeebae1bf1284a7555c7cc65047a40e9cd1683e015e92bcc76",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-1\\B_all_page2-new-plan.json",
+    "bytes": 1001,
+    "sha256": "9667b6bbd8078d11942e3797f90b1b7add6a88c3766a28e3e8346c647a6fb252",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.067,
+        "executionMs": 1668.686,
+        "jit": null,
+        "hits": 56320,
+        "temp": [
+          1298,
+          649
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-1\\B_all_page2-old-plan.json",
+    "bytes": 1005,
+    "sha256": "e697b35a68db69f6a6cadd00176b74331e34d9f2130c64098d4d2ef4bd390cb6",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.057,
+        "executionMs": 2967.713,
+        "jit": null,
+        "hits": 12318,
+        "temp": [
+          17003,
+          15498
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-1\\catalog-before.json",
+    "bytes": 33133,
+    "sha256": "fb1e719eb1916150ef09648adb405606623447fb3b721c3b9606125eeda44b7f",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-1\\C_month-new-plan.json",
+    "bytes": 994,
+    "sha256": "8a7993576c983ca1c30d40128c7ac285338f960be6094fae23d475b49d8194b6",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.055,
+        "executionMs": 802.654,
+        "jit": null,
+        "hits": 16130,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-1\\C_month-old-plan.json",
+    "bytes": 1000,
+    "sha256": "bdf03056c3ffc1540800dacf27f955415283dd33be7a8b8e055d1dd3ecb04150",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.058,
+        "executionMs": 828.845,
+        "jit": null,
+        "hits": 12310,
+        "temp": [
+          7184,
+          6812
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-1\\definitions-live-before.json",
+    "bytes": 26818,
+    "sha256": "1beba68ed48473abe1fbfd816a0005f80b6694edb6fb40e49a59f52f5d7d255e",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-1\\D_reference_id_bh-new-plan.json",
+    "bytes": 993,
+    "sha256": "bacef4fa949779f7416e8542be2ca1efa51fb759cfc27750ae2305c10131e716",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.061,
+        "executionMs": 443.333,
+        "jit": null,
+        "hits": 3863,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-1\\D_reference_id_bh-old-plan.json",
+    "bytes": 1003,
+    "sha256": "ba24c4dd154312105976e6d3a8ab9faa6f5bc58ea9c1d1f1112119ec44bb24a4",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.059,
+        "executionMs": 1392.737,
+        "jit": null,
+        "hits": 12315,
+        "temp": [
+          8440,
+          8333
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-1\\E_customer-new-plan.json",
+    "bytes": 993,
+    "sha256": "f0869230365e27c702fb1770a9a87b062244c3e34d1174a8606c078fa3d475fa",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.058,
+        "executionMs": 576.268,
+        "jit": null,
+        "hits": 4120,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-1\\E_customer-old-plan.json",
+    "bytes": 1002,
+    "sha256": "86c66c2431fdb0f50ee6d6cf2ff93f46237971780f8f08f73d78c8d32e56d3a4",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.06,
+        "executionMs": 1410.552,
+        "jit": null,
+        "hits": 12315,
+        "temp": [
+          8440,
+          8333
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-1\\F_branch-new-plan.json",
+    "bytes": 1001,
+    "sha256": "8938f8431d7dde06cca075ecf5006eed9e4176e4a632df46268000a1466673f4",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.059,
+        "executionMs": 1577.883,
+        "jit": null,
+        "hits": 55961,
+        "temp": [
+          470,
+          235
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-1\\F_branch-old-plan.json",
+    "bytes": 1005,
+    "sha256": "2fa78593e050bc98fc3159d239800ab1714034d704bbe64b4cc04748e08031ca",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.059,
+        "executionMs": 1690.905,
+        "jit": null,
+        "hits": 12315,
+        "temp": [
+          11812,
+          11113
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-1\\G_staff-new-plan.json",
+    "bytes": 992,
+    "sha256": "02d1c000a1b6abc7602ae257bd5ccef52b8d58a3adaf5984bc4a73bc1c8dbb99",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.06,
+        "executionMs": 120.136,
+        "jit": null,
+        "hits": 2019,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-1\\G_staff-old-plan.json",
+    "bytes": 1003,
+    "sha256": "97b3d2db9813bf713dedd33940ab0bb5dea4896062b5457ed96c0d05e209fbf5",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.061,
+        "executionMs": 2832.107,
+        "jit": null,
+        "hits": 24206,
+        "temp": [
+          8440,
+          8333
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-1\\H_search-new-plan.json",
+    "bytes": 992,
+    "sha256": "7baab772e49be50c3b592cce0296a49a018b9337e0b7851a7f8033a4c90da4ff",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.064,
+        "executionMs": 530.71,
+        "jit": null,
+        "hits": 3983,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-1\\H_search-old-plan.json",
+    "bytes": 1001,
+    "sha256": "605fa408c4b7d114f519fa6207aa3ee3edcec6a54b9dc50f4f340f740c84d59f",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.06,
+        "executionMs": 1431.465,
+        "jit": null,
+        "hits": 4146,
+        "temp": [
+          4788,
+          5515
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-1\\I_legacy-new-plan.json",
+    "bytes": 992,
+    "sha256": "47a9cbe6396a0926b8cc92747439b463157596d437b25175c609816a1a43511d",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.06,
+        "executionMs": 401.695,
+        "jit": null,
+        "hits": 3639,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-1\\I_legacy-old-plan.json",
+    "bytes": 1002,
+    "sha256": "69f8099315f14a37dc3276d492497abf7ead9b57b9369e3246fc1d5c05cd7bb7",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.059,
+        "executionMs": 1376.229,
+        "jit": null,
+        "hits": 12315,
+        "temp": [
+          8440,
+          8333
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-1\\J_uuid-new-plan.json",
+    "bytes": 993,
+    "sha256": "edc3ab2e494a084789ab8f67a888b5125e70541cbab380bf0037efb98bd380ac",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.063,
+        "executionMs": 425.103,
+        "jit": null,
+        "hits": 3866,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-1\\J_uuid-old-plan.json",
+    "bytes": 1002,
+    "sha256": "63da47aff410fd3c0aa5eee374eb2541b4dbc8800df616ceda1dcb6e95465529",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.08,
+        "executionMs": 1484.623,
+        "jit": null,
+        "hits": 12315,
+        "temp": [
+          8440,
+          8333
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-1\\K_detail_branch-new-plan.json",
+    "bytes": 990,
+    "sha256": "e4e6de2223fc4c8c2f7df3f601d244daec36861c9df00729ae204decaaab9606",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.06,
+        "executionMs": 398.3,
+        "jit": null,
+        "hits": 3863,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-1\\K_detail_branch-old-plan.json",
+    "bytes": 1003,
+    "sha256": "a356c904d3f29e89a8f2f198a325e81d10485f1c9ebd484976982051f5fdbedd",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.062,
+        "executionMs": 1623.128,
+        "jit": null,
+        "hits": 12315,
+        "temp": [
+          8440,
+          8333
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-1\\live-backup-diff.txt",
+    "bytes": 123,
+    "sha256": "0997096c4adb614088824ca479db7b149cb05c0c8c680b7666027257c37cf320"
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-1\\L_customer_history-new-plan.json",
+    "bytes": 993,
+    "sha256": "61e9c6b623dba7cb2cc8c1a9fa79d27897e20a200935eccfcdb7268f27558a90",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.074,
+        "executionMs": 452.792,
+        "jit": null,
+        "hits": 3857,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-1\\L_customer_history-old-plan.json",
+    "bytes": 1000,
+    "sha256": "fbd1fbd207326228f2565ceb26bed9ae15e796c4090415a0a9fef16915f74ab3",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.067,
+        "executionMs": 752.465,
+        "jit": null,
+        "hits": 12297,
+        "temp": [
+          5505,
+          5398
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-1\\precheck.json",
+    "bytes": 1682,
+    "sha256": "ca6060dcd2c87e8e56cfc069d2ef9b77a0d96e8abbac2c533a38e02532646b6a",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-1\\rollback-live.sql",
+    "bytes": 9346,
+    "sha256": "e5d2fe7c521620ff9ea2a203f2f1d659aa26591134a41326f35e5e8a19991a8b"
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-1\\rollback-result.json",
+    "bytes": 126,
+    "sha256": "bdb0f6a7867d5ec0e6c0cbd4f53d8765cad0115b84bc8376d80109f3154f85f0",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-1\\snapshot-comparison.json",
+    "bytes": 961,
+    "sha256": "e20ab92bdad152de7339131bd311c811a39105deb423965edac7216d39d8307c",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-1\\stop-cause.json",
+    "bytes": 466,
+    "sha256": "145067de47cc9f51db39a3b1e4023714cf7d233643a52a6bcbd2acad75aa730a",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\apply-result.json",
+    "bytes": 196,
+    "sha256": "bf853f6b427805b28f02bb5e9ec57f46b14f1ac144aafa477d22eb8d88d8e4ce",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\A_all_page1-new-filtered-inner.json",
+    "bytes": 90721,
+    "sha256": "20739cee1c0b84a9bf094512093a176d2872c270230372a2eeb5b1aae3ddd114",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 5.589,
+        "executionMs": 496.45,
+        "jit": null,
+        "hits": 1082,
+        "temp": [
+          470,
+          235
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\A_all_page1-new-main-inner.json",
+    "bytes": 34692,
+    "sha256": "5ffb931a7d30dfb3e08c6867267e4faed5b2be64a8cd6281af6379ce08e50b85",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 2.083,
+        "executionMs": 1623.168,
+        "jit": null,
+        "hits": 55043,
+        "temp": [
+          1298,
+          649
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\A_all_page1-new-plan.json",
+    "bytes": 1002,
+    "sha256": "2d34630e7ff53c2383640d6dbc3d1f934240fb45ecee7ac05fb9595a2c308d2e",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.064,
+        "executionMs": 1617.652,
+        "jit": null,
+        "hits": 55455,
+        "temp": [
+          1298,
+          649
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\A_all_page1-old-helper-inner.json",
+    "bytes": 51384,
+    "sha256": "3c60a1ecf40d5d41b6e55ec6fdcb9be186f4e7176db1de07f42bc4d607a0bb39",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 35.154,
+        "executionMs": 1415.424,
+        "jit": null,
+        "hits": 9780,
+        "temp": [
+          6527,
+          6420
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\A_all_page1-old-plan.json",
+    "bytes": 1005,
+    "sha256": "ce27eb112dba7732fdc471a42ec965c2f9102028f168b93683b9e1331b66e4c4",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.058,
+        "executionMs": 1527.747,
+        "jit": null,
+        "hits": 12318,
+        "temp": [
+          17003,
+          15498
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\benchmark-after-partial.json",
+    "bytes": 8163,
+    "sha256": "6821f5c3baa83d5b419235471ecc8a6a172b0dcfc8739a674f327c6b5adaa992",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\benchmark-after.json",
+    "bytes": 9895,
+    "sha256": "d3856369868450045803f57ea3a5d6b70b4426330a192572779a876a79edd8ae",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\benchmark-before.json",
+    "bytes": 9633,
+    "sha256": "7761ec1498724112eedc8b51cb9f3ae52189a81c03b7e1a06ed118f64d4d9fd2",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\B_all_page2-new-filtered-inner.json",
+    "bytes": 90725,
+    "sha256": "e0ef770fb49f53006bb7d85ffd732722fd7740bfb2a5844e198ccd1924e9abdc",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 6.341,
+        "executionMs": 501.612,
+        "jit": null,
+        "hits": 1082,
+        "temp": [
+          470,
+          235
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\B_all_page2-new-main-inner.json",
+    "bytes": 34694,
+    "sha256": "0aff5880e43cad0c060f78cda2201180ada9767a5722f0992e27f5cff2eae012",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.776,
+        "executionMs": 1637.416,
+        "jit": null,
+        "hits": 55908,
+        "temp": [
+          1298,
+          649
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\B_all_page2-new-plan.json",
+    "bytes": 1002,
+    "sha256": "7543bf8da2b1485ecdb61e613d1e6abff5cd381c05031990d234be081d23535f",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.072,
+        "executionMs": 1607.237,
+        "jit": null,
+        "hits": 56320,
+        "temp": [
+          1298,
+          649
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\B_all_page2-old-helper-inner.json",
+    "bytes": 51382,
+    "sha256": "e70c947d09ddbd23c105cd2a58877b46c74745c1bad595861b2fc1aea90c4161",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 3.641,
+        "executionMs": 1107.915,
+        "jit": null,
+        "hits": 9780,
+        "temp": [
+          6527,
+          6420
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\B_all_page2-old-plan.json",
+    "bytes": 1005,
+    "sha256": "8572001b16108bf76bb5193c84643cb4ecb1bd4e4d5af82483b8b93e20d27c02",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.058,
+        "executionMs": 1542.301,
+        "jit": null,
+        "hits": 12318,
+        "temp": [
+          17003,
+          15498
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\catalog-after.json",
+    "bytes": 32675,
+    "sha256": "dfbac6de4f5ac74da88daf692e383a63e20aed8a46e5dacbc850d6b2d797799e",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\catalog-before.json",
+    "bytes": 33133,
+    "sha256": "fb1e719eb1916150ef09648adb405606623447fb3b721c3b9606125eeda44b7f",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\catalog-validation.json",
+    "bytes": 225,
+    "sha256": "3c81c60b7840fabe8b5fa2322f79f8f994c234dfbb3e76b4f99da066b0041816",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\C_month-new-plan.json",
+    "bytes": 993,
+    "sha256": "164c7c4e886b4340e8039968b68d23d6e83e63ee08bb4a48aaad262ced174ed5",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.066,
+        "executionMs": 877.082,
+        "jit": null,
+        "hits": 16130,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\C_month-old-plan.json",
+    "bytes": 1000,
+    "sha256": "0a9194da82508623a9ab4d7d54989138e5d5f29c0040aa7040d294d852b0f009",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.055,
+        "executionMs": 778.288,
+        "jit": null,
+        "hits": 12310,
+        "temp": [
+          7184,
+          6812
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\definitions-live-after.json",
+    "bytes": 35115,
+    "sha256": "c81b7123779057abc42d70ecf0e721c21ccc26bcd274b8e576947c144c4edda7",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\definitions-live-before.json",
+    "bytes": 26818,
+    "sha256": "79857e70366ebfb58042cd06bd5c22facaf4cc613cb55fd05d74bc32837643ff",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\D_reference_id_bh-new-filtered-inner.json",
+    "bytes": 92212,
+    "sha256": "efcc4fab6a9ea881cf734e1882eb45342dd442844eb242cf65e0e3fa29cdf669",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 6.05,
+        "executionMs": 179.09,
+        "jit": null,
+        "hits": 1085,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\D_reference_id_bh-new-main-inner.json",
+    "bytes": 34530,
+    "sha256": "f399c1d852670c4dd8f054ba9c21bd88b7e037448951b34fb176ebd83097f252",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.789,
+        "executionMs": 393.837,
+        "jit": null,
+        "hits": 3454,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\D_reference_id_bh-new-plan.json",
+    "bytes": 993,
+    "sha256": "75dffcaf2a6d2cb01727394575baae96b37b6aaa9fb4d454f5973c1e414807a4",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.061,
+        "executionMs": 397.657,
+        "jit": null,
+        "hits": 3863,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\D_reference_id_bh-old-helper-inner.json",
+    "bytes": 51386,
+    "sha256": "f387667e976e5c2b9aad58073d7d9bda90953e5a7c1fa581ee37f407ee1c50db",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 3.775,
+        "executionMs": 1210.309,
+        "jit": null,
+        "hits": 9780,
+        "temp": [
+          6527,
+          6420
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\D_reference_id_bh-old-plan.json",
+    "bytes": 1003,
+    "sha256": "cc301e570db87326f0792aac1cbd4895e90661d0758c386cd80d82d65a1daa53",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.068,
+        "executionMs": 1848.287,
+        "jit": null,
+        "hits": 12315,
+        "temp": [
+          8440,
+          8333
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\E_customer-new-plan.json",
+    "bytes": 993,
+    "sha256": "a56e3e479dd51679d5c6710e0db107141dec9713bfd29f1877dbc6482e43ceb0",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.058,
+        "executionMs": 560.839,
+        "jit": null,
+        "hits": 4120,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\E_customer-old-plan.json",
+    "bytes": 1002,
+    "sha256": "26edd4c761698f9fba68cb12418d09be97bf0baf2abd971fd076b734736ba521",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.06,
+        "executionMs": 1444.889,
+        "jit": null,
+        "hits": 12315,
+        "temp": [
+          8440,
+          8333
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\F_branch-new-plan.json",
+    "bytes": 1001,
+    "sha256": "ed0f8d4449bc92443601d9fd2fc442514efdf1c6320165679ce630344701e8a7",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.056,
+        "executionMs": 1520.786,
+        "jit": null,
+        "hits": 55961,
+        "temp": [
+          470,
+          235
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\F_branch-old-plan.json",
+    "bytes": 1005,
+    "sha256": "08358362e403dd9929bbe3e6a5ac58e3a6e35ce5b2e8527a1d83de1f75c8009e",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.055,
+        "executionMs": 1758.365,
+        "jit": null,
+        "hits": 12315,
+        "temp": [
+          11812,
+          11113
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\G_staff-new-filtered-inner.json",
+    "bytes": 92480,
+    "sha256": "417de61b7c07c5db6c126b7cb74c88a3db04a5b73dfcf65f3f2caf461da351d6",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 7.47,
+        "executionMs": 127.146,
+        "jit": null,
+        "hits": 254,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\G_staff-new-main-inner.json",
+    "bytes": 34253,
+    "sha256": "30256770b579fbebe2ab1170b7e9578b0d77b477c8883ef27e28a6d0c3c8361c",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.854,
+        "executionMs": 125.962,
+        "jit": null,
+        "hits": 1610,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\G_staff-new-plan.json",
+    "bytes": 993,
+    "sha256": "a1335bfdadda03733a977d025149934d8248b90f2d7705acb5134b52f16ae91e",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.078,
+        "executionMs": 249.978,
+        "jit": null,
+        "hits": 2019,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\G_staff-old-helper-inner.json",
+    "bytes": 51381,
+    "sha256": "c67997a8c74aa8bedacd2dcfc673b125f25e180b65049decff73ccb32c2cd206",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 3.824,
+        "executionMs": 1174.564,
+        "jit": null,
+        "hits": 9780,
+        "temp": [
+          6527,
+          6420
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\G_staff-old-plan.json",
+    "bytes": 1003,
+    "sha256": "6ddfb503a75dc44d220d117c52b30610cebbe0803087f2a0417beceb061ab1c1",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.065,
+        "executionMs": 2959.473,
+        "jit": null,
+        "hits": 24206,
+        "temp": [
+          8440,
+          8333
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\H_search-new-filtered-inner.json",
+    "bytes": 100138,
+    "sha256": "28511c411ab021152d505049ec54988eed142a80ba6a1cacb11f51f7a5b1ab2b",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 6.809,
+        "executionMs": 568.421,
+        "jit": null,
+        "hits": 1824,
+        "temp": [
+          263,
+          264
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\H_search-new-main-inner.json",
+    "bytes": 34258,
+    "sha256": "98d86fc838926fd17ddf6d8ac8e0bcd57518d4819e50581be3b296b88f8e8dba",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.853,
+        "executionMs": 569.089,
+        "jit": null,
+        "hits": 3574,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\H_search-new-plan.json",
+    "bytes": 992,
+    "sha256": "3a0d9f8d4dd2f1684570f8f225472ac6c51e36280721972ccf7721b20fec575f",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.06,
+        "executionMs": 549.474,
+        "jit": null,
+        "hits": 3983,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\H_search-old-helper-inner.json",
+    "bytes": 54130,
+    "sha256": "fd675fde0965e17ad92d91233255281c450fd4768d07478d330b2cf69fd2d506",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 4.04,
+        "executionMs": 1382.974,
+        "jit": null,
+        "hits": 2300,
+        "temp": [
+          4855,
+          5580
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\H_search-old-plan.json",
+    "bytes": 1002,
+    "sha256": "d07e20348054bde1a494cd70f03135e6d29894ecf2a59608ca9b717f3bca3eb0",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.061,
+        "executionMs": 1440.923,
+        "jit": null,
+        "hits": 4146,
+        "temp": [
+          4788,
+          5515
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\inner-plan-validation.json",
+    "bytes": 23903,
+    "sha256": "3037f032f45c8ecda436633565cb0d3fe22b8248f5b4a43ef4e0f05951abfaec",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\I_legacy-new-plan.json",
+    "bytes": 993,
+    "sha256": "883c1e4a6c6eb63a6680eb9c3c98b425b56a87bc7ab074d469ac911838d76ae2",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.061,
+        "executionMs": 397.608,
+        "jit": null,
+        "hits": 3639,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\I_legacy-old-plan.json",
+    "bytes": 1001,
+    "sha256": "c493d962c8a191cb803fb504b413ba9d00d9cd9339fa48c9b29b329eaa4e695e",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.062,
+        "executionMs": 2829.603,
+        "jit": null,
+        "hits": 12315,
+        "temp": [
+          8440,
+          8333
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\J_uuid-new-plan.json",
+    "bytes": 993,
+    "sha256": "67a0286bcfd48823f4951e3bf291da852479bfa86e31b35d94fff594dd5f36a0",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.079,
+        "executionMs": 393.415,
+        "jit": null,
+        "hits": 3866,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\J_uuid-old-plan.json",
+    "bytes": 1003,
+    "sha256": "d75895341c40bb82af9f65612e31e543ab1c1a7601a9d20eb87f33ea864c242d",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.058,
+        "executionMs": 1560.976,
+        "jit": null,
+        "hits": 12315,
+        "temp": [
+          8440,
+          8333
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\K_detail_branch-new-plan.json",
+    "bytes": 993,
+    "sha256": "a0365e9104b214e8c1fc35a7e1444d643861429ff01581d6c5665b2395fee19b",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.061,
+        "executionMs": 393.419,
+        "jit": null,
+        "hits": 3863,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\K_detail_branch-old-plan.json",
+    "bytes": 1003,
+    "sha256": "792745fbf1e7ec204af29d6d9b29f0a097b68be859af7e8916f328d64bbb954e",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.059,
+        "executionMs": 1477.346,
+        "jit": null,
+        "hits": 12315,
+        "temp": [
+          8440,
+          8333
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\live-backup-diff.txt",
+    "bytes": 123,
+    "sha256": "0997096c4adb614088824ca479db7b149cb05c0c8c680b7666027257c37cf320"
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\L_customer_history-new-plan.json",
+    "bytes": 993,
+    "sha256": "584c7ab7025a8679769fd2211034701f916711ae1452a0d6d23a2d33461cd416",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.055,
+        "executionMs": 399.796,
+        "jit": null,
+        "hits": 3857,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\L_customer_history-old-plan.json",
+    "bytes": 1000,
+    "sha256": "bd8605f567decb514e053c6bcc831d9fc47221ec4a19ac12909580dd2e3df11b",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.061,
+        "executionMs": 618.021,
+        "jit": null,
+        "hits": 12297,
+        "temp": [
+          5505,
+          5398
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\M_positive_staff-new-plan.json",
+    "bytes": 993,
+    "sha256": "38fa160960dd1f73b7f6831615650c8d8384e16eedb6b1e5c09145a2b231df34",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.061,
+        "executionMs": 612.209,
+        "jit": null,
+        "hits": 8717,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\M_positive_staff-old-plan.json",
+    "bytes": 1003,
+    "sha256": "beb4efaf5103ac80d57f61d1635545f74739f07e77176dd8de354b005928a91c",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.058,
+        "executionMs": 4827.374,
+        "jit": null,
+        "hits": 24751,
+        "temp": [
+          8440,
+          8333
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\N_positive_search_code-new-plan.json",
+    "bytes": 993,
+    "sha256": "7a4e6b1e78fae8eb12be9b9867c22b5e7425be1b22c6e3428918f0995b7ea1db",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.061,
+        "executionMs": 844.957,
+        "jit": null,
+        "hits": 5004,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\N_positive_search_code-old-plan.json",
+    "bytes": 1003,
+    "sha256": "ce5946bbfda5fe23d59abbf7a4fbd99b22c58f0770d5b76b2b0fc4988d240fd0",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.064,
+        "executionMs": 1694.344,
+        "jit": null,
+        "hits": 10899,
+        "temp": [
+          6565,
+          5995
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\precheck.json",
+    "bytes": 1682,
+    "sha256": "ca6060dcd2c87e8e56cfc069d2ef9b77a0d96e8abbac2c533a38e02532646b6a",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\role-diagnostic.json",
+    "bytes": 479,
+    "sha256": "e9f207ae5f7d584fa1745aa27684d64ddf86d0530d0d6988000b1baa61ad656a",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\rollback-live.sql",
+    "bytes": 9346,
+    "sha256": "e5d2fe7c521620ff9ea2a203f2f1d659aa26591134a41326f35e5e8a19991a8b"
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\rollback-result.json",
+    "bytes": 126,
+    "sha256": "ffd2a507613ee02c51e8a96edbde25a27275642744f9123d32aeada83246caba",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\snapshot-comparison.json",
+    "bytes": 961,
+    "sha256": "e20ab92bdad152de7339131bd311c811a39105deb423965edac7216d39d8307c",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-2\\stop-cause.json",
+    "bytes": 455,
+    "sha256": "cf98c10a1c64403e0b4c2ace1c281f8054fe2994a6ee5de8ac994caca8f7df3b",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-3\\apply-result.json",
+    "bytes": 196,
+    "sha256": "eb8fced8e6d6e8843fcb1a0d5717a73993906808da47b750a4318fdab5c404fe",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-3\\benchmark-after-partial.json",
+    "bytes": 666,
+    "sha256": "23d22eb650d805c8acda74643f12b51729aa266cea8ba9f16ca175066d51afd4",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-3\\benchmark-before.json",
+    "bytes": 9630,
+    "sha256": "8b301110d0171e8bd9d767fc358890292c8945ba0371bc51c48dccd60de78257",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-3\\catalog-before.json",
+    "bytes": 33133,
+    "sha256": "fb1e719eb1916150ef09648adb405606623447fb3b721c3b9606125eeda44b7f",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-3\\definitions-live-before.json",
+    "bytes": 26818,
+    "sha256": "42a36c864088511873a275d3929f1fb42252b8bb0327b1d873c665250f6d23fa",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-3\\precheck.json",
+    "bytes": 1682,
+    "sha256": "ca6060dcd2c87e8e56cfc069d2ef9b77a0d96e8abbac2c533a38e02532646b6a",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-3\\rollback-live.sql",
+    "bytes": 9346,
+    "sha256": "e5d2fe7c521620ff9ea2a203f2f1d659aa26591134a41326f35e5e8a19991a8b"
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-3\\rollback-result.json",
+    "bytes": 140,
+    "sha256": "a6147ec0503063a67692b54d8048fb4847b677bc001bb72c86f3da83509ba132",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\attempt-3\\snapshot-comparison.json",
+    "bytes": 961,
+    "sha256": "e20ab92bdad152de7339131bd311c811a39105deb423965edac7216d39d8307c",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\A_all_page1-new-filtered-inner.json",
+    "bytes": 90721,
+    "sha256": "20739cee1c0b84a9bf094512093a176d2872c270230372a2eeb5b1aae3ddd114",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 5.589,
+        "executionMs": 496.45,
+        "jit": null,
+        "hits": 1082,
+        "temp": [
+          470,
+          235
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\A_all_page1-new-main-inner.json",
+    "bytes": 34692,
+    "sha256": "5ffb931a7d30dfb3e08c6867267e4faed5b2be64a8cd6281af6379ce08e50b85",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 2.083,
+        "executionMs": 1623.168,
+        "jit": null,
+        "hits": 55043,
+        "temp": [
+          1298,
+          649
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\A_all_page1-new-plan.json",
+    "bytes": 1002,
+    "sha256": "56e6b528aee7eefe3ea1a7b957ecfd0bd234504c231e79f5eabc93ee9a4a50ae",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.068,
+        "executionMs": 1799.459,
+        "jit": null,
+        "hits": 55455,
+        "temp": [
+          1298,
+          649
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\A_all_page1-old-helper-inner.json",
+    "bytes": 51384,
+    "sha256": "3c60a1ecf40d5d41b6e55ec6fdcb9be186f4e7176db1de07f42bc4d607a0bb39",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 35.154,
+        "executionMs": 1415.424,
+        "jit": null,
+        "hits": 9780,
+        "temp": [
+          6527,
+          6420
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\A_all_page1-old-plan.json",
+    "bytes": 1005,
+    "sha256": "daeb162047bf014774316ef1aa4a13523137cef6db8ad50948fea90131084031",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.076,
+        "executionMs": 1666.122,
+        "jit": null,
+        "hits": 12318,
+        "temp": [
+          17003,
+          15498
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\benchmark-after-partial.json",
+    "bytes": 666,
+    "sha256": "23d22eb650d805c8acda74643f12b51729aa266cea8ba9f16ca175066d51afd4",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\benchmark-after.json",
+    "bytes": 9895,
+    "sha256": "d3856369868450045803f57ea3a5d6b70b4426330a192572779a876a79edd8ae",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\benchmark-before.json",
+    "bytes": 9630,
+    "sha256": "8b301110d0171e8bd9d767fc358890292c8945ba0371bc51c48dccd60de78257",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\B_all_page2-new-filtered-inner.json",
+    "bytes": 90725,
+    "sha256": "e0ef770fb49f53006bb7d85ffd732722fd7740bfb2a5844e198ccd1924e9abdc",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 6.341,
+        "executionMs": 501.612,
+        "jit": null,
+        "hits": 1082,
+        "temp": [
+          470,
+          235
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\B_all_page2-new-main-inner.json",
+    "bytes": 34694,
+    "sha256": "0aff5880e43cad0c060f78cda2201180ada9767a5722f0992e27f5cff2eae012",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.776,
+        "executionMs": 1637.416,
+        "jit": null,
+        "hits": 55908,
+        "temp": [
+          1298,
+          649
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\B_all_page2-new-plan.json",
+    "bytes": 1002,
+    "sha256": "7543bf8da2b1485ecdb61e613d1e6abff5cd381c05031990d234be081d23535f",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.072,
+        "executionMs": 1607.237,
+        "jit": null,
+        "hits": 56320,
+        "temp": [
+          1298,
+          649
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\B_all_page2-old-helper-inner.json",
+    "bytes": 51382,
+    "sha256": "e70c947d09ddbd23c105cd2a58877b46c74745c1bad595861b2fc1aea90c4161",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 3.641,
+        "executionMs": 1107.915,
+        "jit": null,
+        "hits": 9780,
+        "temp": [
+          6527,
+          6420
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\B_all_page2-old-plan.json",
+    "bytes": 1004,
+    "sha256": "8e272a8e990e3b5baf4970eb6f820bb56d188a01221c024a23b46d25ebbd6920",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.054,
+        "executionMs": 1577.84,
+        "jit": null,
+        "hits": 12318,
+        "temp": [
+          17003,
+          15498
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\caller-before-caller-validation-partial.json",
+    "bytes": 2858,
+    "sha256": "347773758aa1db9e0274d021e7d83d99464bb3b86e0158c3fdf66fbcb026ecd7",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\catalog-after.json",
+    "bytes": 32675,
+    "sha256": "dfbac6de4f5ac74da88daf692e383a63e20aed8a46e5dacbc850d6b2d797799e",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\catalog-before.json",
+    "bytes": 33133,
+    "sha256": "fb1e719eb1916150ef09648adb405606623447fb3b721c3b9606125eeda44b7f",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\catalog-final-old.json",
+    "bytes": 59993,
+    "sha256": "ee75c1481777d3f2813b6703b0960a4c16a5f627dd62073d54d9291ad7c0bf6e",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\catalog-validation.json",
+    "bytes": 225,
+    "sha256": "3c81c60b7840fabe8b5fa2322f79f8f994c234dfbb3e76b4f99da066b0041816",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\C_month-new-plan.json",
+    "bytes": 993,
+    "sha256": "164c7c4e886b4340e8039968b68d23d6e83e63ee08bb4a48aaad262ced174ed5",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.066,
+        "executionMs": 877.082,
+        "jit": null,
+        "hits": 16130,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\C_month-old-plan.json",
+    "bytes": 1000,
+    "sha256": "c8bf3f8fa325d80b85e19ca6076d76270265cbd204f44e01e2944fb73406c30c",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.054,
+        "executionMs": 791.657,
+        "jit": null,
+        "hits": 12310,
+        "temp": [
+          7184,
+          6812
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\definitions-live-after.json",
+    "bytes": 35115,
+    "sha256": "c81b7123779057abc42d70ecf0e721c21ccc26bcd274b8e576947c144c4edda7",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\definitions-live-before.json",
+    "bytes": 26818,
+    "sha256": "42a36c864088511873a275d3929f1fb42252b8bb0327b1d873c665250f6d23fa",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\D_reference_id_bh-new-filtered-inner.json",
+    "bytes": 92212,
+    "sha256": "efcc4fab6a9ea881cf734e1882eb45342dd442844eb242cf65e0e3fa29cdf669",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 6.05,
+        "executionMs": 179.09,
+        "jit": null,
+        "hits": 1085,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\D_reference_id_bh-new-main-inner.json",
+    "bytes": 34530,
+    "sha256": "f399c1d852670c4dd8f054ba9c21bd88b7e037448951b34fb176ebd83097f252",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.789,
+        "executionMs": 393.837,
+        "jit": null,
+        "hits": 3454,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\D_reference_id_bh-new-plan.json",
+    "bytes": 993,
+    "sha256": "75dffcaf2a6d2cb01727394575baae96b37b6aaa9fb4d454f5973c1e414807a4",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.061,
+        "executionMs": 397.657,
+        "jit": null,
+        "hits": 3863,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\D_reference_id_bh-old-helper-inner.json",
+    "bytes": 51386,
+    "sha256": "f387667e976e5c2b9aad58073d7d9bda90953e5a7c1fa581ee37f407ee1c50db",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 3.775,
+        "executionMs": 1210.309,
+        "jit": null,
+        "hits": 9780,
+        "temp": [
+          6527,
+          6420
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\D_reference_id_bh-old-plan.json",
+    "bytes": 1003,
+    "sha256": "ae3a573232b9f8221d73366530c9adc6c2b8c56cbd4adf2f4452273286b6a634",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.057,
+        "executionMs": 1371.733,
+        "jit": null,
+        "hits": 12315,
+        "temp": [
+          8440,
+          8333
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\E_customer-new-plan.json",
+    "bytes": 993,
+    "sha256": "a56e3e479dd51679d5c6710e0db107141dec9713bfd29f1877dbc6482e43ceb0",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.058,
+        "executionMs": 560.839,
+        "jit": null,
+        "hits": 4120,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\E_customer-old-plan.json",
+    "bytes": 1003,
+    "sha256": "5c3cbc085798f08cbda2d9d774a8b066e9b889cb8220240ffbd0804b328f87a6",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.056,
+        "executionMs": 1385.196,
+        "jit": null,
+        "hits": 12315,
+        "temp": [
+          8440,
+          8333
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\F_branch-new-plan.json",
+    "bytes": 1001,
+    "sha256": "ed0f8d4449bc92443601d9fd2fc442514efdf1c6320165679ce630344701e8a7",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.056,
+        "executionMs": 1520.786,
+        "jit": null,
+        "hits": 55961,
+        "temp": [
+          470,
+          235
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\F_branch-old-plan.json",
+    "bytes": 1005,
+    "sha256": "4e519ff36c71d46b9af858e36c67083caf704c34b99c8797c4063c31a9cff769",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.053,
+        "executionMs": 1633.632,
+        "jit": null,
+        "hits": 12315,
+        "temp": [
+          11812,
+          11113
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\git-status-final.txt",
+    "bytes": 472,
+    "sha256": "18dac94265ff3a17686cc0e4f4e4d03eeb9a30069fecf2fcb4a7ffdc00665fae"
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\G_staff-new-filtered-inner.json",
+    "bytes": 92480,
+    "sha256": "417de61b7c07c5db6c126b7cb74c88a3db04a5b73dfcf65f3f2caf461da351d6",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 7.47,
+        "executionMs": 127.146,
+        "jit": null,
+        "hits": 254,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\G_staff-new-main-inner.json",
+    "bytes": 34253,
+    "sha256": "30256770b579fbebe2ab1170b7e9578b0d77b477c8883ef27e28a6d0c3c8361c",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.854,
+        "executionMs": 125.962,
+        "jit": null,
+        "hits": 1610,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\G_staff-new-plan.json",
+    "bytes": 993,
+    "sha256": "a1335bfdadda03733a977d025149934d8248b90f2d7705acb5134b52f16ae91e",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.078,
+        "executionMs": 249.978,
+        "jit": null,
+        "hits": 2019,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\G_staff-old-helper-inner.json",
+    "bytes": 51381,
+    "sha256": "c67997a8c74aa8bedacd2dcfc673b125f25e180b65049decff73ccb32c2cd206",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 3.824,
+        "executionMs": 1174.564,
+        "jit": null,
+        "hits": 9780,
+        "temp": [
+          6527,
+          6420
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\G_staff-old-plan.json",
+    "bytes": 1002,
+    "sha256": "8a9502c3fe23bafc13cab1005039f28d15c78ea863c247d67fa4925543c0f0d6",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.31,
+        "executionMs": 3465.683,
+        "jit": null,
+        "hits": 24206,
+        "temp": [
+          8440,
+          8333
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\H_search-new-filtered-inner.json",
+    "bytes": 100138,
+    "sha256": "28511c411ab021152d505049ec54988eed142a80ba6a1cacb11f51f7a5b1ab2b",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 6.809,
+        "executionMs": 568.421,
+        "jit": null,
+        "hits": 1824,
+        "temp": [
+          263,
+          264
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\H_search-new-main-inner.json",
+    "bytes": 34258,
+    "sha256": "98d86fc838926fd17ddf6d8ac8e0bcd57518d4819e50581be3b296b88f8e8dba",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.853,
+        "executionMs": 569.089,
+        "jit": null,
+        "hits": 3574,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\H_search-new-plan.json",
+    "bytes": 992,
+    "sha256": "3a0d9f8d4dd2f1684570f8f225472ac6c51e36280721972ccf7721b20fec575f",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.06,
+        "executionMs": 549.474,
+        "jit": null,
+        "hits": 3983,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\H_search-old-helper-inner.json",
+    "bytes": 54130,
+    "sha256": "fd675fde0965e17ad92d91233255281c450fd4768d07478d330b2cf69fd2d506",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 4.04,
+        "executionMs": 1382.974,
+        "jit": null,
+        "hits": 2300,
+        "temp": [
+          4855,
+          5580
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\H_search-old-plan.json",
+    "bytes": 1002,
+    "sha256": "c469b097612559909499cd9cca6c4c16cb0d7fe2495e9c810b9bc59997cf555b",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.064,
+        "executionMs": 1584.614,
+        "jit": null,
+        "hits": 4146,
+        "temp": [
+          4788,
+          5515
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\inner-plan-validation.json",
+    "bytes": 23903,
+    "sha256": "3037f032f45c8ecda436633565cb0d3fe22b8248f5b4a43ef4e0f05951abfaec",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\I_legacy-new-plan.json",
+    "bytes": 993,
+    "sha256": "883c1e4a6c6eb63a6680eb9c3c98b425b56a87bc7ab074d469ac911838d76ae2",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.061,
+        "executionMs": 397.608,
+        "jit": null,
+        "hits": 3639,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\I_legacy-old-plan.json",
+    "bytes": 1003,
+    "sha256": "dbbd0c08061df23985856bab6943bd7c7e3c3d4ee8ab53fea7bcb6c35610fef3",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.061,
+        "executionMs": 1422.194,
+        "jit": null,
+        "hits": 12315,
+        "temp": [
+          8440,
+          8333
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\J_uuid-new-plan.json",
+    "bytes": 993,
+    "sha256": "67a0286bcfd48823f4951e3bf291da852479bfa86e31b35d94fff594dd5f36a0",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.079,
+        "executionMs": 393.415,
+        "jit": null,
+        "hits": 3866,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\J_uuid-old-plan.json",
+    "bytes": 1003,
+    "sha256": "993bfc62df6e0c8e55c9df1b3384d05b641e3d2180de06a637c8535b388cc561",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.076,
+        "executionMs": 1400.747,
+        "jit": null,
+        "hits": 12315,
+        "temp": [
+          8440,
+          8333
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\K_detail_branch-new-plan.json",
+    "bytes": 993,
+    "sha256": "a0365e9104b214e8c1fc35a7e1444d643861429ff01581d6c5665b2395fee19b",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.061,
+        "executionMs": 393.419,
+        "jit": null,
+        "hits": 3863,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\K_detail_branch-old-plan.json",
+    "bytes": 1003,
+    "sha256": "41260c6d80d996535f834dd1798d2e495303d55a0210e478cf6baca864704fcd",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.057,
+        "executionMs": 1383.864,
+        "jit": null,
+        "hits": 12315,
+        "temp": [
+          8440,
+          8333
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\live-backup-diff.txt",
+    "bytes": 123,
+    "sha256": "0997096c4adb614088824ca479db7b149cb05c0c8c680b7666027257c37cf320"
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\L_customer_history-new-plan.json",
+    "bytes": 993,
+    "sha256": "584c7ab7025a8679769fd2211034701f916711ae1452a0d6d23a2d33461cd416",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.055,
+        "executionMs": 399.796,
+        "jit": null,
+        "hits": 3857,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\L_customer_history-old-plan.json",
+    "bytes": 1000,
+    "sha256": "46a50b904f4640db8f43b766b1c4f3a02cb51c9e240d53f0993bbf2b04f6bf5f",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.053,
+        "executionMs": 621.544,
+        "jit": null,
+        "hits": 12297,
+        "temp": [
+          5505,
+          5398
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\M_positive_staff-new-plan.json",
+    "bytes": 993,
+    "sha256": "38fa160960dd1f73b7f6831615650c8d8384e16eedb6b1e5c09145a2b231df34",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.061,
+        "executionMs": 612.209,
+        "jit": null,
+        "hits": 8717,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\M_positive_staff-old-plan.json",
+    "bytes": 1002,
+    "sha256": "d3dcf556d70657c8e0a30ec8e65f57bfd321636e129f209843bfb419fb2bea01",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.065,
+        "executionMs": 4765.338,
+        "jit": null,
+        "hits": 24751,
+        "temp": [
+          8440,
+          8333
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\N_positive_search_code-new-plan.json",
+    "bytes": 993,
+    "sha256": "7a4e6b1e78fae8eb12be9b9867c22b5e7425be1b22c6e3428918f0995b7ea1db",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.061,
+        "executionMs": 844.957,
+        "jit": null,
+        "hits": 5004,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\N_positive_search_code-old-plan.json",
+    "bytes": 1003,
+    "sha256": "5a25104329897674e31cfe3dd8b0ed66516dc07027851811f8288306e60cafc3",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.058,
+        "executionMs": 1689.531,
+        "jit": null,
+        "hits": 10899,
+        "temp": [
+          6565,
+          5995
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\outcome.json",
+    "bytes": 982,
+    "sha256": "ac0119b5c26d0b2508d5b2e3acac69ca1f298016354f759583e98ff7ac310709",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\precheck.json",
+    "bytes": 1682,
+    "sha256": "ca6060dcd2c87e8e56cfc069d2ef9b77a0d96e8abbac2c533a38e02532646b6a",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\role-diagnostic.json",
+    "bytes": 479,
+    "sha256": "e9f207ae5f7d584fa1745aa27684d64ddf86d0530d0d6988000b1baa61ad656a",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\role-preflight.json",
+    "bytes": 560,
+    "sha256": "d0c04aa825b1f36cb483e581a9f0a22a5af5b07f1daeaa605a7eb28352e8dc29",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\rollback-final-verification.json",
+    "bytes": 302,
+    "sha256": "3d7bd0b9fb043974791a162e0862d2b83fcdacc7c449859e7d7800ffb69b2a1e",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\rollback-live.sql",
+    "bytes": 9346,
+    "sha256": "e5d2fe7c521620ff9ea2a203f2f1d659aa26591134a41326f35e5e8a19991a8b"
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\rollback-result.json",
+    "bytes": 140,
+    "sha256": "a6147ec0503063a67692b54d8048fb4847b677bc001bb72c86f3da83509ba132",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p0\\live-validation-20261004\\snapshot-comparison.json",
+    "bytes": 961,
+    "sha256": "e20ab92bdad152de7339131bd311c811a39105deb423965edac7216d39d8307c",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p06\\BAO-CAO.md",
+    "bytes": 12476,
+    "sha256": "f71dc9c0045a4b9b2e7c3a05223e277b2a4b964a185910b643cc5a369605e189"
+  },
+  {
+    "file": "docs\\performance-sales-p06\\benchmark-local.json",
+    "bytes": 33365,
+    "sha256": "991ed0b45025e1689a370693f5b07498751d97fd7ad20ab47a6574557f86edd0",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p06\\checks-local.json",
+    "bytes": 544,
+    "sha256": "4c805f218eba476f178c6ef185fe69ddd9766937e3a9bcbb0a1604f3f44787eb",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p06\\evidence-read-index.json",
+    "bytes": 13698,
+    "sha256": "455057452cb50feeaae7fda54bda1b280bf383bb178d352bc1883d734f263f2c",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p06\\git-status-final.txt",
+    "bytes": 749,
+    "sha256": "78cfe297115c33e23001b238ebf7d5d59f772dec1070cb9fae84bd2f1b83622b"
+  },
+  {
+    "file": "docs\\performance-sales-p06\\live-validation-20261004\\apply-result.json",
+    "bytes": 196,
+    "sha256": "28faed2b1e62a840aa951e8a05378888887ef9101b6c2a346d32d8502d3b55e1",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p06\\live-validation-20261004\\A_all_page1-new-plan.json",
+    "bytes": 1001,
+    "sha256": "c0334f4a453244ddddfa381d65486945e102d9084a296fd8c5d45e841c3741fa",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.067,
+        "executionMs": 3021.193,
+        "jit": null,
+        "hits": 3468,
+        "temp": [
+          1298,
+          649
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\live-validation-20261004\\A_all_page1-old-plan.json",
+    "bytes": 1004,
+    "sha256": "7d79f08638cb0057d5ba3ea2e7b046faff091219df73d4c828c56c39dafeb5d3",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.058,
+        "executionMs": 1752.967,
+        "jit": null,
+        "hits": 12328,
+        "temp": [
+          17012,
+          15506
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\live-validation-20261004\\benchmark-after-partial.json",
+    "bytes": 81,
+    "sha256": "222055739b35ed25cf623b93c9aef9a67705daec6e81fa1dce611856abaf6246",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p06\\live-validation-20261004\\benchmark-before.json",
+    "bytes": 14763,
+    "sha256": "b03b9167a91086376cedcf721a556ab469d0dd3c140ce91735a64727de938d94",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p06\\live-validation-20261004\\B_all_page2-old-plan.json",
+    "bytes": 1005,
+    "sha256": "a67e7dbc0983f81fe99e9777da7b72c23de80d64943fec13353ef9d57efe8e04",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.071,
+        "executionMs": 1593.481,
+        "jit": null,
+        "hits": 12328,
+        "temp": [
+          17012,
+          15506
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\live-validation-20261004\\catalog-before.json",
+    "bytes": 33133,
+    "sha256": "fb1e719eb1916150ef09648adb405606623447fb3b721c3b9606125eeda44b7f",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p06\\live-validation-20261004\\catalog-final-old.json",
+    "bytes": 59993,
+    "sha256": "9e70284179231a930ecf11b45d598cbaabcfc5bf5f1e5a88483ca9bda17937c5",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p06\\live-validation-20261004\\C_month-old-plan.json",
+    "bytes": 999,
+    "sha256": "0d0865c45d2ebed64f55e88b7462742fcc8af20b721bfa9238a15012b7be1e49",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.062,
+        "executionMs": 894.83,
+        "jit": null,
+        "hits": 12320,
+        "temp": [
+          7188,
+          6816
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\live-validation-20261004\\definitions-live-before.json",
+    "bytes": 26818,
+    "sha256": "018146388498238bb68c3eaccc607e3e171df2a0431295759e020dc05cb4dd67",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p06\\live-validation-20261004\\D_reference_id_bh-old-plan.json",
+    "bytes": 1003,
+    "sha256": "9f5f0b37d4fa35a819bcee0f97c82b8fa1ea91a04cb1c79ccf6d22df6f727a09",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.057,
+        "executionMs": 1401.745,
+        "jit": null,
+        "hits": 12325,
+        "temp": [
+          8445,
+          8338
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\live-validation-20261004\\E_customer-old-plan.json",
+    "bytes": 1003,
+    "sha256": "528d1ddf808f3f8d3c258969c0a62e26438f0d04b0bea12690f25b8b2291927e",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.056,
+        "executionMs": 1428.836,
+        "jit": null,
+        "hits": 12325,
+        "temp": [
+          8445,
+          8338
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\live-validation-20261004\\F_branch-old-plan.json",
+    "bytes": 1005,
+    "sha256": "200068d7a4cd813a344f8f7b66eef05706c679a9a6d1f44a70d74265cb642ef1",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.214,
+        "executionMs": 1956.285,
+        "jit": null,
+        "hits": 12325,
+        "temp": [
+          11820,
+          11120
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\live-validation-20261004\\G_staff-old-plan.json",
+    "bytes": 1003,
+    "sha256": "ab1eaa91a130ade69b2c6ad9ae80480c179779293711dd565fcceda7fae985d8",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.056,
+        "executionMs": 2749.745,
+        "jit": null,
+        "hits": 24222,
+        "temp": [
+          8445,
+          8338
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\live-validation-20261004\\H_search-old-plan.json",
+    "bytes": 1002,
+    "sha256": "206f11ca8e968235cd7a45e742308d82b6b393cbea584e1e18e6220905546055",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.058,
+        "executionMs": 1569.843,
+        "jit": null,
+        "hits": 4156,
+        "temp": [
+          4789,
+          5518
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\live-validation-20261004\\I_legacy-old-plan.json",
+    "bytes": 1002,
+    "sha256": "f87a4b06d0f58a78a4bce8e88ea9cb56bca70c3c447fb42dbe5a44263123aee8",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.06,
+        "executionMs": 1493.696,
+        "jit": null,
+        "hits": 12325,
+        "temp": [
+          8445,
+          8338
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\live-validation-20261004\\J_uuid-old-plan.json",
+    "bytes": 1002,
+    "sha256": "faac4a309d5d273b6fb3d0510b711a83152825daf845709ff345f01f0c451f19",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.057,
+        "executionMs": 1408.967,
+        "jit": null,
+        "hits": 12325,
+        "temp": [
+          8445,
+          8338
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\live-validation-20261004\\K_detail_branch-old-plan.json",
+    "bytes": 1001,
+    "sha256": "bcf1d71381955a4f14ca3bdfb398d938862e953f8e3f00e9c8a0f512c5839d7e",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.056,
+        "executionMs": 1347.352,
+        "jit": null,
+        "hits": 12325,
+        "temp": [
+          8445,
+          8338
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\live-validation-20261004\\live-backup-diff.txt",
+    "bytes": 123,
+    "sha256": "0997096c4adb614088824ca479db7b149cb05c0c8c680b7666027257c37cf320"
+  },
+  {
+    "file": "docs\\performance-sales-p06\\live-validation-20261004\\L_customer_history-old-plan.json",
+    "bytes": 1000,
+    "sha256": "b49eba6be1200235799b9283ce2e81870b26c87087bd623f0c79a534e4a3377b",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.056,
+        "executionMs": 609.019,
+        "jit": null,
+        "hits": 12307,
+        "temp": [
+          5509,
+          5402
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\live-validation-20261004\\N_positive_search_code-old-plan.json",
+    "bytes": 1003,
+    "sha256": "221422fc1e102ebbcee9b8d1ce3fce72fb664513b541b735132b069e7e91e276",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.061,
+        "executionMs": 1708.035,
+        "jit": null,
+        "hits": 10909,
+        "temp": [
+          6569,
+          5999
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\live-validation-20261004\\outcome.json",
+    "bytes": 2979,
+    "sha256": "0048ed268c987772637054aee8c6afbfd3b0553eac2599b82227cae8e12a7e52",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p06\\live-validation-20261004\\precheck.json",
+    "bytes": 1682,
+    "sha256": "3cf66f0b52622870abbda06b69350bbc02e22910f85be4259bf33fadebf1d896",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p06\\live-validation-20261004\\rollback-final-verification.json",
+    "bytes": 269,
+    "sha256": "e98a39db0387da8382e86b948459a5137d574497d3720e367e343558b14626c3",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p06\\live-validation-20261004\\rollback-live.sql",
+    "bytes": 9346,
+    "sha256": "89519e9d14f50c15490ca078dbcb59348f690c1e44b938571cd0003953ca3f87"
+  },
+  {
+    "file": "docs\\performance-sales-p06\\live-validation-20261004\\rollback-result.json",
+    "bytes": 155,
+    "sha256": "ba87d311eef01bed5d41e7a7a35fceae53b5d5bdbf900455982a70b47e7a3c98",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p06\\live-validation-20261004\\snapshot-comparison.json",
+    "bytes": 961,
+    "sha256": "e20ab92bdad152de7339131bd311c811a39105deb423965edac7216d39d8307c",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p06\\local-p05-force_custom_plan.json",
+    "bytes": 79215,
+    "sha256": "a1990c2328cb49cf1c09b93bc19084f97259ce0f01c4b43c5476f8d636172ef1",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 4.542,
+        "executionMs": 1196.038,
+        "jit": null,
+        "hits": 665,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\local-p05-force_generic_plan.json",
+    "bytes": 90457,
+    "sha256": "7357bd785fc64a472abd42cac79d5f6ec5b96fb0681abb5286a425466f149b42",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 11.721,
+        "executionMs": 849.91,
+        "jit": null,
+        "hits": 53559,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\local-plan-diagnosis.json",
+    "bytes": 3584,
+    "sha256": "9ac1780ea36ed6b15a5e060a67a0ff6cf9c50207fcdaecd8ee4fffdee66eaedd",
+    "parsed": true,
+    "plans": []
+  },
+  {
+    "file": "docs\\performance-sales-p06\\migration-p05-before.sql",
+    "bytes": 15495,
+    "sha256": "780eb77f511a889532aa408d6792a49e7f5adf7e7a5cc0961a0608c25d775da2"
+  },
+  {
+    "file": "docs\\performance-sales-p06\\old-A_all_page1-1.json",
+    "bytes": 1025,
+    "sha256": "ae82a93df62f0552de3664b2d5cf4326a7fb3dcfbdcd27a197e83d1cf9144e1a",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.063,
+        "executionMs": 1113.477,
+        "jit": null,
+        "hits": 2205,
+        "temp": [
+          11284,
+          10374
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\old-A_all_page1-2.json",
+    "bytes": 1025,
+    "sha256": "6efb1644c34d90b49aaf92470bc57c3bb231efd4ce681aac9beb3208b697f381",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.093,
+        "executionMs": 1138.62,
+        "jit": null,
+        "hits": 2205,
+        "temp": [
+          11284,
+          10374
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\old-A_all_page1-3.json",
+    "bytes": 1026,
+    "sha256": "3716c9aa5359938d39111e3e0609fa8bbda0a2bf3bea0ced0fdde1ce3a65d9bd",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.047,
+        "executionMs": 1217.235,
+        "jit": null,
+        "hits": 2205,
+        "temp": [
+          11284,
+          10374
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\old-A_all_page1-4.json",
+    "bytes": 1026,
+    "sha256": "68dff7e5bd96a71863c9629a79041305a2a1f2a4e3b52c943494af460639e8be",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.056,
+        "executionMs": 1131.001,
+        "jit": null,
+        "hits": 2205,
+        "temp": [
+          11284,
+          10374
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\old-A_all_page1-5.json",
+    "bytes": 1026,
+    "sha256": "f3462561828d1d34b707919ef866dcec814d833f6e666d34fcd49e323801e4f7",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.058,
+        "executionMs": 1165.127,
+        "jit": null,
+        "hits": 2211,
+        "temp": [
+          11284,
+          10374
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\old-B_all_page2-1.json",
+    "bytes": 1025,
+    "sha256": "35f0d51ae7d309334a420daeda19a24285037a3f127e61f7f4f535f8017f4479",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.072,
+        "executionMs": 1277.855,
+        "jit": null,
+        "hits": 2205,
+        "temp": [
+          11284,
+          10374
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\old-B_all_page2-2.json",
+    "bytes": 1026,
+    "sha256": "caa61abf4499f33c7dafbbb56ee501f091f4b53eb3f1402421bb1ad3e03d38e8",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.149,
+        "executionMs": 1101.172,
+        "jit": null,
+        "hits": 2205,
+        "temp": [
+          11284,
+          10374
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\old-B_all_page2-3.json",
+    "bytes": 1026,
+    "sha256": "fa9fb20c95b3ca1c7f89348b70a6f523b37310a622f7a4c3e056310f53b77a20",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.051,
+        "executionMs": 1119.321,
+        "jit": null,
+        "hits": 2205,
+        "temp": [
+          11284,
+          10374
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\old-B_all_page2-4.json",
+    "bytes": 1026,
+    "sha256": "9e986181166d1535984ebb3678888cf68bc628a30f488c725fb345adff6ddc7a",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.044,
+        "executionMs": 1205.108,
+        "jit": null,
+        "hits": 2205,
+        "temp": [
+          11284,
+          10374
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\old-B_all_page2-5.json",
+    "bytes": 1026,
+    "sha256": "dcc4753fc118a12063756a6205c5f7f91a998fe4e7b6cfc79dd16b9fa89cab5a",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.046,
+        "executionMs": 1456.551,
+        "jit": null,
+        "hits": 2205,
+        "temp": [
+          11284,
+          10374
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\old-C_month-1.json",
+    "bytes": 1021,
+    "sha256": "73c81359b2d9624c83d6ce62c892ca010b8582d7a98e5191571c8a7d0b247679",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.049,
+        "executionMs": 704.677,
+        "jit": null,
+        "hits": 2205,
+        "temp": [
+          2237,
+          2587
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\old-D_reference-1.json",
+    "bytes": 1023,
+    "sha256": "9a5212d70f44edaa109a187d698fa71687e80b0fcbb5abcbf514029fa07ee9f8",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.148,
+        "executionMs": 1148.946,
+        "jit": null,
+        "hits": 2205,
+        "temp": [
+          3503,
+          3853
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\old-E_customer-1.json",
+    "bytes": 1024,
+    "sha256": "cdfbdd88c38a0e23778777b9852f8b267c4c457820942d9c371ae04d8cb808f9",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.147,
+        "executionMs": 1296.959,
+        "jit": null,
+        "hits": 2205,
+        "temp": [
+          3503,
+          3853
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\old-F_branch-1.json",
+    "bytes": 1024,
+    "sha256": "600b2ec90306646edd9ab9ab054556fa5de93fb128822720189d3140669b3ed4",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.083,
+        "executionMs": 1937.927,
+        "jit": null,
+        "hits": 2205,
+        "temp": [
+          7436,
+          7149
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\old-G_staff-1.json",
+    "bytes": 1025,
+    "sha256": "2cfa926519ee14aeb3b2585015b72149822ecf89de7f933e9614049c7c335cbd",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.054,
+        "executionMs": 1841.256,
+        "jit": null,
+        "hits": 11534,
+        "temp": [
+          3503,
+          3853
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\old-H_search-1.json",
+    "bytes": 1024,
+    "sha256": "dcde8dc315fbcf8e20a0608d3b30f5098ea84d8f2dabcef1f1e73024f2f551ea",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.049,
+        "executionMs": 1519.987,
+        "jit": null,
+        "hits": 2226,
+        "temp": [
+          2237,
+          2587
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\old-I_legacy-1.json",
+    "bytes": 1023,
+    "sha256": "5e46d604fa030565ccf57b4767d49e9a191717a6fc6612e0e44d15b808b5169f",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.277,
+        "executionMs": 1163.589,
+        "jit": null,
+        "hits": 2205,
+        "temp": [
+          3503,
+          3853
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\old-J_uuid-1.json",
+    "bytes": 1024,
+    "sha256": "b1b360e9ecdede27a3556524107983eea9297f9c96b007cfc73b8c3332bb5ffe",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.069,
+        "executionMs": 1163.447,
+        "jit": null,
+        "hits": 2205,
+        "temp": [
+          3503,
+          3853
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\old-K_detail_branch-1.json",
+    "bytes": 1024,
+    "sha256": "a3a135ef197dc13335768be64f77eadab6b7a3df81cd6f9ebbd696c02ba052bb",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.066,
+        "executionMs": 1155.998,
+        "jit": null,
+        "hits": 2205,
+        "temp": [
+          3503,
+          3853
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\old-L_customer_history-1.json",
+    "bytes": 1021,
+    "sha256": "c1e869200cd010bbb0b8c48efb439b480ec567107eb6dda008d472a5baca444e",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.046,
+        "executionMs": 500.141,
+        "jit": null,
+        "hits": 2205,
+        "temp": [
+          2237,
+          2587
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\old-M_positive_staff-1.json",
+    "bytes": 1024,
+    "sha256": "c97d997c22904dbb8b5944ee2b7a3b7e67d64a4c6533d8280dcd988ffce418f7",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.046,
+        "executionMs": 2364.732,
+        "jit": null,
+        "hits": 8381,
+        "temp": [
+          3503,
+          3853
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\old-N_positive_search_code-1.json",
+    "bytes": 1024,
+    "sha256": "9cc4989a1b17626393a4a02fb56f7e044f06dcc9f50dc8013689d06b1a3f629e",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.046,
+        "executionMs": 1443.419,
+        "jit": null,
+        "hits": 2226,
+        "temp": [
+          2237,
+          2587
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p05-A_all_page1-1.json",
+    "bytes": 1014,
+    "sha256": "5f22dfc40fd06c6186b40e4349b4217494452f9c429c34ed05e2aaa55c59266e",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.047,
+        "executionMs": 703.69,
+        "jit": null,
+        "hits": 2166,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p05-A_all_page1-2.json",
+    "bytes": 1014,
+    "sha256": "36cbdd62fff060cc87d34740fee44eeb953063337efce27bb7e9118caed40d77",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.046,
+        "executionMs": 685.691,
+        "jit": null,
+        "hits": 2166,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p05-A_all_page1-3.json",
+    "bytes": 1014,
+    "sha256": "8b07b8ce2a1255a17d0cc7715a67edb290831ff07cb6733cd6812cd2fe16cc7c",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.044,
+        "executionMs": 712.642,
+        "jit": null,
+        "hits": 2166,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p05-A_all_page1-4.json",
+    "bytes": 1015,
+    "sha256": "8afc020a19ceee44e15986ff5f1c5bb438b81779585b7fa1d63ce356a5bf4aca",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.051,
+        "executionMs": 768.289,
+        "jit": null,
+        "hits": 2166,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p05-A_all_page1-5.json",
+    "bytes": 1020,
+    "sha256": "a936bd543583592b27eebbda3117e96c4137a009b3714c2957b30353698cf54f",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.048,
+        "executionMs": 1604.062,
+        "jit": null,
+        "hits": 54997,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p05-B_all_page2-1.json",
+    "bytes": 1019,
+    "sha256": "a7c370257b29948009fd7ad4a438112090a2a8f6b0e43616006173ef915959e8",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.055,
+        "executionMs": 2083.748,
+        "jit": null,
+        "hits": 55153,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p05-B_all_page2-2.json",
+    "bytes": 1019,
+    "sha256": "d9b2c5d4bb954ea35ac10771c44fd245a6dcb8b4e04199afb7f7e5f84821db30",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.055,
+        "executionMs": 1586.402,
+        "jit": null,
+        "hits": 55153,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p05-B_all_page2-3.json",
+    "bytes": 1017,
+    "sha256": "94d39e283c21e9f1400a00d0e7220583e64f3ca65f8ebeb3c4e19ac404cc6f45",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.048,
+        "executionMs": 1540.929,
+        "jit": null,
+        "hits": 55153,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p05-B_all_page2-4.json",
+    "bytes": 1019,
+    "sha256": "d3a6d308ba61c0ccdeac1b12d89e3c6fadeb055d36bd6225294a327c4d897f70",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.052,
+        "executionMs": 1720.462,
+        "jit": null,
+        "hits": 55153,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p05-B_all_page2-5.json",
+    "bytes": 1019,
+    "sha256": "fec6138a60b14789bcc4b78d296812e893909e1ba10c349ec4720db4d02d258d",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.049,
+        "executionMs": 1516.413,
+        "jit": null,
+        "hits": 55153,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p05-C_month-1.json",
+    "bytes": 1013,
+    "sha256": "baa7efd2acf74d76c68b0d545131dd4907322a784f0d418d3dab9ed75967506f",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.086,
+        "executionMs": 607.005,
+        "jit": null,
+        "hits": 7477,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p05-D_reference-1.json",
+    "bytes": 1014,
+    "sha256": "10f6325a3917ed71f47236b8f7e61539a0d24e9b1ce445495cf5db497f33896e",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.049,
+        "executionMs": 324.279,
+        "jit": null,
+        "hits": 758,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p05-E_customer-1.json",
+    "bytes": 1013,
+    "sha256": "0049267249c497a594c382990cb207daaa8cc279823b50216fbc98cdb4e59cf3",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.044,
+        "executionMs": 518.444,
+        "jit": null,
+        "hits": 835,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p05-F_branch-1.json",
+    "bytes": 1019,
+    "sha256": "cfb580b95a8184206ab4cee2b00c7a689c3959f499daf0ae5148d474f63337bb",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.046,
+        "executionMs": 1581.425,
+        "jit": null,
+        "hits": 54988,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p05-G_staff-1.json",
+    "bytes": 1019,
+    "sha256": "50cc975831db8a091fa789f5717fbb4fd1ef0270256630e3930e36333d3e2fc3",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.044,
+        "executionMs": 1016.042,
+        "jit": null,
+        "hits": 19860,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p05-H_search-1.json",
+    "bytes": 1015,
+    "sha256": "34267f2c805f6c9a84a53f90a9196194fd7c7f928558e2abb1112d30d8d1facb",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.048,
+        "executionMs": 959.057,
+        "jit": null,
+        "hits": 2135,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p05-I_legacy-1.json",
+    "bytes": 1014,
+    "sha256": "b4c0312d6cb48dac23ce3b27f8e818ef17342102dfd3ac8d728c2ba9b9b7a8da",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.046,
+        "executionMs": 305.299,
+        "jit": null,
+        "hits": 691,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p05-J_uuid-1.json",
+    "bytes": 1014,
+    "sha256": "c1cbc2a38f09ce6082198c43ce5b1bd65782254b55052eea5ab9c4cf9a9679e4",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.081,
+        "executionMs": 389.496,
+        "jit": null,
+        "hits": 760,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p05-K_detail_branch-1.json",
+    "bytes": 1014,
+    "sha256": "79be4eaea781b6163425cf4e826fc5724a7e1bb9a7633e36a9a95b434e675a1b",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.086,
+        "executionMs": 401.768,
+        "jit": null,
+        "hits": 697,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p05-L_customer_history-1.json",
+    "bytes": 1015,
+    "sha256": "527fa4f15ec02cff162b745af0ce09a2df7248159fcd41d2d6cfeee08b46ae84",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.051,
+        "executionMs": 371.367,
+        "jit": null,
+        "hits": 1120,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p05-M_positive_staff-1.json",
+    "bytes": 1018,
+    "sha256": "cf704c5d06e55097db0892a201aba1c9764036d68e186a73368243e7b23d1592",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.06,
+        "executionMs": 1007.627,
+        "jit": null,
+        "hits": 19860,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p05-N_positive_search_code-1.json",
+    "bytes": 1014,
+    "sha256": "73b80da96e718d2146467a04e19d6dd13eec0af49cf398a1664939527f8baa56",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.064,
+        "executionMs": 717.306,
+        "jit": null,
+        "hits": 1977,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p06-A_all_page1-1.json",
+    "bytes": 1013,
+    "sha256": "c0cfa08b3896a67072af30c794457c6bb825c866dd7365c2ba4546a54207fea1",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.086,
+        "executionMs": 434.746,
+        "jit": null,
+        "hits": 785,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p06-A_all_page1-2.json",
+    "bytes": 1014,
+    "sha256": "5cace17fc15965bd92e9d5c7b99b109d5aacfb06143d4e1906f556f170a12225",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.046,
+        "executionMs": 425.535,
+        "jit": null,
+        "hits": 785,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p06-A_all_page1-3.json",
+    "bytes": 1013,
+    "sha256": "b62ff15fd8c070ef2f129fc0529fb50fda9ceef55ec3c67123822e2bdf60b52b",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.04,
+        "executionMs": 655.755,
+        "jit": null,
+        "hits": 785,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p06-A_all_page1-4.json",
+    "bytes": 1013,
+    "sha256": "b79df8a8b5de9019e5fe9a5df536fac47e3200c924be033d074b8e9f8dfea2c3",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.07,
+        "executionMs": 663.303,
+        "jit": null,
+        "hits": 785,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p06-A_all_page1-5.json",
+    "bytes": 1014,
+    "sha256": "e19a692e38dc3adac177dca0290f24b0da8e4e03bea2c4fb38fc4a1727dd6345",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.047,
+        "executionMs": 479.161,
+        "jit": null,
+        "hits": 785,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p06-B_all_page2-1.json",
+    "bytes": 1013,
+    "sha256": "ce02850cd33b18096559d7ddead508ecf14dec68f63d233a3781b6e924c78a3e",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.045,
+        "executionMs": 429.319,
+        "jit": null,
+        "hits": 790,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p06-B_all_page2-2.json",
+    "bytes": 1014,
+    "sha256": "07e0e087a5bdc6d4e79e67ec496fb03661cd33b64cb2dd56b3a8a17b235fc476",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.048,
+        "executionMs": 438.352,
+        "jit": null,
+        "hits": 790,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p06-B_all_page2-3.json",
+    "bytes": 1012,
+    "sha256": "2444c24566eb86a8feab0e693690e4a95738489fe9c2358b967d0eeb5c2b7aa1",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.044,
+        "executionMs": 453.77,
+        "jit": null,
+        "hits": 790,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p06-B_all_page2-4.json",
+    "bytes": 1014,
+    "sha256": "8194f73cd1573e64c308daadb29e86144b1048c98d602835973ebec01a7f23be",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.043,
+        "executionMs": 441.539,
+        "jit": null,
+        "hits": 790,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p06-B_all_page2-5.json",
+    "bytes": 1013,
+    "sha256": "af91055fcddc11582721c90c39af05ed7dc0f19b014bcd014d9fbe6d45771575",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.047,
+        "executionMs": 482.057,
+        "jit": null,
+        "hits": 790,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p06-C_month-1.json",
+    "bytes": 1014,
+    "sha256": "be85b94c2778064479aadf3c7ccab806d79c3349edb2c0eb906399530eeb87d8",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.049,
+        "executionMs": 371.676,
+        "jit": null,
+        "hits": 994,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p06-D_reference-1.json",
+    "bytes": 1014,
+    "sha256": "84bf516a8e246c10764a6c3c9ef82840de0115ff602c389ce9315770abf8d5c3",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.048,
+        "executionMs": 354.481,
+        "jit": null,
+        "hits": 1013,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p06-E_customer-1.json",
+    "bytes": 1015,
+    "sha256": "30a836fe3ef944dc2106d06f6bec928b1b02872b698b15ff49012fa933447f4b",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.053,
+        "executionMs": 493.743,
+        "jit": null,
+        "hits": 1015,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p06-F_branch-1.json",
+    "bytes": 1015,
+    "sha256": "d817d925cf3198a2297d0892d71615d4b23ce1d258332c02e67fd89282055e7a",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.066,
+        "executionMs": 817.399,
+        "jit": null,
+        "hits": 1129,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p06-G_staff-1.json",
+    "bytes": 1016,
+    "sha256": "6f6014db2cebee972ff16ddf09181a52cef700cad22d13299e14c1e33dddbba9",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.182,
+        "executionMs": 1091.56,
+        "jit": null,
+        "hits": 1131,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p06-H_search-1.json",
+    "bytes": 1015,
+    "sha256": "8a1b360e88144cd9289e2aa7cc54dcbf6311bd30d3ad8c354badbb84daf63a6f",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.067,
+        "executionMs": 816.196,
+        "jit": null,
+        "hits": 2346,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p06-I_legacy-1.json",
+    "bytes": 1014,
+    "sha256": "433f68933fc39eb27a402eda2f8859cf23ea64dc7b1555cd6ca692a25ff30fa4",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.044,
+        "executionMs": 335.132,
+        "jit": null,
+        "hits": 991,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p06-J_uuid-1.json",
+    "bytes": 1012,
+    "sha256": "61384650e54b4b24215e2c5783f73eeba9d2b2ccbc48f7c27644eed363910b98",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.045,
+        "executionMs": 337.32,
+        "jit": null,
+        "hits": 1015,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p06-K_detail_branch-1.json",
+    "bytes": 1014,
+    "sha256": "a03073e2b96a325090b879a7aab37601ba6a1d86ff551d55df2beea5e27d43fd",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.043,
+        "executionMs": 317.152,
+        "jit": null,
+        "hits": 997,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p06-L_customer_history-1.json",
+    "bytes": 1014,
+    "sha256": "31e691383f74d18a0f2c9d0716f7754ac2b5b9075d3f604d3f236d02a1e5cfc2",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.042,
+        "executionMs": 319.337,
+        "jit": null,
+        "hits": 981,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p06-M_positive_staff-1.json",
+    "bytes": 1018,
+    "sha256": "13eebac9b9e24abdc84b8a47a2c5a4c7386f84881117df421f7d21d1ffb472ea",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.044,
+        "executionMs": 1031.641,
+        "jit": null,
+        "hits": 1131,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  {
+    "file": "docs\\performance-sales-p06\\p06-N_positive_search_code-1.json",
+    "bytes": 1015,
+    "sha256": "e946f2dff5d812720c255a6f4620f23bad6ce672bd792c932e6f5e5f52169a2c",
+    "parsed": true,
+    "plans": [
+      {
+        "planningMs": 0.042,
+        "executionMs": 718.337,
+        "jit": null,
+        "hits": 2232,
+        "temp": [
+          0,
+          0
+        ]
+      }
+    ]
+  }
+]

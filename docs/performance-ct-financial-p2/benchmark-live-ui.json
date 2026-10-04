@@ -1,0 +1,506 @@
+{
+  "at": "2026-10-04T09:29:53.626Z",
+  "scope": "Actual NEW pages in local Vite, LIVE anon reads; September fixed UI clock; test UI identity; no authenticated session claim",
+  "samples": [
+    {
+      "round": 1,
+      "workload": "CT",
+      "mountMs": 4498,
+      "mountReads": 2,
+      "totalReads": 4,
+      "payloadBytes": 41195,
+      "page1Hash": "af621016a166429f41674d46185c180107e4500a1bb1faa910ffd5a7d1816ae2",
+      "page2Hash": "3ff7c362bd5ae9751f005500d1e11de0b3d4b79ffd515d705657d7cf16112fa0",
+      "distinctPageIds": 40,
+      "network": [
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 206,
+          "bytes": 7986,
+          "ms": 460,
+          "rows": 20
+        },
+        {
+          "endpoint": "sales_p2_lookup",
+          "status": 200,
+          "bytes": 9803,
+          "ms": 628,
+          "rows": 8
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 206,
+          "bytes": 8023,
+          "ms": 164,
+          "rows": 20
+        },
+        {
+          "endpoint": "sales_p2_lookup",
+          "status": 200,
+          "bytes": 15383,
+          "ms": 336,
+          "rows": 13
+        }
+      ]
+    },
+    {
+      "round": 1,
+      "workload": "Financial",
+      "mountMs": 7953,
+      "mountReads": 4,
+      "totalReads": 8,
+      "payloadBytes": 78908,
+      "page1Hash": "4a947b612fefa5f160be29b57fabd56acffc1e8f6369b48b9e8283e5b07baff1",
+      "page2Hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "distinctPageIds": 40,
+      "network": [
+        {
+          "endpoint": "co_so",
+          "status": 200,
+          "bytes": 155,
+          "ms": 2039,
+          "rows": 4
+        },
+        {
+          "endpoint": "financial_p2_query",
+          "status": 200,
+          "bytes": 12634,
+          "ms": 2723,
+          "rows": 20
+        },
+        {
+          "endpoint": "khach_hang",
+          "status": 200,
+          "bytes": 2383,
+          "ms": 715,
+          "rows": 19
+        },
+        {
+          "endpoint": "sales_p2_lookup",
+          "status": 200,
+          "bytes": 23319,
+          "ms": 2966,
+          "rows": 20
+        },
+        {
+          "endpoint": "financial_p2_query",
+          "status": 200,
+          "bytes": 12642,
+          "ms": 579,
+          "rows": 20
+        },
+        {
+          "endpoint": "khach_hang",
+          "status": 200,
+          "bytes": 2558,
+          "ms": 327,
+          "rows": 20
+        },
+        {
+          "endpoint": "financial_p2_query",
+          "status": 200,
+          "bytes": 2100,
+          "ms": 568,
+          "rows": 0
+        },
+        {
+          "endpoint": "sales_p2_lookup",
+          "status": 200,
+          "bytes": 23117,
+          "ms": 1073,
+          "rows": 20
+        }
+      ]
+    },
+    {
+      "round": 1,
+      "workload": "Cashbook",
+      "mountMs": 2398,
+      "mountReads": 4,
+      "totalReads": 5,
+      "payloadBytes": 51133,
+      "page1Hash": "e17a960a58b40d06af98dea3b1e60f52f29a2bf5ff49eba66fff66fb2aa094b3",
+      "page2Hash": "db847990eb6047fb91f2dca708c0a175c78e70cd68e9e056d2029275f326d462",
+      "distinctPageIds": 40,
+      "network": [
+        {
+          "endpoint": "financial_p2_query",
+          "status": 200,
+          "bytes": 12634,
+          "ms": 238,
+          "rows": 20
+        },
+        {
+          "endpoint": "co_so",
+          "status": 200,
+          "bytes": 155,
+          "ms": 250,
+          "rows": 4
+        },
+        {
+          "endpoint": "khach_hang",
+          "status": 200,
+          "bytes": 2383,
+          "ms": 233,
+          "rows": 19
+        },
+        {
+          "endpoint": "sales_p2_lookup",
+          "status": 200,
+          "bytes": 23319,
+          "ms": 448,
+          "rows": 20
+        },
+        {
+          "endpoint": "financial_p2_query",
+          "status": 200,
+          "bytes": 12642,
+          "ms": 160,
+          "rows": 20
+        },
+        {
+          "endpoint": "sales_p2_lookup",
+          "status": null,
+          "errorCode": "transport",
+          "errorType": "Error"
+        },
+        {
+          "endpoint": "khach_hang",
+          "status": null,
+          "errorCode": "transport",
+          "errorType": "Error"
+        }
+      ]
+    },
+    {
+      "round": 2,
+      "workload": "CT",
+      "mountMs": 1890,
+      "mountReads": 2,
+      "totalReads": 4,
+      "payloadBytes": 41195,
+      "page1Hash": "af621016a166429f41674d46185c180107e4500a1bb1faa910ffd5a7d1816ae2",
+      "page2Hash": "3ff7c362bd5ae9751f005500d1e11de0b3d4b79ffd515d705657d7cf16112fa0",
+      "distinctPageIds": 40,
+      "network": [
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 206,
+          "bytes": 7986,
+          "ms": 199,
+          "rows": 20
+        },
+        {
+          "endpoint": "sales_p2_lookup",
+          "status": 200,
+          "bytes": 9803,
+          "ms": 268,
+          "rows": 8
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 206,
+          "bytes": 8023,
+          "ms": 177,
+          "rows": 20
+        },
+        {
+          "endpoint": "sales_p2_lookup",
+          "status": 200,
+          "bytes": 15383,
+          "ms": 294,
+          "rows": 13
+        }
+      ]
+    },
+    {
+      "round": 2,
+      "workload": "Financial",
+      "mountMs": 2327,
+      "mountReads": 4,
+      "totalReads": 8,
+      "payloadBytes": 78908,
+      "page1Hash": "4a947b612fefa5f160be29b57fabd56acffc1e8f6369b48b9e8283e5b07baff1",
+      "page2Hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "distinctPageIds": 40,
+      "network": [
+        {
+          "endpoint": "co_so",
+          "status": 200,
+          "bytes": 155,
+          "ms": 211,
+          "rows": 4
+        },
+        {
+          "endpoint": "financial_p2_query",
+          "status": 200,
+          "bytes": 12634,
+          "ms": 269,
+          "rows": 20
+        },
+        {
+          "endpoint": "khach_hang",
+          "status": 200,
+          "bytes": 2383,
+          "ms": 199,
+          "rows": 19
+        },
+        {
+          "endpoint": "sales_p2_lookup",
+          "status": 200,
+          "bytes": 23319,
+          "ms": 486,
+          "rows": 20
+        },
+        {
+          "endpoint": "financial_p2_query",
+          "status": 200,
+          "bytes": 12642,
+          "ms": 175,
+          "rows": 20
+        },
+        {
+          "endpoint": "khach_hang",
+          "status": 200,
+          "bytes": 2558,
+          "ms": 157,
+          "rows": 20
+        },
+        {
+          "endpoint": "financial_p2_query",
+          "status": 200,
+          "bytes": 2100,
+          "ms": 379,
+          "rows": 0
+        },
+        {
+          "endpoint": "sales_p2_lookup",
+          "status": 200,
+          "bytes": 23117,
+          "ms": 583,
+          "rows": 20
+        }
+      ]
+    },
+    {
+      "round": 2,
+      "workload": "Cashbook",
+      "mountMs": 2340,
+      "mountReads": 4,
+      "totalReads": 5,
+      "payloadBytes": 51133,
+      "page1Hash": "e17a960a58b40d06af98dea3b1e60f52f29a2bf5ff49eba66fff66fb2aa094b3",
+      "page2Hash": "db847990eb6047fb91f2dca708c0a175c78e70cd68e9e056d2029275f326d462",
+      "distinctPageIds": 40,
+      "network": [
+        {
+          "endpoint": "co_so",
+          "status": 200,
+          "bytes": 155,
+          "ms": 166,
+          "rows": 4
+        },
+        {
+          "endpoint": "financial_p2_query",
+          "status": 200,
+          "bytes": 12634,
+          "ms": 276,
+          "rows": 20
+        },
+        {
+          "endpoint": "khach_hang",
+          "status": 200,
+          "bytes": 2383,
+          "ms": 199,
+          "rows": 19
+        },
+        {
+          "endpoint": "sales_p2_lookup",
+          "status": 200,
+          "bytes": 23319,
+          "ms": 521,
+          "rows": 20
+        },
+        {
+          "endpoint": "financial_p2_query",
+          "status": 200,
+          "bytes": 12642,
+          "ms": 195,
+          "rows": 20
+        },
+        {
+          "endpoint": "sales_p2_lookup",
+          "status": null,
+          "errorCode": "transport",
+          "errorType": "Error"
+        },
+        {
+          "endpoint": "khach_hang",
+          "status": null,
+          "errorCode": "transport",
+          "errorType": "Error"
+        }
+      ]
+    },
+    {
+      "round": 3,
+      "workload": "CT",
+      "mountMs": 1964,
+      "mountReads": 2,
+      "totalReads": 4,
+      "payloadBytes": 41195,
+      "page1Hash": "af621016a166429f41674d46185c180107e4500a1bb1faa910ffd5a7d1816ae2",
+      "page2Hash": "3ff7c362bd5ae9751f005500d1e11de0b3d4b79ffd515d705657d7cf16112fa0",
+      "distinctPageIds": 40,
+      "network": [
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 206,
+          "bytes": 7986,
+          "ms": 209,
+          "rows": 20
+        },
+        {
+          "endpoint": "sales_p2_lookup",
+          "status": 200,
+          "bytes": 9803,
+          "ms": 334,
+          "rows": 8
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 206,
+          "bytes": 8023,
+          "ms": 145,
+          "rows": 20
+        },
+        {
+          "endpoint": "sales_p2_lookup",
+          "status": 200,
+          "bytes": 15383,
+          "ms": 563,
+          "rows": 13
+        }
+      ]
+    },
+    {
+      "round": 3,
+      "workload": "Financial",
+      "mountMs": 1941,
+      "mountReads": 4,
+      "totalReads": 8,
+      "payloadBytes": 78908,
+      "page1Hash": "4a947b612fefa5f160be29b57fabd56acffc1e8f6369b48b9e8283e5b07baff1",
+      "page2Hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "distinctPageIds": 40,
+      "network": [
+        {
+          "endpoint": "co_so",
+          "status": 200,
+          "bytes": 155,
+          "ms": 124,
+          "rows": 4
+        },
+        {
+          "endpoint": "financial_p2_query",
+          "status": 200,
+          "bytes": 12634,
+          "ms": 199,
+          "rows": 20
+        },
+        {
+          "endpoint": "khach_hang",
+          "status": 200,
+          "bytes": 2383,
+          "ms": 135,
+          "rows": 19
+        },
+        {
+          "endpoint": "sales_p2_lookup",
+          "status": 200,
+          "bytes": 23319,
+          "ms": 283,
+          "rows": 20
+        },
+        {
+          "endpoint": "financial_p2_query",
+          "status": 200,
+          "bytes": 12642,
+          "ms": 149,
+          "rows": 20
+        },
+        {
+          "endpoint": "sales_p2_lookup",
+          "status": 200,
+          "bytes": 23117,
+          "ms": 380,
+          "rows": 20
+        },
+        {
+          "endpoint": "financial_p2_query",
+          "status": 200,
+          "bytes": 2100,
+          "ms": 281,
+          "rows": 0
+        },
+        {
+          "endpoint": "khach_hang",
+          "status": 200,
+          "bytes": 2558,
+          "ms": 372,
+          "rows": 20
+        }
+      ]
+    },
+    {
+      "round": 3,
+      "workload": "Cashbook",
+      "mountMs": 2372,
+      "mountReads": 4,
+      "totalReads": 5,
+      "payloadBytes": 51133,
+      "page1Hash": "e17a960a58b40d06af98dea3b1e60f52f29a2bf5ff49eba66fff66fb2aa094b3",
+      "page2Hash": "db847990eb6047fb91f2dca708c0a175c78e70cd68e9e056d2029275f326d462",
+      "distinctPageIds": 40,
+      "network": [
+        {
+          "endpoint": "co_so",
+          "status": 200,
+          "bytes": 155,
+          "ms": 156,
+          "rows": 4
+        },
+        {
+          "endpoint": "financial_p2_query",
+          "status": 200,
+          "bytes": 12634,
+          "ms": 209,
+          "rows": 20
+        },
+        {
+          "endpoint": "khach_hang",
+          "status": 200,
+          "bytes": 2383,
+          "ms": 130,
+          "rows": 19
+        },
+        {
+          "endpoint": "sales_p2_lookup",
+          "status": 200,
+          "bytes": 23319,
+          "ms": 657,
+          "rows": 20
+        },
+        {
+          "endpoint": "financial_p2_query",
+          "status": 200,
+          "bytes": 12642,
+          "ms": 165,
+          "rows": 20
+        }
+      ]
+    }
+  ],
+  "deniedWrites": [],
+  "productionWrites": 0
+}

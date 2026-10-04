@@ -1,0 +1,2704 @@
+{
+  "round": 0,
+  "snapshot": "101599:101599:",
+  "readOnly": "on",
+  "fullJsonEqual": true,
+  "totalCount": 9353,
+  "measurements": [
+    {
+      "name": "old-page1",
+      "wallMs": 3501.847,
+      "planningMs": 0.02,
+      "executionMs": 3476.814,
+      "sharedHits": 10238,
+      "sharedReads": 0,
+      "tempRead": 17019,
+      "tempWritten": 15512,
+      "jit": null,
+      "scans": [],
+      "sorts": []
+    },
+    {
+      "name": "old-page2",
+      "wallMs": 1610.861,
+      "planningMs": 0.019,
+      "executionMs": 1610.451,
+      "sharedHits": 9964,
+      "sharedReads": 0,
+      "tempRead": 17019,
+      "tempWritten": 15512,
+      "jit": null,
+      "scans": [],
+      "sorts": []
+    },
+    {
+      "name": "typed-inline",
+      "wallMs": 536.752,
+      "planningMs": 9.754,
+      "executionMs": 512.424,
+      "sharedHits": 1068,
+      "sharedReads": 0,
+      "tempRead": 470,
+      "tempWritten": 235,
+      "jit": null,
+      "scans": [
+        {
+          "type": "Result",
+          "subplan": "CTE input",
+          "rows": 1,
+          "loops": 1,
+          "ms": 0.002,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Subquery Scan",
+          "subplan": "CTE customers",
+          "rows": 6673,
+          "loops": 1,
+          "ms": 72.708,
+          "hits": 414,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "khach_hang",
+          "subplan": "CTE customers",
+          "rows": 6673,
+          "loops": 1,
+          "ms": 8.736,
+          "hits": 414,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Index Scan",
+          "relation": "the_ban_hang",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Unique",
+          "subplan": "CTE refs",
+          "rows": 13344,
+          "loops": 1,
+          "ms": 124.786,
+          "hits": 414,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "CTE phones",
+          "rows": 3939,
+          "loops": 1,
+          "ms": 6.808,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Nested Loop",
+          "subplan": "CTE matching_customers",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Function Scan",
+          "function": "unnest",
+          "subplan": "SubPlan 6",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Nested Loop",
+          "subplan": "CTE matching_services",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "dich_vu",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "CTE staff_tokens",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "nhan_su",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "nhan_su",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Unique",
+          "subplan": "CTE reference_ids",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "the_ban_hang",
+          "subplan": "CTE headers",
+          "rows": 9353,
+          "loops": 1,
+          "ms": 20.729,
+          "hits": 252,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Merge Join",
+          "subplan": "CTE resolved",
+          "rows": 9353,
+          "loops": 1,
+          "ms": 344.708,
+          "hits": 666,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "CTE details",
+          "rows": 8857,
+          "loops": 1,
+          "ms": 148.213,
+          "hits": 378,
+          "tempRead": 0,
+          "tempWritten": 234
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "the_ban_hang_ct",
+          "rows": 15847,
+          "loops": 1,
+          "ms": 9.474,
+          "hits": 378,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "CTE service_prices",
+          "rows": 527,
+          "loops": 1,
+          "ms": 12.938,
+          "hits": 24,
+          "tempRead": 235,
+          "tempWritten": 1
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "dich_vu",
+          "rows": 1267,
+          "loops": 1,
+          "ms": 0.206,
+          "hits": 24,
+          "tempRead": 0,
+          "tempWritten": 0
+        }
+      ],
+      "sorts": [
+        {
+          "method": "quicksort",
+          "space": 25,
+          "spaceType": "Memory",
+          "rows": 0,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1479,
+          "spaceType": "Memory",
+          "rows": 13345,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1991,
+          "spaceType": "Memory",
+          "rows": 9353,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 723,
+          "spaceType": "Memory",
+          "rows": 9973,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1413,
+          "spaceType": "Memory",
+          "rows": 14840,
+          "loops": 1
+        }
+      ]
+    },
+    {
+      "name": "old-first-dates",
+      "wallMs": 249.363,
+      "planningMs": 0.016,
+      "executionMs": 249.014,
+      "sharedHits": 666,
+      "sharedReads": 0,
+      "tempRead": 0,
+      "tempWritten": 0,
+      "jit": null,
+      "scans": [
+        {
+          "type": "Function Scan",
+          "function": "app_sales_first_dates",
+          "rows": 6039,
+          "loops": 1,
+          "ms": 248.624,
+          "hits": 666,
+          "tempRead": 0,
+          "tempWritten": 0
+        }
+      ],
+      "sorts": []
+    },
+    {
+      "name": "all-first-dates",
+      "wallMs": 130.644,
+      "planningMs": 0.057,
+      "executionMs": 130.102,
+      "sharedHits": 0,
+      "sharedReads": 0,
+      "tempRead": 207,
+      "tempWritten": 413,
+      "jit": null,
+      "scans": [
+        {
+          "type": "Function Scan",
+          "function": "jsonb_to_recordset",
+          "subplan": "CTE filtered",
+          "rows": 9353,
+          "loops": 1,
+          "ms": 119.469,
+          "hits": 0,
+          "tempRead": 207,
+          "tempWritten": 207
+        }
+      ],
+      "sorts": []
+    },
+    {
+      "name": "typed-bridge-baseline",
+      "wallMs": 61.122,
+      "planningMs": 0.022,
+      "executionMs": 60.693,
+      "sharedHits": 0,
+      "sharedReads": 0,
+      "tempRead": 207,
+      "tempWritten": 207,
+      "jit": null,
+      "scans": [
+        {
+          "type": "Function Scan",
+          "function": "jsonb_to_recordset",
+          "rows": 9353,
+          "loops": 1,
+          "ms": 59.262,
+          "hits": 0,
+          "tempRead": 207,
+          "tempWritten": 207
+        }
+      ],
+      "sorts": []
+    },
+    {
+      "name": "page-json20",
+      "wallMs": 51.749,
+      "planningMs": 0.697,
+      "executionMs": 45.732,
+      "sharedHits": 156,
+      "sharedReads": 0,
+      "tempRead": 0,
+      "tempWritten": 0,
+      "jit": null,
+      "scans": [
+        {
+          "type": "Function Scan",
+          "function": "jsonb_to_recordset",
+          "subplan": "CTE page_rows",
+          "rows": 20,
+          "loops": 1,
+          "ms": 1.513,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Nested Loop",
+          "subplan": "SubPlan 2",
+          "rows": 1,
+          "loops": 20,
+          "ms": 2.181,
+          "hits": 156,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Index Scan",
+          "relation": "the_ban_hang",
+          "rows": 1,
+          "loops": 20,
+          "ms": 1.216,
+          "hits": 62,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Index Scan",
+          "relation": "khach_hang",
+          "rows": 1,
+          "loops": 20,
+          "ms": 0.874,
+          "hits": 61,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Index Scan",
+          "relation": "the_ban_hang",
+          "rows": 0,
+          "loops": 6,
+          "ms": 0.022,
+          "hits": 33,
+          "tempRead": 0,
+          "tempWritten": 0
+        }
+      ],
+      "sorts": [
+        {
+          "method": "quicksort",
+          "space": 29,
+          "spaceType": "Memory",
+          "rows": 20,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 25,
+          "spaceType": "Memory",
+          "rows": 0,
+          "loops": 20
+        }
+      ]
+    },
+    {
+      "name": "summary-daily",
+      "wallMs": 135.472,
+      "planningMs": 0.227,
+      "executionMs": 134.301,
+      "sharedHits": 0,
+      "sharedReads": 0,
+      "tempRead": 621,
+      "tempWritten": 414,
+      "jit": null,
+      "scans": [
+        {
+          "type": "Function Scan",
+          "function": "jsonb_to_recordset",
+          "subplan": "CTE filtered",
+          "rows": 9353,
+          "loops": 1,
+          "ms": 61.496,
+          "hits": 0,
+          "tempRead": 207,
+          "tempWritten": 207
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "CTE first_dates",
+          "rows": 6039,
+          "loops": 1,
+          "ms": 7.255,
+          "hits": 0,
+          "tempRead": 206,
+          "tempWritten": 0
+        },
+        {
+          "type": "Hash Join",
+          "subplan": "CTE classified",
+          "rows": 9353,
+          "loops": 1,
+          "ms": 20.372,
+          "hits": 0,
+          "tempRead": 414,
+          "tempWritten": 1
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "InitPlan 4",
+          "rows": 1,
+          "loops": 1,
+          "ms": 66.058,
+          "hits": 0,
+          "tempRead": 207,
+          "tempWritten": 413
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "InitPlan 5",
+          "rows": 1,
+          "loops": 1,
+          "ms": 35.504,
+          "hits": 0,
+          "tempRead": 414,
+          "tempWritten": 1
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "InitPlan 6",
+          "rows": 1,
+          "loops": 1,
+          "ms": 31.266,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        }
+      ],
+      "sorts": [
+        {
+          "method": "quicksort",
+          "space": 968,
+          "spaceType": "Memory",
+          "rows": 9353,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 85,
+          "spaceType": "Memory",
+          "rows": 256,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1260,
+          "spaceType": "Memory",
+          "rows": 9353,
+          "loops": 1
+        }
+      ]
+    },
+    {
+      "name": "main-inline-page1",
+      "wallMs": 618.918,
+      "planningMs": 6.738,
+      "executionMs": 604.661,
+      "sharedHits": 1221,
+      "sharedReads": 0,
+      "tempRead": 1091,
+      "tempWritten": 442,
+      "jit": null,
+      "scans": [
+        {
+          "type": "Hash Join",
+          "subplan": "CTE filtered",
+          "rows": 9353,
+          "loops": 1,
+          "ms": 509.665,
+          "hits": 1068,
+          "tempRead": 470,
+          "tempWritten": 235
+        },
+        {
+          "type": "Result",
+          "subplan": "CTE input",
+          "rows": 1,
+          "loops": 1,
+          "ms": 0.002,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Subquery Scan",
+          "subplan": "CTE customers",
+          "rows": 6673,
+          "loops": 1,
+          "ms": 72.524,
+          "hits": 414,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "khach_hang",
+          "subplan": "CTE customers",
+          "rows": 6673,
+          "loops": 1,
+          "ms": 8.987,
+          "hits": 414,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Index Scan",
+          "relation": "the_ban_hang",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Unique",
+          "subplan": "CTE refs",
+          "rows": 13344,
+          "loops": 1,
+          "ms": 122.633,
+          "hits": 414,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "CTE phones",
+          "rows": 3939,
+          "loops": 1,
+          "ms": 6.648,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Nested Loop",
+          "subplan": "CTE matching_customers",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Function Scan",
+          "function": "unnest",
+          "subplan": "SubPlan 6",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Nested Loop",
+          "subplan": "CTE matching_services",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "dich_vu",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "CTE staff_tokens",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "nhan_su",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "nhan_su",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Unique",
+          "subplan": "CTE reference_ids",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "the_ban_hang",
+          "subplan": "CTE headers",
+          "rows": 9353,
+          "loops": 1,
+          "ms": 20.425,
+          "hits": 252,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Merge Join",
+          "subplan": "CTE resolved",
+          "rows": 9353,
+          "loops": 1,
+          "ms": 340.556,
+          "hits": 666,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "CTE details",
+          "rows": 8857,
+          "loops": 1,
+          "ms": 148.724,
+          "hits": 378,
+          "tempRead": 0,
+          "tempWritten": 234
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "the_ban_hang_ct",
+          "rows": 15847,
+          "loops": 1,
+          "ms": 4.796,
+          "hits": 378,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "CTE service_prices",
+          "rows": 527,
+          "loops": 1,
+          "ms": 14.084,
+          "hits": 24,
+          "tempRead": 235,
+          "tempWritten": 1
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "dich_vu",
+          "rows": 1267,
+          "loops": 1,
+          "ms": 0.241,
+          "hits": 24,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Limit",
+          "subplan": "CTE page_rows",
+          "rows": 20,
+          "loops": 1,
+          "ms": 526.277,
+          "hits": 1068,
+          "tempRead": 470,
+          "tempWritten": 441
+        },
+        {
+          "type": "Append",
+          "subplan": "CTE first_dates",
+          "rows": 6039,
+          "loops": 1,
+          "ms": 8.481,
+          "hits": 0,
+          "tempRead": 206,
+          "tempWritten": 0
+        },
+        {
+          "type": "Hash Join",
+          "subplan": "CTE classified",
+          "rows": 9353,
+          "loops": 1,
+          "ms": 21.968,
+          "hits": 0,
+          "tempRead": 414,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "InitPlan 20",
+          "rows": 1,
+          "loops": 1,
+          "ms": 528.33,
+          "hits": 1221,
+          "tempRead": 470,
+          "tempWritten": 441
+        },
+        {
+          "type": "Nested Loop",
+          "subplan": "SubPlan 19",
+          "rows": 1,
+          "loops": 20,
+          "ms": 0.08,
+          "hits": 153,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Index Scan",
+          "relation": "the_ban_hang",
+          "rows": 1,
+          "loops": 20,
+          "ms": 0.007,
+          "hits": 60,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Index Scan",
+          "relation": "khach_hang",
+          "rows": 1,
+          "loops": 20,
+          "ms": 0.007,
+          "hits": 60,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Index Scan",
+          "relation": "the_ban_hang",
+          "rows": 0,
+          "loops": 6,
+          "ms": 0.019,
+          "hits": 33,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "InitPlan 21",
+          "rows": 1,
+          "loops": 1,
+          "ms": 2.48,
+          "hits": 0,
+          "tempRead": 207,
+          "tempWritten": 1
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "InitPlan 22",
+          "rows": 1,
+          "loops": 1,
+          "ms": 38.55,
+          "hits": 0,
+          "tempRead": 414,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "InitPlan 23",
+          "rows": 1,
+          "loops": 1,
+          "ms": 31.871,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        }
+      ],
+      "sorts": [
+        {
+          "method": "quicksort",
+          "space": 25,
+          "spaceType": "Memory",
+          "rows": 0,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1479,
+          "spaceType": "Memory",
+          "rows": 13345,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1991,
+          "spaceType": "Memory",
+          "rows": 9353,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 723,
+          "spaceType": "Memory",
+          "rows": 9973,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1413,
+          "spaceType": "Memory",
+          "rows": 14840,
+          "loops": 1
+        },
+        {
+          "method": "top-N heapsort",
+          "space": 34,
+          "spaceType": "Memory",
+          "rows": 20,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 29,
+          "spaceType": "Memory",
+          "rows": 20,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 25,
+          "spaceType": "Memory",
+          "rows": 0,
+          "loops": 20
+        },
+        {
+          "method": "quicksort",
+          "space": 968,
+          "spaceType": "Memory",
+          "rows": 9353,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 85,
+          "spaceType": "Memory",
+          "rows": 256,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1260,
+          "spaceType": "Memory",
+          "rows": 9353,
+          "loops": 1
+        }
+      ]
+    },
+    {
+      "name": "main-inline-page2",
+      "wallMs": 649.185,
+      "planningMs": 3.865,
+      "executionMs": 638.55,
+      "sharedHits": 1203,
+      "sharedReads": 0,
+      "tempRead": 1091,
+      "tempWritten": 442,
+      "jit": null,
+      "scans": [
+        {
+          "type": "Hash Join",
+          "subplan": "CTE filtered",
+          "rows": 9353,
+          "loops": 1,
+          "ms": 515.598,
+          "hits": 1068,
+          "tempRead": 470,
+          "tempWritten": 235
+        },
+        {
+          "type": "Result",
+          "subplan": "CTE input",
+          "rows": 1,
+          "loops": 1,
+          "ms": 0.002,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Subquery Scan",
+          "subplan": "CTE customers",
+          "rows": 6673,
+          "loops": 1,
+          "ms": 73.818,
+          "hits": 414,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "khach_hang",
+          "subplan": "CTE customers",
+          "rows": 6673,
+          "loops": 1,
+          "ms": 9,
+          "hits": 414,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Index Scan",
+          "relation": "the_ban_hang",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Unique",
+          "subplan": "CTE refs",
+          "rows": 13344,
+          "loops": 1,
+          "ms": 124.933,
+          "hits": 414,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "CTE phones",
+          "rows": 3939,
+          "loops": 1,
+          "ms": 6.736,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Nested Loop",
+          "subplan": "CTE matching_customers",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Function Scan",
+          "function": "unnest",
+          "subplan": "SubPlan 6",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Nested Loop",
+          "subplan": "CTE matching_services",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "dich_vu",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "CTE staff_tokens",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "nhan_su",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "nhan_su",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Unique",
+          "subplan": "CTE reference_ids",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "the_ban_hang",
+          "subplan": "CTE headers",
+          "rows": 9353,
+          "loops": 1,
+          "ms": 20.529,
+          "hits": 252,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Merge Join",
+          "subplan": "CTE resolved",
+          "rows": 9353,
+          "loops": 1,
+          "ms": 345.528,
+          "hits": 666,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "CTE details",
+          "rows": 8857,
+          "loops": 1,
+          "ms": 149.959,
+          "hits": 378,
+          "tempRead": 0,
+          "tempWritten": 234
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "the_ban_hang_ct",
+          "rows": 15847,
+          "loops": 1,
+          "ms": 4.946,
+          "hits": 378,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "CTE service_prices",
+          "rows": 527,
+          "loops": 1,
+          "ms": 13.608,
+          "hits": 24,
+          "tempRead": 235,
+          "tempWritten": 1
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "dich_vu",
+          "rows": 1267,
+          "loops": 1,
+          "ms": 0.222,
+          "hits": 24,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Limit",
+          "subplan": "CTE page_rows",
+          "rows": 20,
+          "loops": 1,
+          "ms": 533.39,
+          "hits": 1068,
+          "tempRead": 470,
+          "tempWritten": 441
+        },
+        {
+          "type": "Append",
+          "subplan": "CTE first_dates",
+          "rows": 6039,
+          "loops": 1,
+          "ms": 8.257,
+          "hits": 0,
+          "tempRead": 206,
+          "tempWritten": 0
+        },
+        {
+          "type": "Hash Join",
+          "subplan": "CTE classified",
+          "rows": 9353,
+          "loops": 1,
+          "ms": 21.625,
+          "hits": 0,
+          "tempRead": 414,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "InitPlan 20",
+          "rows": 1,
+          "loops": 1,
+          "ms": 562.188,
+          "hits": 1203,
+          "tempRead": 470,
+          "tempWritten": 441
+        },
+        {
+          "type": "Nested Loop",
+          "subplan": "SubPlan 19",
+          "rows": 1,
+          "loops": 20,
+          "ms": 1.416,
+          "hits": 135,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Index Scan",
+          "relation": "the_ban_hang",
+          "rows": 1,
+          "loops": 20,
+          "ms": 0.735,
+          "hits": 60,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Index Scan",
+          "relation": "khach_hang",
+          "rows": 1,
+          "loops": 20,
+          "ms": 0.607,
+          "hits": 65,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Index Scan",
+          "relation": "the_ban_hang",
+          "rows": 0,
+          "loops": 2,
+          "ms": 0.024,
+          "hits": 10,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "InitPlan 21",
+          "rows": 1,
+          "loops": 1,
+          "ms": 2.339,
+          "hits": 0,
+          "tempRead": 207,
+          "tempWritten": 1
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "InitPlan 22",
+          "rows": 1,
+          "loops": 1,
+          "ms": 38.289,
+          "hits": 0,
+          "tempRead": 414,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "InitPlan 23",
+          "rows": 1,
+          "loops": 1,
+          "ms": 32.241,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        }
+      ],
+      "sorts": [
+        {
+          "method": "quicksort",
+          "space": 25,
+          "spaceType": "Memory",
+          "rows": 0,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1479,
+          "spaceType": "Memory",
+          "rows": 13345,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1991,
+          "spaceType": "Memory",
+          "rows": 9353,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 723,
+          "spaceType": "Memory",
+          "rows": 9973,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1413,
+          "spaceType": "Memory",
+          "rows": 14840,
+          "loops": 1
+        },
+        {
+          "method": "top-N heapsort",
+          "space": 42,
+          "spaceType": "Memory",
+          "rows": 40,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 29,
+          "spaceType": "Memory",
+          "rows": 20,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 25,
+          "spaceType": "Memory",
+          "rows": 0,
+          "loops": 20
+        },
+        {
+          "method": "quicksort",
+          "space": 968,
+          "spaceType": "Memory",
+          "rows": 9353,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 85,
+          "spaceType": "Memory",
+          "rows": 256,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1260,
+          "spaceType": "Memory",
+          "rows": 9353,
+          "loops": 1
+        }
+      ]
+    },
+    {
+      "name": "typed-dynamic-execute",
+      "wallMs": 517.007,
+      "planningMs": 2.45,
+      "executionMs": 510.844,
+      "sharedHits": 1068,
+      "sharedReads": 0,
+      "tempRead": 470,
+      "tempWritten": 235,
+      "jit": null,
+      "scans": [
+        {
+          "type": "Result",
+          "subplan": "CTE input",
+          "rows": 1,
+          "loops": 1,
+          "ms": 0.002,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Subquery Scan",
+          "subplan": "CTE customers",
+          "rows": 6673,
+          "loops": 1,
+          "ms": 73.54,
+          "hits": 414,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "khach_hang",
+          "subplan": "CTE customers",
+          "rows": 6673,
+          "loops": 1,
+          "ms": 9.123,
+          "hits": 414,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Index Scan",
+          "relation": "the_ban_hang",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Unique",
+          "subplan": "CTE refs",
+          "rows": 13344,
+          "loops": 1,
+          "ms": 125.155,
+          "hits": 414,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "CTE phones",
+          "rows": 3939,
+          "loops": 1,
+          "ms": 6.58,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Nested Loop",
+          "subplan": "CTE matching_customers",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Function Scan",
+          "function": "unnest",
+          "subplan": "SubPlan 6",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Nested Loop",
+          "subplan": "CTE matching_services",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "dich_vu",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "CTE staff_tokens",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "nhan_su",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "nhan_su",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Unique",
+          "subplan": "CTE reference_ids",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "the_ban_hang",
+          "subplan": "CTE headers",
+          "rows": 9353,
+          "loops": 1,
+          "ms": 20.211,
+          "hits": 252,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Merge Join",
+          "subplan": "CTE resolved",
+          "rows": 9353,
+          "loops": 1,
+          "ms": 343.768,
+          "hits": 666,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "CTE details",
+          "rows": 8857,
+          "loops": 1,
+          "ms": 145.136,
+          "hits": 378,
+          "tempRead": 0,
+          "tempWritten": 234
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "the_ban_hang_ct",
+          "rows": 15847,
+          "loops": 1,
+          "ms": 4.627,
+          "hits": 378,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "CTE service_prices",
+          "rows": 527,
+          "loops": 1,
+          "ms": 13.955,
+          "hits": 24,
+          "tempRead": 235,
+          "tempWritten": 1
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "dich_vu",
+          "rows": 1267,
+          "loops": 1,
+          "ms": 0.225,
+          "hits": 24,
+          "tempRead": 0,
+          "tempWritten": 0
+        }
+      ],
+      "sorts": [
+        {
+          "method": "quicksort",
+          "space": 25,
+          "spaceType": "Memory",
+          "rows": 0,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1479,
+          "spaceType": "Memory",
+          "rows": 13345,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1991,
+          "spaceType": "Memory",
+          "rows": 9353,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 723,
+          "spaceType": "Memory",
+          "rows": 9973,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1413,
+          "spaceType": "Memory",
+          "rows": 14840,
+          "loops": 1
+        }
+      ]
+    },
+    {
+      "name": "main-dynamic-execute-page1",
+      "wallMs": 613.122,
+      "planningMs": 3.855,
+      "executionMs": 603.319,
+      "sharedHits": 1221,
+      "sharedReads": 0,
+      "tempRead": 1091,
+      "tempWritten": 442,
+      "jit": null,
+      "scans": [
+        {
+          "type": "Hash Join",
+          "subplan": "CTE filtered",
+          "rows": 9353,
+          "loops": 1,
+          "ms": 507.77,
+          "hits": 1068,
+          "tempRead": 470,
+          "tempWritten": 235
+        },
+        {
+          "type": "Result",
+          "subplan": "CTE input",
+          "rows": 1,
+          "loops": 1,
+          "ms": 0.002,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Subquery Scan",
+          "subplan": "CTE customers",
+          "rows": 6673,
+          "loops": 1,
+          "ms": 73.76,
+          "hits": 414,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "khach_hang",
+          "subplan": "CTE customers",
+          "rows": 6673,
+          "loops": 1,
+          "ms": 9.199,
+          "hits": 414,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Index Scan",
+          "relation": "the_ban_hang",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Unique",
+          "subplan": "CTE refs",
+          "rows": 13344,
+          "loops": 1,
+          "ms": 124.791,
+          "hits": 414,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "CTE phones",
+          "rows": 3939,
+          "loops": 1,
+          "ms": 6.764,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Nested Loop",
+          "subplan": "CTE matching_customers",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Function Scan",
+          "function": "unnest",
+          "subplan": "SubPlan 6",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Nested Loop",
+          "subplan": "CTE matching_services",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "dich_vu",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "CTE staff_tokens",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "nhan_su",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "nhan_su",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Unique",
+          "subplan": "CTE reference_ids",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "the_ban_hang",
+          "subplan": "CTE headers",
+          "rows": 9353,
+          "loops": 1,
+          "ms": 20.138,
+          "hits": 252,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Merge Join",
+          "subplan": "CTE resolved",
+          "rows": 9353,
+          "loops": 1,
+          "ms": 343.402,
+          "hits": 666,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "CTE details",
+          "rows": 8857,
+          "loops": 1,
+          "ms": 144.106,
+          "hits": 378,
+          "tempRead": 0,
+          "tempWritten": 234
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "the_ban_hang_ct",
+          "rows": 15847,
+          "loops": 1,
+          "ms": 4.558,
+          "hits": 378,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "CTE service_prices",
+          "rows": 527,
+          "loops": 1,
+          "ms": 13.801,
+          "hits": 24,
+          "tempRead": 235,
+          "tempWritten": 1
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "dich_vu",
+          "rows": 1267,
+          "loops": 1,
+          "ms": 0.218,
+          "hits": 24,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Limit",
+          "subplan": "CTE page_rows",
+          "rows": 20,
+          "loops": 1,
+          "ms": 524.172,
+          "hits": 1068,
+          "tempRead": 470,
+          "tempWritten": 441
+        },
+        {
+          "type": "Append",
+          "subplan": "CTE first_dates",
+          "rows": 6039,
+          "loops": 1,
+          "ms": 8.35,
+          "hits": 0,
+          "tempRead": 206,
+          "tempWritten": 0
+        },
+        {
+          "type": "Hash Join",
+          "subplan": "CTE classified",
+          "rows": 9353,
+          "loops": 1,
+          "ms": 21.945,
+          "hits": 0,
+          "tempRead": 414,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "InitPlan 20",
+          "rows": 1,
+          "loops": 1,
+          "ms": 526.306,
+          "hits": 1221,
+          "tempRead": 470,
+          "tempWritten": 441
+        },
+        {
+          "type": "Nested Loop",
+          "subplan": "SubPlan 19",
+          "rows": 1,
+          "loops": 20,
+          "ms": 0.083,
+          "hits": 153,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Index Scan",
+          "relation": "the_ban_hang",
+          "rows": 1,
+          "loops": 20,
+          "ms": 0.01,
+          "hits": 60,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Index Scan",
+          "relation": "khach_hang",
+          "rows": 1,
+          "loops": 20,
+          "ms": 0.007,
+          "hits": 60,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Index Scan",
+          "relation": "the_ban_hang",
+          "rows": 0,
+          "loops": 6,
+          "ms": 0.016,
+          "hits": 33,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "InitPlan 21",
+          "rows": 1,
+          "loops": 1,
+          "ms": 2.438,
+          "hits": 0,
+          "tempRead": 207,
+          "tempWritten": 1
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "InitPlan 22",
+          "rows": 1,
+          "loops": 1,
+          "ms": 38.808,
+          "hits": 0,
+          "tempRead": 414,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "InitPlan 23",
+          "rows": 1,
+          "loops": 1,
+          "ms": 32.346,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        }
+      ],
+      "sorts": [
+        {
+          "method": "quicksort",
+          "space": 25,
+          "spaceType": "Memory",
+          "rows": 0,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1479,
+          "spaceType": "Memory",
+          "rows": 13345,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1991,
+          "spaceType": "Memory",
+          "rows": 9353,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 723,
+          "spaceType": "Memory",
+          "rows": 9973,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1413,
+          "spaceType": "Memory",
+          "rows": 14840,
+          "loops": 1
+        },
+        {
+          "method": "top-N heapsort",
+          "space": 34,
+          "spaceType": "Memory",
+          "rows": 20,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 29,
+          "spaceType": "Memory",
+          "rows": 20,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 25,
+          "spaceType": "Memory",
+          "rows": 0,
+          "loops": 20
+        },
+        {
+          "method": "quicksort",
+          "space": 968,
+          "spaceType": "Memory",
+          "rows": 9353,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 85,
+          "spaceType": "Memory",
+          "rows": 256,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1260,
+          "spaceType": "Memory",
+          "rows": 9353,
+          "loops": 1
+        }
+      ]
+    },
+    {
+      "name": "typed-static-prepared",
+      "wallMs": 484.121,
+      "planningMs": 0.03,
+      "executionMs": 481.739,
+      "sharedHits": 1068,
+      "sharedReads": 0,
+      "tempRead": 470,
+      "tempWritten": 235,
+      "jit": null,
+      "scans": [
+        {
+          "type": "Result",
+          "subplan": "CTE input",
+          "rows": 1,
+          "loops": 1,
+          "ms": 0.002,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Subquery Scan",
+          "subplan": "CTE customers",
+          "rows": 6673,
+          "loops": 1,
+          "ms": 69.03,
+          "hits": 414,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "khach_hang",
+          "subplan": "CTE customers",
+          "rows": 6673,
+          "loops": 1,
+          "ms": 8.549,
+          "hits": 414,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Index Scan",
+          "relation": "the_ban_hang",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Unique",
+          "subplan": "CTE refs",
+          "rows": 13344,
+          "loops": 1,
+          "ms": 117.445,
+          "hits": 414,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "CTE phones",
+          "rows": 3939,
+          "loops": 1,
+          "ms": 6.066,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Nested Loop",
+          "subplan": "CTE matching_customers",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Function Scan",
+          "function": "unnest",
+          "subplan": "SubPlan 6",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Nested Loop",
+          "subplan": "CTE matching_services",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "dich_vu",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "CTE staff_tokens",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "nhan_su",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "nhan_su",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Unique",
+          "subplan": "CTE reference_ids",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "the_ban_hang",
+          "subplan": "CTE headers",
+          "rows": 9353,
+          "loops": 1,
+          "ms": 18.957,
+          "hits": 252,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Merge Join",
+          "subplan": "CTE resolved",
+          "rows": 9353,
+          "loops": 1,
+          "ms": 324.25,
+          "hits": 666,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "CTE details",
+          "rows": 8857,
+          "loops": 1,
+          "ms": 137.15,
+          "hits": 378,
+          "tempRead": 0,
+          "tempWritten": 234
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "the_ban_hang_ct",
+          "rows": 15847,
+          "loops": 1,
+          "ms": 4.289,
+          "hits": 378,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "CTE service_prices",
+          "rows": 527,
+          "loops": 1,
+          "ms": 13.067,
+          "hits": 24,
+          "tempRead": 235,
+          "tempWritten": 1
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "dich_vu",
+          "rows": 1267,
+          "loops": 1,
+          "ms": 0.221,
+          "hits": 24,
+          "tempRead": 0,
+          "tempWritten": 0
+        }
+      ],
+      "sorts": [
+        {
+          "method": "quicksort",
+          "space": 25,
+          "spaceType": "Memory",
+          "rows": 0,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1479,
+          "spaceType": "Memory",
+          "rows": 13345,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1991,
+          "spaceType": "Memory",
+          "rows": 9353,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 723,
+          "spaceType": "Memory",
+          "rows": 9973,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1413,
+          "spaceType": "Memory",
+          "rows": 14840,
+          "loops": 1
+        }
+      ]
+    },
+    {
+      "name": "main-static-prepared-page1",
+      "wallMs": 573.158,
+      "planningMs": 0.04,
+      "executionMs": 565.894,
+      "sharedHits": 1221,
+      "sharedReads": 0,
+      "tempRead": 1091,
+      "tempWritten": 442,
+      "jit": null,
+      "scans": [
+        {
+          "type": "Hash Join",
+          "subplan": "CTE filtered",
+          "rows": 9353,
+          "loops": 1,
+          "ms": 476.298,
+          "hits": 1068,
+          "tempRead": 470,
+          "tempWritten": 235
+        },
+        {
+          "type": "Result",
+          "subplan": "CTE input",
+          "rows": 1,
+          "loops": 1,
+          "ms": 0.002,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Subquery Scan",
+          "subplan": "CTE customers",
+          "rows": 6673,
+          "loops": 1,
+          "ms": 69.08,
+          "hits": 414,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "khach_hang",
+          "subplan": "CTE customers",
+          "rows": 6673,
+          "loops": 1,
+          "ms": 8.624,
+          "hits": 414,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Index Scan",
+          "relation": "the_ban_hang",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Unique",
+          "subplan": "CTE refs",
+          "rows": 13344,
+          "loops": 1,
+          "ms": 117.276,
+          "hits": 414,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "CTE phones",
+          "rows": 3939,
+          "loops": 1,
+          "ms": 6.305,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Nested Loop",
+          "subplan": "CTE matching_customers",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Function Scan",
+          "function": "unnest",
+          "subplan": "SubPlan 6",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Nested Loop",
+          "subplan": "CTE matching_services",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "dich_vu",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "CTE staff_tokens",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "nhan_su",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "nhan_su",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Unique",
+          "subplan": "CTE reference_ids",
+          "rows": 0,
+          "loops": 0,
+          "ms": 0,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "the_ban_hang",
+          "subplan": "CTE headers",
+          "rows": 9353,
+          "loops": 1,
+          "ms": 19.356,
+          "hits": 252,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Merge Join",
+          "subplan": "CTE resolved",
+          "rows": 9353,
+          "loops": 1,
+          "ms": 323.515,
+          "hits": 666,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "CTE details",
+          "rows": 8857,
+          "loops": 1,
+          "ms": 133.079,
+          "hits": 378,
+          "tempRead": 0,
+          "tempWritten": 234
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "the_ban_hang_ct",
+          "rows": 15847,
+          "loops": 1,
+          "ms": 4.311,
+          "hits": 378,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "CTE service_prices",
+          "rows": 527,
+          "loops": 1,
+          "ms": 12.986,
+          "hits": 24,
+          "tempRead": 235,
+          "tempWritten": 1
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "dich_vu",
+          "rows": 1267,
+          "loops": 1,
+          "ms": 0.212,
+          "hits": 24,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Limit",
+          "subplan": "CTE page_rows",
+          "rows": 20,
+          "loops": 1,
+          "ms": 491.719,
+          "hits": 1068,
+          "tempRead": 470,
+          "tempWritten": 441
+        },
+        {
+          "type": "Append",
+          "subplan": "CTE first_dates",
+          "rows": 6039,
+          "loops": 1,
+          "ms": 8.024,
+          "hits": 0,
+          "tempRead": 206,
+          "tempWritten": 0
+        },
+        {
+          "type": "Hash Join",
+          "subplan": "CTE classified",
+          "rows": 9353,
+          "loops": 1,
+          "ms": 20.743,
+          "hits": 0,
+          "tempRead": 414,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "InitPlan 20",
+          "rows": 1,
+          "loops": 1,
+          "ms": 493.707,
+          "hits": 1221,
+          "tempRead": 470,
+          "tempWritten": 441
+        },
+        {
+          "type": "Nested Loop",
+          "subplan": "SubPlan 19",
+          "rows": 1,
+          "loops": 20,
+          "ms": 0.076,
+          "hits": 153,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Index Scan",
+          "relation": "the_ban_hang",
+          "rows": 1,
+          "loops": 20,
+          "ms": 0.008,
+          "hits": 60,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Index Scan",
+          "relation": "khach_hang",
+          "rows": 1,
+          "loops": 20,
+          "ms": 0.007,
+          "hits": 60,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Index Scan",
+          "relation": "the_ban_hang",
+          "rows": 0,
+          "loops": 6,
+          "ms": 0.015,
+          "hits": 33,
+          "tempRead": 0,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "InitPlan 21",
+          "rows": 1,
+          "loops": 1,
+          "ms": 2.264,
+          "hits": 0,
+          "tempRead": 207,
+          "tempWritten": 1
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "InitPlan 22",
+          "rows": 1,
+          "loops": 1,
+          "ms": 36.501,
+          "hits": 0,
+          "tempRead": 414,
+          "tempWritten": 0
+        },
+        {
+          "type": "Aggregate",
+          "subplan": "InitPlan 23",
+          "rows": 1,
+          "loops": 1,
+          "ms": 30.131,
+          "hits": 0,
+          "tempRead": 0,
+          "tempWritten": 0
+        }
+      ],
+      "sorts": [
+        {
+          "method": "quicksort",
+          "space": 25,
+          "spaceType": "Memory",
+          "rows": 0,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1479,
+          "spaceType": "Memory",
+          "rows": 13345,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1991,
+          "spaceType": "Memory",
+          "rows": 9353,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 723,
+          "spaceType": "Memory",
+          "rows": 9973,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1413,
+          "spaceType": "Memory",
+          "rows": 14840,
+          "loops": 1
+        },
+        {
+          "method": "top-N heapsort",
+          "space": 34,
+          "spaceType": "Memory",
+          "rows": 20,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 29,
+          "spaceType": "Memory",
+          "rows": 20,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 25,
+          "spaceType": "Memory",
+          "rows": 0,
+          "loops": 20
+        },
+        {
+          "method": "quicksort",
+          "space": 968,
+          "spaceType": "Memory",
+          "rows": 9353,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 85,
+          "spaceType": "Memory",
+          "rows": 256,
+          "loops": 1
+        },
+        {
+          "method": "quicksort",
+          "space": 1260,
+          "spaceType": "Memory",
+          "rows": 9353,
+          "loops": 1
+        }
+      ]
+    }
+  ]
+}

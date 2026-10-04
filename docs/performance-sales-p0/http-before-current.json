@@ -1,0 +1,142 @@
+{
+  "capturedAt": "2026-10-04T04:28:40.215Z",
+  "scope": "anonymous; no app session; OLD endpoint only; NEW is not deployed",
+  "projectedLookupRequests": 1,
+  "samples": [
+    {
+      "name": "A_all_page1",
+      "input": {
+        "p_page": 1,
+        "p_limit": 20
+      },
+      "status": 500,
+      "ttfbMs": 3392,
+      "totalMs": 3395,
+      "bytes": 100,
+      "rows": null,
+      "totalCount": null,
+      "errorCode": "57014"
+    },
+    {
+      "name": "B_all_page2",
+      "input": {
+        "p_page": 2,
+        "p_limit": 20
+      },
+      "status": 200,
+      "ttfbMs": 2698,
+      "totalMs": 2704,
+      "bytes": 67986,
+      "rows": 20,
+      "totalCount": 9346,
+      "errorCode": null
+    },
+    {
+      "name": "C_month",
+      "input": {
+        "p_page": 1,
+        "p_limit": 20,
+        "p_start": "2026-09-01",
+        "p_end": "2026-09-30"
+      },
+      "status": 200,
+      "ttfbMs": 1075,
+      "totalMs": 1079,
+      "bytes": 28632,
+      "rows": 20,
+      "totalCount": 1764,
+      "errorCode": null
+    },
+    {
+      "name": "D_reference",
+      "input": {
+        "p_page": 1,
+        "p_limit": 1,
+        "p_reference": "[redacted sample]"
+      },
+      "status": 200,
+      "ttfbMs": 1737,
+      "totalMs": 1739,
+      "bytes": 1531,
+      "rows": 1,
+      "totalCount": 1,
+      "errorCode": null
+    },
+    {
+      "name": "E_customer",
+      "input": {
+        "p_page": 1,
+        "p_limit": 20,
+        "p_customer": "[redacted sample]"
+      },
+      "status": 200,
+      "ttfbMs": 2148,
+      "totalMs": 2149,
+      "bytes": 2853,
+      "rows": 2,
+      "totalCount": 2,
+      "errorCode": null
+    },
+    {
+      "name": "F_branch",
+      "input": {
+        "p_page": 1,
+        "p_limit": 20,
+        "p_branch": "Bắc Ninh"
+      },
+      "status": 200,
+      "ttfbMs": 2047,
+      "totalMs": 2050,
+      "bytes": 66461,
+      "rows": 20,
+      "totalCount": 3969,
+      "errorCode": null
+    },
+    {
+      "name": "G_staff",
+      "input": {
+        "p_page": 1,
+        "p_limit": 20,
+        "p_staff": "An"
+      },
+      "status": 500,
+      "ttfbMs": 3437,
+      "totalMs": 3439,
+      "bytes": 100,
+      "rows": null,
+      "totalCount": null,
+      "errorCode": "57014"
+    },
+    {
+      "name": "H_search",
+      "input": {
+        "p_page": 1,
+        "p_limit": 20,
+        "p_search": "thay dau"
+      },
+      "status": 200,
+      "ttfbMs": 2296,
+      "totalMs": 2297,
+      "bytes": 174,
+      "rows": 0,
+      "totalCount": 0,
+      "errorCode": null
+    },
+    {
+      "name": "J_uuid",
+      "input": {
+        "p_page": 1,
+        "p_limit": 1,
+        "p_reference": "[redacted sample]"
+      },
+      "status": 200,
+      "ttfbMs": 2559,
+      "totalMs": 2561,
+      "bytes": 1531,
+      "rows": 1,
+      "totalCount": 1,
+      "errorCode": null
+    }
+  ],
+  "legacySample": "No separate legacy code sample was obtained; audited local fixtures cover legacy semantics."
+}

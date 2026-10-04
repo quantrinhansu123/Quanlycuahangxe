@@ -1,0 +1,12 @@
+{
+  "at": "2026-10-04T05:13:33.070Z",
+  "status": 201,
+  "restoredLiveDefinitionsAndAcl": true,
+  "removedNewHelpers": true,
+  "rlsAndTableAclUnchanged": true,
+  "indexesUnchanged": true,
+  "settingsUnchanged": true,
+  "finalDatabaseState": "OLD",
+  "readOnly": true,
+  "aclTransportNormalized": true
+}

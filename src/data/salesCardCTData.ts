@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { readRequest } from '../lib/readRequest';
 import { assertSalesDateNotFuture } from '../utils/datetimeFormat';
 
 export interface SalesCardCT {
@@ -42,7 +43,8 @@ export const getSalesCardCTs = async (idDonHang?: string): Promise<SalesCardCT[]
 export const getSalesCardCTsPaginated = async (
   page: number, 
   pageSize: number, 
-  searchQuery?: string
+  searchQuery?: string,
+  signal?: AbortSignal
 ): Promise<{ data: SalesCardCT[], totalCount: number }> => {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
@@ -55,10 +57,10 @@ export const getSalesCardCTsPaginated = async (
     query = query.or(`san_pham.ilike.%${searchQuery}%,ten_don_hang.ilike.%${searchQuery}%,ghi_chu.ilike.%${searchQuery}%`);
   }
 
-  const { data, count, error } = await query
+  const { data, count, error } = await readRequest('sales_ct_page', s => query
     .order('ngay', { ascending: false })
     .order('created_at', { ascending: false })
-    .range(from, to);
+    .range(from, to).abortSignal(s), signal);
 
   if (error) {
     console.error('Error fetching paginated sales card CTs:', error);

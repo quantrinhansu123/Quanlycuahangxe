@@ -1,0 +1,968 @@
+{
+  "role": "supabase_read_only_user",
+  "plans": [
+    {
+      "case": "financial_page1",
+      "plan": [
+        {
+          "Plan": {
+            "Node Type": "Result",
+            "Plan Rows": 1,
+            "Plan Width": 32,
+            "Total Cost": 0.26,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Startup Cost": 0,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Actual Total Time": 7.309,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 350,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 7.308,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.011,
+          "Execution Time": 7.32
+        }
+      ],
+      "round": 0
+    },
+    {
+      "case": "financial_page2",
+      "plan": [
+        {
+          "Plan": {
+            "Node Type": "Result",
+            "Plan Rows": 1,
+            "Plan Width": 32,
+            "Total Cost": 0.26,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Startup Cost": 0,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Actual Total Time": 7.364,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 350,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 7.364,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.012,
+          "Execution Time": 7.375
+        }
+      ],
+      "round": 0
+    },
+    {
+      "case": "page_reference_batch",
+      "plan": [
+        {
+          "Plan": {
+            "Node Type": "Result",
+            "Plan Rows": 1,
+            "Plan Width": 32,
+            "Total Cost": 0.26,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Startup Cost": 0,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Actual Total Time": 132.152,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 835,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 132.151,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.004,
+          "Execution Time": 132.168
+        }
+      ],
+      "round": 0
+    },
+    {
+      "case": "financial_page1",
+      "plan": [
+        {
+          "Plan": {
+            "Node Type": "Result",
+            "Plan Rows": 1,
+            "Plan Width": 32,
+            "Total Cost": 0.26,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Startup Cost": 0,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Actual Total Time": 7.222,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 350,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 7.221,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.013,
+          "Execution Time": 7.234
+        }
+      ],
+      "round": 1
+    },
+    {
+      "case": "financial_page2",
+      "plan": [
+        {
+          "Plan": {
+            "Node Type": "Result",
+            "Plan Rows": 1,
+            "Plan Width": 32,
+            "Total Cost": 0.26,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Startup Cost": 0,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Actual Total Time": 7.282,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 350,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 7.281,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.018,
+          "Execution Time": 7.294
+        }
+      ],
+      "round": 1
+    },
+    {
+      "case": "page_reference_batch",
+      "plan": [
+        {
+          "Plan": {
+            "Node Type": "Result",
+            "Plan Rows": 1,
+            "Plan Width": 32,
+            "Total Cost": 0.26,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Startup Cost": 0,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Actual Total Time": 133.429,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 835,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 133.428,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.01,
+          "Execution Time": 133.448
+        }
+      ],
+      "round": 1
+    },
+    {
+      "case": "financial_page1",
+      "plan": [
+        {
+          "Plan": {
+            "Node Type": "Result",
+            "Plan Rows": 1,
+            "Plan Width": 32,
+            "Total Cost": 0.26,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Startup Cost": 0,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Actual Total Time": 7.259,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 350,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 7.258,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.02,
+          "Execution Time": 7.27
+        }
+      ],
+      "round": 2
+    },
+    {
+      "case": "financial_page2",
+      "plan": [
+        {
+          "Plan": {
+            "Node Type": "Result",
+            "Plan Rows": 1,
+            "Plan Width": 32,
+            "Total Cost": 0.26,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Startup Cost": 0,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Actual Total Time": 7.271,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 350,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 7.271,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.018,
+          "Execution Time": 7.283
+        }
+      ],
+      "round": 2
+    },
+    {
+      "case": "page_reference_batch",
+      "plan": [
+        {
+          "Plan": {
+            "Node Type": "Result",
+            "Plan Rows": 1,
+            "Plan Width": 32,
+            "Total Cost": 0.26,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Startup Cost": 0,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Actual Total Time": 133.119,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 835,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 133.119,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.01,
+          "Execution Time": 133.131
+        }
+      ],
+      "round": 2
+    },
+    {
+      "case": "financial_page1",
+      "plan": [
+        {
+          "Plan": {
+            "Node Type": "Result",
+            "Plan Rows": 1,
+            "Plan Width": 32,
+            "Total Cost": 0.26,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Startup Cost": 0,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Actual Total Time": 7.269,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 350,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 7.269,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.021,
+          "Execution Time": 7.281
+        }
+      ],
+      "round": 3
+    },
+    {
+      "case": "financial_page2",
+      "plan": [
+        {
+          "Plan": {
+            "Node Type": "Result",
+            "Plan Rows": 1,
+            "Plan Width": 32,
+            "Total Cost": 0.26,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Startup Cost": 0,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Actual Total Time": 7.228,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 350,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 7.227,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.018,
+          "Execution Time": 7.24
+        }
+      ],
+      "round": 3
+    },
+    {
+      "case": "page_reference_batch",
+      "plan": [
+        {
+          "Plan": {
+            "Node Type": "Result",
+            "Plan Rows": 1,
+            "Plan Width": 32,
+            "Total Cost": 0.26,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Startup Cost": 0,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Actual Total Time": 132.44,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 835,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 132.44,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.01,
+          "Execution Time": 132.452
+        }
+      ],
+      "round": 3
+    },
+    {
+      "case": "financial_page1",
+      "plan": [
+        {
+          "Plan": {
+            "Node Type": "Result",
+            "Plan Rows": 1,
+            "Plan Width": 32,
+            "Total Cost": 0.26,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Startup Cost": 0,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Actual Total Time": 7.236,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 350,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 7.235,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.019,
+          "Execution Time": 7.247
+        }
+      ],
+      "round": 4
+    },
+    {
+      "case": "financial_page2",
+      "plan": [
+        {
+          "Plan": {
+            "Node Type": "Result",
+            "Plan Rows": 1,
+            "Plan Width": 32,
+            "Total Cost": 0.26,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Startup Cost": 0,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Actual Total Time": 7.277,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 350,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 7.276,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.018,
+          "Execution Time": 7.288
+        }
+      ],
+      "round": 4
+    },
+    {
+      "case": "page_reference_batch",
+      "plan": [
+        {
+          "Plan": {
+            "Node Type": "Result",
+            "Plan Rows": 1,
+            "Plan Width": 32,
+            "Total Cost": 0.26,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Startup Cost": 0,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Actual Total Time": 132.564,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 835,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 132.563,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.01,
+          "Execution Time": 132.581
+        }
+      ],
+      "round": 4
+    },
+    {
+      "case": "financial_page1",
+      "plan": [
+        {
+          "Plan": {
+            "Node Type": "Result",
+            "Plan Rows": 1,
+            "Plan Width": 32,
+            "Total Cost": 0.26,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Startup Cost": 0,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Actual Total Time": 7.261,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 350,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 7.26,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.026,
+          "Execution Time": 7.276
+        }
+      ],
+      "round": 5
+    },
+    {
+      "case": "financial_page2",
+      "plan": [
+        {
+          "Plan": {
+            "Node Type": "Result",
+            "Plan Rows": 1,
+            "Plan Width": 32,
+            "Total Cost": 0.26,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Startup Cost": 0,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Actual Total Time": 7.233,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 350,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 7.233,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.021,
+          "Execution Time": 7.245
+        }
+      ],
+      "round": 5
+    },
+    {
+      "case": "page_reference_batch",
+      "plan": [
+        {
+          "Plan": {
+            "Node Type": "Result",
+            "Plan Rows": 1,
+            "Plan Width": 32,
+            "Total Cost": 0.26,
+            "Actual Rows": 1,
+            "Actual Loops": 1,
+            "Startup Cost": 0,
+            "Async Capable": false,
+            "Parallel Aware": false,
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Actual Total Time": 132.149,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 835,
+            "Shared Read Blocks": 0,
+            "Actual Startup Time": 132.148,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Planning": {
+            "Local Hit Blocks": 0,
+            "Temp Read Blocks": 0,
+            "Local Read Blocks": 0,
+            "Shared Hit Blocks": 0,
+            "Shared Read Blocks": 0,
+            "Temp Written Blocks": 0,
+            "Local Dirtied Blocks": 0,
+            "Local Written Blocks": 0,
+            "Shared Dirtied Blocks": 0,
+            "Shared Written Blocks": 0
+          },
+          "Triggers": [],
+          "Planning Time": 0.01,
+          "Execution Time": 132.16
+        }
+      ],
+      "round": 5
+    }
+  ],
+  "readOnly": "on",
+  "snapshot": "101645:101645:",
+  "work_mem": "2184kB",
+  "salesRefs": 30,
+  "pageOverlap": false,
+  "salesHeaders": 20,
+  "financialCases": [
+    {
+      "case": 1,
+      "rows": 20,
+      "equal": true,
+      "totalCount": 4801,
+      "fullResultMd5": "380d0eb808ba0b507278610262e0033e",
+      "tiedOrderOnly": false,
+      "rawFullJsonEqual": true
+    },
+    {
+      "case": 2,
+      "rows": 20,
+      "equal": true,
+      "totalCount": 4801,
+      "fullResultMd5": "2799018569bf1cbea69067ef65c8fe4a",
+      "tiedOrderOnly": false,
+      "rawFullJsonEqual": true
+    },
+    {
+      "case": 3,
+      "rows": 20,
+      "equal": true,
+      "totalCount": 1764,
+      "fullResultMd5": "6518cc0a0b22146571c4f407e521e257",
+      "tiedOrderOnly": true,
+      "rawFullJsonEqual": false
+    },
+    {
+      "case": 4,
+      "rows": 20,
+      "equal": true,
+      "totalCount": 1764,
+      "fullResultMd5": "0fe0bec12279413e48c8abdb121a2ac4",
+      "tiedOrderOnly": false,
+      "rawFullJsonEqual": true
+    },
+    {
+      "case": 5,
+      "rows": 20,
+      "equal": true,
+      "totalCount": 2682,
+      "fullResultMd5": "6bc8e5296a640f03ee897615f347f339",
+      "tiedOrderOnly": false,
+      "rawFullJsonEqual": true
+    },
+    {
+      "case": 6,
+      "rows": 20,
+      "equal": true,
+      "totalCount": 4797,
+      "fullResultMd5": "0c16e0a4370d7e9caccd787dc0e67ba9",
+      "tiedOrderOnly": false,
+      "rawFullJsonEqual": true
+    },
+    {
+      "case": 7,
+      "rows": 4,
+      "equal": true,
+      "totalCount": 4,
+      "fullResultMd5": "8a4125a67c5677c5f2eab2b5881648c1",
+      "tiedOrderOnly": false,
+      "rawFullJsonEqual": true
+    },
+    {
+      "case": 8,
+      "rows": 1,
+      "equal": true,
+      "totalCount": 1,
+      "fullResultMd5": "8ede6388a30215b51136fc64173e9ead",
+      "tiedOrderOnly": false,
+      "rawFullJsonEqual": true
+    },
+    {
+      "case": 9,
+      "rows": 3,
+      "equal": true,
+      "totalCount": 3,
+      "fullResultMd5": "7157026f0bea6d0918d7045848338ba5",
+      "tiedOrderOnly": false,
+      "rawFullJsonEqual": true
+    },
+    {
+      "case": 10,
+      "rows": 20,
+      "equal": true,
+      "totalCount": 2025,
+      "fullResultMd5": "5ef3483e930044e354d58617c5e5e301",
+      "tiedOrderOnly": false,
+      "rawFullJsonEqual": true
+    },
+    {
+      "case": 11,
+      "rows": 0,
+      "equal": true,
+      "totalCount": 0,
+      "fullResultMd5": "cbcf389ab6c991f8a108fcfc86faa33d",
+      "tiedOrderOnly": false,
+      "rawFullJsonEqual": true
+    },
+    {
+      "case": 12,
+      "rows": 20,
+      "equal": true,
+      "totalCount": 4801,
+      "fullResultMd5": "380d0eb808ba0b507278610262e0033e",
+      "tiedOrderOnly": false,
+      "rawFullJsonEqual": true
+    },
+    {
+      "case": 13,
+      "rows": 0,
+      "equal": true,
+      "totalCount": 0,
+      "fullResultMd5": "cbcf389ab6c991f8a108fcfc86faa33d",
+      "tiedOrderOnly": false,
+      "rawFullJsonEqual": true
+    },
+    {
+      "case": 14,
+      "rows": 0,
+      "equal": true,
+      "totalCount": 0,
+      "fullResultMd5": "cbcf389ab6c991f8a108fcfc86faa33d",
+      "tiedOrderOnly": false,
+      "rawFullJsonEqual": true
+    }
+  ],
+  "salesBatchFullJsonEqual": true
+}

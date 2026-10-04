@@ -1,0 +1,6 @@
+{
+  "role": "anon",
+  "equal": true,
+  "count": 0,
+  "statement_timeout": "6s"
+}

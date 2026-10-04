@@ -1,0 +1,164 @@
+{
+  "cases": [
+    {
+      "case": 1,
+      "rows": 20,
+      "equal": true,
+      "totalCount": 4798,
+      "samePageIds": true,
+      "fullResultMd5": "3dffd7c2f627dc71699ca3500b74eca9",
+      "differentRowFields": null,
+      "differentTopFields": null,
+      "sameDateTimeSequence": true
+    },
+    {
+      "case": 2,
+      "rows": 20,
+      "equal": false,
+      "totalCount": 4798,
+      "samePageIds": true,
+      "fullResultMd5": "1ffa25ceced961eb4f6e17fedc7e7c2a",
+      "differentRowFields": null,
+      "differentTopFields": [
+        "data"
+      ],
+      "sameDateTimeSequence": true
+    },
+    {
+      "case": 3,
+      "rows": 20,
+      "equal": false,
+      "totalCount": 1764,
+      "samePageIds": true,
+      "fullResultMd5": "6518cc0a0b22146571c4f407e521e257",
+      "differentRowFields": null,
+      "differentTopFields": [
+        "data"
+      ],
+      "sameDateTimeSequence": true
+    },
+    {
+      "case": 4,
+      "rows": 20,
+      "equal": true,
+      "totalCount": 1764,
+      "samePageIds": true,
+      "fullResultMd5": "0fe0bec12279413e48c8abdb121a2ac4",
+      "differentRowFields": null,
+      "differentTopFields": null,
+      "sameDateTimeSequence": true
+    },
+    {
+      "case": 5,
+      "rows": 20,
+      "equal": true,
+      "totalCount": 2681,
+      "samePageIds": true,
+      "fullResultMd5": "01db419a7519bafa6612b5ae6112527b",
+      "differentRowFields": null,
+      "differentTopFields": null,
+      "sameDateTimeSequence": true
+    },
+    {
+      "case": 6,
+      "rows": 20,
+      "equal": true,
+      "totalCount": 4794,
+      "samePageIds": true,
+      "fullResultMd5": "7227a688a8a8793c9974d0ec03399d24",
+      "differentRowFields": null,
+      "differentTopFields": null,
+      "sameDateTimeSequence": true
+    },
+    {
+      "case": 7,
+      "rows": 4,
+      "equal": true,
+      "totalCount": 4,
+      "samePageIds": true,
+      "fullResultMd5": "8a4125a67c5677c5f2eab2b5881648c1",
+      "differentRowFields": null,
+      "differentTopFields": null,
+      "sameDateTimeSequence": true
+    },
+    {
+      "case": 8,
+      "rows": 1,
+      "equal": true,
+      "totalCount": 1,
+      "samePageIds": true,
+      "fullResultMd5": "8ede6388a30215b51136fc64173e9ead",
+      "differentRowFields": null,
+      "differentTopFields": null,
+      "sameDateTimeSequence": true
+    },
+    {
+      "case": 9,
+      "rows": 3,
+      "equal": true,
+      "totalCount": 3,
+      "samePageIds": true,
+      "fullResultMd5": "7157026f0bea6d0918d7045848338ba5",
+      "differentRowFields": null,
+      "differentTopFields": null,
+      "sameDateTimeSequence": true
+    },
+    {
+      "case": 10,
+      "rows": 20,
+      "equal": true,
+      "totalCount": 2024,
+      "samePageIds": true,
+      "fullResultMd5": "d2b66677d9df87e44eeedc129faaefa3",
+      "differentRowFields": null,
+      "differentTopFields": null,
+      "sameDateTimeSequence": true
+    },
+    {
+      "case": 11,
+      "rows": 0,
+      "equal": true,
+      "totalCount": 0,
+      "samePageIds": true,
+      "fullResultMd5": "cbcf389ab6c991f8a108fcfc86faa33d",
+      "differentRowFields": null,
+      "differentTopFields": null,
+      "sameDateTimeSequence": true
+    },
+    {
+      "case": 12,
+      "rows": 20,
+      "equal": true,
+      "totalCount": 4798,
+      "samePageIds": true,
+      "fullResultMd5": "3dffd7c2f627dc71699ca3500b74eca9",
+      "differentRowFields": null,
+      "differentTopFields": null,
+      "sameDateTimeSequence": true
+    },
+    {
+      "case": 13,
+      "rows": 0,
+      "equal": true,
+      "totalCount": 0,
+      "samePageIds": true,
+      "fullResultMd5": "cbcf389ab6c991f8a108fcfc86faa33d",
+      "differentRowFields": null,
+      "differentTopFields": null,
+      "sameDateTimeSequence": true
+    },
+    {
+      "case": 14,
+      "rows": 0,
+      "equal": true,
+      "totalCount": 0,
+      "samePageIds": true,
+      "fullResultMd5": "cbcf389ab6c991f8a108fcfc86faa33d",
+      "differentRowFields": null,
+      "differentTopFields": null,
+      "sameDateTimeSequence": true
+    }
+  ],
+  "readOnly": "on",
+  "snapshot": "101619:101619:"
+}

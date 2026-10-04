@@ -42,7 +42,7 @@ function AppRoutes() {
   const location = useLocation();
 
   return (
-    <ErrorBoundary key={location.pathname}>
+    <ErrorBoundary key={location.pathname === '/bao-cao' || location.pathname.startsWith('/bao-cao/') ? '/bao-cao' : location.pathname}>
       <Suspense fallback={<TopProgressBar />}>
         <Routes>
           {/* Public route â€” khÃ´ng cáº§n login */}

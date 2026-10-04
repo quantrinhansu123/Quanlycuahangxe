@@ -1,0 +1,167 @@
+{
+  "at": "2026-10-04T09:10:21.474Z",
+  "scope": "Actual CT/Financial/Sổ quỹ read loader workload via local Vite, LIVE anon API; no app session or mounted write flows; no common DB snapshot between phases",
+  "period": [
+    "2026-09-01",
+    "2026-09-30"
+  ],
+  "results": [
+    {
+      "workload": "CT",
+      "phase": "after",
+      "durationMs": 1696,
+      "requests": 2,
+      "payloadBytes": 18983,
+      "salesHeadersFetched": 9,
+      "detailRowsFetched": 20,
+      "financialRowsFetched": 0,
+      "detailBatches": 0,
+      "financialBatches": 0,
+      "salesRefBatches": 1,
+      "concurrencyCap": 6,
+      "peakConcurrency": 1,
+      "error": null,
+      "network": [
+        {
+          "endpoint": "the_ban_hang_ct",
+          "method": "GET",
+          "status": 206,
+          "durationMs": 817,
+          "bytes": 7996,
+          "rows": 20,
+          "errorCode": null
+        },
+        {
+          "endpoint": "sales_p2_lookup",
+          "method": "POST",
+          "status": 200,
+          "durationMs": 568,
+          "bytes": 10987,
+          "rows": 9,
+          "errorCode": null
+        }
+      ],
+      "blockedWrites": [],
+      "pageRows": 20,
+      "totalCount": 15850,
+      "salesHeadersLoaded": 9,
+      "customerRowsLoaded": 0,
+      "pageHash": "781d4db18baaacefec90ef2d03845e9d13a27078f29f5e34a79dd6970a47af1c",
+      "selectedHeadersHash": "a78e90eb28c2b7cfd0c1812c7de350641469a6f9aa105c090628c999cfec1e7a",
+      "pageIdsHash": "da02748c1370ab256ee0d84025b782fce429edc411de775a3830fa6ec1c3e534"
+    },
+    {
+      "workload": "Thu chi",
+      "phase": "after",
+      "durationMs": 1162,
+      "requests": 3,
+      "payloadBytes": 38336,
+      "salesHeadersFetched": 20,
+      "detailRowsFetched": 0,
+      "financialRowsFetched": 20,
+      "detailBatches": 0,
+      "financialBatches": 0,
+      "salesRefBatches": 1,
+      "concurrencyCap": 6,
+      "peakConcurrency": 2,
+      "error": null,
+      "network": [
+        {
+          "endpoint": "financial_p2_query",
+          "method": "POST",
+          "status": 200,
+          "durationMs": 383,
+          "bytes": 12634,
+          "rows": 20,
+          "errorCode": null
+        },
+        {
+          "endpoint": "sales_p2_lookup",
+          "method": "POST",
+          "status": 200,
+          "durationMs": 396,
+          "bytes": 23319,
+          "rows": 20,
+          "errorCode": null
+        },
+        {
+          "endpoint": "khach_hang",
+          "method": "GET",
+          "status": 200,
+          "durationMs": 618,
+          "bytes": 2383,
+          "rows": 19,
+          "errorCode": null
+        }
+      ],
+      "blockedWrites": [],
+      "pageRows": 20,
+      "totalCount": 1764,
+      "totalIncome": 430975000,
+      "totalExpense": 0,
+      "closingBalance": 430975000,
+      "salesHeadersLoaded": 20,
+      "customerRowsLoaded": 19,
+      "pageHash": "207ddb39e54610fd41a03589dffd8872407f2c78e9eb116af0e4aa86184c7f98",
+      "selectedHeadersHash": "23c2b3503338683dca70b4566c62cc9ff76b302f4a3702be0267cc8ca4498725",
+      "pageIdsHash": "0ed58747127ef6f84f7c20c20e13beb5f39bc0caf9eca938497283d76721619b"
+    },
+    {
+      "workload": "Sổ quỹ",
+      "phase": "after",
+      "durationMs": 1672,
+      "requests": 3,
+      "payloadBytes": 38336,
+      "salesHeadersFetched": 20,
+      "detailRowsFetched": 0,
+      "financialRowsFetched": 20,
+      "detailBatches": 0,
+      "financialBatches": 0,
+      "salesRefBatches": 1,
+      "concurrencyCap": 6,
+      "peakConcurrency": 2,
+      "error": null,
+      "network": [
+        {
+          "endpoint": "financial_p2_query",
+          "method": "POST",
+          "status": 200,
+          "durationMs": 274,
+          "bytes": 12634,
+          "rows": 20,
+          "errorCode": null
+        },
+        {
+          "endpoint": "khach_hang",
+          "method": "GET",
+          "status": 200,
+          "durationMs": 278,
+          "bytes": 2383,
+          "rows": 19,
+          "errorCode": null
+        },
+        {
+          "endpoint": "sales_p2_lookup",
+          "method": "POST",
+          "status": 200,
+          "durationMs": 1250,
+          "bytes": 23319,
+          "rows": 20,
+          "errorCode": null
+        }
+      ],
+      "blockedWrites": [],
+      "pageRows": 20,
+      "totalCount": 1764,
+      "totalIncome": 430975000,
+      "totalExpense": 0,
+      "closingBalance": 430975000,
+      "salesHeadersLoaded": 20,
+      "customerRowsLoaded": 19,
+      "pageHash": "207ddb39e54610fd41a03589dffd8872407f2c78e9eb116af0e4aa86184c7f98",
+      "selectedHeadersHash": "23c2b3503338683dca70b4566c62cc9ff76b302f4a3702be0267cc8ca4498725",
+      "pageIdsHash": "0ed58747127ef6f84f7c20c20e13beb5f39bc0caf9eca938497283d76721619b"
+    }
+  ],
+  "productionWrites": 0
+}

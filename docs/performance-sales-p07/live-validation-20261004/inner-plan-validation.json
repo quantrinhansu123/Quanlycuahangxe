@@ -1,0 +1,492 @@
+[
+  {
+    "name": "p05-body-force_generic_plan",
+    "executionMs": 555.475,
+    "sharedHits": 48498,
+    "sharedReads": 0,
+    "tempRead": 470,
+    "tempWritten": 235,
+    "scans": [
+      {
+        "type": "Function Scan",
+        "rows": 6673,
+        "loops": 1,
+        "hits": 820,
+        "ms": 90.56
+      },
+      {
+        "type": "Function Scan",
+        "rows": 0,
+        "loops": 0,
+        "hits": 0,
+        "ms": 0
+      },
+      {
+        "type": "Seq Scan",
+        "relation": "dich_vu",
+        "rows": 0,
+        "loops": 0,
+        "hits": 0,
+        "ms": 0
+      },
+      {
+        "type": "Seq Scan",
+        "relation": "nhan_su",
+        "rows": 0,
+        "loops": 0,
+        "hits": 0,
+        "ms": 0
+      },
+      {
+        "type": "Seq Scan",
+        "relation": "nhan_su",
+        "rows": 0,
+        "loops": 0,
+        "hits": 0,
+        "ms": 0
+      },
+      {
+        "type": "Index Only Scan",
+        "relation": "the_ban_hang",
+        "index": "the_ban_hang_pkey",
+        "rows": 0,
+        "loops": 0,
+        "hits": 0,
+        "ms": 0
+      },
+      {
+        "type": "Index Scan",
+        "relation": "the_ban_hang",
+        "index": "idx_the_ban_hang_id_bh_ref",
+        "rows": 0,
+        "loops": 0,
+        "hits": 0,
+        "ms": 0
+      },
+      {
+        "type": "Seq Scan",
+        "relation": "the_ban_hang",
+        "rows": 9354,
+        "loops": 1,
+        "hits": 252,
+        "ms": 22.254
+      },
+      {
+        "type": "Function Scan",
+        "rows": 0,
+        "loops": 0,
+        "hits": 0,
+        "ms": 0
+      },
+      {
+        "type": "Function Scan",
+        "rows": 0,
+        "loops": 0,
+        "hits": 0,
+        "ms": 0
+      },
+      {
+        "type": "Index Scan",
+        "relation": "the_ban_hang_ct",
+        "index": "sales_detail_ref_search",
+        "rows": 1,
+        "loops": 18708,
+        "hits": 47396,
+        "ms": 0.004
+      },
+      {
+        "type": "Seq Scan",
+        "relation": "dich_vu",
+        "rows": 1267,
+        "loops": 1,
+        "hits": 24,
+        "ms": 0.229
+      },
+      {
+        "type": "Function Scan",
+        "rows": 0,
+        "loops": 0,
+        "hits": 0,
+        "ms": 0
+      }
+    ]
+  },
+  {
+    "name": "p05-body-force_custom_plan",
+    "executionMs": 518.858,
+    "sharedHits": 1485,
+    "sharedReads": 0,
+    "tempRead": 470,
+    "tempWritten": 235,
+    "scans": [
+      {
+        "type": "Function Scan",
+        "rows": 6673,
+        "loops": 1,
+        "hits": 825,
+        "ms": 71.1
+      },
+      {
+        "type": "Function Scan",
+        "rows": 0,
+        "loops": 0,
+        "hits": 0,
+        "ms": 0
+      },
+      {
+        "type": "Seq Scan",
+        "relation": "dich_vu",
+        "rows": 0,
+        "loops": 0,
+        "hits": 0,
+        "ms": 0
+      },
+      {
+        "type": "Seq Scan",
+        "relation": "nhan_su",
+        "rows": 0,
+        "loops": 0,
+        "hits": 0,
+        "ms": 0
+      },
+      {
+        "type": "Seq Scan",
+        "relation": "nhan_su",
+        "rows": 0,
+        "loops": 0,
+        "hits": 0,
+        "ms": 0
+      },
+      {
+        "type": "Seq Scan",
+        "relation": "the_ban_hang",
+        "rows": 9354,
+        "loops": 1,
+        "hits": 252,
+        "ms": 21.231
+      },
+      {
+        "type": "Seq Scan",
+        "relation": "the_ban_hang_ct",
+        "rows": 15850,
+        "loops": 1,
+        "hits": 378,
+        "ms": 4.638
+      },
+      {
+        "type": "Seq Scan",
+        "relation": "dich_vu",
+        "rows": 1267,
+        "loops": 1,
+        "hits": 24,
+        "ms": 20.26
+      }
+    ]
+  },
+  {
+    "name": "A_all_page1",
+    "main": {
+      "executionMs": 904.702,
+      "sharedHits": 3039,
+      "sharedReads": 0,
+      "tempRead": 1298,
+      "tempWritten": 649,
+      "scans": [
+        {
+          "type": "Function Scan",
+          "rows": 9354,
+          "loops": 1,
+          "hits": 2817,
+          "ms": 767.745
+        },
+        {
+          "type": "Function Scan",
+          "rows": 0,
+          "loops": 1,
+          "hits": 10,
+          "ms": 1.843
+        }
+      ]
+    },
+    "typed": {
+      "executionMs": 469.647,
+      "sharedHits": 1485,
+      "sharedReads": 0,
+      "tempRead": 470,
+      "tempWritten": 235,
+      "scans": [
+        {
+          "type": "Function Scan",
+          "rows": 6673,
+          "loops": 1,
+          "hits": 825,
+          "ms": 68.974
+        },
+        {
+          "type": "Function Scan",
+          "rows": 0,
+          "loops": 0,
+          "hits": 0,
+          "ms": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "dich_vu",
+          "rows": 0,
+          "loops": 0,
+          "hits": 0,
+          "ms": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "nhan_su",
+          "rows": 0,
+          "loops": 0,
+          "hits": 0,
+          "ms": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "nhan_su",
+          "rows": 0,
+          "loops": 0,
+          "hits": 0,
+          "ms": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "the_ban_hang",
+          "rows": 9354,
+          "loops": 1,
+          "hits": 252,
+          "ms": 20.104
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "the_ban_hang_ct",
+          "rows": 15850,
+          "loops": 1,
+          "hits": 378,
+          "ms": 4.525
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "dich_vu",
+          "rows": 1267,
+          "loops": 1,
+          "hits": 24,
+          "ms": 0.232
+        }
+      ]
+    },
+    "pageRows": 20,
+    "filteredCalls": 1
+  },
+  {
+    "name": "B_all_page2",
+    "main": {
+      "executionMs": 560.525,
+      "sharedHits": 3016,
+      "sharedReads": 0,
+      "tempRead": 1298,
+      "tempWritten": 649,
+      "scans": [
+        {
+          "type": "Function Scan",
+          "rows": 9354,
+          "loops": 1,
+          "hits": 2817,
+          "ms": 443.522
+        },
+        {
+          "type": "Function Scan",
+          "rows": 0,
+          "loops": 1,
+          "hits": 10,
+          "ms": 1.197
+        }
+      ]
+    },
+    "typed": {
+      "executionMs": 535.259,
+      "sharedHits": 1485,
+      "sharedReads": 0,
+      "tempRead": 470,
+      "tempWritten": 235,
+      "scans": [
+        {
+          "type": "Function Scan",
+          "rows": 6673,
+          "loops": 1,
+          "hits": 825,
+          "ms": 68.329
+        },
+        {
+          "type": "Function Scan",
+          "rows": 0,
+          "loops": 0,
+          "hits": 0,
+          "ms": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "dich_vu",
+          "rows": 0,
+          "loops": 0,
+          "hits": 0,
+          "ms": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "nhan_su",
+          "rows": 0,
+          "loops": 0,
+          "hits": 0,
+          "ms": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "nhan_su",
+          "rows": 0,
+          "loops": 0,
+          "hits": 0,
+          "ms": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "the_ban_hang",
+          "rows": 9354,
+          "loops": 1,
+          "hits": 252,
+          "ms": 22.703
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "the_ban_hang_ct",
+          "rows": 15850,
+          "loops": 1,
+          "hits": 378,
+          "ms": 64.564
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "dich_vu",
+          "rows": 1267,
+          "loops": 1,
+          "hits": 24,
+          "ms": 0.264
+        }
+      ]
+    },
+    "pageRows": 20,
+    "filteredCalls": 1
+  },
+  {
+    "name": "D_reference_id_bh",
+    "main": {
+      "executionMs": 427.844,
+      "sharedHits": 3564,
+      "sharedReads": 0,
+      "tempRead": 0,
+      "tempWritten": 0,
+      "scans": [
+        {
+          "type": "Function Scan",
+          "rows": 1,
+          "loops": 1,
+          "hits": 2823,
+          "ms": 176.39
+        },
+        {
+          "type": "Function Scan",
+          "rows": 1,
+          "loops": 1,
+          "hits": 676,
+          "ms": 244.621
+        }
+      ]
+    },
+    "typed": {
+      "executionMs": 169.138,
+      "sharedHits": 1483,
+      "sharedReads": 0,
+      "tempRead": 0,
+      "tempWritten": 0,
+      "scans": [
+        {
+          "type": "Function Scan",
+          "rows": 6673,
+          "loops": 1,
+          "hits": 823,
+          "ms": 67.045
+        },
+        {
+          "type": "Function Scan",
+          "rows": 0,
+          "loops": 0,
+          "hits": 0,
+          "ms": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "dich_vu",
+          "rows": 0,
+          "loops": 0,
+          "hits": 0,
+          "ms": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "nhan_su",
+          "rows": 0,
+          "loops": 0,
+          "hits": 0,
+          "ms": 0
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "nhan_su",
+          "rows": 0,
+          "loops": 0,
+          "hits": 0,
+          "ms": 0
+        },
+        {
+          "type": "Index Scan",
+          "relation": "the_ban_hang",
+          "index": "idx_the_ban_hang_id_bh_ref",
+          "rows": 1,
+          "loops": 1,
+          "hits": 3,
+          "ms": 0.043
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "the_ban_hang",
+          "rows": 1,
+          "loops": 1,
+          "hits": 255,
+          "ms": 2.041
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "the_ban_hang_ct",
+          "rows": 15850,
+          "loops": 1,
+          "hits": 378,
+          "ms": 4.581
+        },
+        {
+          "type": "Seq Scan",
+          "relation": "dich_vu",
+          "rows": 1267,
+          "loops": 1,
+          "hits": 24,
+          "ms": 0.205
+        }
+      ]
+    },
+    "pageRows": 1,
+    "filteredCalls": 1
+  }
+]

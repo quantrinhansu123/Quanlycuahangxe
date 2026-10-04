@@ -1,0 +1,160 @@
+{
+  "at": "2026-10-04T07:31:39.436Z",
+  "scope": "Anonymous LIVE REST, no copied app session; sequential OLD/NEW reads with exact scalar/order equality; no common database transaction snapshot",
+  "period": [
+    "2026-09-01",
+    "2026-09-30"
+  ],
+  "projection": "id,id_cham_cong,nhan_su,ngay,checkin,checkout,vi_tri,created_at,ghi_chu,bo_sung_boi,bo_sung_luc",
+  "repeats": 3,
+  "records": 285,
+  "attendanceRequestsPerLoad": {
+    "old": 1,
+    "new": 1
+  },
+  "medianApiMs": {
+    "old": 3573,
+    "new": 269
+  },
+  "payloadBytes": {
+    "old": 9976856,
+    "new": 91238
+  },
+  "payloadReductionPercent": 99.08550348927558,
+  "samples": [
+    {
+      "name": "personnel-safe-projection",
+      "status": 200,
+      "ttfbMs": 1366,
+      "totalMs": 1369,
+      "bytes": 1521,
+      "rows": 10,
+      "range": "0-9/*"
+    },
+    {
+      "name": "settings",
+      "status": 200,
+      "ttfbMs": 181,
+      "totalMs": 182,
+      "bytes": 561,
+      "rows": 1,
+      "range": "0-0/*"
+    },
+    {
+      "name": "OLD-month-1",
+      "status": 200,
+      "ttfbMs": 1292,
+      "totalMs": 4674,
+      "bytes": 9976856,
+      "rows": 285,
+      "range": "0-284/285"
+    },
+    {
+      "name": "NEW-month-1",
+      "status": 200,
+      "ttfbMs": 534,
+      "totalMs": 538,
+      "bytes": 91238,
+      "rows": 285,
+      "range": "0-284/285"
+    },
+    {
+      "name": "OLD-month-2",
+      "status": 200,
+      "ttfbMs": 354,
+      "totalMs": 3269,
+      "bytes": 9976856,
+      "rows": 285,
+      "range": "0-284/285"
+    },
+    {
+      "name": "NEW-month-2",
+      "status": 200,
+      "ttfbMs": 132,
+      "totalMs": 136,
+      "bytes": 91238,
+      "rows": 285,
+      "range": "0-284/285"
+    },
+    {
+      "name": "OLD-month-3",
+      "status": 200,
+      "ttfbMs": 554,
+      "totalMs": 3573,
+      "bytes": 9976856,
+      "rows": 285,
+      "range": "0-284/285"
+    },
+    {
+      "name": "NEW-month-3",
+      "status": 200,
+      "ttfbMs": 266,
+      "totalMs": 269,
+      "bytes": 91238,
+      "rows": 285,
+      "range": "0-284/285"
+    },
+    {
+      "name": "detail-on-demand",
+      "status": 200,
+      "ttfbMs": 415,
+      "totalMs": 1413,
+      "bytes": 2957115,
+      "rows": 1,
+      "range": "0-0/*"
+    }
+  ],
+  "parity": [
+    {
+      "round": 1,
+      "sameFieldsAndOrder": true,
+      "businessEqual": true,
+      "employees": 10,
+      "days": 30,
+      "rawLogs": 285,
+      "personDays": 218,
+      "uiRows": 398,
+      "pages": 20,
+      "summary": {
+        "tongCong": 94,
+        "tongPhutMuon": 85,
+        "tongBuoiNghi": 113
+      }
+    },
+    {
+      "round": 2,
+      "sameFieldsAndOrder": true,
+      "businessEqual": true,
+      "employees": 10,
+      "days": 30,
+      "rawLogs": 285,
+      "personDays": 218,
+      "uiRows": 398,
+      "pages": 20,
+      "summary": {
+        "tongCong": 94,
+        "tongPhutMuon": 85,
+        "tongBuoiNghi": 113
+      }
+    },
+    {
+      "round": 3,
+      "sameFieldsAndOrder": true,
+      "businessEqual": true,
+      "employees": 10,
+      "days": 30,
+      "rawLogs": 285,
+      "personDays": 218,
+      "uiRows": 398,
+      "pages": 20,
+      "summary": {
+        "tongCong": 94,
+        "tongPhutMuon": 85,
+        "tongBuoiNghi": 113
+      }
+    }
+  ],
+  "photoHistoryOnDemandVerified": true,
+  "businessWrites": 0,
+  "databaseMutations": 0
+}

@@ -1,0 +1,17 @@
+{
+  "cause": "Validation-tool SQL alias overlaps is reserved",
+  "sqlstate": "42601",
+  "liveManagementStatus": 400,
+  "salesCasesFullOldNewEqual": 12,
+  "salesHttpSuccesses": 12,
+  "rollbackCompleted": true,
+  "oldLiveDefinitionsRestored": true,
+  "correctedQueryLocal": {
+    "complete40": true,
+    "duplicatecount": 0,
+    "samesummary": true,
+    "samegroupedsummary": true
+  },
+  "productionQuerySyntaxReproduction": false,
+  "businessRegressionFound": false
+}

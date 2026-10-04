@@ -1,0 +1,71 @@
+{
+  "at": "2026-10-04T09:52:28.646Z",
+  "files": [
+    {
+      "file": "src/App.tsx",
+      "hash": "70512174bc99e295775c54657e50408d1c5faebcb09876e940c9a79d66890431"
+    },
+    {
+      "file": "src/data/reportData.ts",
+      "hash": "7cd77247523753478bfa5426d0a2756e2721d49467d6bda6ecf35fa4683f3a76"
+    },
+    {
+      "file": "src/data/businessReportData.ts",
+      "hash": "5d7b55a1d3ff76c2e1350c16457e9f54e546e2df660bc8aab7965993607ef900"
+    },
+    {
+      "file": "src/components/reports/BusinessReportsPanel.tsx",
+      "hash": "89e74d90fef4349a69851b6b9934122b7ed5d861f8c53469e06783c76c28c29b"
+    },
+    {
+      "file": "src/pages/RevenueReportPage.tsx",
+      "hash": "f30659b889849e751302afbae067c15c03377ebdc53c448df65b34c441d1e233"
+    },
+    {
+      "file": "package.json",
+      "hash": "efdd9c4342fc3ee95da149558186ab5fa2e2bddc36a35b63c073c246906ff36a"
+    },
+    {
+      "file": "src/components/layout/MainLayout.tsx",
+      "hash": "7ab08c24c601569cd42d8ad1c77d9a88c663b2b040635f40c67b3b2e83671353"
+    }
+  ],
+  "protected": [
+    {
+      "file": "src/data/attendanceData.ts",
+      "hash": "f6955d3dd5c7b1e512f95e0a73c721fcf8cb40c1b8ea26a53b557573e4d3b8ea"
+    },
+    {
+      "file": "src/pages/AttendanceManagementPage.tsx",
+      "hash": "5d4ee57290363ff7b21050c3030f99498b4aa4b7189a9d3641cf1a0b5536fa04"
+    },
+    {
+      "file": "src/pages/AddAttendancePage.tsx",
+      "hash": "e71eb918e653986040725a38f303be7f66970d20271599e8d588248bc3aabca9"
+    },
+    {
+      "file": "src/data/ctFinancialLookupData.ts",
+      "hash": "19f7a0d7d5778cf219adc37e8c09130ce08a77d6089e70e9a390c6dbd830c900"
+    },
+    {
+      "file": "src/data/financialData.ts",
+      "hash": "9a068ed0e4a4a322c1201eacb70748ec727d23d592c94974e5b5e04b27bb9d73"
+    },
+    {
+      "file": "src/pages/FinancialManagementPage.tsx",
+      "hash": "ccbd6af475b2b21074271c38b8f55836fcac30a362f7cc6b00a905c287ff7bca"
+    },
+    {
+      "file": "src/pages/SalesCardCTManagementPage.tsx",
+      "hash": "76add5086fb0fcd6cea75991c4594a4f979d0627f6c23c84bd9fe0a8ff0634b2"
+    },
+    {
+      "file": "supabase/migrations/202610040001_sales_p0.sql",
+      "hash": "e8ff0437eabd7f3ffdb78122fddb591bae3f75fcc410a0ddc1aa1821d68b794b"
+    },
+    {
+      "file": "supabase/migrations/202610040002_ct_financial_p2.sql",
+      "hash": "bcd6924a7bedc8267dd3ebeed74878d60a226dd88ad84779a7b3ced1923d3655"
+    }
+  ]
+}

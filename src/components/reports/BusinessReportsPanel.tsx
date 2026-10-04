@@ -27,21 +27,25 @@ function Kpi({ label, value, note, icon: Icon }: { label: string; value: string;
 
 const EmptyRow = ({ cols }: { cols: number }) => <tr><td colSpan={cols} className="px-4 py-8 text-center italic text-muted-foreground">Không có dữ liệu trong kỳ.</td></tr>;
 
-export default function BusinessReportsPanel({ startDate, endDate }: { startDate: string; endDate: string }) {
+export default function BusinessReportsPanel({ startDate, endDate, sharedResult }: { startDate: string; endDate: string; sharedResult?: { key: string; data: BusinessReportData | null; error: string; retry: () => void } }) {
   const requestKey = `${startDate}:${endDate}`;
   const [result, setResult] = useState<{ key: string; data: BusinessReportData | null; error: string }>({ key: '', data: null, error: '' });
 
   useEffect(() => {
+    if (sharedResult) return;
     let active = true;
-    getBusinessReportData(startDate, endDate)
+    const controller = new AbortController();
+    getBusinessReportData(startDate, endDate, undefined, controller.signal)
       .then((data) => { if (active) setResult({ key: requestKey, data, error: '' }); })
       .catch((reason) => { if (active) setResult({ key: requestKey, data: null, error: reason instanceof Error ? reason.message : String(reason) }); });
-    return () => { active = false; };
-  }, [startDate, endDate, requestKey]);
+    return () => { active = false; controller.abort(); };
+  }, [startDate, endDate, requestKey, sharedResult]);
 
-  if (result.key !== requestKey) return <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground"><Loader2 size={17} className="animate-spin" /> Đang tổng hợp báo cáo tài chính...</div>;
-  if (result.error || !result.data) return <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700"><AlertCircle size={18} className="mt-0.5 shrink-0" /><div><strong>Không tải được báo cáo.</strong><div className="mt-1 text-xs">{result.error}</div></div></div>;
-  const data = result.data;
+  const shown = sharedResult ?? result;
+
+  if (shown.key !== requestKey) return <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground"><Loader2 size={17} className="animate-spin" /> Đang tổng hợp báo cáo tài chính...</div>;
+  if (shown.error || !shown.data) return <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700"><AlertCircle size={18} className="mt-0.5 shrink-0" /><div><strong>Không tải được báo cáo.</strong><div className="mt-1 text-xs">{shown.error}</div>{sharedResult && <button type="button" onClick={sharedResult.retry}>Thử lại</button>}</div></div>;
+  const data = shown.data;
 
   const inventoryTotals = data.inventory.reduce((sum, row) => ({
     opening: sum.opening + row.dau_ky_gia_tri,

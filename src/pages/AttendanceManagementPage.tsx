@@ -27,7 +27,7 @@ import * as XLSX from 'xlsx';
 import Pagination from '../components/Pagination';
 import { useAuth } from '../context/AuthContext';
 import { useAttendanceSettings } from '../hooks/useAttendanceSettings';
-import type { AttendanceRecord } from '../data/attendanceData';
+import type { AttendanceListRecord, AttendanceRecord } from '../data/attendanceData';
 import {
   bulkUpsertAttendanceRecords,
   createAttendanceRecord,
@@ -35,6 +35,7 @@ import {
   formatAttendanceSaveError,
   getAllAttendanceRecords,
   getAttendanceRecords,
+  getAttendanceRecord,
   getStaffAttendanceNameVariants,
   resolveStaffNameForUser,
   staffNamesMatch,
@@ -53,7 +54,7 @@ import {
   parseTimeStringToMinutes,
 } from '../utils/timekeeping';
 
-type DisplayAttendanceRecord = AttendanceRecord & { isMockAbsent?: boolean };
+type DisplayAttendanceRecord = AttendanceListRecord & { isMockAbsent?: boolean };
 
 interface DailyAttendanceStat {
   present: number;
@@ -84,7 +85,7 @@ const AttendanceManagementPage: React.FC = () => {
     isTechnician ||
     (!isAdmin && hasViewAccess('cham-cong') && !hasViewAccess('nhan-su'));
   const navigate = useNavigate();
-  const [allRecords, setAllRecords] = useState<AttendanceRecord[]>([]);
+  const [allRecords, setAllRecords] = useState<DisplayAttendanceRecord[]>([]);
   const [personnel, setPersonnel] = useState<NhanSu[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -123,6 +124,11 @@ const AttendanceManagementPage: React.FC = () => {
   const [formData, setFormData] = useState<Partial<AttendanceRecord>>({});
   const [originalRecord, setOriginalRecord] = useState<AttendanceRecord | null>(null);
   const [showHistoryRecord, setShowHistoryRecord] = useState<AttendanceRecord | null>(null);
+  const [showPhotoRecord, setShowPhotoRecord] = useState<AttendanceRecord | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState('');
+  const detailRequest = useRef(0);
+  const detailAbort = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const STORAGE_KEY_COLUMNS = 'attendance_visible_columns';
@@ -166,7 +172,13 @@ const AttendanceManagementPage: React.FC = () => {
   }, [searchQuery]);
 
   const loadRecords = React.useCallback(async (showLoading = true) => {
-    if (attendanceSettingsLoading) return;
+    // Personnel and the provider's settings request are independent. Reuse the
+    // existing personnel in-flight read while settings load; staff resolution
+    // still completes before requesting attendance.
+    if (attendanceSettingsLoading) {
+      void getPersonnel().catch(() => {});
+      return;
+    }
     const request = ++attendanceRequest.current;
     attendanceAbort.current?.abort();
     const controller = new AbortController(); attendanceAbort.current = controller;
@@ -320,7 +332,6 @@ const AttendanceManagementPage: React.FC = () => {
            ngay: date,
            checkin: null,
            checkout: null,
-           anh: p.hinh_anh || null,
            vi_tri: null,
            isMockAbsent: true
          }));
@@ -362,7 +373,7 @@ const AttendanceManagementPage: React.FC = () => {
       setPersonnel(personnelData);
 
     } catch (error) {
-      if (request === attendanceRequest.current) setLoadError(formatAttendanceSaveError(error));
+      if (!controller.signal.aborted && request === attendanceRequest.current) setLoadError(formatAttendanceSaveError(error));
     } finally {
       if (request === attendanceRequest.current) setLoading(false);
     }
@@ -379,9 +390,18 @@ const AttendanceManagementPage: React.FC = () => {
   ]);
 
   useEffect(() => {
+    // A detail requested from the previous filter must not open over a new list.
+    detailRequest.current++;
+    detailAbort.current?.abort();
+    setDetailLoading(false);
     void loadRecords(true);
     return () => { attendanceRequest.current++; attendanceAbort.current?.abort(); };
   }, [loadRecords]);
+
+  useEffect(() => () => {
+    detailRequest.current++;
+    detailAbort.current?.abort();
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -399,7 +419,24 @@ const AttendanceManagementPage: React.FC = () => {
 
   const formatDateForDisplay = (dateStr: string | undefined) => formatDateVi(dateStr);
 
-  const handleOpenModal = (record: AttendanceRecord) => {
+  const loadRecordDetail = async (record: AttendanceListRecord, open: (detail: AttendanceRecord) => void) => {
+    const request = ++detailRequest.current;
+    detailAbort.current?.abort();
+    const controller = new AbortController();
+    detailAbort.current = controller;
+    setDetailLoading(true);
+    setDetailError('');
+    try {
+      const detail = await getAttendanceRecord(record.id, controller.signal);
+      if (!controller.signal.aborted && request === detailRequest.current) open(detail);
+    } catch (error) {
+      if (!controller.signal.aborted && request === detailRequest.current) setDetailError(formatAttendanceSaveError(error));
+    } finally {
+      if (request === detailRequest.current) setDetailLoading(false);
+    }
+  };
+
+  const handleOpenModal = async (record: DisplayAttendanceRecord) => {
     if (!canModifyData) {
       window.alert('Kỹ thuật viên chỉ được xem dữ liệu chấm công.');
       return;
@@ -411,6 +448,7 @@ const AttendanceManagementPage: React.FC = () => {
       return;
     }
     if (isMockAbsent) {
+      const person = personnel.find(p => staffNamesMatch(p.ho_ten, record.nhan_su) || staffNamesMatch(p.id_nhan_su, record.nhan_su));
       setIsNewRecord(true);
       setOriginalRecord(null);
       setFormData({
@@ -418,14 +456,18 @@ const AttendanceManagementPage: React.FC = () => {
         ngay: record.ngay || '',
         checkin: null,
         checkout: null,
-        anh: record.anh || null,
+        anh: person?.hinh_anh || null,
         vi_tri: null,
         id_cham_cong: null
       });
     } else {
-      setIsNewRecord(false);
-      setOriginalRecord(record);
-      setFormData({ ...record });
+      await loadRecordDetail(record, detail => {
+        setIsNewRecord(false);
+        setOriginalRecord(detail);
+        setFormData({ ...detail });
+        setIsModalOpen(true);
+      });
+      return;
     }
     setIsModalOpen(true);
   };
@@ -823,6 +865,8 @@ const AttendanceManagementPage: React.FC = () => {
         )}
 
         {loadError && <p role="alert" className="text-red-600">{loadError} <button onClick={() => void loadRecords(true)} className="underline">Thử lại</button></p>}
+        {detailLoading && <p role="status" className="text-muted-foreground">Đang tải chi tiết chấm công…</p>}
+        {detailError && <p role="alert" className="text-red-600">Không thể tải chi tiết: {detailError}</p>}
         {/* Toolbar */}
         <div className="bg-card p-3 rounded-lg border border-border shadow-sm flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3 flex-1 flex-wrap">
@@ -1093,8 +1137,12 @@ const AttendanceManagementPage: React.FC = () => {
                       {visibleColumns.includes('anh') && (
                         <td className="px-4 py-4">
                           <div className="w-10 h-10 rounded bg-primary/10 flex items-center justify-center text-primary overflow-hidden border border-border shadow-sm">
-                            {record.anh ? (
-                              <img src={record.anh} alt="" className="w-full h-full object-cover" />
+                            {!isMockAbsent ? (
+                              <button type="button" className="w-full h-full flex items-center justify-center"
+                                title="Xem ảnh chấm công" aria-label={`Xem ảnh chấm công ${record.id_cham_cong || record.id}`}
+                                onClick={() => void loadRecordDetail(record, setShowPhotoRecord)}>
+                                <Camera size={20} />
+                              </button>
                             ) : (
                               <User size={20} />
                             )}
@@ -1187,10 +1235,9 @@ const AttendanceManagementPage: React.FC = () => {
                               )}
                               <button
                                 type="button"
-                                onClick={() => (record.lich_su_sua && record.lich_su_sua.length > 0 ? setShowHistoryRecord(record) : undefined)}
-                                disabled={!record.lich_su_sua || record.lich_su_sua.length === 0}
+                                onClick={() => void loadRecordDetail(record, setShowHistoryRecord)}
                                 className="shrink-0 p-1 text-orange-500 hover:text-orange-600 disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:text-orange-500"
-                                title={record.lich_su_sua && record.lich_su_sua.length > 0 ? 'Xem lịch sử sửa' : 'Chưa có lịch sử sửa'}
+                                title="Xem lịch sử sửa"
                               >
                                 <History size={18} />
                               </button>
@@ -1260,8 +1307,12 @@ const AttendanceManagementPage: React.FC = () => {
                   <div key={record.id} className={clsx("p-4 flex items-start gap-3 transition-colors", isMockAbsent ? "bg-red-50/50 hover:bg-red-50" : "hover:bg-muted/50")}>
                     {/* Avatar */}
                     <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary overflow-hidden border border-border shadow-sm shrink-0">
-                      {record.anh ? (
-                        <img src={record.anh} alt="" className="w-full h-full object-cover" />
+                      {!isMockAbsent ? (
+                        <button type="button" className="w-full h-full flex items-center justify-center"
+                          title="Xem ảnh chấm công" aria-label={`Xem ảnh chấm công ${record.id_cham_cong || record.id}`}
+                          onClick={() => void loadRecordDetail(record, setShowPhotoRecord)}>
+                          <Camera size={18} />
+                        </button>
                       ) : (
                         <User size={18} />
                       )}
@@ -1345,10 +1396,9 @@ const AttendanceManagementPage: React.FC = () => {
                         )}
                         <button
                           type="button"
-                          onClick={() => (record.lich_su_sua && record.lich_su_sua.length > 0 ? setShowHistoryRecord(record) : undefined)}
-                          disabled={!record.lich_su_sua || record.lich_su_sua.length === 0}
+                          onClick={() => void loadRecordDetail(record, setShowHistoryRecord)}
                           className="p-1.5 rounded-lg text-orange-500 hover:bg-orange-50 transition-colors disabled:opacity-35 disabled:cursor-not-allowed"
-                          title={record.lich_su_sua && record.lich_su_sua.length > 0 ? 'Lịch sử' : 'Chưa có lịch sử'}
+                          title="Lịch sử"
                         >
                           <History size={16} />
                         </button>
@@ -1511,6 +1561,20 @@ const AttendanceManagementPage: React.FC = () => {
         </div>,
         document.body
       )}
+      {showPhotoRecord && createPortal(
+        <div className="fixed inset-0 z-[100] bg-black/50 flex items-center justify-center p-4">
+          <div role="dialog" aria-label="Ảnh chấm công" className="bg-card rounded-2xl shadow-xl max-w-2xl w-full p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="font-bold">Ảnh chấm công — {showPhotoRecord.id_cham_cong || showPhotoRecord.nhan_su}</h4>
+              <button type="button" aria-label="Đóng ảnh chấm công" onClick={() => setShowPhotoRecord(null)}><X size={20} /></button>
+            </div>
+            {showPhotoRecord.anh
+              ? <img src={showPhotoRecord.anh} alt="Ảnh chấm công" className="max-h-[70vh] w-full object-contain" />
+              : <p className="text-muted-foreground">Bản ghi này không có ảnh.</p>}
+          </div>
+        </div>, document.body
+      )}
+
       {/* History Modal */}
       {showHistoryRecord && createPortal(
         <div className="fixed inset-0 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" style={{ zIndex: 9999999 }}>
@@ -1535,6 +1599,7 @@ const AttendanceManagementPage: React.FC = () => {
               </div>
 
               <div className="space-y-6 relative before:absolute before:left-[17px] before:top-2 before:bottom-2 before:w-[2px] before:bg-border">
+                {!showHistoryRecord.lich_su_sua?.length && <p className="text-muted-foreground">Chưa có lịch sử chỉnh sửa.</p>}
                 {showHistoryRecord.lich_su_sua?.map((log, idx) => (
                   <div key={idx} className="relative pl-10">
                     <div className="absolute left-0 top-1 w-9 h-9 rounded-full bg-card border-2 border-primary flex items-center justify-center z-10 shadow-sm">

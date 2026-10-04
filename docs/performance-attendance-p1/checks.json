@@ -1,0 +1,181 @@
+{
+  "at": "2026-10-04T08:10:03.261Z",
+  "p1Pass": true,
+  "validationScope": "Local business regression, mocked UI mutations, actual page loaders with LIVE anon GET responses, Management REPEATABLE READ READ ONLY plans/catalog; no production authenticated session or business write",
+  "npmTest": {
+    "exitCode": 0,
+    "tests": 67,
+    "passed": 67,
+    "failed": 0,
+    "suites": [
+      14,
+      3,
+      15,
+      12,
+      7,
+      6,
+      1,
+      5,
+      4
+    ],
+    "attendance": 14,
+    "attendanceP1": 3,
+    "salesP0": 7,
+    "log": "checks-npm-test.log"
+  },
+  "attendanceP1BusinessFinal": {
+    "passed": 3,
+    "fullComparisons": 33,
+    "log": "checks-business-final.log"
+  },
+  "uiSuite": {
+    "exitCode": 0,
+    "scripts": 5,
+    "log": "checks-ui.log",
+    "allRemoteResponsesMocked": true
+  },
+  "attendanceP1UiFinal": {
+    "exitCode": 0,
+    "passedChecks": 7,
+    "mockWrites": 6,
+    "liveWrites": 0,
+    "log": "checks-ui-final.log"
+  },
+  "typecheck": {
+    "exitCode": 0,
+    "log": "checks-typecheck.log"
+  },
+  "build": {
+    "exitCode": 0,
+    "log": "checks-build.log",
+    "initialConcurrentAttempt": "native OOM; retained build-attempt-1-oom.log and ui-attempt-1-partial.log",
+    "completedSequentiallyWithoutHeapTimeoutHardwareIncrease": true
+  },
+  "syntax": {
+    "passed": true,
+    "scripts": [
+      "scripts/attendance-p1-business.mjs",
+      "scripts/attendance-p1-fixture.mjs",
+      "scripts/test-attendance-p1.mjs",
+      "scripts/test-attendance-p1-ui.mjs",
+      "scripts/measure-attendance-p1.mjs",
+      "scripts/measure-attendance-p1-loader.mjs",
+      "scripts/measure-attendance-p1-sql.mjs"
+    ]
+  },
+  "gitDiffCheck": {
+    "passed": true
+  },
+  "protectedFiles": [
+    {
+      "file": "src/pages/CheckInPage.tsx",
+      "sha256": "23bdb46a7fc17f6f5e55a4215e205a07ae064b20d6fcda13244da145a1f6dec3",
+      "unchanged": true
+    },
+    {
+      "file": "src/data/attendanceSettingsData.ts",
+      "sha256": "d8ffded7fedbf6c51886e38630f6b71948b573dea1ee103e867c5922ce64ebfd",
+      "unchanged": true
+    },
+    {
+      "file": "src/utils/timekeeping.ts",
+      "sha256": "a9eff4810f53379fc001667a87d521261ed367dc51d96ec22d98fb5315ae9842",
+      "unchanged": true
+    },
+    {
+      "file": "src/data/personnelData.ts",
+      "sha256": "c599c77927b8cd601dbc306d9253c74a69c2c1e310ff49db2ef924939f7c2601",
+      "unchanged": true
+    },
+    {
+      "file": "supabase/migrations/202610040001_sales_p0.sql",
+      "sha256": "e8ff0437eabd7f3ffdb78122fddb591bae3f75fcc410a0ddc1aa1821d68b794b",
+      "unchanged": true
+    }
+  ],
+  "live": {
+    "period": [
+      "2026-09-01",
+      "2026-09-30"
+    ],
+    "records": 285,
+    "httpPairs": 3,
+    "payloadBytes": {
+      "old": 9976856,
+      "new": 91238
+    },
+    "payloadReductionPercent": 99.08550348927558,
+    "medianApiMs": {
+      "old": 3573,
+      "new": 269
+    },
+    "attendanceRequestsPerLoad": {
+      "old": 1,
+      "new": 1
+    },
+    "pageLoaderRounds": 3,
+    "medianLoaderMs": {
+      "old": 9658,
+      "new": 1684
+    },
+    "pageRequestsPerLoad": {
+      "old": 3,
+      "new": 3
+    },
+    "renderedBusinessParity": true,
+    "sqlWarmPairs": 5,
+    "sqlMedians": [
+      {
+        "version": "old",
+        "planningMs": 0.1,
+        "executionMs": 0.171
+      },
+      {
+        "version": "new",
+        "planningMs": 0.089,
+        "executionMs": 0.17
+      }
+    ],
+    "sqlReadOnly": true,
+    "salesDefinitionsUnchanged": true,
+    "salesFunctionsVerified": 18,
+    "rlsState": {
+      "acl": [
+        "postgres=arwdDxtm/postgres",
+        "anon=arwdDxtm/postgres",
+        "authenticated=arwdDxtm/postgres",
+        "service_role=arwdDxtm/postgres"
+      ],
+      "forced": false,
+      "enabled": false
+    },
+    "businessWrites": 0,
+    "databaseMutations": 0
+  },
+  "git": {
+    "branch": "main",
+    "head": "810f6f5630341b73d68579f08c390eb42b892a93",
+    "trackedModified": [
+      "package.json",
+      "src/data/attendanceData.ts",
+      "src/pages/AddAttendancePage.tsx",
+      "src/pages/AttendanceManagementPage.tsx"
+    ],
+    "committed": false,
+    "pushed": false,
+    "merged": false,
+    "deployed": false
+  },
+  "environmentFilesEdited": false,
+  "p1DatabaseMigration": false,
+  "ownTestServersClosed": true,
+  "proceededToP2": false,
+  "limitations": [
+    "Detail may still transfer multi-megabyte inline photos when explicitly requested.",
+    "LIVE HTTP pairs share period/input and exact scalar equality, not a transaction snapshot; SQL pairs share a snapshot.",
+    "Loader duration includes local Vite module loading/rendering, not deployed frontend timing.",
+    "Current LIVE Attendance RLS is disabled and settings scope is global; both preserved. Local self/company fixtures do not verify every authenticated LIVE actor.",
+    "Production mutation and authenticated UI sessions were not exercised; mutations were tested locally with mocked remote responses.",
+    "Existing page-based UI overtime buckets and full client month calculations are preserved."
+  ]
+}

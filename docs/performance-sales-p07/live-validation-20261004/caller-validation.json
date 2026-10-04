@@ -1,0 +1,4350 @@
+{
+  "scope": "Actual existing application read loaders against LIVE API; fresh browser, anon, no copied app session; no interactive authenticated UI claim",
+  "results": [
+    {
+      "name": "Ban hang",
+      "durationMs": 4968,
+      "passed": true,
+      "rows": 40,
+      "totalCount": 9354,
+      "detailEnrichment": true,
+      "referenceLookup": true
+    },
+    {
+      "name": "Phieu ban hang CT",
+      "durationMs": 27324,
+      "passed": true,
+      "headerRows": 9354,
+      "currentTotalCount": 9354,
+      "detailsPageRows": 20,
+      "detailTotal": 15850,
+      "completeQueryAllSales": true,
+      "enrichmentCompleted": true,
+      "baselineSalesCount": 9354
+    },
+    {
+      "name": "Thu chi / So quy",
+      "durationMs": 1121,
+      "passed": true,
+      "transactionsPageRows": 20,
+      "transactionTotal": 4798,
+      "salesHeaderRows": 9354,
+      "sharedLoader": "getSalesCards() as in both CT and Financial pages"
+    },
+    {
+      "name": "Bao cao",
+      "durationMs": 3859,
+      "passed": true,
+      "personnelGroups": 12,
+      "summaryFinite": true,
+      "completeMonthHeaderPagination": true
+    },
+    {
+      "name": "Bang luong",
+      "durationMs": 2967,
+      "passed": true,
+      "payrollRows": 0,
+      "revenueStaff": 12,
+      "readSourceUsedByAttendancePayrollSync": true
+    },
+    {
+      "name": "Doi soat doanh so",
+      "durationMs": 14,
+      "passed": true,
+      "personnelRows": 10,
+      "payrollRows": 0,
+      "revenueOrders": 2018,
+      "source": "getPersonnel/getPayrollBatch/loadPayrollRevenueData"
+    }
+  ],
+  "requests": 612,
+  "network": [
+    {
+      "method": "POST",
+      "endpoint": "sales_query",
+      "status": 200,
+      "durationMs": 1790,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 334,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "nhan_su",
+      "status": 200,
+      "durationMs": 590,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "dich_vu",
+      "status": 200,
+      "durationMs": 658,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 679,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "dich_vu",
+      "status": 200,
+      "durationMs": 219,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_query",
+      "status": 200,
+      "durationMs": 776,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 273,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "nhan_su",
+      "status": 200,
+      "durationMs": 327,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 385,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_query",
+      "status": 200,
+      "durationMs": 565,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 152,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 153,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "nhan_su",
+      "status": 200,
+      "durationMs": 179,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_query",
+      "status": 200,
+      "durationMs": 1332,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_query",
+      "status": 200,
+      "durationMs": 1219,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_query",
+      "status": 200,
+      "durationMs": 1317,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_query",
+      "status": 200,
+      "durationMs": 1169,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_query",
+      "status": 200,
+      "durationMs": 1164,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_query",
+      "status": 200,
+      "durationMs": 1094,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_query",
+      "status": 200,
+      "durationMs": 1101,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_query",
+      "status": 200,
+      "durationMs": 1076,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_query",
+      "status": 200,
+      "durationMs": 1307,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_query",
+      "status": 200,
+      "durationMs": 885,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 153,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 167,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 172,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 220,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 257,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 152,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 141,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 143,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 342,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 148,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 138,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 154,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 144,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 156,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 161,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 153,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 147,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 134,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 133,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 155,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 161,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 139,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 137,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 146,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 153,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 129,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 132,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 127,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 122,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 114,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 124,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 132,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 142,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 162,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 117,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 146,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 308,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 131,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 145,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 131,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 140,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 141,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 129,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 126,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 146,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 334,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 121,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 155,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 158,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 141,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 133,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 133,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 137,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 138,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 127,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 123,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 146,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 134,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 120,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 126,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 126,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 131,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 131,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 133,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 128,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 131,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 137,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 127,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 135,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 135,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 127,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 125,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 134,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 135,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 133,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 133,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 126,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 113,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 122,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 120,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 130,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 127,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 133,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 120,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 133,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 136,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 125,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 134,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 122,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 124,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 122,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 126,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 136,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 298,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 119,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 119,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 118,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 121,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 137,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 120,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 123,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 124,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 124,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 131,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 134,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 122,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 125,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 122,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 128,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 129,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 117,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 133,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 122,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 131,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 126,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 129,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 116,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 126,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 124,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 121,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 120,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 119,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 139,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 135,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 136,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 125,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 126,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 117,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 140,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 125,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 130,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 133,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 135,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 133,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 141,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 121,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 130,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 127,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 130,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 120,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 128,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 139,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 129,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 122,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 122,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 118,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 130,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 123,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 130,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 130,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 130,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 125,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 125,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 134,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 150,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 129,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 129,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 138,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 124,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 129,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 134,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 134,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 120,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 135,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 127,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 126,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 124,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 123,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 303,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 126,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 126,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 136,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 166,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 158,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 147,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 123,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 151,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 146,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 138,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 129,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 145,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 141,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 155,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 160,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 117,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 119,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 119,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 122,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 124,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 136,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 127,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 124,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 117,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 119,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 113,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 122,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 128,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 119,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 116,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 123,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 115,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 116,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 119,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 129,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 114,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 117,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 109,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 118,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 120,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 119,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 115,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 116,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 118,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 119,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 174,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 170,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 162,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 152,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 110,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 119,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 132,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 134,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 138,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 138,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 110,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 120,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 120,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 124,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 112,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 125,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 122,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 121,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 121,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 118,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 127,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 123,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 129,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 120,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 114,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 122,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 121,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 125,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 129,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 118,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 117,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 120,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 121,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 120,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 124,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 117,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 113,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 122,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 121,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 124,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 118,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 116,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 123,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 118,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 120,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 124,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 120,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 131,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 132,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 140,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 116,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 144,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 125,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 133,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 129,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 125,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 130,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 124,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 120,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 128,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 113,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 117,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 118,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 118,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 118,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 126,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 111,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 124,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 119,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 118,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 123,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 125,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 118,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 124,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 124,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 123,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 123,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 123,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 120,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 116,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 117,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 123,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 124,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 125,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 123,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 115,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 122,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 124,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 123,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 124,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 114,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 117,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 117,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 116,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 121,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 122,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 116,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 118,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 116,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 119,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 124,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 122,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 115,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 119,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 123,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 124,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 118,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 129,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 112,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 126,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 351,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 354,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 324,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 291,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 254,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 358,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 116,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 128,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 126,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 127,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 129,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 128,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 116,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 126,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 128,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 128,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 128,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 133,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 115,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 117,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 124,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 124,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 125,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 130,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 113,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 118,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 120,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 115,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 125,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 124,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 109,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 115,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 117,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 120,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 121,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 127,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 112,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 121,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 120,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 116,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 121,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 128,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 111,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 116,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 120,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 118,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 124,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 137,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 109,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 119,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_details",
+      "status": 200,
+      "durationMs": 121,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "nhan_su",
+      "status": 200,
+      "durationMs": 134,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "nhan_su",
+      "status": 200,
+      "durationMs": 136,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 124,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 137,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 129,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 126,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 136,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 145,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 126,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 142,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 132,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 146,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 123,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 126,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 144,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 136,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 123,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 416,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 375,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 353,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 400,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 316,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 427,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 514,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 960,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 1054,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 1066,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 1063,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 1050,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 556,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 136,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 195,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 154,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 216,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 267,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 271,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 277,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 194,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 295,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 205,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 300,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 214,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 280,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 163,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 157,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 151,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 164,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 169,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 163,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 142,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 151,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 155,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 154,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 153,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 173,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 144,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 144,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 129,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 131,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 141,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 148,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 133,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 136,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 135,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 141,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 132,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 148,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 138,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 147,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 135,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 148,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 143,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 136,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 135,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 124,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 144,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 144,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 138,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 145,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 123,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 137,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 136,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 134,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 142,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 134,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 131,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 129,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 135,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 136,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 161,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 134,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 127,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 139,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 132,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 136,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 138,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 144,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 145,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 135,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 135,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 139,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 141,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 136,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 129,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 129,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 134,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 134,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 150,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 139,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 122,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 129,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 132,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 128,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 134,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 153,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 132,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 129,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 137,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 136,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 136,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 127,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 135,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 134,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 131,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 142,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 137,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 131,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 144,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 141,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 135,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 130,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 148,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 130,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 153,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 138,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 139,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 160,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 138,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 148,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 142,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 143,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 137,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 140,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 125,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 144,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 149,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 159,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 133,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 133,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 123,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 130,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 136,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 139,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 141,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 123,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 140,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 128,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 142,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 136,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 154,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 123,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 137,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 131,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 132,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 138,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 124,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 151,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 132,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 132,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 137,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 150,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 134,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 149,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 134,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 138,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 140,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 142,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 141,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 135,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 143,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 130,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 129,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 132,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 140,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 135,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 151,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 131,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 137,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 119,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 139,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_query",
+      "status": 200,
+      "durationMs": 713,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "the_ban_hang_ct",
+      "status": 206,
+      "durationMs": 151,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 206,
+      "durationMs": 140,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 220,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 143,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 231,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 140,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "thu_chi",
+      "status": 200,
+      "durationMs": 313,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "the_ban_hang_ct",
+      "status": 200,
+      "durationMs": 322,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "the_ban_hang_ct",
+      "status": 200,
+      "durationMs": 179,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "the_ban_hang_ct",
+      "status": 200,
+      "durationMs": 162,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_query",
+      "status": 200,
+      "durationMs": 1672,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_query",
+      "status": 200,
+      "durationMs": 1422,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "the_ban_hang_ct",
+      "status": 200,
+      "durationMs": 138,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "the_ban_hang_ct",
+      "status": 200,
+      "durationMs": 319,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "the_ban_hang_ct",
+      "status": 200,
+      "durationMs": 166,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "bang_luong",
+      "status": 200,
+      "durationMs": 192,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "nhan_su",
+      "status": 200,
+      "durationMs": 128,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "the_ban_hang_ct",
+      "status": 200,
+      "durationMs": 299,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "the_ban_hang_ct",
+      "status": 200,
+      "durationMs": 387,
+      "errorCode": null
+    },
+    {
+      "method": "GET",
+      "endpoint": "the_ban_hang_ct",
+      "status": 200,
+      "durationMs": 145,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_query",
+      "status": 200,
+      "durationMs": 1350,
+      "errorCode": null
+    },
+    {
+      "method": "POST",
+      "endpoint": "sales_query",
+      "status": 200,
+      "durationMs": 1303,
+      "errorCode": null
+    }
+  ],
+  "blockedWrites": [],
+  "remoteBusinessWrites": 0,
+  "concurrencyCap": 6
+}

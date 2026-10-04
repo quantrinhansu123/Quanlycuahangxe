@@ -1,0 +1,14 @@
+﻿ M package.json
+?? docs/performance-sales-p0/
+?? scripts/measure-sales-p0-http.mjs
+?? scripts/measure-sales-p0.mjs
+?? scripts/sales-p0-fixture.mjs
+?? scripts/sales-p0-readonly.mjs
+?? scripts/sales-p05-callers.mjs
+?? scripts/sales-p05-live.mjs
+?? scripts/sales-p05-role-parity.mjs
+?? scripts/sales-p05-role-preflight.mjs
+?? scripts/sales-p05-validator.mjs
+?? scripts/test-sales-p0.mjs
+?? supabase/migrations/202610040001_sales_p0.sql
+?? supabase/rollback/

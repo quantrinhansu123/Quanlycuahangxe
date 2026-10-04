@@ -1,0 +1,22 @@
+{
+  "at": "2026-10-04T05:52:05.007Z",
+  "npmTest": {
+    "passed": 64,
+    "failed": 0
+  },
+  "p0Tests": {
+    "passed": 7,
+    "failed": 0
+  },
+  "syntax": "pass",
+  "diffCheck": "pass",
+  "localOldNewCases": 28,
+  "localRls": "P0 fixture 67 cases in two restricted roles",
+  "frontendChanged": false,
+  "productionDml": false,
+  "finalSyntaxScripts": 7,
+  "finalSyntax": "pass",
+  "finalDiffCheck": "pass",
+  "evidenceCredentialLiteralScan": "no matches",
+  "liveValidation": "mandatory rollback: all/page1 SQL slower than OLD warm median"
+}

@@ -18,9 +18,15 @@ try {
     const url = new URL(route.request().url());
     if (url.origin === base) return route.continue();
     const json = body => route.fulfill({ contentType: 'application/json', body: JSON.stringify(body), headers: { 'content-range': '0-0/1' } });
-    if (/\/(sales_query|customers_query)$/.test(url.pathname)) {
+    if (/\/(sales_p2_lookup|customers_query)$/.test(url.pathname)) {
       await gate;
       return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ code: '57014', message: 'statement timeout' }) });
+    }
+    if (url.pathname.endsWith('/financial_p2_query')) {
+      const params = route.request().postDataJSON();
+      requests.push([`gte.${params.p_from}`, `lte.${params.p_to}`]);
+      if (failTransactions) return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ message: 'cashbook test timeout' }) });
+      return json({ data: [{ id: 'tx1', id_don: '00000000-0000-0000-0000-000000000001', ngay: '2026-09-09', gio: '09:00', loai_phieu: 'phiếu thu', trang_thai: 'Hoàn thành', so_tien: 250000, ghi_chu: 'Phiếu kiểm thử sổ quỹ', co_so: 'Cơ sở Bắc Ninh' }], totalCount: 1, totalIncome: 250000, totalExpense: 0 });
     }
     if (url.pathname.endsWith('/thu_chi')) {
       requests.push(url.searchParams.getAll('ngay'));

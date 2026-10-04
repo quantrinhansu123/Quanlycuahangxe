@@ -1,0 +1,29 @@
+[
+  {
+    "name": "sales_query",
+    "liveOverloadCount": 1,
+    "signatureMatch": true,
+    "auditMatch": true,
+    "rollbackMatch": true,
+    "liveHash": "ca6757ec192dd5000ad19e2ad9ab7cc891fecc2ce2aef54fecc6ee04e3eb1e47",
+    "backupHash": "ca6757ec192dd5000ad19e2ad9ab7cc891fecc2ce2aef54fecc6ee04e3eb1e47"
+  },
+  {
+    "name": "app_sales_rows_searched",
+    "liveOverloadCount": 1,
+    "signatureMatch": true,
+    "auditMatch": true,
+    "rollbackMatch": true,
+    "liveHash": "65f98437e5fc68e65e95c76d3512e5ac0e555a798b352db0ef7c2a84017295c0",
+    "backupHash": "65f98437e5fc68e65e95c76d3512e5ac0e555a798b352db0ef7c2a84017295c0"
+  },
+  {
+    "name": "app_sales_first_dates",
+    "liveOverloadCount": 1,
+    "signatureMatch": true,
+    "auditMatch": true,
+    "rollbackMatch": true,
+    "liveHash": "c11372630f4f84bc56a796593d1398a0e276ab5711348f0ee41917bfab3d631f",
+    "backupHash": "c11372630f4f84bc56a796593d1398a0e276ab5711348f0ee41917bfab3d631f"
+  }
+]

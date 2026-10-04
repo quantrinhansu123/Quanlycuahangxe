@@ -1,0 +1,5 @@
+{
+  "at": "2026-10-04T09:10:32.011Z",
+  "action": "validate",
+  "error": "Management HTTP 400: Failed to run sql query: ERROR:  P0001: Financial parity failed at case 3\nCONTEXT:  PL/pgSQL function inline_code_block line 35 at RAISE\n"
+}

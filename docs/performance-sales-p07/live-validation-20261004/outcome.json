@@ -1,0 +1,42 @@
+{
+  "at": "2026-10-04T07:15:55.697Z",
+  "p0Pass": true,
+  "productionMigrationApplied": true,
+  "finalDatabaseState": "P0.6 NEW (P0.7 validated)",
+  "warmRepeatsPerPage": 5,
+  "coreFullJsonParityCases": 14,
+  "catalogPassed": true,
+  "productionRoleCases": 12,
+  "callerValidation": {
+    "passed": true,
+    "callers": 6,
+    "requests": 612,
+    "remoteBusinessWrites": 0,
+    "scope": "Actual existing application read loaders against LIVE API; fresh browser, anon, no copied app session; no interactive authenticated UI claim"
+  },
+  "scope": "Database/API and actual application read loaders. No copied app session or interactive authenticated UI claim.",
+  "frontendDeployed": false,
+  "businessDml": false,
+  "envChanged": false,
+  "committed": false,
+  "pushed": false,
+  "merged": false,
+  "finalLiveCatalogVerifiedAt": "2026-10-04T07:08:10.163Z",
+  "migrationSourceChangedInP07": false,
+  "migrationHash": "e8ff0437eabd7f3ffdb78122fddb591bae3f75fcc410a0ddc1aa1821d68b794b",
+  "staticFastPathAdded": false,
+  "historical3021msReproduced": false,
+  "historical3021msExactRootCause": "Unresolved: historical wrapper lacked inner nodes; current probes did not reproduce",
+  "liveActualComponentWarmRounds": 5,
+  "pairedSameSnapshotRounds": 5,
+  "pairedTimingPassed": true,
+  "publicRollbackExecutedInP07": false,
+  "rollbackSnapshotVerified": true,
+  "tempPrivateProbesRolledBack": true,
+  "finalCheckPtyExit": {
+    "code": 1,
+    "queryPassed": true,
+    "artifactSaved": true,
+    "reason": "Windows Node handle-closing assertion after successful read-only verification"
+  }
+}

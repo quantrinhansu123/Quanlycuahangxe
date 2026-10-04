@@ -1,0 +1,17 @@
+{
+  "at": "2026-10-04T10:22:04.804Z",
+  "passed": true,
+  "checks": [
+    "CT current-page refs only, no queryAllSales/details/financial fan-out, no catalog until form, page2",
+    "CT form catalog is lightweight/lazy; order selector searches beyond current page via bounded remote query",
+    "Financial list+full-filter SQL summary, bounded ref lookup, page1/page2 and no row-fetch summary",
+    "Financial search, edit keeps image and immediately refreshes full-set totals",
+    "Query errors remain visible/retry; failed lookup does not hide valid financial page",
+    "Charts request SQL aggregates only, no all-row/image transfer; existing component renders aggregate metrics",
+    "Cashbook uses same scoped page/SQL totals and retains opening/closing balance display"
+  ],
+  "requests": 37,
+  "mockWrites": 1,
+  "liveWrites": 0,
+  "allRemoteResponsesMocked": true
+}

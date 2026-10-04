@@ -1,0 +1,50 @@
+{
+  "comparisons": [
+    {
+      "name": "sales_query",
+      "liveOverloadCount": 1,
+      "signatureMatch": true,
+      "auditMatch": true,
+      "rollbackMatch": true,
+      "liveHash": "ca6757ec192dd5000ad19e2ad9ab7cc891fecc2ce2aef54fecc6ee04e3eb1e47",
+      "backupHash": "ca6757ec192dd5000ad19e2ad9ab7cc891fecc2ce2aef54fecc6ee04e3eb1e47"
+    },
+    {
+      "name": "app_sales_rows_searched",
+      "liveOverloadCount": 1,
+      "signatureMatch": true,
+      "auditMatch": true,
+      "rollbackMatch": true,
+      "liveHash": "65f98437e5fc68e65e95c76d3512e5ac0e555a798b352db0ef7c2a84017295c0",
+      "backupHash": "65f98437e5fc68e65e95c76d3512e5ac0e555a798b352db0ef7c2a84017295c0"
+    },
+    {
+      "name": "app_sales_first_dates",
+      "liveOverloadCount": 1,
+      "signatureMatch": true,
+      "auditMatch": true,
+      "rollbackMatch": true,
+      "liveHash": "c11372630f4f84bc56a796593d1398a0e276ab5711348f0ee41917bfab3d631f",
+      "backupHash": "c11372630f4f84bc56a796593d1398a0e276ab5711348f0ee41917bfab3d631f"
+    }
+  ],
+  "writeContext": {
+    "role": "postgres",
+    "can_create_functions": true,
+    "can_replace_owned_functions": true
+  },
+  "helpersAbsent": true,
+  "transactionBoundaries": true,
+  "migrationHash": "e8ff0437eabd7f3ffdb78122fddb591bae3f75fcc410a0ddc1aa1821d68b794b",
+  "customerProjectionMatch": true,
+  "targetFunctionsInvokerStable": true,
+  "rollbackMatchesLive": true,
+  "context": {
+    "role": "supabase_read_only_user",
+    "version": "PostgreSQL 17.6 on aarch64-unknown-linux-gnu, compiled by gcc (GCC) 15.2.0, 64-bit",
+    "TimeZone": "UTC",
+    "work_mem": "2184kB",
+    "DateStyle": "ISO, MDY",
+    "statement_timeout": "2min"
+  }
+}

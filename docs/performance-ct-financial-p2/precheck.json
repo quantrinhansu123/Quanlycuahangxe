@@ -1,0 +1,14 @@
+{
+  "at": "2026-10-04T09:24:38.837Z",
+  "p0DefinitionsUnchanged": true,
+  "newFunctionNamesAbsent": true,
+  "transactional": true,
+  "securityInvoker": true,
+  "businessDml": false,
+  "rollbackDropsOnlyFourNewFunctions": true,
+  "counts": {
+    "sales": 9356,
+    "details": 15853,
+    "financial": 4800
+  }
+}

@@ -11,6 +11,7 @@ import { format } from 'date-fns';
 import { getErrorDetails } from '../lib/errorDetails';
 import { 
   getTransactions,
+  getFinancialChartSummary,
   getTransactionsPaginated, 
   deleteTransaction, 
   bulkUpsertTransactions, 
@@ -21,11 +22,10 @@ import {
 import Pagination from '../components/Pagination';
 import FinancialFormModal from '../components/FinancialFormModal';
 import { useAuth } from '../context/AuthContext';
-import type { ThuChi } from '../data/financialData';
+import type { FinancialChartSummary, ThuChi } from '../data/financialData';
 import type { KhachHang } from '../data/customerData';
-import { getCustomers } from '../data/customerData';
 import type { SalesCard } from '../data/salesCardData';
-import { getSalesCards } from '../data/salesCardData';
+import { getCustomersForPageRefs, getSalesForPageRefs, resolvePageSale } from '../data/ctFinancialLookupData';
 import { getOpeningBalance, setOpeningBalance as saveOpeningBalance } from '../data/cashBookData';
 import { formatTime24h } from '../utils/datetimeFormat';
 
@@ -44,9 +44,12 @@ const FinancialManagementPage: React.FC = () => {
   const [loadError, setLoadError] = useState('');
   const [lookupError, setLookupError] = useState('');
   const loadVersion = useRef({ value: 0 });
+  const loadAbort = useRef<AbortController | null>(null);
   const [activeTab, setActiveTab] = useState<'list' | 'charts'>(isSoQuyPage ? 'list' : 'list');
   const [listViewMode, setListViewMode] = useState<'standard' | 'cashbook'>(isSoQuyPage ? 'cashbook' : 'standard');
-  const [allTransactions, setAllTransactions] = useState<ThuChi[]>([]);
+  const [chartSummary, setChartSummary] = useState<FinancialChartSummary | null>(null);
+  const chartsAbort = useRef<AbortController | null>(null);
+  const [chartsError, setChartsError] = useState('');
   const [filterDateFrom, setFilterDateFrom] = useState(() => {
     const t = new Date();
     return format(new Date(t.getFullYear(), t.getMonth(), 1), 'yyyy-MM-dd');
@@ -87,6 +90,8 @@ const FinancialManagementPage: React.FC = () => {
   // Load data from Supabase
   const loadData = React.useCallback(async () => {
     const version = ++loadVersion.current.value;
+    loadAbort.current?.abort();
+    const controller = new AbortController(); loadAbort.current = controller;
     try {
       setLoading(true);
       setLoadError('');
@@ -95,7 +100,7 @@ const FinancialManagementPage: React.FC = () => {
           types: selectedTypes,
           dateFrom: filterDateFrom,
           dateTo: filterDateTo,
-        });
+        }, controller.signal);
       if (version !== loadVersion.current.value) return;
       setTransactions(transactionsData.data);
       setTotalCount(transactionsData.totalCount);
@@ -104,8 +109,27 @@ const FinancialManagementPage: React.FC = () => {
         expense: transactionsData.totalExpense,
         balance: transactionsData.totalIncome - transactionsData.totalExpense
       });
+      setLoading(false);
+      setLookupError('');
+      // Display the page independently; resolve only its order/customer refs.
+      try {
+        const [orders, explicitCustomers] = await Promise.all([
+          getSalesForPageRefs(transactionsData.data.map(t => t.id_don), controller.signal),
+          getCustomersForPageRefs(transactionsData.data.map(t => t.id_khach_hang), controller.signal),
+        ]);
+        const customersById = new Map(explicitCustomers.map(c => [c.id, c]));
+        for (const order of orders) if (order.khach_hang?.id) customersById.set(order.khach_hang.id, order.khach_hang as KhachHang);
+        if (!controller.signal.aborted && version === loadVersion.current.value) {
+          setSalesCards(orders); setCustomers([...customersById.values()]);
+        }
+      } catch {
+        if (!controller.signal.aborted && version === loadVersion.current.value) {
+          setSalesCards([]); setCustomers([]);
+          setLookupError('Chưa tải được thông tin khách hàng hoặc đơn hàng liên quan. Các phiếu thu chi vẫn hiển thị.');
+        }
+      }
     } catch (error) {
-      if (version !== loadVersion.current.value) return;
+      if (controller.signal.aborted || version !== loadVersion.current.value) return;
       setLoadError(getErrorDetails(error).message || 'Không tải được dữ liệu thu chi.');
       console.error(error);
     } finally {
@@ -116,19 +140,8 @@ const FinancialManagementPage: React.FC = () => {
   useEffect(() => {
     const sequence = loadVersion.current;
     loadData();
-    return () => { sequence.value++; };
+    return () => { sequence.value++; loadAbort.current?.abort(); };
   }, [loadData]);
-
-  // Lookup data must not block the cashbook or reload on every filter/page change.
-  useEffect(() => {
-    let cancelled = false;
-    const failed = () => {
-      if (!cancelled) setLookupError('Chưa tải được thông tin khách hàng hoặc đơn hàng liên quan. Các phiếu thu chi vẫn hiển thị.');
-    };
-    void getCustomers().then(data => { if (!cancelled) setCustomers(data); }).catch(failed);
-    void getSalesCards().then(data => { if (!cancelled) setSalesCards(data); }).catch(failed);
-    return () => { cancelled = true; };
-  }, []);
 
   useEffect(() => {
     if (isSoQuyPage) {
@@ -153,16 +166,21 @@ const FinancialManagementPage: React.FC = () => {
   const [chartsDataLoading, setChartsDataLoading] = useState(false);
 
   const loadAllData = React.useCallback(async () => {
+    chartsAbort.current?.abort();
+    const controller = new AbortController(); chartsAbort.current = controller;
     try {
       setChartsDataLoading(true);
-      const data = await getTransactions(
-        filterDateFrom && filterDateTo ? { from: filterDateFrom, to: filterDateTo } : undefined
+      setChartsError('');
+      setChartSummary(null);
+      const data = await getFinancialChartSummary(
+        filterDateFrom && filterDateTo ? { from: filterDateFrom, to: filterDateTo } : undefined,
+        controller.signal
       );
-      setAllTransactions(data);
+      if (!controller.signal.aborted) setChartSummary(data);
     } catch (error) {
-      console.error(error);
+      if (!controller.signal.aborted) setChartsError(getErrorDetails(error).message || 'Không tải được biểu đồ tài chính.');
     } finally {
-      setChartsDataLoading(false);
+      if (!controller.signal.aborted) setChartsDataLoading(false);
     }
   }, [filterDateFrom, filterDateTo]);
 
@@ -170,6 +188,7 @@ const FinancialManagementPage: React.FC = () => {
     if (activeTab === 'charts') {
       void loadAllData();
     }
+    return () => chartsAbort.current?.abort();
   }, [activeTab, loadAllData]);
 
   useEffect(() => {
@@ -221,7 +240,7 @@ const FinancialManagementPage: React.FC = () => {
       setEditingTransaction(transaction);
 
       let mappedKhId = transaction.id_khach_hang;
-      const order = salesCards.find(o => o.id === transaction.id_don);
+      const order = resolvePageSale(transaction.id_don, salesCards);
 
       if (!mappedKhId && order?.khach_hang_id) {
          mappedKhId = order.khach_hang_id;
@@ -1019,7 +1038,7 @@ const FinancialManagementPage: React.FC = () => {
                           <td className="px-4 py-3 truncate max-w-[140px]">
                             {(() => {
                               const explicitName = transaction.nguoi_chi || transaction.nguoi_nhan;
-                              const order = salesCards.find(o => o.id === transaction.id_don);
+                              const order = resolvePageSale(transaction.id_don, salesCards);
                               const customerIdToFind = transaction.id_khach_hang || order?.khach_hang_id;
                               const foundCustomer = customers.find(c => c.id === customerIdToFind || c.ma_khach_hang === customerIdToFind);
                               const displayName = explicitName || transaction.khach_hang?.ho_va_ten || foundCustomer?.ho_va_ten || order?.khach_hang?.ho_va_ten || order?.ten_khach_hang;
@@ -1084,7 +1103,8 @@ const FinancialManagementPage: React.FC = () => {
                 Đang tải dữ liệu biểu đồ…
               </div>
             )}
-            <React.Suspense
+            {chartsError && <p role="alert">{chartsError} <button type="button" onClick={() => void loadAllData()} className="underline">Thử lại</button></p>}
+            {chartSummary && !chartsError && <React.Suspense
               fallback={
                 <div className="p-12 text-center text-muted-foreground">
                   <Loader2 className="animate-spin inline-block mr-2" /> Đang tải biểu đồ...
@@ -1092,10 +1112,11 @@ const FinancialManagementPage: React.FC = () => {
               }
             >
               <FinancialCharts
-                transactions={allTransactions}
+                transactions={[]}
+                summary={chartSummary}
                 dateRange={{ start: filterDateFrom, end: filterDateTo }}
               />
-            </React.Suspense>
+            </React.Suspense>}
           </div>
         )}
       </div>
