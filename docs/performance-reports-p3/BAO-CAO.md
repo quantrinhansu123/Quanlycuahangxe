@@ -2,7 +2,7 @@
 
 Ngày **04/10/2026, Asia/Saigon**, repository `D:\xe\Quanlycuahangxe-main`. Baseline `main`, HEAD `810f6f5630341b73d68579f08c390eb42b892a93`.
 
-**P3 regression và benchmark đã pass. Commit/push/deploy chỉ thực hiện sau toàn bộ final gates.** Trạng thái triển khai và production smoke sẽ được cập nhật sau khi kiểm chứng. Không migration P3; không re-apply P0/P2.
+**FINAL PASS P0–P3 trong bộ kiểm chứng đã chạy. Đã commit/push main và deploy frontend production qua Git→Vercel.** Sáu production routes smoke pass, 74 LIVE API reads đều2xx, không57014/API/console/page error; không business write. Không migration P3; không re-apply P0/P2. [Deploy](deployment.json), [production smoke](production-smoke.json).
 
 ## Root cause và mapping
 
@@ -26,6 +26,7 @@ Không service catalog hoặc personnel lookup trong base report. Payroll vẫn 
 - [BusinessReportsPanel.tsx](../../src/components/reports/BusinessReportsPanel.tsx): nhận shared result, không mount loader thứ hai; standalone use vẫn có abort/error.
 - [App.tsx](../../src/App.tsx), [MainLayout.tsx](../../src/components/layout/MainLayout.tsx): cùng key `/bao-cao` cho report tabs; các route khác giữ behavior.
 - `package.json`: P3 business/UI tests và benchmark command. Scripts/evidence ở thư mục này.
+- `.gitattributes`: giữ nguyên bytes/hash của evidence và OLD source/dump snapshots, kể cả whitespace/line endings gốc; production source và NEW migration vẫn được diff-check. Migration P0/P2 pin LF để hash không đổi theo OS checkout.
 
 Không global cache, TTL hoặc cross-user map. Returning tab reuse dữ liệu trong cùng mounted parent; explicit **Làm mới** hoặc đổi filter/scope reset cả base/lazy sources. Rời Reports để sửa nghiệp vụ rồi quay lại tải fresh. Reads cũ bị abort và version guard chặn stale state. Retry riêng cho base/personnel/financial; API error không giả thành empty success.
 
@@ -51,11 +52,13 @@ Payload giảm **83,89%**. Initial base tabs không tải header riêng: ba CT r
 
 P3 local **18 date/scope comparisons**, ba full business/inventory/prior-period comparisons; execute đúng OLD/NEW function bodies, không viết lại formula oracle. Cover default/no bounds/month/day/range/empty, branch-visible inputs, staff aliases/CSV, zero/null amount/quantity, all totals/charts and mutation refresh. [Regression](regression-local.json).
 
-Actual App/router/layout UI với mocked API xác nhận CT full pagination, shared/repeated tab navigation, lazy personnel/financial, current CT reuse, compact inventory, rapid filters/cancellation, retry/refresh và same-user branch/role invalidation. [UI](ui-regression.json). Mock writes không tới LIVE. Full UI lần đầu có assertion quá sớm trước route activation; công cụ đã wait selected tab rồi chạy lại cả suite pass, không sửa công thức để xử lý test.
+Actual App/router/layout UI **6/6 checks** với mocked API xác nhận CT full pagination, shared/repeated tab navigation, lazy personnel/financial, current CT reuse, compact inventory, rapid filters/cancellation, retry/refresh và same-user branch/role invalidation. [UI](ui-regression.json). Mock writes không tới LIVE. Full UI lần đầu có assertion quá sớm trước route activation; công cụ đã wait selected tab rồi chạy lại cả suite pass, không sửa công thức để xử lý test.
 
 Full npm tests **74/74**, gồm P0 **7/7 (67 inputs × 3 scopes)**, P1 business, P2 **4/4** và P3 **3/3**. Full UI suite, typecheck/build/diff gates và actual read-loader validation lưu ở [checks](checks-predeploy.json). Các protected source/migration hashes giữ nguyên; không `.env`, business DML, RLS, timeout/work_mem/index/hardware change.
 
-Final READ ONLY SQL có một warm-up + năm lượt/page trong REPEATABLE READ. Sales SQL median **518,170 / 520,753 ms**; PostgreSQL17.6, work_mem2184kB giữ nguyên. **18 P0/dependency + 4 P2 definitions/metadata** và RLS/policies/indexes khớp P2 cuối; không reapply DB. [Catalog/plans](final-live-db.json). Payroll/reconciliation chỉ mount read modules, không mount payroll auto-sync writer. [Final read loaders](final-live-loaders.json).
+Final READ ONLY SQL trước deploy có một warm-up + năm lượt/page trong REPEATABLE READ. Sales SQL median **518,170 / 520,753 ms**; sau deploy recheck median **510,070 / 510,496 ms**. PostgreSQL17.6, work_mem2184kB giữ nguyên. **18 P0/dependency + 4 P2 definitions/metadata** và RLS/policies/indexes khớp P2 cuối; không reapply DB. [Predeploy catalog/plans](final-live-db-predeploy.json), [recheck sau deploy](final-live-db.json).
+
+Actual source read modules có warm-up + **5 Sales page pairs**: 10/10 HTTP200, no57014, 40unique IDs/pair, summary/groupedSummary bằng nhau. HTTP medians qua route.fetch **827/791ms**; không so với P0.7 OLD như paired snapshot mới. Payroll/reconciliation pass: revenue12staff,2018allocated order rows, personnel10, payroll0rows; chỉ read modules, không mount payroll auto-sync writer. [Final read loaders](final-live-loaders.json). Npm74/74/typecheck/build được chạy lại sau dependency scope cuối; full UI suite pass, thêm P3 scope check pass. Built preview còn smoke tất cả sáu routes với LIVE reads trước push. [Built preview smoke](predeploy-smoke.json).
 
 ## Bảng performance P0–P3
 
@@ -72,8 +75,23 @@ Mỗi hàng lấy paired inputs trong phase riêng, phương pháp và snapshots
 
 [Sales P0.7](../performance-sales-p07/BAO-CAO.md), [Attendance P1](../performance-attendance-p1/BAO-CAO.md), [CT/Financial P2](../performance-ct-financial-p2/BAO-CAO.md). App continued writing independently during previous phase probes; existing phase reports document drift/limits. P0 historical slow3021ms root cause chưa xác định; warm gates/current definitions pass, không tuyên bố SLA.
 
-## Deploy plan và giới hạn
+## Commit, deploy, production smoke và giới hạn
 
-Theo yêu cầu P3, sau final gates/review/secret scan sẽ commit/push main theo Git→Vercel workflow hiện có. Baseline rollback SHA `810f6f5630341b73d68579f08c390eb42b892a93`. Nếu frontend regression, revert implementation commit và push để Vercel redeploy; DB P0/P2 giữ nguyên cho lỗi frontend. Không force push hoặc ghi business data.
+Sau final gates/review/secret scan đã commit **`d53e66c4140d8ea025ab613c9319281ece52ac5f`** (source/migrations/tests/evidence P0–P3), push `origin/main` thành công. Vercel Git integration **success**, Production deployment **6839925724**, [deployment URL](https://quanlycuahangxe-24z56dub1-congs-projects-f25af77d.vercel.app), [production alias](https://quanlycuahangxe.vercel.app). Metadata/evidence sau deploy được ghi bằng documentation commit riêng; source không đổi.
+
+Baseline rollback SHA `810f6f5630341b73d68579f08c390eb42b892a93`. Không cần rollback frontend: tất cả production gates pass. Nếu frontend regression, revert implementation commit và push để Vercel redeploy; DB P0/P2 giữ nguyên cho lỗi frontend. Không force push hoặc ghi business data. Không secret/credential trong commit; raw snapshots giữ bytes/hash gốc, archived whitespace được khai báo rõ trong attributes thay vì sửa OLD backups.
+
+| Actual production App | Reads gồm các smoke actions | Mount ms, single sample | Kết quả |
+| --- | ---: | ---: | --- |
+| Sales | 22 | 5896 | Page1/page2 40unique, detail modal, finite totals |
+| Attendance | 4 | 1825 | Month/list calculations, page slicing, photo/history omitted; full history detail on click |
+| CT | 8 | 1732 | Page1/page2 40unique, bounded refs, form catalog on demand, không ALL Sales/fan-out |
+| Thu chi | 12 | 4851 | Page1/page2, filtered SQL totals, chart aggregates |
+| Sổ quỹ | 11 | 10597 | Page1/page2, filter, opening balance/SQL totals |
+| Reports | 17 | 10644 | Month filter, repeated base tabs không refetch CT, personnel/chart/financial lazy |
+
+Mount samples gồm production JS/assets/network, một sample/màn; không paired với module-only bảng benchmark và không SLA. 74API reads đều2xx, page/console errors0, alerts0, writes0. Tests dùng real deployed bundle, không intercept source/components hoặc mock API response. [Full network/checks](production-smoke.json). Catalog sau deploy được READ ONLY recheck, P0/P2/RLS/indexes giữ nguyên.
 
 Production smoke dùng actual built App trong browser/storage mới với synthetic identity chỉ để mở read UI, **không demo dataset/JWT/copy app session**; LIVE anon reads, chặn writes. Đây không kiểm chứng mọi authenticated company session hoặc production mutations. Attendance detail ảnh lớn vẫn on-demand; Reports còn full-period client calculation và inventory movement cap hiện hành; callers ngoài P2 có ALL-loader như cũ. Không mở thêm phase.
+
+**P0–P3 performance optimization hoàn tất trong phạm vi tests/read validation trên.** LIVE DB giữ P0.6 NEW +4P2 NEW, frontend production đã deploy; không nâng timeout/work_mem/index/hardware hoặc đổi business data. [Outcome](outcome.json).

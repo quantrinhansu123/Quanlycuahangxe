@@ -398,15 +398,15 @@
             "Parallel Aware": false,
             "Local Hit Blocks": 0,
             "Temp Read Blocks": 1300,
-            "Actual Total Time": 1308.843,
+            "Actual Total Time": 1309.064,
             "Local Read Blocks": 0,
-            "Shared Hit Blocks": 3438,
+            "Shared Hit Blocks": 3439,
             "Shared Read Blocks": 0,
-            "Actual Startup Time": 1308.843,
+            "Actual Startup Time": 1309.064,
             "Temp Written Blocks": 650,
             "Local Dirtied Blocks": 0,
             "Local Written Blocks": 0,
-            "Shared Dirtied Blocks": 0,
+            "Shared Dirtied Blocks": 1,
             "Shared Written Blocks": 0
           },
           "Planning": {
@@ -423,7 +423,7 @@
           },
           "Triggers": [],
           "Planning Time": 0.042,
-          "Execution Time": 1309.026
+          "Execution Time": 1309.239
         }
       ],
       "round": 0
@@ -444,11 +444,11 @@
             "Parallel Aware": false,
             "Local Hit Blocks": 0,
             "Temp Read Blocks": 1300,
-            "Actual Total Time": 545.617,
+            "Actual Total Time": 546.494,
             "Local Read Blocks": 0,
             "Shared Hit Blocks": 1211,
             "Shared Read Blocks": 0,
-            "Actual Startup Time": 545.616,
+            "Actual Startup Time": 546.493,
             "Temp Written Blocks": 650,
             "Local Dirtied Blocks": 0,
             "Local Written Blocks": 0,
@@ -468,8 +468,8 @@
             "Shared Written Blocks": 0
           },
           "Triggers": [],
-          "Planning Time": 0.017,
-          "Execution Time": 545.639
+          "Planning Time": 0.018,
+          "Execution Time": 546.514
         }
       ],
       "round": 0
@@ -490,11 +490,11 @@
             "Parallel Aware": false,
             "Local Hit Blocks": 0,
             "Temp Read Blocks": 1300,
-            "Actual Total Time": 516.378,
+            "Actual Total Time": 514.4,
             "Local Read Blocks": 0,
             "Shared Hit Blocks": 1208,
             "Shared Read Blocks": 0,
-            "Actual Startup Time": 516.377,
+            "Actual Startup Time": 514.399,
             "Temp Written Blocks": 650,
             "Local Dirtied Blocks": 0,
             "Local Written Blocks": 0,
@@ -514,8 +514,8 @@
             "Shared Written Blocks": 0
           },
           "Triggers": [],
-          "Planning Time": 0.007,
-          "Execution Time": 516.394
+          "Planning Time": 0.009,
+          "Execution Time": 514.417
         }
       ],
       "round": 1
@@ -536,11 +536,11 @@
             "Parallel Aware": false,
             "Local Hit Blocks": 0,
             "Temp Read Blocks": 1300,
-            "Actual Total Time": 508.703,
+            "Actual Total Time": 515.195,
             "Local Read Blocks": 0,
             "Shared Hit Blocks": 1211,
             "Shared Read Blocks": 0,
-            "Actual Startup Time": 508.702,
+            "Actual Startup Time": 515.194,
             "Temp Written Blocks": 650,
             "Local Dirtied Blocks": 0,
             "Local Written Blocks": 0,
@@ -560,8 +560,8 @@
             "Shared Written Blocks": 0
           },
           "Triggers": [],
-          "Planning Time": 0.007,
-          "Execution Time": 508.719
+          "Planning Time": 0.015,
+          "Execution Time": 515.213
         }
       ],
       "round": 1
@@ -582,11 +582,11 @@
             "Parallel Aware": false,
             "Local Hit Blocks": 0,
             "Temp Read Blocks": 1300,
-            "Actual Total Time": 508.801,
+            "Actual Total Time": 522.136,
             "Local Read Blocks": 0,
             "Shared Hit Blocks": 1208,
             "Shared Read Blocks": 0,
-            "Actual Startup Time": 508.8,
+            "Actual Startup Time": 522.135,
             "Temp Written Blocks": 650,
             "Local Dirtied Blocks": 0,
             "Local Written Blocks": 0,
@@ -606,8 +606,8 @@
             "Shared Written Blocks": 0
           },
           "Triggers": [],
-          "Planning Time": 0.006,
-          "Execution Time": 508.817
+          "Planning Time": 0.008,
+          "Execution Time": 522.177
         }
       ],
       "round": 2
@@ -628,11 +628,11 @@
             "Parallel Aware": false,
             "Local Hit Blocks": 0,
             "Temp Read Blocks": 1300,
-            "Actual Total Time": 510.319,
+            "Actual Total Time": 520.736,
             "Local Read Blocks": 0,
             "Shared Hit Blocks": 1211,
             "Shared Read Blocks": 0,
-            "Actual Startup Time": 510.319,
+            "Actual Startup Time": 520.735,
             "Temp Written Blocks": 650,
             "Local Dirtied Blocks": 0,
             "Local Written Blocks": 0,
@@ -652,8 +652,8 @@
             "Shared Written Blocks": 0
           },
           "Triggers": [],
-          "Planning Time": 0.007,
-          "Execution Time": 510.35
+          "Planning Time": 0.009,
+          "Execution Time": 520.753
         }
       ],
       "round": 2
@@ -674,11 +674,11 @@
             "Parallel Aware": false,
             "Local Hit Blocks": 0,
             "Temp Read Blocks": 1300,
-            "Actual Total Time": 510.055,
+            "Actual Total Time": 517.421,
             "Local Read Blocks": 0,
             "Shared Hit Blocks": 1208,
             "Shared Read Blocks": 0,
-            "Actual Startup Time": 510.054,
+            "Actual Startup Time": 517.421,
             "Temp Written Blocks": 650,
             "Local Dirtied Blocks": 0,
             "Local Written Blocks": 0,
@@ -698,8 +698,8 @@
             "Shared Written Blocks": 0
           },
           "Triggers": [],
-          "Planning Time": 0.006,
-          "Execution Time": 510.07
+          "Planning Time": 0.009,
+          "Execution Time": 517.442
         }
       ],
       "round": 3
@@ -720,11 +720,11 @@
             "Parallel Aware": false,
             "Local Hit Blocks": 0,
             "Temp Read Blocks": 1300,
-            "Actual Total Time": 511.77,
+            "Actual Total Time": 515.271,
             "Local Read Blocks": 0,
             "Shared Hit Blocks": 1211,
             "Shared Read Blocks": 0,
-            "Actual Startup Time": 511.769,
+            "Actual Startup Time": 515.27,
             "Temp Written Blocks": 650,
             "Local Dirtied Blocks": 0,
             "Local Written Blocks": 0,
@@ -744,8 +744,8 @@
             "Shared Written Blocks": 0
           },
           "Triggers": [],
-          "Planning Time": 0.006,
-          "Execution Time": 511.785
+          "Planning Time": 0.009,
+          "Execution Time": 515.287
         }
       ],
       "round": 3
@@ -766,11 +766,11 @@
             "Parallel Aware": false,
             "Local Hit Blocks": 0,
             "Temp Read Blocks": 1300,
-            "Actual Total Time": 509.11,
+            "Actual Total Time": 518.154,
             "Local Read Blocks": 0,
             "Shared Hit Blocks": 1208,
             "Shared Read Blocks": 0,
-            "Actual Startup Time": 509.109,
+            "Actual Startup Time": 518.153,
             "Temp Written Blocks": 650,
             "Local Dirtied Blocks": 0,
             "Local Written Blocks": 0,
@@ -790,8 +790,8 @@
             "Shared Written Blocks": 0
           },
           "Triggers": [],
-          "Planning Time": 0.007,
-          "Execution Time": 509.126
+          "Planning Time": 0.008,
+          "Execution Time": 518.17
         }
       ],
       "round": 4
@@ -812,11 +812,11 @@
             "Parallel Aware": false,
             "Local Hit Blocks": 0,
             "Temp Read Blocks": 1300,
-            "Actual Total Time": 510.481,
+            "Actual Total Time": 521.346,
             "Local Read Blocks": 0,
             "Shared Hit Blocks": 1211,
             "Shared Read Blocks": 0,
-            "Actual Startup Time": 510.48,
+            "Actual Startup Time": 521.345,
             "Temp Written Blocks": 650,
             "Local Dirtied Blocks": 0,
             "Local Written Blocks": 0,
@@ -836,8 +836,8 @@
             "Shared Written Blocks": 0
           },
           "Triggers": [],
-          "Planning Time": 0.006,
-          "Execution Time": 510.496
+          "Planning Time": 0.012,
+          "Execution Time": 521.365
         }
       ],
       "round": 4
@@ -858,11 +858,11 @@
             "Parallel Aware": false,
             "Local Hit Blocks": 0,
             "Temp Read Blocks": 1300,
-            "Actual Total Time": 511.515,
+            "Actual Total Time": 522.786,
             "Local Read Blocks": 0,
             "Shared Hit Blocks": 1208,
             "Shared Read Blocks": 0,
-            "Actual Startup Time": 511.514,
+            "Actual Startup Time": 522.785,
             "Temp Written Blocks": 650,
             "Local Dirtied Blocks": 0,
             "Local Written Blocks": 0,
@@ -882,8 +882,8 @@
             "Shared Written Blocks": 0
           },
           "Triggers": [],
-          "Planning Time": 0.006,
-          "Execution Time": 511.531
+          "Planning Time": 0.009,
+          "Execution Time": 522.802
         }
       ],
       "round": 5
@@ -904,11 +904,11 @@
             "Parallel Aware": false,
             "Local Hit Blocks": 0,
             "Temp Read Blocks": 1300,
-            "Actual Total Time": 510.636,
+            "Actual Total Time": 528.822,
             "Local Read Blocks": 0,
             "Shared Hit Blocks": 1211,
             "Shared Read Blocks": 0,
-            "Actual Startup Time": 510.635,
+            "Actual Startup Time": 528.821,
             "Temp Written Blocks": 650,
             "Local Dirtied Blocks": 0,
             "Local Written Blocks": 0,
@@ -928,8 +928,8 @@
             "Shared Written Blocks": 0
           },
           "Triggers": [],
-          "Planning Time": 0.007,
-          "Execution Time": 510.652
+          "Planning Time": 0.012,
+          "Execution Time": 528.838
         }
       ],
       "round": 5
@@ -1060,7 +1060,7 @@
     }
   ],
   "readOnly": "on",
-  "snapshot": "101707:101707:",
+  "snapshot": "101706:101706:",
   "functions": [
     {
       "acl": [
@@ -1425,7 +1425,7 @@
       "securityDefiner": false
     }
   ],
-  "at": "2026-10-04T10:44:32.389Z",
+  "at": "2026-10-04T10:11:19.444Z",
   "p0NewUnchanged": true,
   "p2NewUnchanged": true,
   "migrationsReapplied": false,
@@ -1434,16 +1434,16 @@
       "round": 0,
       "page": 1,
       "planningMs": 0.042,
-      "executionMs": 1309.026,
-      "sharedHits": 3438,
+      "executionMs": 1309.239,
+      "sharedHits": 3439,
       "tempRead": 1300,
       "tempWritten": 650
     },
     {
       "round": 0,
       "page": 2,
-      "planningMs": 0.017,
-      "executionMs": 545.639,
+      "planningMs": 0.018,
+      "executionMs": 546.514,
       "sharedHits": 1211,
       "tempRead": 1300,
       "tempWritten": 650
@@ -1451,8 +1451,8 @@
     {
       "round": 1,
       "page": 1,
-      "planningMs": 0.007,
-      "executionMs": 516.394,
+      "planningMs": 0.009,
+      "executionMs": 514.417,
       "sharedHits": 1208,
       "tempRead": 1300,
       "tempWritten": 650
@@ -1460,8 +1460,8 @@
     {
       "round": 1,
       "page": 2,
-      "planningMs": 0.007,
-      "executionMs": 508.719,
+      "planningMs": 0.015,
+      "executionMs": 515.213,
       "sharedHits": 1211,
       "tempRead": 1300,
       "tempWritten": 650
@@ -1469,8 +1469,8 @@
     {
       "round": 2,
       "page": 1,
-      "planningMs": 0.006,
-      "executionMs": 508.817,
+      "planningMs": 0.008,
+      "executionMs": 522.177,
       "sharedHits": 1208,
       "tempRead": 1300,
       "tempWritten": 650
@@ -1478,8 +1478,8 @@
     {
       "round": 2,
       "page": 2,
-      "planningMs": 0.007,
-      "executionMs": 510.35,
+      "planningMs": 0.009,
+      "executionMs": 520.753,
       "sharedHits": 1211,
       "tempRead": 1300,
       "tempWritten": 650
@@ -1487,8 +1487,8 @@
     {
       "round": 3,
       "page": 1,
-      "planningMs": 0.006,
-      "executionMs": 510.07,
+      "planningMs": 0.009,
+      "executionMs": 517.442,
       "sharedHits": 1208,
       "tempRead": 1300,
       "tempWritten": 650
@@ -1496,8 +1496,8 @@
     {
       "round": 3,
       "page": 2,
-      "planningMs": 0.006,
-      "executionMs": 511.785,
+      "planningMs": 0.009,
+      "executionMs": 515.287,
       "sharedHits": 1211,
       "tempRead": 1300,
       "tempWritten": 650
@@ -1505,8 +1505,8 @@
     {
       "round": 4,
       "page": 1,
-      "planningMs": 0.007,
-      "executionMs": 509.126,
+      "planningMs": 0.008,
+      "executionMs": 518.17,
       "sharedHits": 1208,
       "tempRead": 1300,
       "tempWritten": 650
@@ -1514,8 +1514,8 @@
     {
       "round": 4,
       "page": 2,
-      "planningMs": 0.006,
-      "executionMs": 510.496,
+      "planningMs": 0.012,
+      "executionMs": 521.365,
       "sharedHits": 1211,
       "tempRead": 1300,
       "tempWritten": 650
@@ -1523,8 +1523,8 @@
     {
       "round": 5,
       "page": 1,
-      "planningMs": 0.006,
-      "executionMs": 511.531,
+      "planningMs": 0.009,
+      "executionMs": 522.802,
       "sharedHits": 1208,
       "tempRead": 1300,
       "tempWritten": 650
@@ -1532,8 +1532,8 @@
     {
       "round": 5,
       "page": 2,
-      "planningMs": 0.007,
-      "executionMs": 510.652,
+      "planningMs": 0.012,
+      "executionMs": 528.838,
       "sharedHits": 1211,
       "tempRead": 1300,
       "tempWritten": 650
@@ -1542,11 +1542,11 @@
   "medians": [
     {
       "page": 1,
-      "executionMs": 510.07
+      "executionMs": 518.17
     },
     {
       "page": 2,
-      "executionMs": 510.496
+      "executionMs": 520.753
     }
   ]
 }

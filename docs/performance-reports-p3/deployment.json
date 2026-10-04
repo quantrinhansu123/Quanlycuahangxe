@@ -1,0 +1,15 @@
+{
+  "at": "2026-10-04T10:44:19.760Z",
+  "implementationSha": "d53e66c4140d8ea025ab613c9319281ece52ac5f",
+  "branch": "main",
+  "push": "success",
+  "deploymentId": 6839925724,
+  "environment": "Production",
+  "vercelStatus": "success",
+  "vercelUrl": "https://vercel.com/congs-projects-f25af77d/quanlycuahangxe/3DyfXeSiV5cva6JkLPMdvShNNuwQ",
+  "deploymentUrl": "https://quanlycuahangxe-24z56dub1-congs-projects-f25af77d.vercel.app",
+  "productionAlias": "https://quanlycuahangxe.vercel.app",
+  "smokePassed": true,
+  "rollbackRequired": false,
+  "dbMigrationsReapplied": false
+}

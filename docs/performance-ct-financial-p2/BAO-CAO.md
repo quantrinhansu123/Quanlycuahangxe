@@ -1,5 +1,7 @@
 # P2 — Sales CT + Thu chi / Sổ quỹ
 
+**Cập nhật cuối P3:** frontend P2 đã được deploy production trong commit `d53e66c4140d8ea025ab613c9319281ece52ac5f`, smoke CT/Thu chi/Sổ quỹ pass. Bốn RPC P2 vẫn NEW, không re-apply. Các trạng thái “chưa deploy” bên dưới là tại thời điểm kết thúc P2. [Kết quả final P0–P3](../performance-reports-p3/BAO-CAO.md).
+
 Ngày **04/10/2026, Asia/Saigon**. Repository `D:\xe\Quanlycuahangxe-main`, branch `main`, HEAD `810f6f5630341b73d68579f08c390eb42b892a93`.
 
 **P2 PASS trong bộ regression và LIVE read validation đã chạy.** Bốn function DB P2 được giữ NEW theo quyền người dùng; frontend nằm trong working tree, **chưa deploy**. Sales P0.6 NEW giữ nguyên: 18 definition/metadata khớp P0.7. P1 và Reports source hashes giữ nguyên. Không chuyển P3.

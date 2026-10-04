@@ -1,5 +1,7 @@
 # P1 — Optimize Attendance / Chấm công
 
+**Cập nhật cuối P3:** frontend P1 đã được deploy production trong commit `d53e66c4140d8ea025ab613c9319281ece52ac5f`, smoke Attendance pass. Các trạng thái “chưa deploy” bên dưới là tại thời điểm kết thúc P1. [Kết quả final P0–P3](../performance-reports-p3/BAO-CAO.md).
+
 Ngày **04/10/2026, Asia/Saigon**. Repository `D:\xe\Quanlycuahangxe-main`, branch `main`, HEAD `810f6f5630341b73d68579f08c390eb42b892a93`.
 
 **P1 PASS trong bộ kiểm chứng đã chạy; thay đổi nằm trong working tree, chưa deploy.** Payload Attendance giảm **99,09%**, kết quả nghiệp vụ OLD/NEW bằng nhau. P1 giữ full dataset nhẹ của kỳ → grouping/calculation hiện hành → pagination UI. Không migration database. Sales P0.6 NEW trên LIVE giữ nguyên; READ ONLY catalog kiểm chứng cả **18 Sales/dependency function definitions** khớp snapshot cuối P0.7.
