@@ -315,7 +315,8 @@ export async function renderTemplateDataForCustomer(
   },
   fieldMapping: Record<string, ZnsFieldMappingEntry>,
   serviceValues: string[] = [],
-  selectedServiceName = ''
+  selectedServiceName = '',
+  prefetchedLatestOrder?: { id_bh: string; ngay: string }
 ): Promise<Record<string, string>> {
   const needsOrder = Object.values(fieldMapping).some((m) => m.source.startsWith('last_order.'));
   const needsLastServiceMileage = Object.values(fieldMapping).some((m) => m.source === 'last_service.so_km');
@@ -326,7 +327,10 @@ export async function renderTemplateDataForCustomer(
   let lastServiceKm = '';
   let lastServiceUsageMonths = '';
 
-  if (needsOrder || needsLastServiceMileage || needsLastServiceUsageMonths) {
+  if (prefetchedLatestOrder && !needsLastServiceMileage && !needsLastServiceUsageMonths) {
+    lastOrderIdBh = prefetchedLatestOrder.id_bh;
+    lastOrderNgay = prefetchedLatestOrder.ngay;
+  } else if (needsOrder || needsLastServiceMileage || needsLastServiceUsageMonths) {
     const history = await getCustomerServiceHistory({ id: customer.id, so_dien_thoai: customer.so_dien_thoai });
     const latest = history[0];
     lastOrderIdBh = latest?.id_bh || '';
@@ -396,13 +400,28 @@ export async function renderTemplateDataForCustomers(
   selectedServiceName = ''
 ): Promise<RenderedRecipient[]> {
   const out: RenderedRecipient[] = [];
+  const mappings = Object.values(fieldMapping);
+  // Chỉ cần đơn gần nhất → lấy cho cả lô khách bằng 1 RPC, thay vì 1 sales_query (~570ms) mỗi khách.
+  const onlyLatestOrder = mappings.some((m) => m.source.startsWith('last_order.'))
+    && !mappings.some((m) => m.source === 'last_service.so_km' || m.source === 'last_service_usage.months');
+  const latestOrders = new Map<string, { id_bh: string; ngay: string }>();
+  if (onlyLatestOrder) {
+    for (const ids of chunkArray(customers.map((c) => c.id), 100)) {
+      const { data, error } = await supabase.rpc('customer_order_stats', { p_ids: ids });
+      if (error) throw error;
+      const stats = (data?.stats || {}) as Record<string, { latestIdBh?: string; latestNgay?: string }>;
+      for (const id of ids) {
+        latestOrders.set(id, { id_bh: stats[id]?.latestIdBh || '', ngay: stats[id]?.latestNgay || '' });
+      }
+    }
+  }
   for (const chunk of chunkArray(customers, 20)) {
     const rendered = await Promise.all(
       chunk.map(async (c) => ({
         idempotency_key: buildIdempotencyKey(c.id, c.so_dien_thoai),
         khach_hang_id: c.id,
         phone: normalizeVnPhoneDigits(c.so_dien_thoai),
-        template_data: await renderTemplateDataForCustomer(c, fieldMapping, serviceValues, selectedServiceName),
+        template_data: await renderTemplateDataForCustomer(c, fieldMapping, serviceValues, selectedServiceName, latestOrders.get(c.id)),
       }))
     );
     out.push(...rendered);

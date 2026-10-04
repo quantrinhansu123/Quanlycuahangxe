@@ -821,6 +821,7 @@ const ZnsBulkSendPage: React.FC = () => {
     setIsSending(true);
     setProgress({ done: 0, total: selectedCustomers.length, sent: 0, failed: 0, skipped: 0 });
 
+    let createdCampaignId: string | null = null;
     try {
       const tenChienDichTuDong = `${templateTen.trim() || `ZNS ${templateId.trim()}`} - ${new Date().toLocaleString('vi-VN')}`;
       const campaign = await createCampaign({
@@ -830,6 +831,7 @@ const ZnsBulkSendPage: React.FC = () => {
         field_mapping: fieldMapping,
         nguoi_tao: nhanVien?.id ?? null,
       });
+      createdCampaignId = campaign.id;
       await setCampaignTotals(campaign.id, selectedCustomers.length);
 
       const rendered = await renderTemplateDataForCustomers(
@@ -879,6 +881,11 @@ const ZnsBulkSendPage: React.FC = () => {
       setPreviewData(null);
       await refreshCampaigns();
     } catch (err) {
+      // Lỗi trước/giữa lúc gửi (vd chuẩn bị dữ liệu): không để chiến dịch kẹt ở "Đang gửi".
+      if (createdCampaignId) {
+        await updateCampaignStatus(createdCampaignId, 'hoan_thanh_co_loi').catch(() => undefined);
+        await refreshCampaigns().catch(() => undefined);
+      }
       showToast(err instanceof Error ? err.message : 'Gửi đánh giá đơn hàng thất bại', 'error');
     } finally {
       setIsSending(false);
