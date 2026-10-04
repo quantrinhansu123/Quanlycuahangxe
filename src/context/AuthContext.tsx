@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import {
   canAccessView,
   isQuanLyViTri,
@@ -138,6 +138,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [nhanVien, setNhanVien] = useState<NhanVien | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [permVersion, setPermVersion] = useState(0);
+  const authVersion = useRef(0);
+
+  const clearSession = useCallback(() => {
+    authVersion.current++;
+    clearStoredAuth();
+    setSession(null);
+    setSupabaseUser(null);
+    setNhanVien(null);
+  }, []);
 
   const applyNhanVien = useCallback((nv: NhanVien) => {
     const { session: nextSession, supabaseUser: nextUser } = sessionFromNhanVien(nv);
@@ -148,15 +157,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const persistLogin = useCallback(
     (nv: NhanVien, sessionToken?: string) => {
+      authVersion.current++;
       if (sessionToken) setStoredSessionToken(sessionToken);
       setStoredNhanVien(nv);
       applyNhanVien(nv);
+      setIsLoading(false);
     },
     [applyNhanVien]
   );
 
   useEffect(() => {
     let cancelled = false;
+    const version = authVersion.current;
 
     const bootstrap = async () => {
       const demoRole = getStoredDemoRole();
@@ -167,29 +179,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (stored.id === 'demo-nv-uuid' || demoRole) {
           applyNhanVien(stored);
         } else {
-          if (!storedSessionToken) {
-            // Chỉ ép đăng nhập lại khi DB đã có migration session mới. Trước
-            // lúc migration được áp dụng, RPC chưa tồn tại và app cũ vẫn chạy.
-            const probe = await supabase.rpc('current_app_nhan_su_uuid');
-            if (!probe.error) {
-              clearStoredAuth();
-              setSession(null);
-              setSupabaseUser(null);
-              setNhanVien(null);
-              if (!cancelled) setIsLoading(false);
-              return;
-            }
-          }
-          const fresh = await fetchNhanVienById(stored.id);
-          if (cancelled) return;
-          if (!fresh) {
-            clearStoredAuth();
-            setSession(null);
-            setSupabaseUser(null);
-            setNhanVien(null);
+          const result = await fetchNhanVienById(stored.id, !!storedSessionToken);
+          if (cancelled || version !== authVersion.current || storedSessionToken !== getStoredSessionToken()) return;
+          if (result.status === 'missing' || result.status === 'invalid_session') {
+            clearSession();
+          } else if (result.status === 'found') {
+            setStoredNhanVien(result.employee);
+            applyNhanVien(result.employee);
           } else {
-            setStoredNhanVien(fresh);
-            applyNhanVien(fresh);
+            // Retry on focus/the existing interval; a read error cannot delete a session.
+            console.warn('[auth-revalidation]', result);
+            applyNhanVien(stored);
           }
         }
       } else if (demoRole) {
@@ -203,26 +203,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => {
       cancelled = true;
     };
-  }, [applyNhanVien]);
+  }, [applyNhanVien, clearSession]);
 
   /** Định kỳ kiểm tra tài khoản còn tồn tại (sau khi admin xóa nhân sự). */
   useEffect(() => {
     if (!nhanVien?.id || nhanVien.id === 'demo-nv-uuid') return;
 
     let validating = false;
+    let cancelled = false;
     const validateSession = async () => {
       if (validating || !nhanVien?.id) return;
       validating = true;
+      const version = authVersion.current;
+      const token = getStoredSessionToken();
       try {
-        const fresh = await fetchNhanVienById(nhanVien.id);
-        if (!fresh) {
-          clearStoredAuth();
-          setSession(null);
-          setSupabaseUser(null);
-          setNhanVien(null);
-          window.location.assign('/login?reason=account_deleted');
+        const result = await fetchNhanVienById(nhanVien.id, !!token);
+        if (cancelled || version !== authVersion.current || token !== getStoredSessionToken()) return;
+        if (result.status === 'missing' || result.status === 'invalid_session') {
+          clearSession();
+          window.location.assign(result.status === 'missing' ? '/login?reason=account_deleted' : '/login');
           return;
         }
+        if (result.status === 'error') {
+          console.warn('[auth-revalidation]', result);
+          return;
+        }
+        const fresh = result.employee;
         if (
           fresh.ho_ten !== nhanVien.ho_ten ||
           fresh.vi_tri !== nhanVien.vi_tri ||
@@ -240,10 +246,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const interval = window.setInterval(() => void validateSession(), 3 * 60_000);
     window.addEventListener('focus', onFocus);
     return () => {
+      cancelled = true;
       window.clearInterval(interval);
       window.removeEventListener('focus', onFocus);
     };
-  }, [nhanVien?.id, nhanVien?.ho_ten, nhanVien?.vi_tri, nhanVien?.co_so, applyNhanVien]);
+  }, [nhanVien?.id, nhanVien?.ho_ten, nhanVien?.vi_tri, nhanVien?.co_so, applyNhanVien, clearSession]);
 
   useEffect(() => {
     const refresh = () => setPermVersion((v) => v + 1);
@@ -259,6 +266,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signOut = async () => {
+    // Invalidate outstanding reads before awaiting the logout RPC.
+    authVersion.current++;
     const sessionToken = getStoredSessionToken();
     if (sessionToken) {
       try {
@@ -267,10 +276,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Phiên local vẫn phải được xóa kể cả khi mất mạng.
       }
     }
-    clearStoredAuth();
-    setSession(null);
-    setSupabaseUser(null);
-    setNhanVien(null);
+    clearSession();
     window.location.assign('/login');
   };
 

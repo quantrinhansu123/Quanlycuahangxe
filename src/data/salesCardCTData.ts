@@ -60,6 +60,7 @@ export const getSalesCardCTsPaginated = async (
   const { data, count, error } = await readRequest('sales_ct_page', s => query
     .order('ngay', { ascending: false })
     .order('created_at', { ascending: false })
+    .order('id', { ascending: false })
     .range(from, to).abortSignal(s), signal);
 
   if (error) {
