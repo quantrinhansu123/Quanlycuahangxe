@@ -1,0 +1,328 @@
+{
+  "at": "2026-10-04T10:53:17.166Z",
+  "base": "https://quanlycuahangxe.vercel.app",
+  "mode": "production",
+  "scope": "Actual built UI, synthetic read identity, anon LIVE API, no authenticated company-session claim",
+  "samples": [
+    {
+      "feature": "Sales",
+      "path": "/ban-hang/phieu-ban-hang",
+      "mountMs": 3519,
+      "checks": [
+        "Page1/page2 display distinct rows",
+        "Sales detail modal reads real detail"
+      ],
+      "network": [
+        {
+          "endpoint": "attendance_settings",
+          "status": 200,
+          "bytes": 561,
+          "ms": 1191,
+          "rows": 1,
+          "errorCode": null,
+          "projection": "*"
+        },
+        {
+          "endpoint": "co_so",
+          "status": 200,
+          "bytes": 155,
+          "ms": 427,
+          "rows": 4,
+          "errorCode": null,
+          "projection": "ten_co_so"
+        },
+        {
+          "endpoint": "nhan_su",
+          "status": 200,
+          "bytes": 4413,
+          "ms": 711,
+          "rows": 10,
+          "errorCode": null,
+          "projection": "*"
+        },
+        {
+          "endpoint": "the_ban_hang",
+          "status": 200,
+          "bytes": 2,
+          "ms": 298,
+          "rows": 0,
+          "errorCode": null,
+          "projection": "*"
+        },
+        {
+          "endpoint": "dich_vu",
+          "status": 200,
+          "bytes": 492391,
+          "ms": 1175,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "*"
+        },
+        {
+          "endpoint": "dich_vu",
+          "status": 200,
+          "bytes": 84660,
+          "ms": 547,
+          "rows": 267,
+          "errorCode": null,
+          "projection": "*"
+        },
+        {
+          "endpoint": "sales_query",
+          "status": 200,
+          "bytes": 67887,
+          "ms": 1818,
+          "rows": 20,
+          "errorCode": null,
+          "projection": null
+        },
+        {
+          "endpoint": "dich_vu",
+          "status": 200,
+          "bytes": 170296,
+          "ms": 414,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "id,id_dich_vu,ten_dich_vu,gia_ban,gia_nhap,co_so"
+        },
+        {
+          "endpoint": "nhan_su",
+          "status": 200,
+          "bytes": 565,
+          "ms": 454,
+          "rows": 5,
+          "errorCode": null,
+          "projection": "ho_ten,id_nhan_su,vi_tri,co_so"
+        },
+        {
+          "endpoint": "sales_details",
+          "status": 200,
+          "bytes": 13519,
+          "ms": 468,
+          "rows": 34,
+          "errorCode": null,
+          "projection": null
+        },
+        {
+          "endpoint": "thu_chi",
+          "status": 200,
+          "bytes": 11845,
+          "ms": 605,
+          "rows": 20,
+          "errorCode": null,
+          "projection": "*"
+        },
+        {
+          "endpoint": "dich_vu",
+          "status": 200,
+          "bytes": 45399,
+          "ms": 232,
+          "rows": 267,
+          "errorCode": null,
+          "projection": "id,id_dich_vu,ten_dich_vu,gia_ban,gia_nhap,co_so"
+        },
+        {
+          "endpoint": "sales_query",
+          "status": 200,
+          "bytes": 67601,
+          "ms": 770,
+          "rows": 20,
+          "errorCode": null,
+          "projection": null
+        },
+        {
+          "endpoint": "nhan_su",
+          "status": 200,
+          "bytes": 906,
+          "ms": 201,
+          "rows": 8,
+          "errorCode": null,
+          "projection": "ho_ten,id_nhan_su,vi_tri,co_so"
+        },
+        {
+          "endpoint": "thu_chi",
+          "status": 200,
+          "bytes": 11812,
+          "ms": 215,
+          "rows": 20,
+          "errorCode": null,
+          "projection": "*"
+        },
+        {
+          "endpoint": "sales_details",
+          "status": 200,
+          "bytes": 12010,
+          "ms": 223,
+          "rows": 30,
+          "errorCode": null,
+          "projection": null
+        },
+        {
+          "endpoint": "sales_query",
+          "status": 200,
+          "bytes": 1548,
+          "ms": 551,
+          "rows": 1,
+          "errorCode": null,
+          "projection": null
+        },
+        {
+          "endpoint": "thu_chi",
+          "status": 200,
+          "bytes": 591,
+          "ms": 142,
+          "rows": 1,
+          "errorCode": null,
+          "projection": "*"
+        },
+        {
+          "endpoint": "sales_details",
+          "status": 200,
+          "bytes": 407,
+          "ms": 171,
+          "rows": 1,
+          "errorCode": null,
+          "projection": null
+        },
+        {
+          "endpoint": "nhan_su",
+          "status": 200,
+          "bytes": 112,
+          "ms": 165,
+          "rows": 1,
+          "errorCode": null,
+          "projection": "ho_ten,id_nhan_su,vi_tri,co_so"
+        },
+        {
+          "endpoint": "dich_vu",
+          "status": 200,
+          "bytes": 492391,
+          "ms": 584,
+          "rows": 1000,
+          "errorCode": null,
+          "projection": "*"
+        },
+        {
+          "endpoint": "dich_vu",
+          "status": null,
+          "errorCode": "transport",
+          "errorType": "Error"
+        }
+      ],
+      "errors": [],
+      "consoleErrors": [],
+      "passed": true,
+      "pageRows": 40,
+      "totalCount": 9364,
+      "reads": 21,
+      "bytes": 1479071
+    },
+    {
+      "feature": "Attendance",
+      "path": "/nhan-su/bang-cham-cong",
+      "mountMs": 2597,
+      "checks": [
+        "Page1/page2 display distinct rows",
+        "List omits photo/history; full-month calculation and page slicing render",
+        "History/detail fetched only on click"
+      ],
+      "network": [
+        {
+          "endpoint": "attendance_settings",
+          "status": 200,
+          "bytes": 561,
+          "ms": 208,
+          "rows": 1,
+          "errorCode": null,
+          "projection": "*"
+        },
+        {
+          "endpoint": "nhan_su",
+          "status": 200,
+          "bytes": 4413,
+          "ms": 156,
+          "rows": 10,
+          "errorCode": null,
+          "projection": "*"
+        },
+        {
+          "endpoint": "cham_cong",
+          "status": 200,
+          "bytes": 91238,
+          "ms": 269,
+          "rows": 285,
+          "errorCode": null,
+          "projection": "id,id_cham_cong,nhan_su,ngay,checkin,checkout,vi_tri,created_at,ghi_chu,bo_sung_boi,bo_sung_luc"
+        },
+        {
+          "endpoint": "cham_cong",
+          "status": 200,
+          "bytes": 295,
+          "ms": 182,
+          "rows": null,
+          "errorCode": null,
+          "projection": "id,id_cham_cong,nhan_su,ngay,checkin,checkout,vi_tri,created_at,ghi_chu,bo_sung_boi,bo_sung_luc,anh,lich_su_sua"
+        }
+      ],
+      "errors": [],
+      "consoleErrors": [],
+      "passed": true,
+      "reads": 4,
+      "bytes": 96507
+    },
+    {
+      "feature": "CT",
+      "path": "/ban-hang/phieu-ban-hang-ct",
+      "mountMs": 2205,
+      "checks": [
+        "Page1/page2 display distinct rows"
+      ],
+      "network": [
+        {
+          "endpoint": "attendance_settings",
+          "status": 200,
+          "bytes": 561,
+          "ms": 146,
+          "rows": 1,
+          "errorCode": null,
+          "projection": "*"
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 206,
+          "bytes": 7940,
+          "ms": 212,
+          "rows": 20,
+          "errorCode": null,
+          "projection": "*"
+        },
+        {
+          "endpoint": "sales_p2_lookup",
+          "status": 200,
+          "bytes": 15835,
+          "ms": 281,
+          "rows": 13,
+          "errorCode": null,
+          "projection": null
+        },
+        {
+          "endpoint": "the_ban_hang_ct",
+          "status": 206,
+          "bytes": 7987,
+          "ms": 147,
+          "rows": 20,
+          "errorCode": null,
+          "projection": "*"
+        }
+      ],
+      "errors": [],
+      "consoleErrors": [],
+      "passed": false,
+      "pageRows": 40
+    }
+  ],
+  "blockedWrites": [],
+  "liveWrites": 0,
+  "passed": false,
+  "error": "The expression evaluated to a falsy value:\n\n  assert.ok(network.filter(r=>r.endpoint==='sales_p2_lookup').length>=2)\n"
+}

@@ -34,5 +34,8 @@
     "Historical P0.6 slow sample exact cause unresolved; current repeated core validation passes",
     "Inventory movement report retains existing REST cap; full-period calculation stays client-side"
   ],
-  "noFurtherPhase": true
+  "noFurtherPhase": true,
+  "latestProductionSmokeDeploymentSha": "111369cb2e279d3fde4e9df5adecaf32567ffc64",
+  "smokeHarnessFix": "Wait for page2 HTTP response and pagination loading to finish before checking ref lookups; allow zero-ref pages.",
+  "failedSmokeAttemptWasHarnessRace": true
 }

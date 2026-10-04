@@ -83,14 +83,16 @@ Baseline rollback SHA `810f6f5630341b73d68579f08c390eb42b892a93`. Không cần r
 
 | Actual production App | Reads gồm các smoke actions | Mount ms, single sample | Kết quả |
 | --- | ---: | ---: | --- |
-| Sales | 22 | 5896 | Page1/page2 40unique, detail modal, finite totals |
-| Attendance | 4 | 1825 | Month/list calculations, page slicing, photo/history omitted; full history detail on click |
-| CT | 8 | 1732 | Page1/page2 40unique, bounded refs, form catalog on demand, không ALL Sales/fan-out |
-| Thu chi | 12 | 4851 | Page1/page2, filtered SQL totals, chart aggregates |
-| Sổ quỹ | 11 | 10597 | Page1/page2, filter, opening balance/SQL totals |
-| Reports | 17 | 10644 | Month filter, repeated base tabs không refetch CT, personnel/chart/financial lazy |
+| Sales | 22 | 4451 | Page1/page2 40unique, detail modal, finite totals |
+| Attendance | 4 | 1890 | Month/list calculations, page slicing, photo/history omitted; full history detail on click |
+| CT | 8 | 1821 | Page1/page2 40unique, bounded refs, form catalog on demand, không ALL Sales/fan-out |
+| Thu chi | 12 | 2060 | Page1/page2, filtered SQL totals, chart aggregates |
+| Sổ quỹ | 11 | 3192 | Page1/page2, filter, opening balance/SQL totals |
+| Reports | 17 | 4772 | Month filter, repeated base tabs không refetch CT, personnel/chart/financial lazy |
 
 Mount samples gồm production JS/assets/network, một sample/màn; không paired với module-only bảng benchmark và không SLA. 74API reads đều2xx, page/console errors0, alerts0, writes0. Tests dùng real deployed bundle, không intercept source/components hoặc mock API response. [Full network/checks](production-smoke.json). Catalog sau deploy được READ ONLY recheck, P0/P2/RLS/indexes giữ nguyên.
+
+Sau documentation deploy `111369c`, smoke lại bắt race của công cụ: assertion đếm CT lookups chạy ngay sau page2 GET, trước khi lookup kết thúc. [Attempt giữ nguyên](production-smoke-attempt2.json) có GET206/RPC200, không API/page/console error. Công cụ được sửa để đợi response page2 và pagination hết loading; trang không có refs không bắt buộc RPC. Chạy lại toàn bộ sáu màn pass; bảng trên là lượt complete mới nhất. Thay đổi sau commit implementation chỉ documentation/verification tool, không frontend/database source. Evidence lưu hashes của production entry assets để kiểm chứng deployment tiếp theo giữ cùng bundle. Không cần rollback vì không có regression application được ghi nhận.
 
 Production smoke dùng actual built App trong browser/storage mới với synthetic identity chỉ để mở read UI, **không demo dataset/JWT/copy app session**; LIVE anon reads, chặn writes. Đây không kiểm chứng mọi authenticated company session hoặc production mutations. Attendance detail ảnh lớn vẫn on-demand; Reports còn full-period client calculation và inventory movement cap hiện hành; callers ngoài P2 có ALL-loader như cũ. Không mở thêm phase.
 

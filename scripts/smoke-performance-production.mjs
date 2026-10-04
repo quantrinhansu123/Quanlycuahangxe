@@ -28,7 +28,9 @@ try{
    pending++;const started=performance.now();
    try{
     const response=await route.fetch({timeout:20000,maxRetries:0}),body=await response.body();const parsed=JSON.parse(body.toString('utf8'));
-    const record={endpoint,status:response.status(),bytes:body.length,ms:Math.round(performance.now()-started),rows:Array.isArray(parsed)?parsed.length:parsed.data?.length??null,errorCode:response.ok()?null:parsed.code??'API error',projection:url.searchParams.get('select')};network.push(record);
+    const record={endpoint,status:response.status(),bytes:body.length,ms:Math.round(performance.now()-started),rows:Array.isArray(parsed)?parsed.length:parsed.data?.length??null,errorCode:response.ok()?null:parsed.code??'API error',projection:url.searchParams.get('select')};
+    if(endpoint==='the_ban_hang_ct'&&Array.isArray(parsed))record.referenceCount=new Set(parsed.map(r=>r.id_don_hang).filter(r=>r?.trim())).size;
+    network.push(record);
     if(['sales_query','financial_p2_query'].includes(endpoint)&&args?.p_limit===20&&!args?.p_search&&!args?.p_charts){lastList=parsed;pageIds[(args.p_page||1)-1]=parsed.data?.map(r=>r.id)||[];}
     if(endpoint==='the_ban_hang_ct'&&Number(url.searchParams.get('limit'))===20){pageIds[Number(url.searchParams.get('offset')||0)===0?0:1]=parsed.map(r=>r.id);}
     await route.fulfill({response,body});
@@ -41,7 +43,14 @@ try{
   const started=performance.now();await page.goto(base+path,{waitUntil:'commit'});await settle();sample.mountMs=Math.round(performance.now()-started);
   if(feature!=='Reports'){
    await page.getByTitle('Trang sau',{exact:true}).waitFor();await page.waitForFunction(()=>!document.querySelector('button[title="Trang sau"]')?.disabled);await settle();
-   const beforeHash=hash(await page.locator('tbody').innerText());await page.getByTitle('Trang sau',{exact:true}).click();await settle();
+   const beforeHash=hash(await page.locator('tbody').innerText());
+   const secondResponse=feature==='Attendance'?null:page.waitForResponse(response=>{
+    const request=response.request(),url=new URL(request.url()),endpoint=url.pathname.split('/').pop();
+    if(feature==='CT')return endpoint==='the_ban_hang_ct'&&Number(url.searchParams.get('offset'))===20;
+    return endpoint===(feature==='Sales'?'sales_query':'financial_p2_query')&&request.postDataJSON()?.p_page===2;
+   });
+   await page.getByTitle('Trang sau',{exact:true}).click();if(secondResponse)await secondResponse;
+   await page.waitForFunction(()=>{const b=document.querySelector('button[title="Trang trước"]');return b&&!b.disabled;});await settle();
    assert.notEqual(hash(await page.locator('tbody').innerText()),beforeHash,`${feature} page2 changes rows`);
    sample.checks.push('Page1/page2 display distinct rows');
    if(feature!=='Attendance'){assert.equal(new Set([...pageIds[0],...pageIds[1]]).size,40,`${feature} pagination IDs`);sample.pageRows=40;}
@@ -54,7 +63,7 @@ try{
    sample.checks.push('List omits photo/history; full-month calculation and page slicing render');
    const history=page.getByTitle('Xem lịch sử sửa',{exact:true});if(await history.count()){await history.first().click();await settle();assert.ok(network.some(r=>r.endpoint==='cham_cong'&&r.projection?.includes('lich_su_sua')&&r.rows==null));sample.checks.push('History/detail fetched only on click');}
   }else if(feature==='CT'){
-   assert.equal(network.filter(r=>r.endpoint==='sales_query').length,0);assert.ok(network.filter(r=>r.endpoint==='sales_p2_lookup').length>=2);assert.ok(network.length<30);
+   assert.equal(network.filter(r=>r.endpoint==='sales_query').length,0);assert.ok(network.filter(r=>r.endpoint==='sales_p2_lookup').length>=network.filter(r=>r.endpoint==='the_ban_hang_ct'&&r.referenceCount>0).length);assert.ok(network.length<30);
    sample.checks.push('Current-page batch lookup, no ALL Sales/fan-out');
    await page.getByRole('button',{name:'Thêm chi tiết',exact:true}).click();await settle();sample.checks.push('CT form opens; no save/write');
   }else if(feature==='Financial'||feature==='Cashbook'){
