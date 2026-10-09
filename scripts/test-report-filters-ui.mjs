@@ -14,15 +14,19 @@ const fixture = {
     { id: 'uuid-1', id_bh: 'BH-1', ngay: '2026-09-01', nhan_vien_id: 'NV1, Việt Anh, Khắc Kiên' },
     { id: 'uuid-2', id_bh: 'BH-2', ngay: '2026-09-02', nhan_vien_id: 'ns-2' },
     { id: 'uuid-3', id_bh: 'BH-3', ngay: '2026-09-03', nhan_vien_id: 'Đỗ Xuân Kỳ' },
+    { id: 'uuid-4', id_bh: 'BH-4', ngay: '2026-09-02', nhan_vien_id: 'Khắc Kiên' },
+    { id: 'uuid-5', id_bh: 'BH-5', ngay: '2026-10-08', nhan_vien_id: 'Việt Anh' },
   ],
   the_ban_hang_ct: [
     { id: 'ct-1', id_don_hang: 'BH-1', ngay: '2026-09-01', san_pham: 'Rửa xe', co_so: 'Cơ sở Bắc Ninh', thanh_tien: 100000, gia_ban: 100000, gia_von: 10000, so_luong: 1 },
     { id: 'ct-2', id_don_hang: 'uuid-1', ngay: '2026-09-01', san_pham: 'Thay dầu', co_so: 'Cơ sở Bắc Ninh', thanh_tien: 200000, gia_ban: 200000, gia_von: 10000, so_luong: 1 },
     { id: 'ct-3', id_don_hang: 'BH-2', ngay: '2026-09-02', san_pham: 'Rửa xe', co_so: 'Cơ sở Bắc Ninh', thanh_tien: 300000, gia_ban: 300000, gia_von: 10000, so_luong: 1 },
     { id: 'ct-4', id_don_hang: 'BH-3', ngay: '2026-09-03', san_pham: 'Rửa xe', co_so: 'Cơ sở Bắc Giang', thanh_tien: 400000, gia_ban: 400000, gia_von: 10000, so_luong: 1 },
+    { id: 'ct-5', id_don_hang: 'BH-4', ngay: '2026-09-02', san_pham: 'Rửa thẻ', co_so: 'Cơ sở Bắc Ninh', thanh_tien: 0, gia_ban: 0, gia_von: 0, so_luong: 1 },
+    { id: 'ct-6', id_don_hang: 'BH-5', ngay: '2026-10-08', san_pham: 'Rửa xe', co_so: 'Cơ sở Bắc Ninh', thanh_tien: 700000, gia_ban: 700000, gia_von: 10000, so_luong: 1 },
   ],
 };
-const html = `<div id="root"></div><script type="module">
+const html = `<meta name="viewport" content="width=device-width, initial-scale=1.0"><div id="root"></div><script type="module">
 import React from 'react'; import { createRoot } from 'react-dom/client'; import App from '/src/App.tsx';
 import { ThemeProvider } from '/src/context/ThemeContext.tsx'; import { ToastProvider } from '/src/context/ToastContext.tsx';
 import '/src/index.css'; createRoot(document.getElementById('root')).render(React.createElement(ThemeProvider, null, React.createElement(ToastProvider, null, React.createElement(App))));
@@ -44,7 +48,7 @@ try {
   await server.listen();
   browser = await chromium.launch({ headless: true, channel: process.platform === 'win32' ? 'msedge' : undefined });
   for (const width of [1440, 375]) {
-    const context = await browser.newContext({ viewport: { width, height: 1000 }, timezoneId: 'Asia/Ho_Chi_Minh' });
+    const context = await browser.newContext({ viewport: { width, height: 1000 }, timezoneId: 'Asia/Ho_Chi_Minh', isMobile: width < 640, hasTouch: width < 640 });
     const page = await context.newPage();
     page.setDefaultTimeout(20000);
     const errors = [], requests = [];
@@ -125,6 +129,49 @@ try {
     const sizes = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, width: innerWidth }));
     assert.ok(sizes.scroll <= sizes.width + 1, `Page must fit viewport: ${JSON.stringify(sizes)}`);
     await page.screenshot({ path: `.build-verification/report-filters/${width}-default.png`, fullPage: true });
+    await page.locator('button[class*="border-b-2"]').filter({ hasText: 'Sản phẩm/DV' }).click();
+    await settled();
+    await page.getByRole('button', { name: 'Lọc cơ sở', exact: true }).click();
+    await portal().getByText('Cơ sở Bắc Ninh', { exact: true }).click();
+    await page.getByRole('button', { name: 'Lọc dịch vụ', exact: true }).click();
+    await portal().getByText('Rửa xe', { exact: true }).click();
+    await portal().getByText('Rửa thẻ', { exact: true }).click();
+    await closeSelect();
+    await checkRevenue(400000);
+    await page.locator('input[type=date]').first().fill('2026-10-01');
+    await page.locator('input[type=date]').nth(1).fill('2026-10-09');
+    await checkRevenue(700000);
+    const beforeTableDates = requests.length;
+    await page.locator('input[type=date]').nth(2).fill('2026-09-01');
+    await settled();
+    await page.locator('input[type=date]').nth(3).fill('2026-09-30');
+    await checkRevenue(400000);
+    assert.ok(requests.length > beforeTableDates, 'Table dates must fetch the requested period instead of filtering the old period');
+    assert.equal(await page.locator('input[type=date]').first().inputValue(), '2026-09-01');
+    assert.equal(await page.locator('input[type=date]').nth(1).inputValue(), '2026-09-30');
+    assert.match(await page.getByRole('button', { name: 'Lọc dịch vụ', exact: true }).innerText(), /2 dịch vụ/);
+    assert.equal(await page.locator('tbody').getByText('Rửa thẻ', { exact: true }).count(), 1, 'Zero-revenue services must not disappear when dates are applied');
+    await page.locator('input[type=date]').nth(2).fill('2026-09-02');
+    await settled();
+    await page.locator('input[type=date]').nth(3).fill('2026-09-02');
+    await checkRevenue(300000);
+    const wash = page.locator('tbody tr').filter({ has: page.getByText('Rửa xe', { exact: true }) });
+    assert.equal(await wash.locator('td').nth(3).innerText(), '1', 'Quantity must use the same date range as revenue and order count');
+    assert.equal(await page.locator('tbody').getByText('Rửa thẻ', { exact: true }).count(), 1);
+    await page.locator('tbody tr').filter({ has: page.getByText('Rửa thẻ', { exact: true }) }).getByRole('button', { name: 'Theo ngày', exact: true }).click();
+    await page.getByRole('heading', { name: 'Theo ngày — Rửa thẻ', exact: true }).waitFor();
+    const modal = page.locator('div.fixed.inset-0').filter({ has: page.getByRole('heading', { name: 'Theo ngày — Rửa thẻ', exact: true }) });
+    assert.equal(await modal.locator('tbody').getByText('02/09/2026', { exact: true }).count(), 1, 'Daily details must retain zero-revenue visits');
+    await modal.locator('button').first().click();
+    await page.getByRole('group', { name: 'Lọc theo ngày', exact: true }).scrollIntoViewIfNeeded();
+    await page.screenshot({ path: `.build-verification/report-filters/${width}-table-dates.png`, fullPage: true });
+    for (const tab of ['Theo ngày', 'Theo cơ sở', 'Nhân sự', 'Sản phẩm/DV']) {
+      await page.locator('button[class*="border-b-2"]').filter({ hasText: tab }).click();
+      await checkRevenue(300000);
+      assert.equal(await page.locator('input[type=date]').nth(2).inputValue(), '2026-09-02');
+      assert.equal(await page.locator('input[type=date]').nth(3).inputValue(), '2026-09-02');
+    }
+    assert.deepEqual(errors, []);
     console.log(JSON.stringify({ reportFiltersUiPassed: true, width, reads: requests.length, errors }));
     await context.close();
   }

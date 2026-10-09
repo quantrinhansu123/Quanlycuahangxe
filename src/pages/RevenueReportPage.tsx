@@ -74,13 +74,16 @@ const fmtDate = (d: string) => {
 function DateInput({
   value,
   onChange,
+  ariaLabel,
 }: {
   value: string;
   onChange: (v: string) => void;
+  ariaLabel?: string;
 }) {
   return (
     <input
       type="date"
+      aria-label={ariaLabel}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       className="w-36 min-w-0 bg-background border border-border rounded-lg px-2.5 py-1 text-[12px] outline-none focus:ring-1 focus:ring-primary"
@@ -88,7 +91,14 @@ function DateInput({
   );
 }
 
-// ──────────── Local Filter Bar ────────────
+type ReportDateRange = {
+  startDate: string;
+  endDate: string;
+  onStartChange: (value: string) => void;
+  onEndChange: (value: string) => void;
+};
+
+// Date controls in each tab share the range used by the report query.
 function LocalFilter({
   localStart,
   localEnd,
@@ -106,15 +116,15 @@ function LocalFilter({
 }) {
   const isActive = !!(localStart || localEnd);
   return (
-    <div className={`flex items-center gap-3 px-3 py-2 rounded-lg border flex-wrap ${isActive ? 'bg-primary/5 border-primary/30' : 'bg-muted/30 border-border'}`}>
+    <div role="group" aria-label="Lọc theo ngày" className={`flex items-center gap-3 px-3 py-2 rounded-lg border flex-wrap ${isActive ? 'bg-primary/5 border-primary/30' : 'bg-muted/30 border-border'}`}>
       <div className="flex items-center gap-2">
         <Filter size={12} className={isActive ? 'text-primary' : 'text-muted-foreground'} />
         <span className="text-[11px] font-bold text-muted-foreground">Lọc theo ngày:</span>
       </div>
       <div className="flex w-full items-center gap-2 sm:w-auto">
-        <DateInput value={localStart} onChange={onStartChange} />
+        <DateInput value={localStart} onChange={onStartChange} ariaLabel="Lọc theo ngày: từ ngày" />
         <span className="text-muted-foreground text-[12px]">→</span>
-        <DateInput value={localEnd} onChange={onEndChange} />
+        <DateInput value={localEnd} onChange={onEndChange} ariaLabel="Lọc theo ngày: đến ngày" />
       </div>
       {isActive && (
         <>
@@ -346,46 +356,24 @@ function inRange(date: string, start: string, end: string) {
   return true;
 }
 
-// Re-aggregate items with daily_breakdown by a local date range
-function reAggregate<T extends {
-  daily_breakdown: Array<{ date: string; revenue: number; profit: number; order_count?: number; quantity?: number }>;
-  total_revenue: number;
-  total_profit: number;
-  order_count: number;
-}>(items: T[], localStart: string, localEnd: string): (T & { _rev: number; _pro: number; _orders: number; _active: boolean })[] {
-  return items.map(item => {
-    if (!localStart && !localEnd) {
-      return { ...item, _rev: item.total_revenue, _pro: item.total_profit, _orders: item.order_count, _active: false };
-    }
-    const filtered = item.daily_breakdown.filter(d => inRange(d.date, localStart, localEnd));
-    const _rev = filtered.reduce((s, d) => s + d.revenue, 0);
-    const _pro = filtered.reduce((s, d) => s + d.profit, 0);
-    const _orders = filtered.reduce((s, d) => s + (d.order_count ?? 0), 0);
-    return { ...item, _rev, _pro, _orders, _active: true };
-  }).filter(item => !item._active || item._rev > 0);
-}
-
 // ──────────── Service Table ────────────
-function ServiceTable({ data }: { data: RevenueByService[] }) {
-  const [localStart, setLocalStart] = useState('');
-  const [localEnd, setLocalEnd] = useState('');
+function ServiceTable({ data, dateRange }: { data: RevenueByService[]; dateRange: ReportDateRange }) {
+  const { startDate: localStart, endDate: localEnd, onStartChange: setLocalStart, onEndChange: setLocalEnd } = dateRange;
   const [search, setSearch] = useState('');
   const [modal, setModal] = useState<ModalConfig | null>(null);
 
-  const aggregated = useMemo(() => reAggregate(data, localStart, localEnd), [data, localStart, localEnd]);
   const searchFiltered = useMemo(
-    () => aggregated.filter(r => r.san_pham.toLowerCase().includes(search.toLowerCase())),
-    [aggregated, search]
+    () => data.filter(r => r.san_pham.toLowerCase().includes(search.toLowerCase())),
+    [data, search]
   );
 
-  // Merge _rev/_pro back as total_revenue/profit for sorting
-  const forSort = useMemo(() => searchFiltered.map(r => ({ ...r, total_revenue: r._rev, total_profit: r._pro, total_cost: r._rev - r._pro })), [searchFiltered]);
+  const forSort = useMemo(() => searchFiltered.map(r => ({ ...r, total_cost: r.total_revenue - r.total_profit })), [searchFiltered]);
   const { sorted, sortKey, sortDir, handleSort } = useSortableTable(forSort, 'total_revenue');
 
-  const grandRev = sorted.reduce((s, r) => s + r._rev, 0);
-  const grandPro = sorted.reduce((s, r) => s + r._pro, 0);
+  const grandRev = sorted.reduce((s, r) => s + r.total_revenue, 0);
+  const grandPro = sorted.reduce((s, r) => s + r.total_profit, 0);
   const grandCost = grandRev - grandPro;
-  const grandTotal = aggregated.reduce((s, r) => s + r._rev, 0) || 1;
+  const grandTotal = data.reduce((s, r) => s + r.total_revenue, 0) || 1;
 
   return (
     <>
@@ -434,19 +422,19 @@ function ServiceTable({ data }: { data: RevenueByService[] }) {
                   <tr key={i} className="hover:bg-muted/20 transition-colors">
                     <td className="px-4 py-3 text-muted-foreground font-mono text-[10px]">{i + 1}</td>
                     <td className="px-4 py-3 font-semibold text-foreground">{item.san_pham}</td>
-                    <td className="px-4 py-3 text-right text-muted-foreground">{item._orders || item.order_count}</td>
+                    <td className="px-4 py-3 text-right text-muted-foreground">{item.order_count}</td>
                     <td className="px-4 py-3 text-right text-muted-foreground">{item.total_quantity}</td>
-                    <td className="px-4 py-3 text-right font-bold">{fmt(item._rev)}</td>
-                    <td className="px-4 py-3 text-right font-semibold text-amber-600">{fmt(item._rev - item._pro)}</td>
-                    <td className="px-4 py-3 text-right font-bold text-emerald-600">{fmt(item._pro)}</td>
-                    <td className="px-4 py-3 text-right"><ProfitBadge revenue={item._rev} profit={item._pro} /></td>
+                    <td className="px-4 py-3 text-right font-bold">{fmt(item.total_revenue)}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-amber-600">{fmt(item.total_cost)}</td>
+                    <td className="px-4 py-3 text-right font-bold text-emerald-600">{fmt(item.total_profit)}</td>
+                    <td className="px-4 py-3 text-right"><ProfitBadge revenue={item.total_revenue} profit={item.total_profit} /></td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <div className="w-14 h-1.5 bg-muted rounded-full overflow-hidden">
-                          <div className="h-full bg-primary rounded-full" style={{ width: `${(item._rev / grandTotal) * 100}%` }} />
+                          <div className="h-full bg-primary rounded-full" style={{ width: `${(item.total_revenue / grandTotal) * 100}%` }} />
                         </div>
                         <span className="text-[10px] font-bold text-muted-foreground w-9 text-right">
-                          {((item._rev / grandTotal) * 100).toFixed(1)}%
+                          {((item.total_revenue / grandTotal) * 100).toFixed(1)}%
                         </span>
                       </div>
                     </td>
@@ -454,7 +442,7 @@ function ServiceTable({ data }: { data: RevenueByService[] }) {
                       <button
                         onClick={() => {
                           const rows = item.daily_breakdown
-                            .filter(d => inRange(d.date, localStart, localEnd) && d.revenue > 0)
+                            .filter(d => inRange(d.date, localStart, localEnd))
                             .map(d => ({ date: d.date, revenue: d.revenue, profit: d.profit, quantity: d.quantity }));
                           setModal({ title: `Theo ngày — ${item.san_pham}`, subtitle: `${rows.length} ngày có giao dịch`, rows });
                         }}
@@ -485,9 +473,8 @@ function ServiceTable({ data }: { data: RevenueByService[] }) {
 }
 
 // ──────────── Day Table ────────────
-function DayTable({ data, summary }: { data: RevenueByDay[]; summary: ReportSummary }) {
-  const [localStart, setLocalStart] = useState('');
-  const [localEnd, setLocalEnd] = useState('');
+function DayTable({ data, summary, dateRange }: { data: RevenueByDay[]; summary: ReportSummary; dateRange: ReportDateRange }) {
+  const { startDate: localStart, endDate: localEnd, onStartChange: setLocalStart, onEndChange: setLocalEnd } = dateRange;
   const [dayModal, setDayModal] = useState<{ date: string; breakdown: RevenueByDay['service_breakdown'] } | null>(null);
 
   const filtered = useMemo(
@@ -584,17 +571,14 @@ function DayTable({ data, summary }: { data: RevenueByDay[]; summary: ReportSumm
 }
 
 // ──────────── Branch Table ────────────
-function BranchTable({ data }: { data: RevenueByBranch[] }) {
-  const [localStart, setLocalStart] = useState('');
-  const [localEnd, setLocalEnd] = useState('');
+function BranchTable({ data, dateRange }: { data: RevenueByBranch[]; dateRange: ReportDateRange }) {
+  const { startDate: localStart, endDate: localEnd, onStartChange: setLocalStart, onEndChange: setLocalEnd } = dateRange;
   const [modal, setModal] = useState<ModalConfig | null>(null);
 
-  const aggregated = useMemo(() => reAggregate(data, localStart, localEnd), [data, localStart, localEnd]);
-  const forSort = useMemo(() => aggregated.map(r => ({ ...r, total_revenue: r._rev, total_profit: r._pro })), [aggregated]);
-  const { sorted, sortKey, sortDir, handleSort } = useSortableTable(forSort, 'total_revenue');
+  const { sorted, sortKey, sortDir, handleSort } = useSortableTable(data, 'total_revenue');
 
-  const grandRev = sorted.reduce((s, r) => s + r._rev, 0);
-  const grandPro = sorted.reduce((s, r) => s + r._pro, 0);
+  const grandRev = sorted.reduce((s, r) => s + r.total_revenue, 0);
+  const grandPro = sorted.reduce((s, r) => s + r.total_profit, 0);
   const grandTotal = grandRev || 1;
 
   return (
@@ -637,17 +621,17 @@ function BranchTable({ data }: { data: RevenueByBranch[] }) {
                     <td className="px-4 py-3 font-semibold">
                       <div className="flex items-center gap-2"><Building2 size={12} className="text-muted-foreground" />{item.co_so}</div>
                     </td>
-                    <td className="px-4 py-3 text-right text-muted-foreground">{item._orders || item.order_count}</td>
-                    <td className="px-4 py-3 text-right font-bold">{fmt(item._rev)}</td>
-                    <td className="px-4 py-3 text-right font-bold text-emerald-600">{fmt(item._pro)}</td>
-                    <td className="px-4 py-3 text-right"><ProfitBadge revenue={item._rev} profit={item._pro} /></td>
+                    <td className="px-4 py-3 text-right text-muted-foreground">{item.order_count}</td>
+                    <td className="px-4 py-3 text-right font-bold">{fmt(item.total_revenue)}</td>
+                    <td className="px-4 py-3 text-right font-bold text-emerald-600">{fmt(item.total_profit)}</td>
+                    <td className="px-4 py-3 text-right"><ProfitBadge revenue={item.total_revenue} profit={item.total_profit} /></td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <div className="w-14 h-1.5 bg-muted rounded-full overflow-hidden">
-                          <div className="h-full bg-blue-500 rounded-full" style={{ width: `${(item._rev / grandTotal) * 100}%` }} />
+                          <div className="h-full bg-blue-500 rounded-full" style={{ width: `${(item.total_revenue / grandTotal) * 100}%` }} />
                         </div>
                         <span className="text-[10px] font-bold text-muted-foreground w-9 text-right">
-                          {((item._rev / grandTotal) * 100).toFixed(1)}%
+                          {((item.total_revenue / grandTotal) * 100).toFixed(1)}%
                         </span>
                       </div>
                     </td>
@@ -655,7 +639,7 @@ function BranchTable({ data }: { data: RevenueByBranch[] }) {
                       <button
                         onClick={() => {
                           const rows = item.daily_breakdown
-                            .filter(d => inRange(d.date, localStart, localEnd) && d.revenue > 0)
+                            .filter(d => inRange(d.date, localStart, localEnd))
                             .map(d => ({ date: d.date, revenue: d.revenue, profit: d.profit, order_count: d.order_count }));
                           setModal({ title: `Theo ngày — ${item.co_so}`, subtitle: `${rows.length} ngày có giao dịch`, rows });
                         }}
@@ -685,27 +669,24 @@ function BranchTable({ data }: { data: RevenueByBranch[] }) {
 }
 
 // ──────────── Personnel Table ────────────
-function PersonnelTable({ data }: { data: { personnel: RevenueByPersonnel[]; avg_revenue_per_person: number } }) {
-  const [localStart, setLocalStart] = useState('');
-  const [localEnd, setLocalEnd] = useState('');
+function PersonnelTable({ data, dateRange }: { data: { personnel: RevenueByPersonnel[]; avg_revenue_per_person: number }; dateRange: ReportDateRange }) {
+  const { startDate: localStart, endDate: localEnd, onStartChange: setLocalStart, onEndChange: setLocalEnd } = dateRange;
   const [search, setSearch] = useState('');
   const [modal, setModal] = useState<ModalConfig | null>(null);
 
-  const aggregated = useMemo(() => reAggregate(data.personnel, localStart, localEnd), [data.personnel, localStart, localEnd]);
   const searchFiltered = useMemo(
-    () => aggregated.filter(p => p.nhan_vien_name.toLowerCase().includes(search.toLowerCase())),
-    [aggregated, search]
+    () => data.personnel.filter(p => p.nhan_vien_name.toLowerCase().includes(search.toLowerCase())),
+    [data.personnel, search]
   );
-  const forSort = useMemo(() => searchFiltered.map(r => ({ ...r, total_revenue: r._rev, total_profit: r._pro })), [searchFiltered]);
-  const { sorted, sortKey, sortDir, handleSort } = useSortableTable(forSort, 'total_revenue');
+  const { sorted, sortKey, sortDir, handleSort } = useSortableTable(searchFiltered, 'total_revenue');
 
   const avgRevInPeriod = useMemo(
-    () => aggregated.length > 0 ? aggregated.reduce((s, p) => s + p._rev, 0) / aggregated.length : 0,
-    [aggregated]
+    () => data.personnel.length > 0 ? data.personnel.reduce((s, p) => s + p.total_revenue, 0) / data.personnel.length : 0,
+    [data.personnel]
   );
 
-  const grandRev = sorted.reduce((s, p) => s + p._rev, 0);
-  const grandPro = sorted.reduce((s, p) => s + p._pro, 0);
+  const grandRev = sorted.reduce((s, p) => s + p.total_revenue, 0);
+  const grandPro = sorted.reduce((s, p) => s + p.total_profit, 0);
   const grandOrders = sorted.reduce((s, p) => s + p.order_count, 0);
 
   return (
@@ -760,8 +741,8 @@ function PersonnelTable({ data }: { data: { personnel: RevenueByPersonnel[]; avg
               {sorted.length === 0
                 ? <tr><td colSpan={10} className="text-center py-10 text-muted-foreground italic text-[12px]">Không có dữ liệu trong khoảng thời gian đã chọn.</td></tr>
                 : sorted.map((p, i) => {
-                  const over = p._rev >= avgRevInPeriod;
-                  const activeDays = p.daily_breakdown.filter(d => inRange(d.date, localStart, localEnd) && d.revenue > 0);
+                  const over = p.total_revenue >= avgRevInPeriod;
+                  const activeDays = p.daily_breakdown.filter(d => inRange(d.date, localStart, localEnd));
                   return (
                     <tr key={p.nhan_vien_name} className="hover:bg-muted/20 transition-colors">
                       <td className="px-4 py-3 text-muted-foreground font-mono text-[10px]">{i + 1}</td>
@@ -775,9 +756,9 @@ function PersonnelTable({ data }: { data: { personnel: RevenueByPersonnel[]; avg
                         </div>
                       </td>
                       <td className="px-4 py-3 text-right text-muted-foreground">{p.order_count}</td>
-                      <td className="px-4 py-3 text-right font-bold">{fmt(p._rev)}</td>
-                      <td className="px-4 py-3 text-right font-bold text-emerald-600">{fmt(p._pro)}</td>
-                      <td className="px-4 py-3 text-right"><ProfitBadge revenue={p._rev} profit={p._pro} /></td>
+                      <td className="px-4 py-3 text-right font-bold">{fmt(p.total_revenue)}</td>
+                      <td className="px-4 py-3 text-right font-bold text-emerald-600">{fmt(p.total_profit)}</td>
+                      <td className="px-4 py-3 text-right"><ProfitBadge revenue={p.total_revenue} profit={p.total_profit} /></td>
                       <td className="px-4 py-3 text-right text-muted-foreground">{fmt(p.avg_per_order)}</td>
                       <td className="px-4 py-3 text-right text-muted-foreground">{fmt(p.avg_per_day)}</td>
                       <td className="px-4 py-3 text-right">
@@ -1458,6 +1439,7 @@ const RevenueReportPage: React.FC = () => {
     return d.toISOString().split('T')[0];
   });
   const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const dateRange: ReportDateRange = { startDate, endDate, onStartChange: setStartDate, onEndChange: setEndDate };
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [snapshot, setSnapshot] = useState<ReportSnapshot | null>(null);
@@ -1522,15 +1504,15 @@ const RevenueReportPage: React.FC = () => {
     loadController.current?.abort();
     const controller = new AbortController(); loadController.current = controller;
     personnelPending.current = false; financialPending.current = false;
-    setSnapshot(null); setFilteredSnapshot(null); setPersonnelHeaders(null); setPersonnelData(null); setPersonnelError('');
+    setSnapshot(null); setFilteredSnapshot(null); setSummary(null); setFiltering(true);
+    setPersonnelHeaders(null); setPersonnelData(null); setPersonnelError('');
     setFinancialResult({ key: '', data: null, error: '' });
     setLoading(true);
     setLoadError('');
     try {
       const data = await loadReportSnapshot(startDate, endDate, controller.signal);
       if (controller.signal.aborted || version !== loadVersion.current) return;
-      setSnapshot(data); setSummary(data.summary); setServiceData(data.services);
-      setDayData(data.days); setBranchData(data.branches);
+      setSnapshot(data);
     } catch (e) {
       if (!controller.signal.aborted && version === loadVersion.current) setLoadError(getErrorDetails(e).message || 'Không tải được báo cáo.');
     } finally {
@@ -1633,9 +1615,9 @@ const RevenueReportPage: React.FC = () => {
             <div className="grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 bg-card border border-border rounded-xl px-3 py-2 shadow-sm sm:flex sm:w-auto">
               <Calendar size={12} className="hidden text-muted-foreground sm:block" />
               <span className="col-span-3 text-[11px] font-bold text-muted-foreground">Khoảng thời gian:</span>
-              <DateInput value={startDate} onChange={setStartDate} />
+              <DateInput value={startDate} onChange={setStartDate} ariaLabel="Khoảng thời gian: từ ngày" />
               <span className="text-muted-foreground opacity-40">→</span>
-              <DateInput value={endDate} onChange={setEndDate} />
+              <DateInput value={endDate} onChange={setEndDate} ariaLabel="Khoảng thời gian: đến ngày" />
             </div>
           </div>
         </div>
@@ -1703,10 +1685,10 @@ const RevenueReportPage: React.FC = () => {
               </div>
               <div className="p-5">
                 {filtering && !needsFinancial ? <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 size={16} className="animate-spin" />Đang lọc báo cáo...</p> : <>
-                {activeTab === 'service' && <ServiceTable data={serviceData} />}
-                {activeTab === 'day' && <DayTable data={dayData} summary={visibleSummary} />}
-                {activeTab === 'branch' && <BranchTable data={branchData} />}
-                {activeTab === 'personnel' && (personnelData ? <PersonnelTable data={personnelData} /> : !personnelError && <p>Đang tải báo cáo nhân sự...</p>)}
+                {activeTab === 'service' && <ServiceTable data={serviceData} dateRange={dateRange} />}
+                {activeTab === 'day' && <DayTable data={dayData} summary={visibleSummary} dateRange={dateRange} />}
+                {activeTab === 'branch' && <BranchTable data={branchData} dateRange={dateRange} />}
+                {activeTab === 'personnel' && (personnelData ? <PersonnelTable data={personnelData} dateRange={dateRange} /> : !personnelError && <p>Đang tải báo cáo nhân sự...</p>)}
                 {activeTab === 'chart' && !personnelData && !personnelError && <p>Đang tải báo cáo nhân sự...</p>}
                 {activeTab === 'chart' && personnelData && (
                   <RevenueComparisonView
