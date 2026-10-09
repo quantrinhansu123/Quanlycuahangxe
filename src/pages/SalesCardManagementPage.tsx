@@ -56,6 +56,7 @@ import {
   resolveServiceDisplayName,
   resolveServiceNameForDetail,
   upsertSalesCard,
+  validateSalesOrderBranch,
 } from '../data/salesCardData';
 import { computeChanges, saveEditHistory } from '../data/salesCardHistoryData';
 import { queueOrderMessage } from '../data/znsOrderMessageData';
@@ -64,6 +65,7 @@ import { supabase } from '../lib/supabase';
 import { preferCustomerLinkKey } from '../lib/customerOrderLink';
 import { resolveCustomerBranch, resolveOrderBranchFromCard } from '../constants/customerBranches';
 import { formatLocalIsoDate, formatTime24h, parseExcelDateValue } from '../utils/datetimeFormat';
+import { getSalesOrderBranchError } from '../utils/salesOrderBranch';
 
 const SalesCardFormModal = React.lazy(() => import('../components/SalesCardFormModal'));
 
@@ -866,6 +868,18 @@ const SalesCardManagementPage: React.FC = () => {
         return;
       }
 
+      const accessError = getSalesOrderBranchError(
+        nhanVien?.co_so, isAdmin, orderBranch, resolveCustomerBranch(foundForBranch?.dia_chi_hien_tai),
+        cleanData.nhan_vien_id, personnel,
+      );
+      if (accessError) {
+        showToast(accessError, 'error');
+        return;
+      }
+      // Validate against the current server session before any customer/order writes.
+      await validateSalesOrderBranch(orderBranch, cleanData.nhan_vien_id, cleanData.khach_hang_id);
+      cleanData.co_so = orderBranch;
+
       // Extract the name from the existing customers if ten_khach_hang is implicitly null
       if (!cleanData.ten_khach_hang && cleanData.khach_hang_id) {
         const foundCustomer = customers.find(c => c.id === cleanData.khach_hang_id || c.ma_khach_hang === cleanData.khach_hang_id);
@@ -978,7 +992,7 @@ const SalesCardManagementPage: React.FC = () => {
           id_don_hang: orderRef,
           ten_don_hang: formDataHeader.id_bh || `Đơn hàng ${savedCard.id_bh || savedCard.id.slice(0, 8)}`,
           san_pham: service?.ten_dich_vu || override?.ten_dich_vu || 'Dịch vụ',
-          co_so: service?.co_so || orderBranch,
+          co_so: orderBranch,
           gia_ban: override?.gia_ban ?? (service?.gia_ban || 0),
           gia_von: service?.gia_nhap || 0,
           so_luong: override?.so_luong ?? 1,

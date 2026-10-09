@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import ts from 'typescript';
 import { calculateInventoryStockSummary } from '../src/lib/inventoryCalculations.ts';
+import { branchKey, branchLabel } from '../src/lib/branchCatalog.ts';
 export function reportFixture(count=2347) {
  const details=Array.from({length:count},(_,n)=>({id:String(n).padStart(6,'0'),id_don_hang:n%2?'BH-'+(n%197):'uuid-'+(n%197),san_pham:n%9?'Product '+n%7:null,co_so:n%2?'A':'B',gia_ban:10.5+n%17,gia_von:2+n%8,so_luong:n%11?1+n%3:0,thanh_tien:n%13?17.25+n%15:0,ngay:n%23?'2026-09-'+String(n%30+1).padStart(2,'0'):null}));
  const orders=Array.from({length:197},(_,n)=>({id:'uuid-'+n,id_bh:'BH-'+n,ngay:'2026-09-'+String(n%30+1).padStart(2,'0'),gio:'10:00:00',nhan_vien_id:n%3?'An, Bình':'NV1, An, An',khach_hang_id:'KH-'+n%11,ten_khach_hang:'Customer '+n%11,tong_tien:100+n,resolved_amount:100+n}));
@@ -22,7 +23,8 @@ export function loadReportRuntime(source,data,calls=[]) {
  };
  const queryAllSales=async f=>{calls.push({table:'sales_query'});return data.the_ban_hang.filter(r=>(!f.p_start||r.ngay>=f.p_start)&&(!f.p_end||r.ngay<=f.p_end)).sort((a,b)=>compare(b.ngay,a.ngay)||compare(b.gio,a.gio)||compare(b.id,a.id));};
  const dependencies={
-  './salesQueryData':{queryAllSales},'./personnelData':{getPersonnel:async()=>[]},'../lib/authStorage':{getStoredDemoRole:()=>null},
+  './salesQueryData':{queryAllSales},'./personnelData':{getPersonnel:async()=>data.nhan_su||[]},'../lib/authStorage':{getStoredDemoRole:()=>null},
+  '../lib/branchCatalog':{branchKey,branchLabel},
   '../lib/supabase':{supabase:{from}},'../lib/utils':{removeVietnameseTones:normalize},
   '../lib/readRequest':{readRequest:async(name,run,signal)=>run(signal||new AbortController().signal)},
   './inventoryData':{calculateInventoryStockSummary,getInventoryStockSummary:async(s,e)=>calculateInventoryStockSummary(data.ds_san_pham,data.nhap_xuat_kho,s,e)},

@@ -38,16 +38,18 @@ export function resolveCustomerBranch(raw?: string | null): string {
   return isKnownCustomerBranch(normalized) ? normalized : '';
 }
 
-/** Cơ sở gắn với phiếu bán hàng (chi tiết đơn → dịch vụ → khách hàng). */
+/** Cơ sở gắn với phiếu bán hàng (cơ sở đã lưu → chi tiết → dịch vụ → khách hàng). */
 export function resolveOrderBranchFromCard(card: {
   the_ban_hang_ct?: Array<{ co_so?: string | null }> | null;
   dich_vu?: { co_so?: string | null } | null;
   khach_hang?: { dia_chi_hien_tai?: string | null } | null;
   co_so_khach?: string | null;
+  co_so?: string | null;
 }): string {
   const fromCt = card.the_ban_hang_ct?.map((ct) => ct.co_so).find((v) => (v || '').trim());
   return (
     resolveCustomerBranch(card.co_so_khach) ||
+    resolveCustomerBranch(card.co_so) ||
     resolveCustomerBranch(fromCt) ||
     resolveCustomerBranch(card.dich_vu?.co_so) ||
     resolveCustomerBranch(card.khach_hang?.dia_chi_hien_tai)

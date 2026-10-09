@@ -24,6 +24,8 @@
     "test:ct-financial-p2": "node scripts/test-ct-financial-p2.mjs && node scripts/test-ct-financial-p2-ui.mjs",
     "db:measure-ct-financial-p2": "node scripts/measure-ct-financial-p2.mjs",
     "test:reports-p3": "node scripts/test-reports-p3.mjs && node scripts/test-reports-p3-ui.mjs",
+    "test:report-filters": "node scripts/test-report-filters.mjs && node scripts/test-report-filters-ui.mjs",
+    "test:sales-branch": "node scripts/test-sales-order-branch.mjs && node scripts/test-sales-order-branch-ui.mjs",
     "db:measure-reports-p3": "node scripts/measure-reports-p3.mjs"
   },
   "dependencies": {

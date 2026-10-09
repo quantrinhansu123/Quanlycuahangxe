@@ -4,6 +4,8 @@ import { getStoredDemoRole } from '../lib/authStorage';
 import { supabase } from '../lib/supabase';
 import { removeVietnameseTones } from '../lib/utils';
 import { readRequest } from '../lib/readRequest';
+import { branchKey, branchLabel } from '../lib/branchCatalog';
+import type { NhanSu } from './personnelData';
 
 /** Chuẩn hóa tên để khớp bảng lương / nhan_vien_id trên đơn (bỏ dấu, thường, gộp khoảng trắng). */
 function chuanHoaTenTheoDon(s: string): string {
@@ -273,6 +275,68 @@ async function fetchAllHeaderRecords(startDate?: string, endDate?: string) {
 
 export type ReportCTRecords = Awaited<ReturnType<typeof fetchAllCTRecords>>;
 
+export type ReportFilters = {
+  branch: string;
+  staffIds: string[];
+  services: string[];
+};
+export type ReportPersonnelHeaders = Array<{ id: string; id_bh?: string | null; ngay: string; nhan_vien_id?: string | null }>;
+
+export function getReportPersonnelOptions(personnel: NhanSu[], branch: string) {
+  return personnel
+    .filter(person => !branch || branchKey(person.co_so || '') === branchKey(branch))
+    .map(person => ({ value: person.id, label: person.ho_ten, searchKey: `${person.ho_ten} ${person.id_nhan_su || ''}` }));
+}
+
+export function getReportServiceOptions(records: ReportCTRecords, branch: string) {
+  const options = new Map<string, { value: string; label: string }>();
+  for (const record of records) {
+    if (branch && branchKey(record.co_so || '') !== branchKey(branch)) continue;
+    const label = (record.san_pham || 'Chưa phân loại').trim();
+    const value = chuanHoaTenTheoDon(label);
+    if (value && !options.has(value)) options.set(value, { value, label });
+  }
+  return [...options.values()].sort((a, b) => a.label.localeCompare(b.label, 'vi'));
+}
+
+export function filterReportRecords(
+  records: ReportCTRecords,
+  filters: ReportFilters,
+  headers: ReportPersonnelHeaders = [],
+  personnel: NhanSu[] = [],
+): ReportCTRecords {
+  const selectedStaff = personnel.filter(person => filters.staffIds.includes(person.id)
+    && (!filters.branch || branchKey(person.co_so || '') === branchKey(filters.branch)));
+  const staffTokens = new Set(selectedStaff.flatMap(person => [person.id, person.id_nhan_su, person.ho_ten])
+    .filter((token): token is string => !!token).map(chuanHoaTenTheoDon));
+  const orderRefs = new Set<string>();
+  const canonicalRefs = new Map<string, string>();
+  for (const header of headers) {
+    for (const ref of [header.id, header.id_bh]) {
+      if (ref?.trim()) canonicalRefs.set(ref.trim().toLowerCase(), header.id);
+    }
+  }
+  if (filters.staffIds.length) {
+    for (const header of headers) {
+      if (!(header.nhan_vien_id || '').split(',').some(token => staffTokens.has(chuanHoaTenTheoDon(token)))) continue;
+      for (const ref of [header.id, header.id_bh]) if (ref?.trim()) orderRefs.add(ref.trim().toLowerCase());
+    }
+  }
+  const services = new Set(filters.services);
+  const selected = records.filter(record =>
+    (!filters.branch || branchKey(record.co_so || '') === branchKey(filters.branch))
+    && (!services.size || services.has(chuanHoaTenTheoDon(record.san_pham || 'Chưa phân loại')))
+    && (!filters.staffIds.length || orderRefs.has((record.id_don_hang || '').trim().toLowerCase())));
+  // UUID and business code may reference the same order on different detail lines.
+  // Use one key for filtered counts without changing the source snapshot.
+  if (!filters.branch && !filters.staffIds.length) return selected;
+  return selected.map(record => ({
+    ...record,
+    co_so: filters.branch ? branchLabel(filters.branch) : record.co_so,
+    id_don_hang: canonicalRefs.get((record.id_don_hang || '').trim().toLowerCase()) || record.id_don_hang,
+  }));
+}
+
 export async function getReportSummary(startDate?: string, endDate?: string, sharedRecords?: ReportCTRecords): Promise<ReportSummary> {
   const ctRecords = sharedRecords ?? await fetchAllCTRecords(startDate, endDate);
   const total_revenue = ctRecords.reduce((s, r) => s + (r.thanh_tien || r.gia_ban * r.so_luong || 0), 0);
@@ -444,10 +508,11 @@ export async function getRevenueByPersonnel(
   startDate?: string,
   endDate?: string,
   sharedRecords?: ReportCTRecords,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  context?: { headers: ReportPersonnelHeaders; filters: ReportFilters; personnel: NhanSu[] },
 ): Promise<{ personnel: RevenueByPersonnel[]; avg_revenue_per_person: number; date_list: string[] }> {
   const [headers, ctRecords] = await Promise.all([
-    fetchReportPersonnelHeaders(startDate, endDate, signal),
+    context?.headers ?? fetchReportPersonnelHeaders(startDate, endDate, signal),
     sharedRecords ?? fetchAllCTRecords(startDate, endDate, signal),
   ]);
 
@@ -467,9 +532,14 @@ export async function getRevenueByPersonnel(
   });
 
   const revenueChoDonHang = (h: { id: string; id_bh?: string | null; ngay: string }) => {
-    const candidates = [h.id_bh, h.id]
+    const candidates = [...new Set([h.id_bh, h.id]
       .filter(Boolean)
-      .map((x) => String(x).trim().toLowerCase());
+      .map((x) => String(x).trim().toLowerCase()))];
+    if (context) {
+      const values = candidates.map(key => orderRevenueMap.get(key)).filter(value => value != null);
+      if (!values.length) return null;
+      return values.reduce((sum, value) => ({ revenue: sum.revenue + value.revenue, profit: sum.profit + value.profit, date: sum.date || value.date }), { revenue: 0, profit: 0, date: '' });
+    }
     for (const k of candidates) {
       const v = orderRevenueMap.get(k);
       if (v) return v;
@@ -484,6 +554,14 @@ export async function getRevenueByPersonnel(
     daily: Map<string, { revenue: number; profit: number }>;
   }>();
 
+  const aliases = new Map<string, NhanSu>();
+  for (const person of context?.personnel ?? []) {
+    if (context?.filters.branch && branchKey(person.co_so || '') !== branchKey(context.filters.branch)) continue;
+    for (const token of [person.id, person.id_nhan_su, person.ho_ten]) {
+      if (token) aliases.set(chuanHoaTenTheoDon(token), person);
+    }
+  }
+
   /** Mỗi bản ghi Đơn hàng (the_ban_hang) trong kỳ: gán doanh thu (từ chi tiết đơn) cho NV trên đơn. */
   for (const h of headers as Array<{ id: string; id_bh?: string | null; ngay: string; nhan_vien_id?: string | null }>) {
     const staffRaw = (h.nhan_vien_id || '').trim();
@@ -491,7 +569,13 @@ export async function getRevenueByPersonnel(
     const value = revenueChoDonHang(h);
     if (!value) continue;
     const orderKey = String(h.id_bh || h.id);
-    const staffNames = staffRaw.split(',').map((s) => s.trim()).filter(Boolean);
+    const rawNames = staffRaw.split(',').map((s) => s.trim()).filter(Boolean);
+    const staffNames = context ? [...new Set(rawNames.flatMap(token => {
+      const person = aliases.get(chuanHoaTenTheoDon(token));
+      if (context.filters.branch && !person) return [];
+      if (context.filters.staffIds.length && (!person || !context.filters.staffIds.includes(person.id))) return [];
+      return [person?.ho_ten || token];
+    }))] : rawNames;
     const date = value.date || h.ngay;
     staffNames.forEach((name) => {
       const existing = personnelMap.get(name) || {
@@ -537,9 +621,9 @@ export async function getRevenueByPersonnel(
 
 // Report personnel uses only these header columns. Payroll below continues using
 // the canonical Sales RPC, including customer/amount resolution, without changes.
-async function fetchReportPersonnelHeaders(startDate?: string, endDate?: string, signal?: AbortSignal) {
+export async function fetchReportPersonnelHeaders(startDate?: string, endDate?: string, signal?: AbortSignal): Promise<ReportPersonnelHeaders> {
   if (isDemo()) return fetchAllHeaderRecords(startDate, endDate);
-  return fetchAllRowsPaginated(async (offset, size) => {
+  return fetchAllRowsPaginated<ReportPersonnelHeaders[number]>(async (offset, size) => {
     signal?.throwIfAborted();
     const result = await readRequest('report_staff_headers', s => {
       let query = supabase.from('the_ban_hang').select('id,id_bh,ngay,nhan_vien_id');
@@ -555,6 +639,10 @@ async function fetchReportPersonnelHeaders(startDate?: string, endDate?: string,
 export async function loadReportSnapshot(startDate?: string, endDate?: string, signal?: AbortSignal) {
   const records = await fetchAllCTRecords(startDate, endDate, signal);
   signal?.throwIfAborted();
+  return aggregateReportSnapshot(records, startDate, endDate);
+}
+
+export async function aggregateReportSnapshot(records: ReportCTRecords, startDate?: string, endDate?: string) {
   const [summary, services, days, branches] = await Promise.all([
     getReportSummary(startDate,endDate,records), getRevenueByService(startDate,endDate,records),
     getRevenueByDay(startDate,endDate,records), getRevenueByBranch(startDate,endDate,records),

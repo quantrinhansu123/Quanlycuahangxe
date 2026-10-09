@@ -37,7 +37,14 @@ import {
 } from 'recharts';
 import {
   loadReportSnapshot,
+  aggregateReportSnapshot,
+  fetchReportPersonnelHeaders,
+  filterReportRecords,
+  getReportPersonnelOptions,
+  getReportServiceOptions,
   getRevenueByPersonnel,
+  type ReportFilters,
+  type ReportPersonnelHeaders,
   type ReportSnapshot,
   type ReportSummary,
   type RevenueByBranch,
@@ -49,6 +56,9 @@ import BusinessReportsPanel from '../components/reports/BusinessReportsPanel';
 import { getBusinessReportData, type BusinessReportData } from '../data/businessReportData';
 import { useAuth } from '../context/AuthContext';
 import { getErrorDetails } from '../lib/errorDetails';
+import { getPersonnel, type NhanSu } from '../data/personnelData';
+import { SearchableSelect } from '../components/ui/SearchableSelect';
+import { branchKey, branchLabel } from '../lib/branchCatalog';
 
 // ──────────── Formatters ────────────
 const fmt = (n: number) =>
@@ -73,7 +83,7 @@ function DateInput({
       type="date"
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-36 bg-background border border-border rounded-lg px-2.5 py-1 text-[12px] outline-none focus:ring-1 focus:ring-primary"
+      className="w-36 min-w-0 bg-background border border-border rounded-lg px-2.5 py-1 text-[12px] outline-none focus:ring-1 focus:ring-primary"
     />
   );
 }
@@ -101,7 +111,7 @@ function LocalFilter({
         <Filter size={12} className={isActive ? 'text-primary' : 'text-muted-foreground'} />
         <span className="text-[11px] font-bold text-muted-foreground">Lọc theo ngày:</span>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex w-full items-center gap-2 sm:w-auto">
         <DateInput value={localStart} onChange={onStartChange} />
         <span className="text-muted-foreground text-[12px]">→</span>
         <DateInput value={localEnd} onChange={onEndChange} />
@@ -1451,6 +1461,27 @@ const RevenueReportPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [snapshot, setSnapshot] = useState<ReportSnapshot | null>(null);
+  const [filteredSnapshot, setFilteredSnapshot] = useState<ReportSnapshot | null>(null);
+  const [selectedBranch, setSelectedBranch] = useState('');
+  const [selectedStaff, setSelectedStaff] = useState<string[]>([]);
+  const [selectedServices, setSelectedServices] = useState<string[]>([]);
+  const [personnelCatalog, setPersonnelCatalog] = useState<NhanSu[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [catalogError, setCatalogError] = useState('');
+  const [catalogRetry, setCatalogRetry] = useState(0);
+  const [personnelHeaders, setPersonnelHeaders] = useState<ReportPersonnelHeaders | null>(null);
+  const [filtering, setFiltering] = useState(false);
+  const filters = useMemo<ReportFilters>(() => ({ branch: selectedBranch, staffIds: selectedStaff, services: selectedServices }), [selectedBranch, selectedStaff, selectedServices]);
+  const hasFilters = !!(selectedBranch || selectedStaff.length || selectedServices.length);
+  const staffOptions = useMemo(() => getReportPersonnelOptions(personnelCatalog, selectedBranch), [personnelCatalog, selectedBranch]);
+  const serviceOptions = useMemo(() => getReportServiceOptions(snapshot?.records ?? [], selectedBranch), [snapshot, selectedBranch]);
+  const branchOptions = useMemo(() => {
+    const labels = new Map<string, string>();
+    for (const row of snapshot?.records ?? []) {
+      if (row.co_so?.trim()) labels.set(branchKey(row.co_so), branchLabel(row.co_so));
+    }
+    return [...labels.values()].sort((a, b) => a.localeCompare(b, 'vi')).map(label => ({ value: label, label }));
+  }, [snapshot]);
   const loadController = useRef<AbortController | null>(null);
   const loadVersion = useRef(0);
   const personnelPending = useRef(false);
@@ -1469,12 +1500,29 @@ const RevenueReportPage: React.FC = () => {
     date_list: string[];
   } | null>(null);
 
+  useEffect(() => {
+    let active = true;
+    setCatalogLoading(true); setCatalogError(''); setPersonnelCatalog([]);
+    void getPersonnel().then(rows => { if (active) setPersonnelCatalog(rows); })
+      .catch(error => { if (active) setCatalogError(getErrorDetails(error).message || 'Không tải được danh sách nhân sự.'); })
+      .finally(() => { if (active) setCatalogLoading(false); });
+    return () => { active = false; };
+  }, [nhanVien?.id, nhanVien?.co_so, nhanVien?.vi_tri, session?.access_token, catalogRetry]);
+
+  const changeBranch = (branch: string) => {
+    setSelectedBranch(branch);
+    const validStaff = new Set(getReportPersonnelOptions(personnelCatalog, branch).map(option => option.value));
+    const validServices = new Set(getReportServiceOptions(snapshot?.records ?? [], branch).map(option => option.value));
+    setSelectedStaff(previous => previous.filter(id => validStaff.has(id)));
+    setSelectedServices(previous => previous.filter(name => validServices.has(name)));
+  };
+
   const loadAll = useCallback(async () => {
     const version = ++loadVersion.current;
     loadController.current?.abort();
     const controller = new AbortController(); loadController.current = controller;
     personnelPending.current = false; financialPending.current = false;
-    setSnapshot(null); setPersonnelData(null); setPersonnelError('');
+    setSnapshot(null); setFilteredSnapshot(null); setPersonnelHeaders(null); setPersonnelData(null); setPersonnelError('');
     setFinancialResult({ key: '', data: null, error: '' });
     setLoading(true);
     setLoadError('');
@@ -1499,14 +1547,15 @@ const RevenueReportPage: React.FC = () => {
   // refresh, identity change and leaving Reports invalidate the entire snapshot.
   const needsPersonnel = activeTab === 'personnel' || activeTab === 'chart';
   const needsFinancial = activeTab === 'financial';
+  const visibleSummary = needsFinancial ? snapshot?.summary : summary;
   useEffect(() => {
     if (!snapshot || snapshot.startDate !== startDate || snapshot.endDate !== endDate) return;
     const version = loadVersion.current;
     const signal = loadController.current?.signal;
-    if (needsPersonnel && !personnelData && !personnelPending.current) {
+    if ((needsPersonnel || selectedStaff.length > 0) && !personnelHeaders && !personnelPending.current) {
       personnelPending.current = true; setPersonnelError('');
-      void getRevenueByPersonnel(startDate, endDate, snapshot.records, signal).then(data => {
-        if (!signal?.aborted && version === loadVersion.current) setPersonnelData(data);
+      void fetchReportPersonnelHeaders(startDate, endDate, signal).then(data => {
+        if (!signal?.aborted && version === loadVersion.current) setPersonnelHeaders(data);
       }).catch(error => {
         if (!signal?.aborted && version === loadVersion.current) setPersonnelError(getErrorDetails(error).message || 'Không tải được báo cáo nhân sự.');
       });
@@ -1519,7 +1568,31 @@ const RevenueReportPage: React.FC = () => {
         if (!signal?.aborted && version === loadVersion.current) setFinancialResult({ key: `${startDate}:${endDate}`, data: null, error: getErrorDetails(error).message || 'Không tải được báo cáo tài chính.' });
       });
     }
-  }, [snapshot, startDate, endDate, needsPersonnel, needsFinancial, personnelData, financialResult.data, lazyRetry]);
+  }, [snapshot, startDate, endDate, needsPersonnel, needsFinancial, personnelHeaders, selectedStaff.length, financialResult.data, lazyRetry]);
+
+  useEffect(() => {
+    if (!snapshot) return;
+    setFiltering(true);
+    setPersonnelData(null);
+    if (selectedStaff.length && (!personnelHeaders || catalogLoading || catalogError)) return;
+    let active = true;
+    const records = filterReportRecords(snapshot.records, filters, personnelHeaders ?? [], personnelCatalog);
+    void aggregateReportSnapshot(records, snapshot.startDate, snapshot.endDate).then(data => {
+      if (!active) return;
+      setFilteredSnapshot(data); setSummary(data.summary); setServiceData(data.services);
+      setDayData(data.days); setBranchData(data.branches); setFiltering(false);
+    });
+    return () => { active = false; };
+  }, [snapshot, filters, personnelHeaders, personnelCatalog, catalogLoading, catalogError, selectedStaff.length]);
+
+  useEffect(() => {
+    if (!needsPersonnel || !filteredSnapshot || !personnelHeaders || filtering || catalogLoading) return;
+    let active = true;
+    void getRevenueByPersonnel(startDate, endDate, filteredSnapshot.records, undefined, {
+      headers: personnelHeaders, filters, personnel: personnelCatalog,
+    }).then(data => { if (active) setPersonnelData(data); });
+    return () => { active = false; };
+  }, [needsPersonnel, filteredSnapshot, personnelHeaders, filtering, catalogLoading, startDate, endDate, filters, personnelCatalog]);
 
   const retryFinancial = () => { financialPending.current = false; setFinancialResult({ key: '', data: null, error: '' }); setLazyRetry(n => n + 1); };
 
@@ -1557,9 +1630,9 @@ const RevenueReportPage: React.FC = () => {
               <LineChartIcon size={13} />
               Biểu đồ so sánh
             </button>
-            <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2 shadow-sm">
-              <Calendar size={12} className="text-muted-foreground" />
-              <span className="text-[11px] font-bold text-muted-foreground">Khoảng thời gian:</span>
+            <div className="grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 bg-card border border-border rounded-xl px-3 py-2 shadow-sm sm:flex sm:w-auto">
+              <Calendar size={12} className="hidden text-muted-foreground sm:block" />
+              <span className="col-span-3 text-[11px] font-bold text-muted-foreground">Khoảng thời gian:</span>
               <DateInput value={startDate} onChange={setStartDate} />
               <span className="text-muted-foreground opacity-40">→</span>
               <DateInput value={endDate} onChange={setEndDate} />
@@ -1567,20 +1640,51 @@ const RevenueReportPage: React.FC = () => {
           </div>
         </div>
 
+        {!needsFinancial && (
+          <div className="flex flex-wrap items-end gap-3" aria-label="Bộ lọc báo cáo">
+            <div className="w-full min-w-0 sm:w-52">
+              <span className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><Building2 size={14} /> Cơ sở</span>
+              <SearchableSelect options={branchOptions} value={selectedBranch} onValueChange={changeBranch}
+                placeholder="Tất cả cơ sở" ariaLabel="Lọc cơ sở" searchPlaceholder="Tìm cơ sở..."
+                disabled={loading} className="h-10 rounded-lg bg-card px-3 py-2 text-sm font-medium text-foreground" />
+            </div>
+            <div className="w-full min-w-0 sm:w-56">
+              <span className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><Users size={14} /> Nhân sự</span>
+              <SearchableSelect options={staffOptions} multiple values={selectedStaff} multipleLabel="nhân sự"
+                onValuesChange={setSelectedStaff} placeholder="Tất cả nhân sự" ariaLabel="Lọc nhân sự"
+                searchPlaceholder="Tìm nhân sự..." emptyMessage="Không có nhân sự tại cơ sở này."
+                disabled={catalogLoading || !!catalogError || loading} className="h-10 rounded-lg bg-card px-3 py-2 text-sm font-medium text-foreground" />
+            </div>
+            <div className="w-full min-w-0 sm:w-64">
+              <span className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><Filter size={14} /> Dịch vụ</span>
+              <SearchableSelect options={serviceOptions} multiple values={selectedServices}
+                onValuesChange={setSelectedServices} placeholder="Tất cả dịch vụ" ariaLabel="Lọc dịch vụ"
+                searchPlaceholder="Tìm dịch vụ..." emptyMessage="Không có dịch vụ trong kỳ tại cơ sở này."
+                disabled={loading} className="h-10 rounded-lg bg-card px-3 py-2 text-sm font-medium text-foreground" />
+            </div>
+            <button type="button" title="Xóa bộ lọc báo cáo" aria-label="Xóa bộ lọc báo cáo"
+              disabled={!hasFilters} onClick={() => { setSelectedBranch(''); setSelectedStaff([]); setSelectedServices([]); }}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted disabled:opacity-40">
+              <X size={16} />
+            </button>
+            {catalogError && <p role="alert" className="w-full text-sm text-rose-700">{catalogError} <button type="button" onClick={() => setCatalogRetry(n => n + 1)}>Thử lại danh sách nhân sự</button></p>}
+          </div>
+        )}
+
         {loadError ? <p role="alert">{loadError} <button type="button" onClick={() => void loadAll()}>Thử lại</button></p> : loading ? (
           <div className="flex items-center justify-center py-24 text-muted-foreground gap-2">
             <Loader2 size={18} className="animate-spin" />
             <span className="text-[13px]">Đang tải dữ liệu...</span>
           </div>
-        ) : summary ? (
+        ) : visibleSummary ? (
           <>
             {/* KPI Cards */}
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-              <StatCard label="Tổng doanh thu" value={fmt(summary.total_revenue)} sub={`${summary.date_range_days} ngày hoạt động`} icon={TrendingUp} color="#3b82f6" />
-              <StatCard label="Lợi nhuận gộp" value={fmt(summary.total_profit)} sub={`Biên: ${((summary.total_profit / (summary.total_revenue || 1)) * 100).toFixed(1)}%`} icon={summary.total_profit >= 0 ? TrendingUp : TrendingDown} color="#10b981" />
-              <StatCard label="Tổng đơn hàng" value={summary.total_orders.toLocaleString('vi-VN')} sub="đơn giao dịch" icon={BarChart2} color="#8b5cf6" />
-              <StatCard label="TB / ngày" value={fmt(summary.avg_per_day)} sub="doanh thu bình quân" icon={Calendar} color="#f59e0b" />
-              <StatCard label="TB / đơn" value={fmt(summary.avg_per_order)} sub="giá trị đơn bình quân" icon={ArrowUpRight} color="#ec4899" />
+              <StatCard label="Tổng doanh thu" value={fmt(visibleSummary.total_revenue)} sub={`${visibleSummary.date_range_days} ngày hoạt động`} icon={TrendingUp} color="#3b82f6" />
+              <StatCard label="Lợi nhuận gộp" value={fmt(visibleSummary.total_profit)} sub={`Biên: ${((visibleSummary.total_profit / (visibleSummary.total_revenue || 1)) * 100).toFixed(1)}%`} icon={visibleSummary.total_profit >= 0 ? TrendingUp : TrendingDown} color="#10b981" />
+              <StatCard label="Tổng đơn hàng" value={visibleSummary.total_orders.toLocaleString('vi-VN')} sub="đơn giao dịch" icon={BarChart2} color="#8b5cf6" />
+              <StatCard label="TB / ngày" value={fmt(visibleSummary.avg_per_day)} sub="doanh thu bình quân" icon={Calendar} color="#f59e0b" />
+              <StatCard label="TB / đơn" value={fmt(visibleSummary.avg_per_order)} sub="giá trị đơn bình quân" icon={ArrowUpRight} color="#ec4899" />
             </div>
 
             {/* Tabs */}
@@ -1598,10 +1702,10 @@ const RevenueReportPage: React.FC = () => {
                 ))}
               </div>
               <div className="p-5">
+                {filtering && !needsFinancial ? <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 size={16} className="animate-spin" />Đang lọc báo cáo...</p> : <>
                 {activeTab === 'service' && <ServiceTable data={serviceData} />}
-                {activeTab === 'day' && <DayTable data={dayData} summary={summary} />}
+                {activeTab === 'day' && <DayTable data={dayData} summary={visibleSummary} />}
                 {activeTab === 'branch' && <BranchTable data={branchData} />}
-                {needsPersonnel && personnelError && <p role="alert">{personnelError} <button type="button" onClick={() => { personnelPending.current = false; setLazyRetry(n => n + 1); }}>Thử lại</button></p>}
                 {activeTab === 'personnel' && (personnelData ? <PersonnelTable data={personnelData} /> : !personnelError && <p>Đang tải báo cáo nhân sự...</p>)}
                 {activeTab === 'chart' && !personnelData && !personnelError && <p>Đang tải báo cáo nhân sự...</p>}
                 {activeTab === 'chart' && personnelData && (
@@ -1615,6 +1719,8 @@ const RevenueReportPage: React.FC = () => {
                   />
                 )}
                 {activeTab === 'financial' && <BusinessReportsPanel startDate={startDate} endDate={endDate} sharedResult={{ ...financialResult, retry: retryFinancial }} />}
+                </>}
+                {(needsPersonnel || selectedStaff.length > 0) && personnelError && <p role="alert">{personnelError} <button type="button" onClick={() => { personnelPending.current = false; setLazyRetry(n => n + 1); }}>Thử lại</button></p>}
               </div>
             </div>
           </>

@@ -12,6 +12,8 @@ import { MultiSearchableSelect } from './ui/MultiSearchableSelect';
 import { SearchableSelect } from './ui/SearchableSelect';
 import { useAuth } from '../context/AuthContext';
 import { assertSalesDateNotFuture, formatDateTime24h, formatLocalIsoDate } from '../utils/datetimeFormat';
+import { getSalesOrderBranchError } from '../utils/salesOrderBranch';
+import { branchKey } from '../lib/branchCatalog';
 
 // Helper for dynamic classes
 const clsx = (...classes: (string | boolean | undefined)[]) => classes.filter(Boolean).join(' ');
@@ -79,7 +81,9 @@ const SalesCardFormModal: React.FC<{
   isReadOnly?: boolean;
 }> = React.memo(({ isOpen, editingCard, initialData, customerOptions, onCustomerSearch, personnel, services, onClose, onSubmit, isReadOnly, onCollectPayment }) => {
   const CUSTOMER_BRANCH_OPTIONS = useBranches();
-  const { nhanVien } = useAuth();
+  const { nhanVien, isAdmin } = useAuth();
+  const employeeBranch = resolveCustomerBranch(nhanVien?.co_so);
+  const employeeBranchLocked = !isAdmin && !editingCard;
   const [formData, setFormData] = useState<SalesCardFormData>(initialData);
   const [isCollecting, setIsCollecting] = useState(false);
   const [historyRecords, setHistoryRecords] = useState<EditHistoryRecord[]>([]);
@@ -98,12 +102,13 @@ const SalesCardFormModal: React.FC<{
       setFormData({
         ...initialData,
         nhan_vien_id: nhanVien?.ho_ten || initialData.nhan_vien_id || '',
+        co_so_khach: employeeBranchLocked ? employeeBranch : initialData.co_so_khach,
         so_km: undefined,
       });
     }
     setShowServiceWarning(false);
     setShowBranchWarning(false);
-  }, [isOpen, initialData, editingCard, nhanVien?.ho_ten]);
+  }, [isOpen, initialData, editingCard, nhanVien?.ho_ten, employeeBranchLocked, employeeBranch]);
 
   // Dùng customerOptions được parent tính toán sẵn 1 lần thay vì map lại gây đơ Mobile CPU
   // Removed heavy 10k items mapping here.
@@ -131,14 +136,24 @@ const SalesCardFormModal: React.FC<{
   }, [customerOptions, formData.khach_hang_id, initialData]);
 
   const customerBranchFromProfile = React.useMemo(() => {
+    if (!CUSTOMER_BRANCH_OPTIONS.length) return '';
     const opt = extendedCustomerOptions.find((o) => o.value === formData.khach_hang_id);
     return resolveCustomerBranch((opt as { dia_chi_hien_tai?: string })?.dia_chi_hien_tai);
-  }, [extendedCustomerOptions, formData.khach_hang_id]);
+  }, [extendedCustomerOptions, formData.khach_hang_id, CUSTOMER_BRANCH_OPTIONS]);
 
-  const customerBranchLocked = !editingCard && Boolean(customerBranchFromProfile);
+  const customerBranchLocked = employeeBranchLocked || (!editingCard && Boolean(customerBranchFromProfile));
 
   const formBranchForServices =
-    resolveCustomerBranch(formData.co_so_khach) || customerBranchFromProfile;
+    employeeBranchLocked ? employeeBranch : resolveCustomerBranch(formData.co_so_khach) || customerBranchFromProfile;
+
+  const personnelForBranch = isAdmin || isReadOnly
+    ? personnel
+    : personnel.filter((p) => p.co_so?.trim() && branchKey(p.co_so) === branchKey(employeeBranch));
+
+  const branchAccessError = getSalesOrderBranchError(
+    employeeBranch, isAdmin, formBranchForServices, customerBranchFromProfile,
+    formData.nhan_vien_id, personnel,
+  );
 
   const servicesForBranch = React.useMemo(() => {
     if (!formBranchForServices) return [];
@@ -274,13 +289,13 @@ const SalesCardFormModal: React.FC<{
   }, [servicesForBranch, formData.dich_vu_ids, formData.service_items]);
 
   const displayCoSo =
-    resolveCustomerBranch(formData.co_so_khach) || customerBranchFromProfile;
+    employeeBranchLocked ? employeeBranch : resolveCustomerBranch(formData.co_so_khach) || customerBranchFromProfile;
 
   React.useEffect(() => {
-    if (!isOpen || isReadOnly || editingCard) return;
+    if (!isOpen || isReadOnly || editingCard || employeeBranchLocked) return;
     if (!customerBranchFromProfile) return;
     setFormData((prev) => ({ ...prev, co_so_khach: customerBranchFromProfile }));
-  }, [isOpen, isReadOnly, editingCard, formData.khach_hang_id, customerBranchFromProfile]);
+  }, [isOpen, isReadOnly, editingCard, employeeBranchLocked, formData.khach_hang_id, customerBranchFromProfile]);
 
   React.useEffect(() => {
     if (!isOpen || isReadOnly || !formBranchForServices || editingCard) return;
@@ -314,6 +329,11 @@ const SalesCardFormModal: React.FC<{
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!isAdmin && branchAccessError) {
+      alert(branchAccessError);
+      return;
+    }
 
     try {
       assertSalesDateNotFuture(formData.ngay);
@@ -351,6 +371,14 @@ const SalesCardFormModal: React.FC<{
     }
 
     setShowBranchWarning(false);
+
+    const accessError = getSalesOrderBranchError(
+      employeeBranch, isAdmin, coSo, customerBranchFromProfile, formData.nhan_vien_id, personnel,
+    );
+    if (accessError) {
+      alert(accessError);
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -460,13 +488,16 @@ const SalesCardFormModal: React.FC<{
                   Người phụ trách (Nhân viên) <span className="text-red-500">*</span>
                 </label>
                 <MultiSearchableSelect
-                  options={personnel.map(p => ({ value: p.ho_ten, label: `${p.ho_ten} (${p.vi_tri})` }))}
+                  options={personnelForBranch.map(p => ({ value: p.ho_ten, label: `${p.ho_ten} (${p.vi_tri})` }))}
                   value={formData.nhan_vien_id ? formData.nhan_vien_id.split(',').map(s => s.trim()) : []}
                   onValueChange={(vals: string[]) => !isReadOnly && setFormData(prev => ({ ...prev, nhan_vien_id: vals.join(', ') }))}
                   placeholder="-- Chọn nhân viên --"
                   searchPlaceholder="Tìm tên, vị trí..."
                   className={clsx("font-bold overflow-hidden", isReadOnly && "pointer-events-none opacity-80")}
                 />
+                {!isReadOnly && branchAccessError && (
+                  <p role="alert" className="text-[12px] text-red-600 break-words">{branchAccessError}</p>
+                )}
               </div>
 
               <div className="space-y-1.5 col-span-2 min-w-0">

@@ -16,6 +16,8 @@ interface SearchableSelectProps {
   value?: string
   onValueChange?: (value: string) => void
   multiple?: boolean
+  multipleLabel?: string
+  ariaLabel?: string
   values?: string[]
   onValuesChange?: (values: string[]) => void
   placeholder?: string
@@ -34,6 +36,8 @@ export const SearchableSelect = React.memo(function SearchableSelect({
   value,
   onValueChange,
   multiple = false,
+  multipleLabel = "dịch vụ",
+  ariaLabel,
   values = [],
   onValuesChange,
   placeholder = "Chọn...",
@@ -75,9 +79,9 @@ export const SearchableSelect = React.memo(function SearchableSelect({
   const selectedLabel = React.useMemo(() => {
     if (!multiple) return selectedOption?.label
     if (values.length === 1) return options.find((option) => option.value === values[0])?.label
-    if (values.length > 1) return `${values.length} dịch vụ đã chọn`
+    if (values.length > 1) return `${values.length} ${multipleLabel} đã chọn`
     return undefined
-  }, [multiple, options, selectedOption?.label, values])
+  }, [multiple, multipleLabel, options, selectedOption?.label, values])
 
   const chooseOption = React.useCallback((optionValue: string) => {
     if (multiple) {
@@ -305,6 +309,8 @@ export const SearchableSelect = React.memo(function SearchableSelect({
       <button
         ref={triggerRef}
         type="button"
+        aria-label={ariaLabel}
+        aria-expanded={open}
         disabled={disabled}
         onClick={() => setOpen(!open)}
         className={cn(
