@@ -1,5 +1,6 @@
 import type { KhachHang } from './customerData';
 import { supabase } from '../lib/supabase';
+import { isStoredTechnician } from '../lib/customerPrivacy';
 
 export interface FieldChange {
   field: string;
@@ -82,6 +83,7 @@ export async function saveCustomerEditHistory(
 }
 
 export async function getCustomerEditHistory(customerId: string): Promise<CustomerEditHistory[]> {
+  if (isStoredTechnician()) return [];
   const { data, error } = await supabase
     .from('khach_hang_lich_su')
     .select('*')

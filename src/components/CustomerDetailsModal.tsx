@@ -1,6 +1,7 @@
 import type { SalesCard } from '../data/salesCardData';
 import { salesAmount as sumCardAmountVnd } from '../lib/salesAmount';
 import { clsx } from 'clsx';
+import { useAuth } from '../context/AuthContext';
 import { Calendar, Check, Clock, Gauge, History, Info, Loader2, MapPin, MessageSquare, Phone, ShoppingCart, User, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -20,6 +21,7 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
    customer,
    canViewRevenue = true,
 }) => {
+   const { isTechnician } = useAuth();
    const [startDateStr, setStartDateStr] = useState('');
    const [endDateStr, setEndDateStr] = useState('');
    const [loading, setLoading] = useState(true);
@@ -89,6 +91,7 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
    const latestOrderKm = kmHistory[0]?.so_km;
 
    const handleShareZalo = () => {
+      if (isTechnician) return;
       const formatDate = (date: string) => new Date(date).toLocaleDateString('vi-VN');
       const start = startDateStr ? formatDate(startDateStr) : 'Từ đầu';
       const end = endDateStr ? formatDate(endDateStr) : 'hiện tại';
@@ -142,7 +145,7 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
                   <div>
                      <h2 className="text-base sm:text-xl font-black text-foreground">{customer.ho_va_ten}</h2>
                      <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 text-[10px] sm:text-[11px] text-muted-foreground font-bold uppercase tracking-wider mt-0.5">
-                        <span className="flex items-center gap-1 shrink-0"><Phone size={11} /> {customer.so_dien_thoai}</span>
+                        {!isTechnician && <span className="flex items-center gap-1 shrink-0"><Phone size={11} /> {customer.so_dien_thoai}</span>}
                         {customer.bien_so_xe && (
                            <span className="flex items-center gap-1 shrink-0 text-blue-600 normal-case tracking-normal font-black">{customer.bien_so_xe}</span>
                         )}
@@ -391,7 +394,7 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
             </div>
 
             <div className="px-3 py-3 sm:px-8 sm:py-5 border-t border-border bg-muted/10 flex flex-nowrap items-stretch gap-1.5 sm:gap-3 shrink-0 min-w-0">
-                  <a 
+                  {!isTechnician && <><a
                      href={`tel:${customer.so_dien_thoai}`}
                      className="flex-1 min-w-0 px-2 py-2.5 sm:px-6 sm:py-3 bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] sm:text-sm font-black rounded-xl sm:rounded-2xl flex items-center justify-center gap-1 sm:gap-1.5 transition-all active:scale-95 shadow-lg shadow-emerald-500/20 text-center leading-tight"
                   >
@@ -413,6 +416,7 @@ const CustomerDetailsModal: React.FC<CustomerDetailsModalProps> = ({
                         </div>
                      )}
                   </div>
+                  </>}
                <button 
                   type="button"
                   onClick={goToCreateOrder}

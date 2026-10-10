@@ -134,13 +134,13 @@ const CustomerManagementPage: React.FC = () => {
   }, []);
 
   const effectiveVisibleColumns = useMemo(
-    () => (canViewRevenue ? visibleColumns : visibleColumns.filter((c) => c !== 'total_revenue')),
-    [visibleColumns, canViewRevenue]
+    () => visibleColumns.filter(c => (canViewRevenue || c !== 'total_revenue') && (!isTechnician || c !== 'so_dien_thoai')),
+    [visibleColumns, canViewRevenue, isTechnician]
   );
 
   const selectableColumns = useMemo(
-    () => (canViewRevenue ? allColumns : allColumns.filter((c) => c.id !== 'total_revenue')),
-    [canViewRevenue]
+    () => allColumns.filter(c => (canViewRevenue || c.id !== 'total_revenue') && (!isTechnician || c.id !== 'so_dien_thoai')),
+    [canViewRevenue, isTechnician]
   );
 
   const loadCustomerStats = useCallback(async (rows: KhachHang[]) => {
@@ -349,7 +349,7 @@ const CustomerManagementPage: React.FC = () => {
         return {
           'Mã khách hàng': c.ma_khach_hang || c.id.slice(0, 8),
           'Họ và tên': c.ho_va_ten,
-          'SĐT': c.so_dien_thoai,
+          ...(!isTechnician ? { 'SĐT': c.so_dien_thoai } : {}),
           'Biển số xe': c.bien_so_xe,
           'Địa chỉ': c.dia_chi_hien_tai,
           'Ngày đăng ký': c.ngay_dang_ky ? formatDateVi(c.ngay_dang_ky) : '',
@@ -733,7 +733,7 @@ const CustomerManagementPage: React.FC = () => {
                               <span className="font-extrabold text-foreground text-sm truncate min-w-0">
                                 {customer.ho_va_ten}
                               </span>
-                              {customer.so_dien_thoai && (
+                              {!isTechnician && customer.so_dien_thoai && (
                                 <span className="text-[11px] text-foreground font-medium tabular-nums whitespace-nowrap shrink-0 pl-2">
                                   {customer.so_dien_thoai}
                                 </span>

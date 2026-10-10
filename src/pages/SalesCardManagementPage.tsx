@@ -309,10 +309,10 @@ const SalesCardManagementPage: React.FC = () => {
     setCustomers(previous => Array.from(new Map([...previous, ...result.data].map(c => [c.id, c])).values()));
     return result.data.map(c => ({
       value: c.ma_khach_hang || c.id,
-      label: `${c.ho_va_ten || 'Chưa có tên'} - ${c.so_dien_thoai || ''} - ${c.bien_so_xe || ''}`,
-      searchKey: `${c.ho_va_ten} ${c.so_dien_thoai} ${c.bien_so_xe}`,
+      label: [c.ho_va_ten || 'Chưa có tên', !isTechnician && c.so_dien_thoai, c.bien_so_xe].filter(Boolean).join(' - '),
+      searchKey: [c.ho_va_ten, !isTechnician && c.so_dien_thoai, c.bien_so_xe].filter(Boolean).join(' '),
     }));
-  }, []);
+  }, [isTechnician]);
 
   const summaryLoading = loading;
 
@@ -373,7 +373,7 @@ const SalesCardManagementPage: React.FC = () => {
     },
     [groupedSales, currentPage, pageSize]
   );
-  const salesTableColCount = canViewRevenue ? 13 : 12;
+  const salesTableColCount = (canViewRevenue ? 13 : 12) - (isTechnician ? 1 : 0);
 
   // Danh sách phiếu hiện ngay, thẻ tổng hợp chạy nền — báo cho người dùng biết đang tính.
   const summarySpinner = summaryLoading
@@ -522,13 +522,13 @@ const SalesCardManagementPage: React.FC = () => {
     }
     const rawOptions = list.map(c => {
       const searchParts = [c.ho_va_ten];
-      if (c.so_dien_thoai) searchParts.push(c.so_dien_thoai);
+      if (!isTechnician && c.so_dien_thoai) searchParts.push(c.so_dien_thoai);
       if (c.bien_so_xe) searchParts.push(c.bien_so_xe);
       if (c.ma_khach_hang) searchParts.push(c.ma_khach_hang);
 
       return {
         value: c.ma_khach_hang || c.id,
-        label: `${c.ho_va_ten}${c.so_dien_thoai ? ` - ${c.so_dien_thoai}` : ''}`,
+        label: `${c.ho_va_ten}${!isTechnician && c.so_dien_thoai ? ` - ${c.so_dien_thoai}` : ''}`,
         searchKey: searchParts.join(' '),
         bien_so_xe: c.bien_so_xe || '',
         dia_chi_hien_tai: c.dia_chi_hien_tai || '',
@@ -548,7 +548,7 @@ const SalesCardManagementPage: React.FC = () => {
       uniqueOptions.push(opt);
     }
     return uniqueOptions;
-  }, [customers, pendingNewCustomer]);
+  }, [customers, pendingNewCustomer, isTechnician]);
 
   // Capture pending ID immediately on first render (before any async work)
   if (pendingCustomerRef.current === null) {
@@ -844,6 +844,7 @@ const SalesCardManagementPage: React.FC = () => {
 
   const handleSubmit = async (formDataHeader: SalesCardFormData) => {
     try {
+      if (isTechnician && editingCard) throw new Error('Thợ không được sửa đơn đã lưu. Vui lòng báo admin sửa lại.');
       if (!canManageOrders) {
         showToast('Bạn không có quyền lập hoặc sửa đơn hàng.', 'error');
         return;
@@ -897,7 +898,7 @@ const SalesCardManagementPage: React.FC = () => {
           cleanData.khach_hang_id = preferCustomerLinkKey(found);
           if (!cleanData.ten_khach_hang) cleanData.ten_khach_hang = found.ho_va_ten;
           if (!cleanData.so_dien_thoai) cleanData.so_dien_thoai = found.so_dien_thoai;
-          if (!(found.dia_chi_hien_tai || '').trim() && found.id) {
+          if (!isTechnician && !(found.dia_chi_hien_tai || '').trim() && found.id) {
             void upsertCustomer({ id: found.id, dia_chi_hien_tai: orderBranch }).catch((err) => {
               console.error('Lỗi khi lưu cơ sở khách hàng:', err);
             });
@@ -951,6 +952,33 @@ const SalesCardManagementPage: React.FC = () => {
       // Set the first service as the primary ID for the master record
       if (dich_vu_ids && dich_vu_ids.length > 0) {
         cleanData.dich_vu_id = dich_vu_ids[0];
+      }
+
+      if (isTechnician) {
+        const details = (dich_vu_ids || []).map(sId => {
+          const service = services.find(s => s.id === sId);
+          const override = (formDataHeader.service_items || []).find(it => it.id === sId);
+          return { san_pham: service?.ten_dich_vu || override?.ten_dich_vu || 'Dịch vụ',
+            gia_ban: override?.gia_ban ?? service?.gia_ban ?? 0, gia_von: service?.gia_nhap || 0,
+            so_luong: override?.so_luong ?? 1, chi_phi: 0 };
+        });
+        // One server transaction seals the header, details and payment together.
+        const { data, error } = await supabase.rpc('create_technician_sales_order', { p_header: cleanData, p_details: details });
+        if (error) throw error;
+        const saved = data as SalesCard;
+        try {
+          await syncInventoryExportFromSalesOrder({ orderId: saved.id, orderCode: saved.id_bh,
+            ngay: saved.ngay, gio: saved.gio || '00:00', coSo: orderBranch,
+            nguoiThucHien: nhanVien?.ho_ten || 'Hệ thống',
+            lines: details.map(item => ({ ten_mat_hang: item.san_pham, so_luong: item.so_luong, gia: item.gia_von })) });
+        } catch (inventoryError) {
+          console.error('Không đồng bộ được xuất kho cho đơn đã lưu:', inventoryError);
+          showToast('Đơn đã lưu. Báo admin kiểm tra phần đồng bộ xuất kho.', 'error');
+        }
+        handleCloseModal();
+        showToast('Lập phiếu bán hàng thành công!', 'success');
+        if (currentPage !== 1) setCurrentPage(1); else await loadSalesCards();
+        return;
       }
 
       // Cổ chai 4 & 5: Các bước lưu data độc lập có thể chạy song song (Promise.all)
@@ -1129,6 +1157,7 @@ const SalesCardManagementPage: React.FC = () => {
   };
 
   const handleCollectPayment = async (data: SalesCardFormData, method: string = 'Tiền mặt') => {
+    if (isTechnician) { showToast('Thợ không được sửa đơn đã lưu. Vui lòng báo admin.', 'error'); return; }
     if (!editingCard) return;
 
     try {
@@ -1489,7 +1518,7 @@ const SalesCardManagementPage: React.FC = () => {
           'Giờ': card.gio,
           'Mã khách hàng': card.khach_hang_id || '',
           'Tên khách hàng': card.khach_hang?.ho_va_ten || card.ten_khach_hang || '',
-          'SĐT': card.khach_hang?.so_dien_thoai || card.so_dien_thoai || '',
+          ...(!isTechnician ? { 'SĐT': card.khach_hang?.so_dien_thoai || card.so_dien_thoai || '' } : {}),
           'Biển số xe': card.khach_hang?.bien_so_xe || '',
           'Địa chỉ': card.khach_hang?.dia_chi_hien_tai || '',
           'Phụ trách': staff,
@@ -1808,9 +1837,9 @@ const SalesCardManagementPage: React.FC = () => {
                                 {card.khach_hang?.ho_va_ten || card.ten_khach_hang || 'N/A'}
                               </div>
                             </div>
-                            <div className="text-[12px] text-muted-foreground font-medium truncate">
+                            {!isTechnician && <div className="text-[12px] text-muted-foreground font-medium truncate">
                               {card.khach_hang?.so_dien_thoai || card.so_dien_thoai || 'N/A'}
-                            </div>
+                            </div>}
                             {card.khach_hang?.bien_so_xe && (
                               <div className="text-[11px] font-black text-blue-600 uppercase tracking-wide truncate">
                                 {card.khach_hang.bien_so_xe}
@@ -1910,7 +1939,7 @@ const SalesCardManagementPage: React.FC = () => {
                   <th className="px-3 py-4 font-bold text-center w-[60px]">STT</th>
                   <th className="px-4 py-4 font-bold text-center w-[112px]">Thời gian</th>
                   <th className="px-4 py-4 font-bold w-[150px]">Khách hàng</th>
-                  <th className="px-4 py-4 font-bold w-[130px]">SĐT</th>
+                  {!isTechnician && <th className="px-4 py-4 font-bold w-[130px]">SĐT</th>}
                   <th className="px-4 py-4 font-bold w-[120px]">BSX</th>
                   <th className="px-4 py-4 font-bold w-[190px]">Địa chỉ</th>
                   <th className="px-4 py-4 font-bold w-[180px]">Phụ trách</th>
@@ -1978,7 +2007,7 @@ const SalesCardManagementPage: React.FC = () => {
                     <td className="px-4 py-4 border-b border-slate-100 align-top">
                       <div className="font-black text-primary leading-snug">{card.khach_hang?.ho_va_ten || card.ten_khach_hang || 'N/A'}</div>
                     </td>
-                    <td className="px-4 py-4 text-slate-600 font-medium border-b border-slate-100 align-top">{card.khach_hang?.so_dien_thoai || card.so_dien_thoai || 'N/A'}</td>
+                    {!isTechnician && <td className="px-4 py-4 text-slate-600 font-medium border-b border-slate-100 align-top">{card.khach_hang?.so_dien_thoai || card.so_dien_thoai || 'N/A'}</td>}
                     <td className="px-4 py-4 border-b border-slate-100 align-top">
                       {card.khach_hang?.bien_so_xe ? (
                         <span className="inline-flex max-w-[110px] px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 font-black text-[12px] uppercase border border-blue-100 truncate" title={card.khach_hang.bien_so_xe}>
@@ -2133,7 +2162,7 @@ const SalesCardManagementPage: React.FC = () => {
             onClose={handleCloseModal}
             onSubmit={handleSubmit}
             isReadOnly={isReadOnlyModal}
-            onCollectPayment={handleCollectPayment}
+            onCollectPayment={isTechnician ? undefined : handleCollectPayment}
           />
         </React.Suspense>
       )}

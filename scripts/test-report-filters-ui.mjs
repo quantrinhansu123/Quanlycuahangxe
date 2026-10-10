@@ -11,15 +11,15 @@ const fixture = {
     { id: 'ns-3', id_nhan_su: 'NV3', ho_ten: 'Đỗ Xuân Kỳ', co_so: 'Cơ sở Bắc Giang' },
   ],
   the_ban_hang: [
-    { id: 'uuid-1', id_bh: 'BH-1', ngay: '2026-09-01', nhan_vien_id: 'NV1, Việt Anh, Khắc Kiên' },
-    { id: 'uuid-2', id_bh: 'BH-2', ngay: '2026-09-02', nhan_vien_id: 'ns-2' },
+    { id: '00000000-0000-4000-8000-000000000001', id_bh: 'BH-1', ngay: '2026-09-01', nhan_vien_id: 'NV1, Việt Anh, Khắc Kiên', ten_khach_hang: 'Khách 1', gio: '10:00' },
+    { id: '00000000-0000-4000-8000-000000000002', id_bh: 'BH-2', ngay: '2026-09-02', nhan_vien_id: 'ns-2', ten_khach_hang: 'Khách 2', gio: '11:00' },
     { id: 'uuid-3', id_bh: 'BH-3', ngay: '2026-09-03', nhan_vien_id: 'Đỗ Xuân Kỳ' },
-    { id: 'uuid-4', id_bh: 'BH-4', ngay: '2026-09-02', nhan_vien_id: 'Khắc Kiên' },
+    { id: '00000000-0000-4000-8000-000000000004', id_bh: 'BH-4', ngay: '2026-09-02', nhan_vien_id: 'Khắc Kiên', ten_khach_hang: 'Khách thẻ', gio: '12:00' },
     { id: 'uuid-5', id_bh: 'BH-5', ngay: '2026-10-08', nhan_vien_id: 'Việt Anh' },
   ],
   the_ban_hang_ct: [
     { id: 'ct-1', id_don_hang: 'BH-1', ngay: '2026-09-01', san_pham: 'Rửa xe', co_so: 'Cơ sở Bắc Ninh', thanh_tien: 100000, gia_ban: 100000, gia_von: 10000, so_luong: 1 },
-    { id: 'ct-2', id_don_hang: 'uuid-1', ngay: '2026-09-01', san_pham: 'Thay dầu', co_so: 'Cơ sở Bắc Ninh', thanh_tien: 200000, gia_ban: 200000, gia_von: 10000, so_luong: 1 },
+    { id: 'ct-2', id_don_hang: '00000000-0000-4000-8000-000000000001', ngay: '2026-09-01', san_pham: 'Thay dầu', co_so: 'Cơ sở Bắc Ninh', thanh_tien: 200000, gia_ban: 200000, gia_von: 10000, so_luong: 1 },
     { id: 'ct-3', id_don_hang: 'BH-2', ngay: '2026-09-02', san_pham: 'Rửa xe', co_so: 'Cơ sở Bắc Ninh', thanh_tien: 300000, gia_ban: 300000, gia_von: 10000, so_luong: 1 },
     { id: 'ct-4', id_don_hang: 'BH-3', ngay: '2026-09-03', san_pham: 'Rửa xe', co_so: 'Cơ sở Bắc Giang', thanh_tien: 400000, gia_ban: 400000, gia_von: 10000, so_luong: 1 },
     { id: 'ct-5', id_don_hang: 'BH-4', ngay: '2026-09-02', san_pham: 'Rửa thẻ', co_so: 'Cơ sở Bắc Ninh', thanh_tien: 0, gia_ban: 0, gia_von: 0, so_luong: 1 },
@@ -46,12 +46,14 @@ let browser;
 await mkdir('.build-verification/report-filters', { recursive: true });
 try {
   await server.listen();
+  await server.environments.client.depsOptimizer?.scanProcessing;
   browser = await chromium.launch({ headless: true, channel: process.platform === 'win32' ? 'msedge' : undefined });
   for (const width of [1440, 375]) {
     const context = await browser.newContext({ viewport: { width, height: 1000 }, timezoneId: 'Asia/Ho_Chi_Minh', isMobile: width < 640, hasTouch: width < 640 });
     const page = await context.newPage();
     page.setDefaultTimeout(20000);
     const errors = [], requests = [];
+    let failDetailOnce = false;
     page.on('pageerror', error => errors.push(error.message));
     await context.route('**/*', async route => {
       const request = route.request(), url = new URL(request.url());
@@ -62,7 +64,18 @@ try {
       assert.equal(request.method(), 'GET', 'Report tests must not write business data');
       const table = url.pathname.split('/').pop();
       requests.push(table);
+      if (table === 'the_ban_hang' && url.searchParams.has('id') && failDetailOnce) {
+        failDetailOnce = false;
+        return route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ message: 'Fixture detail request failed', code: 'TEST' }) });
+      }
       let rows = fixture[table] || [];
+      for (const column of ['id', 'id_bh']) {
+        const filter = url.searchParams.get(column);
+        if (filter?.startsWith('in.(')) {
+          const values = filter.slice(4, -1).split(',').map(value => value.replace(/^"|"$/g, ''));
+          rows = rows.filter(row => values.includes(row[column]));
+        }
+      }
       for (const expr of url.searchParams.getAll('ngay')) {
         const [op, date] = expr.split('.'); rows = rows.filter(row => op === 'gte' ? row.ngay >= date : row.ngay <= date);
       }
@@ -162,6 +175,19 @@ try {
     await page.getByRole('heading', { name: 'Theo ngày — Rửa thẻ', exact: true }).waitFor();
     const modal = page.locator('div.fixed.inset-0').filter({ has: page.getByRole('heading', { name: 'Theo ngày — Rửa thẻ', exact: true }) });
     assert.equal(await modal.locator('tbody').getByText('02/09/2026', { exact: true }).count(), 1, 'Daily details must retain zero-revenue visits');
+    await modal.getByRole('button', { name: '02/09/2026', exact: true }).click();
+    const detail = page.getByRole('dialog', { name: 'Đơn ngày 02/09/2026' });
+    await detail.getByRole('link', { name: 'BH-4', exact: true }).waitFor();
+    assert.equal(await detail.getByRole('link').count(), 1, 'Service drill must retain only matching orders');
+    assert.match(await detail.getByRole('link', { name: 'BH-4', exact: true }).getAttribute('href'), /don=00000000-0000-4000-8000-000000000004/);
+    assert.equal(await detail.getByText('Rửa xe', { exact: true }).count(), 0);
+    assert.ok((await detail.innerText()).includes('0'), 'Free visits remain inspectable');
+    await page.screenshot({ path: `.build-verification/report-filters/${width}-order-details.png`, fullPage: true });
+    const bounds = await detail.evaluate(element => { const box=element.getBoundingClientRect();return {x:box.x,width:box.width}; });
+    assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= width + 1, 'Order dialog must fit mobile and desktop');
+    await page.keyboard.press('Escape');
+    assert.equal(await detail.count(), 0);
+    assert.equal(await modal.count(), 1, 'Escape only dismisses the top dialog');
     await modal.locator('button').first().click();
     await page.getByRole('group', { name: 'Lọc theo ngày', exact: true }).scrollIntoViewIfNeeded();
     await page.screenshot({ path: `.build-verification/report-filters/${width}-table-dates.png`, fullPage: true });
@@ -171,6 +197,16 @@ try {
       assert.equal(await page.locator('input[type=date]').nth(2).inputValue(), '2026-09-02');
       assert.equal(await page.locator('input[type=date]').nth(3).inputValue(), '2026-09-02');
     }
+    await page.locator('button[class*="border-b-2"]').filter({ hasText: 'Theo ngày' }).click();
+    await settled();
+    failDetailOnce = true;
+    await page.locator('tbody').getByRole('button', { name: '02/09/2026', exact: true }).click();
+    await detail.getByRole('alert').waitFor();
+    assert.equal(await detail.getByText('Không có đơn trong ngày này.', { exact: true }).count(), 0, 'Read failures must not become empty results');
+    await detail.getByRole('button', { name: 'Thử lại', exact: true }).click();
+    await detail.getByRole('link', { name: 'BH-2', exact: true }).waitFor();
+    assert.equal(await detail.getByRole('link').count(), 2, 'Daily drill retains paid and free orders under current filters');
+    await detail.getByRole('button', { name: 'Đóng chi tiết đơn', exact: true }).click();
     assert.deepEqual(errors, []);
     console.log(JSON.stringify({ reportFiltersUiPassed: true, width, reads: requests.length, errors }));
     await context.close();

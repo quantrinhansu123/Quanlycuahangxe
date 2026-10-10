@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 import type { PostgrestError } from '@supabase/supabase-js';
 import { readEmployeeSession, type EmployeeSessionResult } from '../lib/employeeSession';
+import { getStoredNhanVien, getStoredSessionToken } from '../lib/authStorage';
 
 export interface NhanSu {
   id: string;
@@ -37,12 +38,14 @@ function getMissingColumnFromErr(err: PostgrestError): string | null {
   return m?.[1] ?? null;
 }
 
-let personnelCache: { rows: NhanSu[]; expires: number } | null = null;
-let personnelRequest: Promise<NhanSu[]> | null = null;
+const personnelScope = () => `${getStoredSessionToken() || ''}:${getStoredNhanVien()?.id || ''}:${getStoredNhanVien()?.vi_tri || ''}`;
+let personnelCache: { rows: NhanSu[]; expires: number; scope: string } | null = null;
+let personnelRequest: { scope: string; promise: Promise<NhanSu[]> } | null = null;
 export const getPersonnel = async (): Promise<NhanSu[]> => {
-  if (personnelCache && personnelCache.expires > Date.now()) return personnelCache.rows;
-  if (personnelRequest) return personnelRequest;
-  personnelRequest = (async () => {
+  const scope = personnelScope();
+  if (personnelCache?.scope === scope && personnelCache.expires > Date.now()) return personnelCache.rows;
+  if (personnelRequest?.scope === scope) return personnelRequest.promise;
+  const request = { scope, promise: (async () => {
   const { data, error } = await supabase
     .from('nhan_su')
     .select('*')
@@ -53,10 +56,11 @@ export const getPersonnel = async (): Promise<NhanSu[]> => {
     throw error;
   }
   const rows = data as NhanSu[];
-  personnelCache = { rows, expires: Date.now() + 15000 };
+  if (personnelScope() === scope) personnelCache = { rows, expires: Date.now() + 15000, scope };
   return rows;
-  })();
-  try { return await personnelRequest; } finally { personnelRequest = null; }
+  })() };
+  personnelRequest = request;
+  try { return await request.promise; } finally { if (personnelRequest === request) personnelRequest = null; }
 };
 
 export const upsertPersonnel = async (personnel: Partial<NhanSu>): Promise<NhanSu> => {

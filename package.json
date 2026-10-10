@@ -26,6 +26,7 @@
     "test:reports-p3": "node scripts/test-reports-p3.mjs && node scripts/test-reports-p3-ui.mjs",
     "test:report-filters": "node scripts/test-report-filters.mjs && node scripts/test-report-filters-ui.mjs",
     "test:sales-branch": "node scripts/test-sales-order-branch.mjs && node scripts/test-sales-order-branch-ui.mjs",
+    "test:technician-privacy": "node --test scripts/test-technician-privacy.mjs scripts/test-report-order-details.mjs && node scripts/test-technician-privacy-ui.mjs && node scripts/test-report-filters-ui.mjs",
     "db:measure-reports-p3": "node scripts/measure-reports-p3.mjs"
   },
   "dependencies": {

@@ -1,6 +1,7 @@
 import type { SalesCardFormData } from './salesCardData';
 import type { SalesCardCT } from './salesCardCTData';
 import { supabase } from '../lib/supabase';
+import { isStoredTechnician } from '../lib/customerPrivacy';
 
 export interface FieldChange {
   field: string;
@@ -148,6 +149,7 @@ export async function saveEditHistory(
 }
 
 export async function getEditHistory(phieuId: string): Promise<EditHistoryRecord[]> {
+  if (isStoredTechnician()) return [];
   const { data, error } = await supabase
     .from('the_ban_hang_lich_su')
     .select('*')

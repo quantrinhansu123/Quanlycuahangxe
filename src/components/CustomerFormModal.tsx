@@ -57,7 +57,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
-  const { nhanVien } = useAuth();
+  const { nhanVien, isTechnician } = useAuth();
 
   const [historyRecords, setHistoryRecords] = useState<CustomerEditHistory[]>([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -293,7 +293,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
     }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || (isTechnician && customer)) return null;
 
   return createPortal(
     <div className="fixed inset-0 flex items-center justify-center p-4 bg-black/60" style={{ zIndex: 9999999 }}>
@@ -452,7 +452,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
                         <div className="min-w-0 text-sm">
                           <p className="font-semibold text-foreground truncate">{existing.ho_va_ten || 'Chưa có tên'}</p>
                           <p className="text-muted-foreground">
-                            📞 <span className="font-mono">{existing.so_dien_thoai || '—'}</span>
+                            {!isTechnician && <>📞 <span className="font-mono">{existing.so_dien_thoai || '—'}</span></>}
                             {' · '}🚗 <span className="font-mono">{existing.bien_so_xe || '—'}</span>
                           </p>
                           {existing.ma_khach_hang && (

@@ -2,6 +2,7 @@ import { queryAllCustomers, queryCustomers, queryAllSales } from './salesQueryDa
 import { supabase } from '../lib/supabase';
 import { type CustomerLinkInput } from '../lib/customerOrderLink';
 import { enrichSalesCards, type SalesCard } from './salesCardData';
+import { assertCanEditSavedRecord, isStoredTechnician } from '../lib/customerPrivacy';
 
 export interface OilChangeEntry {
   ngay: string;
@@ -81,6 +82,12 @@ export const getCustomersForExport = (searchQuery?: string, depts?: string[], cy
 
 export const upsertCustomer = async (customer: Partial<KhachHang>): Promise<KhachHang> => {
   const payload = sanitizeCustomerPayload(customer);
+  if (payload.id) assertCanEditSavedRecord();
+  if (isStoredTechnician()) {
+    const { data, error } = await supabase.rpc('create_technician_customer', { p_customer: payload });
+    if (error) throw error;
+    return data as KhachHang;
+  }
   let myHoTen = '';
   let myNhanSuId = '';
 
@@ -132,6 +139,7 @@ export const upsertCustomer = async (customer: Partial<KhachHang>): Promise<Khac
 };
 
 export const bulkUpsertCustomers = async (customers: Partial<KhachHang>[]): Promise<void> => {
+  assertCanEditSavedRecord();
   // Split: records with id → upsert (update), records without id → insert (new)
   const toUpdate = customers.filter(c => c.id);
   const toInsert = customers.filter(c => !c.id);
@@ -156,6 +164,7 @@ export const bulkUpsertCustomers = async (customers: Partial<KhachHang>[]): Prom
 };
 
 export const deleteCustomer = async (id: string): Promise<void> => {
+  assertCanEditSavedRecord();
   const { error } = await supabase
     .from('khach_hang')
     .delete()
@@ -168,6 +177,7 @@ export const deleteCustomer = async (id: string): Promise<void> => {
 };
 
 export const bulkDeleteCustomers = async (): Promise<void> => {
+  assertCanEditSavedRecord();
   const { error } = await supabase
     .from('khach_hang')
     .delete()

@@ -79,9 +79,10 @@ const SalesCardFormModal: React.FC<{
   onSubmit: (data: SalesCardFormData) => Promise<void>;
   onCollectPayment?: (data: SalesCardFormData, method: string) => Promise<void>;
   isReadOnly?: boolean;
-}> = React.memo(({ isOpen, editingCard, initialData, customerOptions, onCustomerSearch, personnel, services, onClose, onSubmit, isReadOnly, onCollectPayment }) => {
+}> = React.memo(({ isOpen, editingCard, initialData, customerOptions, onCustomerSearch, personnel, services, onClose, onSubmit, isReadOnly: requestedReadOnly, onCollectPayment }) => {
   const CUSTOMER_BRANCH_OPTIONS = useBranches();
-  const { nhanVien, isAdmin } = useAuth();
+  const { nhanVien, isAdmin, isTechnician } = useAuth();
+  const isReadOnly = requestedReadOnly || (isTechnician && !!editingCard);
   const employeeBranch = resolveCustomerBranch(nhanVien?.co_so);
   const employeeBranchLocked = !isAdmin && !editingCard;
   const [formData, setFormData] = useState<SalesCardFormData>(initialData);
@@ -120,7 +121,7 @@ const SalesCardFormModal: React.FC<{
          initialData?.khach_hang?.ho_va_ten || 
          initialData?.ten_khach_hang ||
          'Khách hàng (Chưa tải dữ liệu)';
-      const fallbackPhone = initialData?.khach_hang?.so_dien_thoai || initialData?.so_dien_thoai || '';
+      const fallbackPhone = isTechnician ? '' : initialData?.khach_hang?.so_dien_thoai || initialData?.so_dien_thoai || '';
       
       options = [
         {
@@ -133,7 +134,7 @@ const SalesCardFormModal: React.FC<{
       ];
     }
     return options;
-  }, [customerOptions, formData.khach_hang_id, initialData]);
+  }, [customerOptions, formData.khach_hang_id, initialData, isTechnician]);
 
   const customerBranchFromProfile = React.useMemo(() => {
     if (!CUSTOMER_BRANCH_OPTIONS.length) return '';
@@ -667,7 +668,7 @@ const SalesCardFormModal: React.FC<{
 
             <div className="mt-4 sm:mt-8 flex flex-col gap-3 sm:gap-4 pt-4 sm:pt-6 border-t border-border pb-2 sm:pb-0">
               {/* Lịch sử chỉnh sửa */}
-              {isReadOnly && editingCard && (
+              {!isTechnician && isReadOnly && editingCard && (
                 <div className="w-full">
                   <button
                     type="button"
@@ -743,7 +744,7 @@ const SalesCardFormModal: React.FC<{
                     <span>ĐÃ THU ({formData.thu_chi.phuong_thuc || 'Tiền mặt'})</span>
                   </div>
                 ) : (
-                  editingCard && onCollectPayment && isReadOnly && (
+                  !isTechnician && editingCard && onCollectPayment && isReadOnly && (
                     <button
                       type="button"
                       disabled={isCollecting}

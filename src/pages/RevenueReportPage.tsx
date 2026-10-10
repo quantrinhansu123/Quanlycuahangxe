@@ -59,6 +59,10 @@ import { getErrorDetails } from '../lib/errorDetails';
 import { getPersonnel, type NhanSu } from '../data/personnelData';
 import { SearchableSelect } from '../components/ui/SearchableSelect';
 import { branchKey, branchLabel } from '../lib/branchCatalog';
+import ReportOrdersModal from '../components/ReportOrdersModal';
+import { selectReportOrderLines, type ReportDrillScope } from '../data/reportOrderDetails';
+
+const ReportDrillContext = React.createContext<(scope: ReportDrillScope) => void>(() => {});
 
 // ──────────── Formatters ────────────
 const fmt = (n: number) =>
@@ -220,9 +224,10 @@ function StatCard({ label, value, sub, icon: Icon, color }: {
 
 // ──────────── Daily Modal ────────────
 interface ModalRow { date: string; revenue: number; profit: number; order_count?: number; quantity?: number; }
-interface ModalConfig { title: string; subtitle?: string; rows: ModalRow[]; }
+interface ModalConfig { title: string; subtitle?: string; rows: ModalRow[]; scope?: Omit<ReportDrillScope, 'date'>; }
 
 function DailyModal({ config, onClose }: { config: ModalConfig; onClose: () => void }) {
+  const openOrders = React.useContext(ReportDrillContext);
   const { sorted, sortKey, sortDir, handleSort } = useSortableTable<ModalRow>(config.rows, 'date', 'asc');
   const totalRev = config.rows.reduce((s, r) => s + r.revenue, 0);
   const totalPro = config.rows.reduce((s, r) => s + r.profit, 0);
@@ -246,7 +251,7 @@ function DailyModal({ config, onClose }: { config: ModalConfig; onClose: () => v
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground transition-colors"><X size={15} /></button>
         </div>
-        <div className="overflow-y-auto flex-1">
+        <div className="overflow-auto flex-1">
           <table className="w-full text-[12px]">
             <thead className="bg-muted/50 sticky top-0 border-b border-border">
               <tr>
@@ -263,7 +268,7 @@ function DailyModal({ config, onClose }: { config: ModalConfig; onClose: () => v
             <tbody className="divide-y divide-border">
               {sorted.map((row, i) => (
                 <tr key={i} className="hover:bg-muted/20 transition-colors">
-                  <td className="px-4 py-2.5 font-medium">{fmtDate(row.date)}</td>
+                  <td className="px-4 py-2.5 font-medium"><button type="button" onClick={() => openOrders({ ...config.scope, date: row.date })} title="Xem đơn trong ngày" className="inline-flex items-center gap-1 whitespace-nowrap text-primary hover:underline">{fmtDate(row.date)}<ExternalLink size={12} /></button></td>
                   {hasOrders && <td className="px-4 py-2.5 text-right text-muted-foreground">{row.order_count ?? '-'}</td>}
                   {hasQty && <td className="px-4 py-2.5 text-right text-muted-foreground">{row.quantity ?? '-'}</td>}
                   <td className="px-4 py-2.5 text-right font-bold">{fmt(row.revenue)}</td>
@@ -293,6 +298,7 @@ function ServiceBreakdownModal({ date, breakdown, onClose }: {
   breakdown: Array<{ san_pham: string; revenue: number; profit: number; quantity: number }>;
   onClose: () => void;
 }) {
+  const openOrders = React.useContext(ReportDrillContext);
   const totalRev = breakdown.reduce((s, r) => s + r.revenue, 0);
   const totalPro = breakdown.reduce((s, r) => s + r.profit, 0);
 
@@ -326,7 +332,7 @@ function ServiceBreakdownModal({ date, breakdown, onClose }: {
             <tbody className="divide-y divide-border">
               {breakdown.map((r, i) => (
                 <tr key={i} className="hover:bg-muted/20">
-                  <td className="px-4 py-2.5 font-medium">{r.san_pham}</td>
+                  <td className="px-4 py-2.5 font-medium"><button type="button" onClick={() => openOrders({ date, service: r.san_pham })} className="inline-flex items-center gap-1 text-left text-primary hover:underline">{r.san_pham}<ExternalLink size={12} className="shrink-0" /></button></td>
                   <td className="px-4 py-2.5 text-right text-muted-foreground">{r.quantity}</td>
                   <td className="px-4 py-2.5 text-right font-bold">{fmt(r.revenue)}</td>
                   <td className="px-4 py-2.5 text-right font-bold text-emerald-600">{fmt(r.profit)}</td>
@@ -444,7 +450,7 @@ function ServiceTable({ data, dateRange }: { data: RevenueByService[]; dateRange
                           const rows = item.daily_breakdown
                             .filter(d => inRange(d.date, localStart, localEnd))
                             .map(d => ({ date: d.date, revenue: d.revenue, profit: d.profit, quantity: d.quantity }));
-                          setModal({ title: `Theo ngày — ${item.san_pham}`, subtitle: `${rows.length} ngày có giao dịch`, rows });
+                          setModal({ title: `Theo ngày — ${item.san_pham}`, subtitle: `${rows.length} ngày có giao dịch`, rows, scope: { service: item.san_pham } });
                         }}
                         className="flex items-center gap-1 text-[11px] font-bold text-primary hover:underline ml-auto"
                       >
@@ -474,6 +480,7 @@ function ServiceTable({ data, dateRange }: { data: RevenueByService[]; dateRange
 
 // ──────────── Day Table ────────────
 function DayTable({ data, summary, dateRange }: { data: RevenueByDay[]; summary: ReportSummary; dateRange: ReportDateRange }) {
+  const openOrders = React.useContext(ReportDrillContext);
   const { startDate: localStart, endDate: localEnd, onStartChange: setLocalStart, onEndChange: setLocalEnd } = dateRange;
   const [dayModal, setDayModal] = useState<{ date: string; breakdown: RevenueByDay['service_breakdown'] } | null>(null);
 
@@ -527,7 +534,7 @@ function DayTable({ data, summary, dateRange }: { data: RevenueByDay[]; summary:
                   const vs = item.total_revenue - avgPerDay;
                   return (
                     <tr key={i} className="hover:bg-muted/20 transition-colors">
-                      <td className="px-4 py-3 font-medium">{fmtDate(item.date)}</td>
+                      <td className="px-4 py-3 font-medium"><button type="button" onClick={() => openOrders({ date: item.date })} title="Xem đơn trong ngày" className="inline-flex items-center gap-1 whitespace-nowrap text-primary hover:underline">{fmtDate(item.date)}<ExternalLink size={12} /></button></td>
                       <td className="px-4 py-3 text-right text-muted-foreground">{item.order_count}</td>
                       <td className="px-4 py-3 text-right font-bold">{fmt(item.total_revenue)}</td>
                       <td className="px-4 py-3 text-right font-bold text-emerald-600">{fmt(item.total_profit)}</td>
@@ -641,7 +648,7 @@ function BranchTable({ data, dateRange }: { data: RevenueByBranch[]; dateRange: 
                           const rows = item.daily_breakdown
                             .filter(d => inRange(d.date, localStart, localEnd))
                             .map(d => ({ date: d.date, revenue: d.revenue, profit: d.profit, order_count: d.order_count }));
-                          setModal({ title: `Theo ngày — ${item.co_so}`, subtitle: `${rows.length} ngày có giao dịch`, rows });
+                          setModal({ title: `Theo ngày — ${item.co_so}`, subtitle: `${rows.length} ngày có giao dịch`, rows, scope: { branch: item.co_so } });
                         }}
                         className="flex items-center gap-1 text-[11px] font-bold text-primary hover:underline ml-auto"
                       >
@@ -773,6 +780,7 @@ function PersonnelTable({ data, dateRange }: { data: { personnel: RevenueByPerso
                             onClick={() => setModal({
                               title: `Theo ngày — ${p.nhan_vien_name}`,
                               subtitle: `${activeDays.length} ngày có giao dịch`,
+                              scope: { staff: p.nhan_vien_name },
                               rows: activeDays.map(d => ({ date: d.date, revenue: d.revenue, profit: d.profit })),
                             })}
                             className="flex items-center gap-1 text-[11px] font-bold text-primary hover:underline ml-auto"
@@ -1444,6 +1452,7 @@ const RevenueReportPage: React.FC = () => {
   const [loadError, setLoadError] = useState('');
   const [snapshot, setSnapshot] = useState<ReportSnapshot | null>(null);
   const [filteredSnapshot, setFilteredSnapshot] = useState<ReportSnapshot | null>(null);
+  const [drillScope, setDrillScope] = useState<ReportDrillScope | null>(null);
   const [selectedBranch, setSelectedBranch] = useState('');
   const [selectedStaff, setSelectedStaff] = useState<string[]>([]);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
@@ -1500,6 +1509,7 @@ const RevenueReportPage: React.FC = () => {
   };
 
   const loadAll = useCallback(async () => {
+    setDrillScope(null);
     const version = ++loadVersion.current;
     loadController.current?.abort();
     const controller = new AbortController(); loadController.current = controller;
@@ -1577,8 +1587,15 @@ const RevenueReportPage: React.FC = () => {
   }, [needsPersonnel, filteredSnapshot, personnelHeaders, filtering, catalogLoading, startDate, endDate, filters, personnelCatalog]);
 
   const retryFinancial = () => { financialPending.current = false; setFinancialResult({ key: '', data: null, error: '' }); setLazyRetry(n => n + 1); };
+  const drillRecords = useMemo(() => drillScope && filteredSnapshot
+    ? selectReportOrderLines(filteredSnapshot.records, drillScope, personnelHeaders ?? [], personnelCatalog) : [],
+    [drillScope, filteredSnapshot, personnelHeaders, personnelCatalog]);
+  const closeDrill = useCallback(() => setDrillScope(null), []);
+  useEffect(() => { setDrillScope(null); }, [filters, activeTab]);
 
   return (
+    <ReportDrillContext.Provider value={setDrillScope}>
+    {drillScope && <ReportOrdersModal scope={drillScope} records={drillRecords} onClose={closeDrill} />}
     <div className="w-full h-full flex flex-col p-4 lg:p-6 overflow-y-auto pt-8">
       <div className="w-full space-y-5 max-w-[1400px] mx-auto">
 
@@ -1709,6 +1726,7 @@ const RevenueReportPage: React.FC = () => {
         ) : null}
       </div>
     </div>
+    </ReportDrillContext.Provider>
   );
 };
 

@@ -8,7 +8,7 @@ import { branchKey, branchLabel } from '../lib/branchCatalog';
 import type { NhanSu } from './personnelData';
 
 /** Chuẩn hóa tên để khớp bảng lương / nhan_vien_id trên đơn (bỏ dấu, thường, gộp khoảng trắng). */
-function chuanHoaTenTheoDon(s: string): string {
+export function chuanHoaTenTheoDon(s: string): string {
   return removeVietnameseTones(s.trim().toLowerCase()).replace(/\s+/g, ' ');
 }
 
