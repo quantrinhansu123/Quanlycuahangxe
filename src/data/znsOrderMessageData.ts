@@ -55,19 +55,32 @@ type CustomerSnapshot = {
   so_dien_thoai: string | null;
 };
 
+const IN_CHUNK_SIZE = 100;
+
+// PostgREST nhận .in() qua URL: danh sách dài (vài trăm UUID) làm request bị 400.
+async function selectInChunks<T>(
+  values: string[],
+  run: (chunk: string[]) => PromiseLike<{ data: T[] | null; error: unknown }>,
+): Promise<T[]> {
+  const out: T[] = [];
+  for (let i = 0; i < values.length; i += IN_CHUNK_SIZE) {
+    const { data, error } = await run(values.slice(i, i + IN_CHUNK_SIZE));
+    if (error) throw error;
+    out.push(...(data || []));
+  }
+  return out;
+}
+
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 async function syncQueueCustomerSnapshots(rows: OrderMessageQueueItem[]): Promise<OrderMessageQueueItem[]> {
   const orderIds = [...new Set(rows.map((row) => row.order_id).filter(Boolean))];
   if (orderIds.length === 0) return rows;
 
-  const { data: orderData, error: orderError } = await supabase
+  const orders = await selectInChunks<OrderCustomerSnapshot>(orderIds, (chunk) => supabase
     .from('the_ban_hang')
     .select('id, id_bh, khach_hang_id, ten_khach_hang, so_dien_thoai')
-    .in('id', orderIds);
-  if (orderError) throw orderError;
-
-  const orders = (orderData || []) as OrderCustomerSnapshot[];
+    .in('id', chunk));
   const customerRefs = [...new Set(orders.map((order) => order.khach_hang_id?.trim()).filter(Boolean))] as string[];
   const customerByRef = new Map<string, CustomerSnapshot>();
   if (customerRefs.length > 0) {
@@ -75,20 +88,16 @@ async function syncQueueCustomerSnapshots(rows: OrderMessageQueueItem[]): Promis
     const codeRefs = customerRefs.filter((ref) => !UUID_PATTERN.test(ref));
     const customerRows: CustomerSnapshot[] = [];
     if (uuidRefs.length > 0) {
-      const { data, error } = await supabase
+      customerRows.push(...await selectInChunks<CustomerSnapshot>(uuidRefs, (chunk) => supabase
         .from('khach_hang')
         .select('id, ma_khach_hang, ho_va_ten, so_dien_thoai')
-        .in('id', uuidRefs);
-      if (error) throw error;
-      customerRows.push(...((data || []) as CustomerSnapshot[]));
+        .in('id', chunk)));
     }
     if (codeRefs.length > 0) {
-      const { data, error } = await supabase
+      customerRows.push(...await selectInChunks<CustomerSnapshot>(codeRefs, (chunk) => supabase
         .from('khach_hang')
         .select('id, ma_khach_hang, ho_va_ten, so_dien_thoai')
-        .in('ma_khach_hang', codeRefs);
-      if (error) throw error;
-      customerRows.push(...((data || []) as CustomerSnapshot[]));
+        .in('ma_khach_hang', chunk)));
     }
     for (const customer of customerRows) {
       customerByRef.set(customer.id, customer);
@@ -131,11 +140,21 @@ async function syncQueueCustomerSnapshots(rows: OrderMessageQueueItem[]): Promis
   return syncedRows;
 }
 
-export async function listOrderMessageQueue(): Promise<OrderMessageQueueItem[]> {
-  const { data, error } = await supabase
+/** date: 'YYYY-MM-DD' theo giờ máy; lọc ở server để không kéo cả lịch sử hàng đợi. */
+export async function listOrderMessageQueue(date?: string): Promise<OrderMessageQueueItem[]> {
+  let query = supabase
     .from('zns_order_message_queue')
     .select('*')
     .order('created_at', { ascending: false });
+  if (date) {
+    const start = new Date(`${date}T00:00:00`);
+    if (!Number.isNaN(start.getTime())) {
+      const end = new Date(start);
+      end.setDate(end.getDate() + 1);
+      query = query.gte('created_at', start.toISOString()).lt('created_at', end.toISOString());
+    }
+  }
+  const { data, error } = await query;
   if (error) throw error;
   return syncQueueCustomerSnapshots((data as OrderMessageQueueItem[]) || []);
 }

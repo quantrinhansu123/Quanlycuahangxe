@@ -34,21 +34,29 @@ export const OrderMessageApprovalPanel: React.FC = () => {
   const [dateFilter, setDateFilter] = useState(todayInput());
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [rowToDelete, setRowToDelete] = useState<OrderMessageQueueItem | null>(null);
   const [showBulkDeleteConfirmation, setShowBulkDeleteConfirmation] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  const loadSeq = React.useRef(0);
   const load = React.useCallback(async () => {
+    const seq = ++loadSeq.current;
     setLoading(true);
+    setLoadError(null);
     try {
-      setRows(await listOrderMessageQueue());
+      const data = await listOrderMessageQueue(dateFilter);
+      if (seq === loadSeq.current) setRows(data);
     } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Không tải được hàng đợi duyệt tin nhắn', 'error');
+      if (seq !== loadSeq.current) return;
+      const message = error instanceof Error && error.message ? error.message : 'Không tải được hàng đợi duyệt tin nhắn';
+      setLoadError(message);
+      showToast(message, 'error');
     } finally {
-      setLoading(false);
+      if (seq === loadSeq.current) setLoading(false);
     }
-  }, [showToast]);
+  }, [showToast, dateFilter]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -209,9 +217,14 @@ export const OrderMessageApprovalPanel: React.FC = () => {
 
         {loading ? (
           <div className="flex items-center gap-2 py-10 text-sm text-muted-foreground"><Loader2 size={16} className="animate-spin" /> Đang tải hàng đợi...</div>
+        ) : loadError ? (
+          <div className="py-10 text-center text-sm text-red-600">
+            Không tải được hàng đợi: {loadError}{' '}
+            <button type="button" onClick={() => void load()} className="font-semibold underline">Thử lại</button>
+          </div>
         ) : displayedRows.length === 0 ? (
           <div className="py-10 text-center text-sm text-muted-foreground">
-            {rows.length === 0 ? 'Chưa có khách hàng nào chờ duyệt.' : 'Không có khách hàng nào khớp bộ lọc hiện tại.'}
+            {rows.length === 0 ? 'Chưa có khách hàng nào chờ duyệt trong ngày đã chọn.' : 'Không có khách hàng nào khớp bộ lọc hiện tại.'}
           </div>
         ) : (
           <div className="mt-5 overflow-x-auto rounded-xl border border-border">
