@@ -34,6 +34,9 @@ test('technician privacy and immutable saved orders use verified application ses
   const migration = await read('supabase/migrations/202610100001_technician_customer_privacy.sql');
   await db.exec(migration);
   await db.exec(migration);
+  const policyFix=await read('supabase/migrations/202610100002_cached_customer_privacy_policy.sql');
+  await db.exec(policyFix);
+  await db.exec(policyFix);
   await db.exec(`CREATE FUNCTION test_saved_record_write(kind text,record_id uuid) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$ BEGIN
       IF kind='order' THEN UPDATE the_ban_hang SET ghi_chu='forged' WHERE id=record_id;
@@ -58,6 +61,8 @@ test('technician privacy and immutable saved orders use verified application ses
   await t.test('phones are absent from views, RPCs, legacy keys, histories, and direct tables',async () => {
     await session('tech');
     assert.equal((await db.query('SELECT * FROM khach_hang')).rows.length,0);
+    const plan=(await db.query('EXPLAIN SELECT * FROM khach_hang LIMIT 1')).rows.map(row=>row['QUERY PLAN']).join('\n');
+    assert.match(plan,/InitPlan/,'Session privacy checks must run once per query, not once per customer');
     assert.equal((await db.query('SELECT * FROM the_ban_hang')).rows.length,0);
     assert.equal((await db.query('SELECT * FROM khach_hang_lich_su')).rows.length,0);
     assert.equal((await db.query('SELECT * FROM nhan_su')).rows.length,0);
