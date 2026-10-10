@@ -810,4 +810,98 @@ test('PURCHASE RECEIPT ACCESS CONTROL & INVENTORY PROTECTION SUITE (HOTFIX SCOPE
       return true;
     }
   );
+
+  // The new migration runs against the same real schema and save RPC.
+  const historicInvoice = await saveReceipt({ ngay: '2026-09-19', co_so: 'Cơ sở Bắc Giang', phuong_thuc_thanh_toan: 'Chưa thanh toán', items: [{ ten_san_pham: 'Bugi B', so_luong: 10, gia_nhap: 100 }] });
+  await db.query(`INSERT INTO thu_chi(loai_phieu,id_don,co_so,so_tien,trang_thai,phuong_thuc)
+    VALUES ('phiếu chi',$1::text,'Cơ sở Bắc Giang',400,'Hoàn thành','Tiền mặt')`, [historicInvoice.id]);
+  await db.exec(await readFile(new URL('../supabase/migrations/202610100003_purchase_payment_reconciliation.sql', import.meta.url), 'utf8'));
+  const historicDebt = (await db.query(`SELECT da_thanh_toan,con_no FROM phieu_nhap_hang WHERE id=$1`, [historicInvoice.id])).rows[0];
+  assert.equal(Number(historicDebt.da_thanh_toan), 400, 'Explicit historical invoice reference is reconciled');
+  assert.equal(Number(historicDebt.con_no), 600);
+  assert.equal(Number((await db.query(`SELECT so_tien FROM thu_chi WHERE source_id=$1 AND source_type='purchase_receipt'`, [historicInvoice.id])).rows[0].so_tien), 600, 'Historical pending cash is reduced during migration');
+  await setSessionActor('00000000-0000-0000-0000-000000000004');
+  const debtInvoice = await saveReceipt({ ngay: '2026-09-20', co_so: 'Cơ sở Bắc Giang', nha_cung_cap: 'Supplier A', phuong_thuc_thanh_toan: 'Chưa thanh toán', items: [{ ten_san_pham: 'Bugi B', so_luong: 10, gia_nhap: 100 }] });
+  const balance = async () => (await db.query('SELECT da_thanh_toan, con_no, trang_thai_thanh_toan FROM phieu_nhap_hang WHERE id=$1', [debtInvoice.id])).rows[0];
+  assert.equal(Number((await balance()).con_no), 1000);
+  const pay = async (amount, state = 'Hoàn thành', branch = 'Cơ sở Bắc Giang') => (await db.query(`INSERT INTO thu_chi(loai_phieu,id_don,co_so,source_type,source_id,so_tien,trang_thai,phuong_thuc) VALUES ('phiếu chi',$1::text,$2,'purchase_payment',$1::uuid,$3,$4,'Tiền mặt') RETURNING id`, [debtInvoice.id, branch, amount, state])).rows[0].id;
+  const firstPayment = await pay(400);
+  assert.equal(Number((await balance()).da_thanh_toan), 400);
+  assert.equal(Number((await balance()).con_no), 600);
+  assert.equal((await balance()).trang_thai_thanh_toan, 'Thanh toán một phần');
+  const pending = (await db.query(`SELECT so_tien, trang_thai FROM thu_chi WHERE source_id=$1 AND source_type='purchase_receipt'`, [debtInvoice.id])).rows[0];
+  assert.equal(Number(pending.so_tien), 600, 'Placeholder contains remaining debt, not original invoice total');
+  const secondPayment = await pay(600);
+  assert.equal((await balance()).trang_thai_thanh_toan, 'Đã thanh toán');
+  assert.equal(Number((await balance()).con_no), 0);
+  assert.equal(Number((await db.query(`SELECT sum(so_tien) n FROM thu_chi WHERE source_id=$1 AND trang_thai='Hoàn thành'`, [debtInvoice.id])).rows[0].n), 1000, 'Cash is counted exactly once');
+  await assert.rejects(pay(1), /vượt số tiền còn nợ/);
+  await assert.rejects(pay(1, 'Hoàn thành', 'Cơ sở Bắc Ninh'), /phải khớp/);
+  await db.query('DELETE FROM thu_chi WHERE id=$1', [secondPayment]);
+  assert.equal(Number((await balance()).con_no), 600, 'Deleting payment reopens debt');
+  await db.query('UPDATE thu_chi SET so_tien=300 WHERE id=$1', [firstPayment]);
+  assert.equal(Number((await balance()).con_no), 700, 'Editing payment recalculates debt');
+  const waitingPayment = await pay(700, 'Đang chờ');
+  assert.equal(Number((await balance()).con_no), 700, 'Pending payments do not settle debt');
+  await db.query(`UPDATE thu_chi SET trang_thai='Đã hủy' WHERE id=$1`, [firstPayment]);
+  assert.equal(Number((await balance()).con_no), 1000, 'Cancelled payment reopens debt');
+  await db.query('DELETE FROM thu_chi WHERE id=$1', [waitingPayment]);
+  await setSessionActor('00000000-0000-0000-0000-000000000005');
+  await assert.rejects(pay(10), /Không có quyền/);
+
+  await db.exec(`
+    CREATE TABLE the_ban_hang(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), id_bh text, ngay date, co_so text, khach_hang_id text, ten_khach_hang text, tong_tien numeric);
+    CREATE VIEW the_ban_hang_visible AS SELECT * FROM the_ban_hang;
+    CREATE TABLE the_ban_hang_ct(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), id_don_hang text, san_pham text, co_so text, gia_von numeric, so_luong numeric);
+  `);
+  await db.exec(await readFile(new URL('../supabase/migrations/202610100004_business_report_sources.sql', import.meta.url), 'utf8'));
+  await db.exec(`
+    INSERT INTO the_ban_hang(id,id_bh,ngay,co_so,tong_tien) VALUES ('00000000-0000-4000-8000-000000000100','BH-HISTORY','2026-09-01','Cơ sở Bắc Giang',1000);
+    INSERT INTO thu_chi(loai_phieu,id_don,co_so,so_tien,trang_thai,ghi_chu,phuong_thuc) VALUES
+      ('phiếu thu','BH-HISTORY','Cơ sở Bắc Giang',1000,'Đang chờ','Hệ thống tự động: chưa thu tiền','Tiền mặt'),
+      ('phiếu thu','BH-HISTORY','Cơ sở Bắc Giang',300,'Hoàn thành','Khách trả từng phần','Tiền mặt');
+  `);
+  const privacySql = await readFile(new URL('../supabase/migrations/202610100001_technician_customer_privacy.sql', import.meta.url), 'utf8');
+  await db.exec(`CREATE FUNCTION app_is_service_request() RETURNS boolean LANGUAGE sql AS $$ SELECT false $$;
+    CREATE FUNCTION app_is_technician() RETURNS boolean LANGUAGE sql AS $$ SELECT coalesce((SELECT vi_tri LIKE '%Kỹ thuật%' FROM nhan_su WHERE id=current_app_nhan_su_uuid()),false) $$;`);
+  await db.exec(privacySql.match(/CREATE OR REPLACE FUNCTION public.guard_technician_saved_data\(\)[\s\S]*?\n\$\$;/)[0]);
+  await db.exec(`CREATE TRIGGER guard_technician_saved_data BEFORE INSERT OR UPDATE OR DELETE ON thu_chi FOR EACH ROW EXECUTE FUNCTION guard_technician_saved_data()`);
+  await setSessionActor('');
+  await db.exec(await readFile(new URL('../supabase/migrations/202610100005_sales_payment_reconciliation.sql', import.meta.url), 'utf8'));
+  const historicSale = (await db.query(`SELECT so_tien FROM thu_chi WHERE source_id='00000000-0000-4000-8000-000000000100' AND source_type='sales_order'`)).rows[0];
+  assert.equal(Number(historicSale.so_tien),700,'Historical pending receipt is reduced by explicitly linked partial receipts');
+  assert.equal(Number((await db.query(`SELECT count(*) n FROM thu_chi WHERE source_id='00000000-0000-4000-8000-000000000100' AND source_type='sales_payment'`)).rows[0].n),1);
+  await setSessionActor('00000000-0000-0000-0000-000000000004');
+  const saleId = (await db.query(`INSERT INTO the_ban_hang(id_bh,ngay,co_so,tong_tien) VALUES ('BH-PAY','2026-09-01','Cơ sở Bắc Giang',1000) RETURNING id`)).rows[0].id;
+  const salePayment = async (amount, status='Hoàn thành', source='sales_payment') => (await db.query(`INSERT INTO thu_chi(loai_phieu,id_don,co_so,source_type,source_id,so_tien,trang_thai,phuong_thuc) VALUES ('phiếu thu',$1::text,'Cơ sở Bắc Giang',$2,$1::uuid,$3,$4,$5) RETURNING id`,[saleId,source,amount,status,status==='Hoàn thành'?'Tiền mặt':'Chưa thanh toán'])).rows[0].id;
+  await salePayment(1000,'Đang chờ','sales_order');
+  const saleFirst = await salePayment(250);
+  const saleAuto = async () => (await db.query(`SELECT so_tien,trang_thai FROM thu_chi WHERE source_id=$1 AND source_type='sales_order'`,[saleId])).rows[0];
+  assert.equal(Number((await saleAuto()).so_tien),750);
+  const saleSecond = await salePayment(750);
+  assert.equal((await saleAuto()).trang_thai,'Đã đối trừ');
+  await assert.rejects(salePayment(1),/vượt số còn nợ/);
+  await db.query('DELETE FROM thu_chi WHERE id=$1',[saleSecond]);
+  assert.equal(Number((await saleAuto()).so_tien),750);
+  await db.query(`UPDATE thu_chi SET trang_thai='Đã hủy' WHERE id=$1`,[saleFirst]);
+  assert.equal(Number((await saleAuto()).so_tien),1000);
+  await setSessionActor('00000000-0000-0000-0000-000000000002');
+  await assert.rejects(salePayment(1),{code:'42501'});
+  await setSessionActor('00000000-0000-0000-0000-000000000005');
+  await assert.rejects(salePayment(1),/Không có quyền/);
+
+  await db.query(`INSERT INTO the_ban_hang_ct(id_don_hang,san_pham,co_so,gia_von,so_luong) VALUES ('BH-PAY','Bugi B','Cơ sở Bắc Giang',0,2)`);
+  await db.query(`INSERT INTO nhap_xuat_kho(loai_phieu,id_don_hang,co_so,ten_mat_hang,so_luong,gia,tong_tien) VALUES ('Xuất kho','BH-PAY','Cơ sở Bắc Giang','Bugi B',2,0,0)`);
+  await db.query(`UPDATE the_ban_hang_ct SET gia_von=60 WHERE id_don_hang='BH-PAY'`);
+  const corrected = (await db.query(`SELECT gia,tong_tien FROM nhap_xuat_kho WHERE id_don_hang='BH-PAY'`)).rows[0];
+  assert.equal(Number(corrected.gia),60);
+  assert.equal(Number(corrected.tong_tien),120);
+  await db.query('UPDATE the_ban_hang SET co_so=NULL WHERE id=$1',[saleId]);
+  assert.equal((await db.query('SELECT co_so FROM business_order_headers WHERE id=$1',[saleId])).rows[0].co_so,'Cơ sở Bắc Giang','Historical debt gets its branch from original lines');
+  await setSessionActor('');
+  await db.exec(await readFile(new URL('../supabase/anc-business-reports.sql', import.meta.url), 'utf8'));
+  assert.equal(Number((await saleAuto()).so_tien),1000,'Migrations can be safely rerun without an application actor');
+  assert.equal((await db.query(`SELECT tgenabled FROM pg_trigger WHERE tgrelid='thu_chi'::regclass AND tgname='guard_technician_saved_data'`)).rows[0].tgenabled,'O','Original privacy guard is restored after migration');
+  await assert.rejects(db.exec(`UPDATE thu_chi SET ghi_chu='forged' WHERE source_type='sales_payment'`),/Phiên đăng nhập không hợp lệ/);
+  await db.close();
 });

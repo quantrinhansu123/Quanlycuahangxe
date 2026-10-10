@@ -1,0 +1,55 @@
+{
+  "deploymentDate": "2026-10-11",
+  "migrations": [
+    {
+      "name": "purchase_payment_reconciliation",
+      "version": "202610100003"
+    },
+    {
+      "name": "business_report_sources",
+      "version": "202610100004"
+    },
+    {
+      "name": "sales_payment_reconciliation",
+      "version": "202610100005"
+    }
+  ],
+  "transactionCommitted": true,
+  "backupSavedLocally": true,
+  "recordCountsUnchanged": true,
+  "completedCashAndBankTotalsUnchanged": true,
+  "privacyGuardsPreserved": true,
+  "paymentAndWarehouseTriggersEnabled": true,
+  "salesSourceErrors": 0,
+  "purchaseBalanceErrors": 0,
+  "reportViewUsesInvokerPermissions": true,
+  "apiChecks": [
+    {
+      "check": "report_view",
+      "status": 200,
+      "ready": true,
+      "errorCode": null
+    },
+    {
+      "check": "purchase_payment_columns",
+      "status": 200,
+      "ready": true,
+      "errorCode": null
+    },
+    {
+      "check": "payment_sources",
+      "status": 200,
+      "ready": true,
+      "errorCode": null
+    }
+  ],
+  "preDeploymentTests": {
+    "purchaseReceipt": "passed",
+    "technicianPrivacy": "passed (7 tests)"
+  },
+  "local": {
+    "url": "http://localhost:5173",
+    "status": 200
+  },
+  "liveAuthenticatedWriteWorkflow": "awaiting user testing"
+}

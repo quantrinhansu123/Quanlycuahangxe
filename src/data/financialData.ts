@@ -43,9 +43,12 @@ export const getTransactions = async (range?: { from: string; to: string }): Pro
 };
 
 export const upsertTransaction = async (transaction: Partial<ThuChi>): Promise<ThuChi> => {
+  const payload = { ...transaction };
+  delete payload.khach_hang;
+  delete payload.khach_tra;
   const { data, error } = await supabase
     .from('thu_chi')
-    .upsert(transaction)
+    .upsert(payload)
     .select()
     .single();
 
@@ -55,6 +58,22 @@ export const upsertTransaction = async (transaction: Partial<ThuChi>): Promise<T
   }
   return data as ThuChi;
 };
+
+export async function loadPaymentInvoiceOptions(search: string, branch: string, purchase: boolean, signal: AbortSignal) {
+  const table = purchase ? 'phieu_nhap_hang' : 'business_order_headers';
+  const code = purchase ? 'ma_phieu' : 'id_bh';
+  const name = purchase ? 'nha_cung_cap' : 'ten_khach_hang';
+  let query = supabase.from(table).select(`id,${code},${name},co_so,tong_tien${purchase ? ',con_no' : ',khach_hang_id'}`);
+  if (branch) query = query.in('co_so', [branch, branch.replace(/^(cơ sở|co so)\s+/i, '')]);
+  const term = search.trim().replace(/[,%()]/g, ' ');
+  if (term) query = query.or(`${code}.ilike.%${term}%,${name}.ilike.%${term}%`);
+  const { data, error } = await query.order('ngay', { ascending: false }).order('id').limit(50).abortSignal(signal);
+  if (error) throw error;
+  return (data ?? []).map(row => {
+    const invoice = row as unknown as Record<string, string | number | null>;
+    return { value: String(invoice.id), label: `${invoice[code] || invoice.id} · ${invoice[name] || 'Chưa có tên'} · ${Number(invoice.con_no ?? invoice.tong_tien ?? 0).toLocaleString('vi-VN')} đ`, searchKey: `${invoice[code] || ''} ${invoice[name] || ''}`, customerId: invoice.khach_hang_id as string | null, recipient: invoice[name] as string | null };
+  });
+}
 
 export const bulkUpsertTransactions = async (transactions: Partial<ThuChi>[]): Promise<void> => {
   const toUpdate = transactions.filter(t => t.id);
@@ -108,13 +127,14 @@ export const getTransactionByOrderId = async (orderId: string): Promise<ThuChi |
     .from('thu_chi')
     .select('*')
     .eq('id_don', orderId)
-    .maybeSingle();
+    .order('created_at', { ascending: true });
 
   if (error) {
     console.error('Error fetching transaction by order ID:', error);
-    return null;
+    throw error;
   }
-  return data as ThuChi | null;
+  // A manual partial receipt must never be overwritten by order synchronization.
+  return ((data || []) as ThuChi[]).find(row => row.source_type === 'sales_order' || row.ghi_chu?.startsWith('Hệ thống tự động:') || row.ghi_chu?.startsWith('Đồng bộ từ đơn hàng') || row.ghi_chu?.startsWith('Thu tiền đơn hàng')) || null;
 };
 
 export const getTransactionsByOrderIds = async (orderIds: string[], signal?: AbortSignal): Promise<ThuChi[]> => {
@@ -265,8 +285,10 @@ export const syncTransactionsFromSalesOrders = async (): Promise<{ created: numb
     detailTotals.set(ref, prev);
   });
 
-  const orderIds = (orders || []).map((o) => o.id).filter(Boolean);
+  const orderIds = (orders || []).flatMap(o => [o.id, o.id_bh]).filter(Boolean) as string[];
+  const canonicalOrder = new Map((orders || []).flatMap(o => [o.id, o.id_bh].filter(Boolean).map(ref => [String(ref), String(o.id)] as const)));
   const existingByOrder = new Map<string, ThuChi>();
+  const manuallyPaidByOrder = new Map<string, number>();
   for (const chunk of chunkArray(orderIds, 200)) {
     const { data: existing, error: txErr } = await supabase
       .from('thu_chi')
@@ -274,7 +296,10 @@ export const syncTransactionsFromSalesOrders = async (): Promise<{ created: numb
       .in('id_don', chunk);
     if (txErr) throw txErr;
     (existing || []).forEach((tx) => {
-      if (tx.id_don) existingByOrder.set(String(tx.id_don), tx as ThuChi);
+      if (!tx.id_don) return;
+      const orderId = canonicalOrder.get(String(tx.id_don)) || String(tx.id_don);
+      if (tx.source_type === 'sales_order' || tx.ghi_chu?.startsWith('Hệ thống tự động:') || tx.ghi_chu?.startsWith('Đồng bộ từ đơn hàng') || tx.ghi_chu?.startsWith('Thu tiền đơn hàng')) existingByOrder.set(orderId, tx as ThuChi);
+      else if (tx.loai_phieu === 'phiếu thu' && tx.trang_thai === 'Hoàn thành') manuallyPaidByOrder.set(orderId, (manuallyPaidByOrder.get(orderId) || 0) + Number(tx.so_tien));
     });
   }
 
@@ -300,15 +325,17 @@ export const syncTransactionsFromSalesOrders = async (): Promise<{ created: numb
     payload.push({
       id: existing?.id,
       loai_phieu: 'phiếu thu',
+      source_type: 'sales_order',
+      source_id: order.id,
       id_don: order.id,
       co_so: coSo,
       id_khach_hang: order.khach_hang_id || null,
       danh_muc: 'Doanh thu dịch vụ',
       ghi_chu: existing?.ghi_chu || `Đồng bộ từ đơn hàng ${String(order.id).slice(0, 8)}`,
-      so_tien: total,
+      so_tien: Math.max(0, total - (manuallyPaidByOrder.get(String(order.id)) || 0)),
       nguoi_chi: order.ten_khach_hang || existing?.nguoi_chi || 'Khách vãng lai',
       nguoi_nhan: existing?.nguoi_nhan || '',
-      trang_thai: 'Hoàn thành',
+      trang_thai: existing ? existing.trang_thai || 'Đang chờ' : ['Tiền mặt', 'Chuyển khoản', 'Ngân hàng'].includes(order.phuong_thuc_thanh_toan || '') ? 'Hoàn thành' : 'Đang chờ',
       ngay: order.ngay,
       gio: order.gio || '00:00',
       phuong_thuc: existing?.phuong_thuc || order.phuong_thuc_thanh_toan || 'Tiền mặt'

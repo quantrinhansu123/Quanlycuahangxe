@@ -1,18 +1,11 @@
 import { getStoredDemoRole } from '../lib/authStorage';
 import {
-  buildCashFlowReport,
-  buildDebtReport,
-  buildExpenseReport,
-  buildPeriodBusinessMetrics,
-  buildProductCostReport,
-  buildReportSummary,
-  previousBusinessRange,
-  type CashFlowMetricsRow,
-  type DebtMetricsRow,
-  type ExpenseMetricsRow,
-  type PeriodBusinessMetrics,
-  type ProductCostMetricsRow,
+  buildCashFlowReport, buildDebtReport, buildExpenseReport, buildPeriodBusinessMetrics,
+  buildProductCostReport, buildReportSummary, previousBusinessRange,
+  type CashFlowMetricsRow, type DebtMetricsRow, type ExpenseMetricsRow,
+  type PeriodBusinessMetrics, type ProductCostMetricsRow, type BusinessPurchaseInput,
 } from '../lib/businessReportMetrics';
+import { belongsToReportBranch, scopeBusinessOrders } from '../lib/businessReportScope';
 import { supabase } from '../lib/supabase';
 import { calculateInventoryStockSummary, type ProductRecord, type InventoryRecord, type InventoryStockSummaryRow } from './inventoryData';
 import { fetchAllCTRecords, type ReportCTRecords, type ReportSummary } from './reportData';
@@ -26,170 +19,111 @@ async function fetchAll<T>(buildPage: (from: number, to: number) => Promise<{ da
   for (let from = 0; ; from += PAGE_SIZE) {
     const { data, error } = await buildPage(from, from + PAGE_SIZE - 1);
     if (error) throw error;
-    const page = data ?? [];
-    rows.push(...page);
-    if (page.length < PAGE_SIZE) return rows;
+    rows.push(...(data ?? []));
+    if (!data || data.length < PAGE_SIZE) return rows;
   }
 }
 
-type TransactionRow = {
-  id: string;
-  loai_phieu: string;
-  id_don: string | null;
-  danh_muc: string | null;
-  so_tien: number | null;
-  nguoi_nhan: string | null;
-  trang_thai: string;
-  ngay: string;
-  phuong_thuc?: string | null;
+export type BusinessTransactionRow = {
+  id: string; loai_phieu: string; id_don: string | null; danh_muc: string | null;
+  so_tien: number | null; nguoi_nhan: string | null; trang_thai: string; ngay: string;
+  gio?: string | null; phuong_thuc?: string | null; co_so?: string | null;
+  source_type?: string | null; source_id?: string | null; ghi_chu?: string | null;
 };
-
-type OrderRow = {
-  id: string;
-  id_bh: string | null;
-  ngay: string;
-  khach_hang_id: string | null;
-  ten_khach_hang: string | null;
-  tong_tien: number | null;
-};
-
-type OrderDetailRow = {
-  id_don_hang: string | null;
-  san_pham: string | null;
-  thanh_tien: number | null;
-  gia_ban: number | null;
-  gia_von: number | null;
-  so_luong: number | null;
-  ngay: string | null;
-};
-
-type PeriodRows = {
-  transactions: TransactionRow[];
-  orders: OrderRow[];
-  details: OrderDetailRow[];
-};
-
+type OrderRow = { id: string; id_bh: string | null; ngay: string; co_so?: string | null; khach_hang_id: string | null; ten_khach_hang: string | null; tong_tien: number | null };
+type ServiceCodeRow = { id_dich_vu: string | null; ten_dich_vu: string };
+export interface BusinessReportSources {
+  startDate: string; endDate: string;
+  transactions: BusinessTransactionRow[]; orders: OrderRow[]; purchases: BusinessPurchaseInput[];
+  products: ProductRecord[]; services: ServiceCodeRow[]; movements: InventoryRecord[];
+  details: ReportCTRecords; priorDetails: ReportCTRecords;
+}
 export type DebtReportRow = DebtMetricsRow;
 export type ExpenseReportRow = ExpenseMetricsRow;
 export type CashFlowReportRow = CashFlowMetricsRow;
 export type ProductCostReportRow = ProductCostMetricsRow;
-
-export type FinancialReportSummary = ReportSummary & PeriodBusinessMetrics & {
-  total_cost: number;
-  gross_margin: number;
-};
+export type FinancialReportSummary = ReportSummary & PeriodBusinessMetrics & { total_cost: number; gross_margin: number };
 
 export interface BusinessReportData {
   summary: FinancialReportSummary;
   previousSummary: ReportSummary & PeriodBusinessMetrics;
-  previousStart: string;
-  previousEnd: string;
-  expenses: ExpenseReportRow[];
-  totalExpenses: number;
-  profitBeforeTax: number;
-  preTaxMargin: number;
-  debts: DebtReportRow[];
-  cashFlow: CashFlowReportRow[];
-  totalCashIn: number;
-  totalCashOut: number;
-  productCosts: ProductCostReportRow[];
-  inventory: InventoryStockSummaryRow[];
+  previousStart: string; previousEnd: string;
+  expenses: ExpenseReportRow[]; totalExpenses: number; profitBeforeTax: number; preTaxMargin: number;
+  debts: DebtReportRow[]; cashFlow: CashFlowReportRow[]; totalCashIn: number; totalCashOut: number;
+  productCosts: ProductCostReportRow[]; inventory: InventoryStockSummaryRow[];
+  transactions: BusinessTransactionRow[]; inventoryMovements: InventoryRecord[];
+  purchases: BusinessPurchaseInput[];
+  missingCostLines: number;
+  costLines: ReportCTRecords;
+  orders: OrderRow[];
+  sources: BusinessReportSources;
 }
 
-function demoPeriodRows(date: string, previous = false): PeriodRows {
-  const orderId = previous ? 'demo-order-previous' : 'demo-order-current';
-  const orderCode = previous ? 'BH-DEMO-TRUOC' : 'BH-DEMO-NAY';
-  const revenue = previous ? 4_000_000 : 5_000_000;
-  const cost = previous ? 2_500_000 : 3_000_000;
-  return {
-    transactions: [
-      { id: `${orderId}-receipt`, loai_phieu: 'phiếu thu', id_don: orderId, danh_muc: 'Doanh thu dịch vụ', so_tien: previous ? 3_500_000 : 4_500_000, nguoi_nhan: 'Thu ngân', trang_thai: 'Hoàn thành', ngay: date, phuong_thuc: 'Tiền mặt' },
-      { id: `${orderId}-rent`, loai_phieu: 'phiếu chi', id_don: null, danh_muc: 'Thuê mặt bằng', so_tien: previous ? 1_500_000 : 2_000_000, nguoi_nhan: 'Chủ nhà', trang_thai: 'Hoàn thành', ngay: date, phuong_thuc: 'Ngân hàng' },
-      { id: `${orderId}-utilities`, loai_phieu: 'phiếu chi', id_don: null, danh_muc: 'Tiền điện nước', so_tien: 500_000, nguoi_nhan: 'Điện lực', trang_thai: 'Chờ thanh toán', ngay: date, phuong_thuc: 'Ngân hàng' },
-    ],
-    orders: [{ id: orderId, id_bh: orderCode, ngay: date, khach_hang_id: previous ? 'demo-vehicle-previous' : 'demo-vehicle-current', ten_khach_hang: 'Nguyễn Văn A', tong_tien: revenue }],
-    details: [{ id_don_hang: orderId, san_pham: 'Bảo dưỡng xe', thanh_tien: revenue, gia_ban: revenue, gia_von: cost, so_luong: 1, ngay: date }],
-  };
-}
-
-async function fetchPeriodRows(startDate: string, endDate: string, sharedDetails?: ReportCTRecords, signal?: AbortSignal): Promise<PeriodRows> {
-  const [transactions, orders, details] = await Promise.all([
-    fetchAll<TransactionRow>(async (from, to) => {
-      signal?.throwIfAborted();
-      const result = await readRequest('report_transactions', s => supabase.from('thu_chi').select('id, loai_phieu, id_don, danh_muc, so_tien, nguoi_nhan, trang_thai, ngay, phuong_thuc').gte('ngay', startDate).lte('ngay', endDate).order('ngay').order('id').range(from, to).abortSignal(s), signal);
-      return { data: result.data as TransactionRow[] | null, error: result.error };
-    }),
-    fetchAll<OrderRow>(async (from, to) => {
-      signal?.throwIfAborted();
-      const result = await readRequest('report_business_headers', s => supabase.from('the_ban_hang').select('id, id_bh, ngay, khach_hang_id, ten_khach_hang, tong_tien').gte('ngay', startDate).lte('ngay', endDate).order('ngay').order('id').range(from, to).abortSignal(s), signal);
-      return { data: result.data as OrderRow[] | null, error: result.error };
-    }),
-    sharedDetails ?? fetchAllCTRecords(startDate, endDate, signal),
-  ]);
-  // OLD business reports iterate CT in ID order. Keep tie ordering and floating
-  // point accumulation identical using a sorted reference array, not row copies.
-  return { transactions, orders, details: [...details].sort((a,b) => a.id.localeCompare(b.id)) };
-}
-
-async function fetchReportInventory(startDate: string, endDate: string, signal?: AbortSignal) {
-  const [products, movements] = await Promise.all([
-    fetchAll<ProductRecord>(async (from,to) => {
-      signal?.throwIfAborted();
-      const result = await readRequest('report_product_catalog', s => supabase.from('ds_san_pham')
-        .select('id,ma_san_pham,ten_san_pham,don_vi_tinh,gia,ton_dau_ky').order('ten_san_pham').order('id').range(from,to).abortSignal(s), signal);
-      return { data: result.data, error: result.error };
-    }),
-    readRequest('report_inventory', s => supabase.from('nhap_xuat_kho')
-      .select('id,loai_phieu,ten_mat_hang,so_luong,gia,tong_tien,ngay').order('created_at',{ascending:false}).abortSignal(s), signal),
-  ]);
-  if (movements.error) throw movements.error;
-  return calculateInventoryStockSummary(products, movements.data as InventoryRecord[] || [], startDate, endDate);
-}
-
-export async function getBusinessReportData(startDate: string, endDate: string, sharedDetails?: ReportCTRecords, signal?: AbortSignal): Promise<BusinessReportData> {
+export async function getBusinessReportData(startDate: string, endDate: string, sharedDetails?: ReportCTRecords, signal?: AbortSignal, branch = '', sharedSources?: BusinessReportSources): Promise<BusinessReportData> {
   const prior = previousBusinessRange(startDate, endDate);
   const demo = isDemo();
-  const [current, previous, inventory] = await Promise.all([
-    demo ? Promise.resolve(demoPeriodRows(startDate)) : fetchPeriodRows(startDate, endDate, sharedDetails, signal),
-    demo ? Promise.resolve(demoPeriodRows(prior.start, true)) : fetchPeriodRows(prior.start, prior.end, undefined, signal),
-    demo ? Promise.resolve([] as InventoryStockSummaryRow[]) : fetchReportInventory(startDate, endDate, signal),
+  // Outstanding debt includes earlier invoices and payments through the end date.
+  const reuse = sharedSources?.startDate === startDate && sharedSources.endDate === endDate ? sharedSources : undefined;
+  const [transactions, orders, purchases, products, services, movements, details, priorDetails] = reuse
+    ? [reuse.transactions, reuse.orders, reuse.purchases, reuse.products, reuse.services, reuse.movements, reuse.details, reuse.priorDetails]
+    : await Promise.all([
+    demo ? Promise.resolve([] as BusinessTransactionRow[]) : fetchAll<BusinessTransactionRow>(async (from, to) => {
+      const result = await readRequest('report_transactions', s => supabase.from('thu_chi').select('id,loai_phieu,id_don,danh_muc,so_tien,nguoi_nhan,trang_thai,ngay,gio,phuong_thuc,co_so,source_type,source_id,ghi_chu').lte('ngay', endDate).order('ngay').order('id').range(from, to).abortSignal(s), signal);
+      return { data: result.data, error: result.error };
+    }),
+    demo ? Promise.resolve([] as OrderRow[]) : fetchAll<OrderRow>(async (from, to) => {
+      const result = await readRequest('report_business_headers', s => supabase.from('business_order_headers').select('id,id_bh,ngay,co_so,khach_hang_id,ten_khach_hang,tong_tien').lte('ngay', endDate).order('ngay').order('id').range(from, to).abortSignal(s), signal);
+      return { data: result.data, error: result.error };
+    }),
+    demo ? Promise.resolve([] as BusinessPurchaseInput[]) : fetchAll<BusinessPurchaseInput>(async (from, to) => {
+      const result = await readRequest('report_purchase_debt', s => supabase.from('phieu_nhap_hang').select('id,ma_phieu,nha_cung_cap,co_so,tong_tien,ngay').lte('ngay', endDate).order('ngay').order('id').range(from, to).abortSignal(s), signal);
+      return { data: result.data, error: result.error };
+    }),
+    demo ? Promise.resolve([] as ProductRecord[]) : fetchAll<ProductRecord>(async (from, to) => {
+      const result = await readRequest('report_product_catalog', s => supabase.from('ds_san_pham').select('id,ma_san_pham,ten_san_pham,don_vi_tinh,gia,ton_dau_ky').order('ten_san_pham').order('id').range(from, to).abortSignal(s), signal);
+      return { data: result.data, error: result.error };
+    }),
+    demo ? Promise.resolve([] as ServiceCodeRow[]) : fetchAll<ServiceCodeRow>(async (from, to) => {
+      const result = await readRequest('report_service_catalog', s => supabase.from('dich_vu').select('id,id_dich_vu,ten_dich_vu').order('id').range(from, to).abortSignal(s), signal);
+      return { data: result.data, error: result.error };
+    }),
+    demo ? Promise.resolve([] as InventoryRecord[]) : fetchAll<InventoryRecord>(async (from, to) => {
+      const result = await readRequest('report_inventory', s => supabase.from('nhap_xuat_kho').select('id,id_xuat_nhap_kho,loai_phieu,id_don_hang,co_so,ten_mat_hang,ton_dau_ky,so_luong,gia,tong_tien,ngay,gio,nguoi_thuc_hien').lte('ngay', endDate).order('ngay').order('id').range(from, to).abortSignal(s), signal);
+      return { data: result.data, error: result.error };
+    }),
+    sharedDetails ?? (demo ? Promise.resolve([] as ReportCTRecords) : fetchAllCTRecords(startDate, endDate, signal)),
+    demo ? Promise.resolve([] as ReportCTRecords) : fetchAllCTRecords(prior.start, prior.end, signal),
   ]);
   signal?.throwIfAborted();
-
-  const baseSummary = buildReportSummary(current.details);
-  const basePreviousSummary = buildReportSummary(previous.details);
-  const currentMetrics = buildPeriodBusinessMetrics(current.orders, current.transactions);
-  const previousMetrics = buildPeriodBusinessMetrics(previous.orders, previous.transactions);
-  const total_cost = baseSummary.total_revenue - baseSummary.total_profit;
-  const summary: FinancialReportSummary = {
-    ...baseSummary,
-    ...currentMetrics,
-    total_cost,
-    gross_margin: baseSummary.total_revenue > 0 ? baseSummary.total_profit / baseSummary.total_revenue : 0,
-  };
-  const previousSummary = { ...basePreviousSummary, ...previousMetrics };
-
-  const expenseReport = buildExpenseReport(current.transactions);
-  const cashFlow = buildCashFlowReport(current.transactions);
-  const productSources = demo
-    ? [{ ma_san_pham: 'DV-0001', ten_san_pham: 'Bảo dưỡng xe' }]
-    : inventory.map((row) => ({ ma_san_pham: row.ma_hang, ten_san_pham: row.ten_hang }));
+  const scopedTransactions = transactions.filter(row => belongsToReportBranch(row.co_so, branch));
+  const scopedMovements = movements.filter(row => belongsToReportBranch(row.co_so, branch));
+  const currentDetails = [...details].filter(row => belongsToReportBranch(row.co_so, branch)).sort((a, b) => a.id.localeCompare(b.id));
+  const previousDetails = [...priorDetails].filter(row => belongsToReportBranch(row.co_so, branch)).sort((a, b) => a.id.localeCompare(b.id));
+  const scopedOrders = scopeBusinessOrders(orders, [...details, ...priorDetails], branch);
+  const currentTransactions = scopedTransactions.filter(row => row.ngay >= startDate);
+  const previousTransactions = scopedTransactions.filter(row => row.ngay >= prior.start && row.ngay <= prior.end);
+  const currentOrders = scopedOrders.filter(row => row.ngay >= startDate);
+  const previousOrders = scopedOrders.filter(row => row.ngay >= prior.start && row.ngay <= prior.end);
+  const scopedPurchases = purchases.filter(row => belongsToReportBranch(row.co_so, branch));
+  const baseSummary = buildReportSummary(currentDetails);
+  const basePreviousSummary = buildReportSummary(previousDetails);
+  const summary = { ...baseSummary, ...buildPeriodBusinessMetrics(currentOrders, currentTransactions), total_cost: baseSummary.total_revenue - baseSummary.total_profit, gross_margin: baseSummary.total_revenue ? baseSummary.total_profit / baseSummary.total_revenue : 0 };
+  const expenseReport = buildExpenseReport(currentTransactions);
+  const cashFlow = buildCashFlowReport(currentTransactions);
   const profitBeforeTax = summary.total_profit - expenseReport.total;
-
+  // A global opening stock has no branch allocation. Never copy it into each branch.
+  const inventory = calculateInventoryStockSummary(products.map(p => branch ? { ...p, ton_dau_ky: 0 } : p), scopedMovements, startDate, endDate);
   return {
-    summary,
-    previousSummary,
-    previousStart: prior.start,
-    previousEnd: prior.end,
-    expenses: expenseReport.rows,
-    totalExpenses: expenseReport.total,
-    profitBeforeTax,
-    preTaxMargin: summary.total_revenue > 0 ? profitBeforeTax / summary.total_revenue : 0,
-    debts: buildDebtReport(current.orders, current.details, current.transactions),
-    cashFlow,
-    totalCashIn: cashFlow.reduce((sum, row) => sum + row.thu, 0),
-    totalCashOut: cashFlow.reduce((sum, row) => sum + row.chi, 0),
-    productCosts: buildProductCostReport(current.details, productSources),
-    inventory,
+    summary, previousSummary: { ...basePreviousSummary, ...buildPeriodBusinessMetrics(previousOrders, previousTransactions) },
+    previousStart: prior.start, previousEnd: prior.end,
+    expenses: expenseReport.rows, totalExpenses: expenseReport.total, profitBeforeTax,
+    preTaxMargin: summary.total_revenue ? profitBeforeTax / summary.total_revenue : 0,
+    debts: buildDebtReport(scopedOrders, [], scopedTransactions, scopedPurchases), cashFlow,
+    totalCashIn: cashFlow.reduce((sum, row) => sum + row.thu, 0), totalCashOut: cashFlow.reduce((sum, row) => sum + row.chi, 0),
+    productCosts: buildProductCostReport(currentDetails, [...products, ...services.map(service => ({ ma_san_pham: service.id_dich_vu, ten_san_pham: service.ten_dich_vu }))]), inventory,
+    transactions: currentTransactions, inventoryMovements: scopedMovements.filter(row => row.ngay >= startDate), purchases: scopedPurchases,
+    missingCostLines: currentDetails.filter(row => row.gia_von == null || Number(row.gia_von) === 0).length,
+    costLines: currentDetails, orders: scopedOrders,
+    sources: { startDate, endDate, transactions, orders, purchases, products, services, movements, details, priorDetails },
   };
 }

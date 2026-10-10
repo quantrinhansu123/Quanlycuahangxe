@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react'
 import { AlertTriangle, Camera, Save, X, Building2, Calendar, Loader2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import type { DichVu } from '../data/serviceData';
-import { getServices, uploadServiceImage } from '../data/serviceData';
+import { getServices, uploadServiceImage, formatServiceSaveError } from '../data/serviceData';
 import { removeVietnameseTones } from '../lib/utils';
 
 interface ServiceFormModalProps {
@@ -31,6 +31,8 @@ const ServiceFormModal: React.FC<ServiceFormModalProps> = React.memo(({
 }) => {
   const [formData, setFormData] = useState<Partial<DichVu>>(initialData);
   const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [allServices, setAllServices] = useState<DichVu[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeSuggestion, setActiveSuggestion] = useState(-1);
@@ -158,11 +160,15 @@ const ServiceFormModal: React.FC<ServiceFormModalProps> = React.memo(({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (saving) return;
     if (!editingService && exactDuplicate) {
       alert(`Dịch vụ "${exactDuplicate.ten_dich_vu}" đã tồn tại (${exactDuplicate.co_so}). Vui lòng chọn tên khác hoặc sửa bản ghi cũ.`);
       return;
     }
-    await onSubmit(formData);
+    setSaving(true); setSaveError('');
+    try { await onSubmit(formData); }
+    catch (cause) { setSaveError(formatServiceSaveError(cause)); }
+    finally { setSaving(false); }
   };
 
   return (
@@ -176,6 +182,7 @@ const ServiceFormModal: React.FC<ServiceFormModalProps> = React.memo(({
         </div>
 
         <form onSubmit={handleSubmit} className="overflow-y-auto p-8 flex-1">
+          {saveError && <p role="alert" className="mb-4 text-sm text-rose-700">{saveError}</p>}
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5 focus-within:ring-2 focus-within:ring-primary/20 rounded-xl transition-all">
@@ -259,7 +266,7 @@ const ServiceFormModal: React.FC<ServiceFormModalProps> = React.memo(({
                 )}
               </div>
 
-              <InputField label="Cơ sở" name="co_so" type="select" options={branchOptions} value={formData.co_so || ''} onChange={handleInputChange} icon={Building2} tabIndex={3} disabled={isReadOnly} />
+              <div><InputField label="Cơ sở" name="co_so" type="select" options={branchOptions} value={formData.co_so || ''} onChange={handleInputChange} icon={Building2} tabIndex={3} disabled={isReadOnly} /><p className="mt-1 text-xs text-muted-foreground">Chọn Cơ sở chính để dùng chung mã ở mọi cơ sở.</p></div>
               
               {showGiaNhap && (
                 <div className="space-y-1.5 focus-within:ring-2 focus-within:ring-primary/20 rounded-xl transition-all">
@@ -336,7 +343,7 @@ const ServiceFormModal: React.FC<ServiceFormModalProps> = React.memo(({
                 {isReadOnly ? 'Đóng' : 'Hủy'}
               </button>
               {!isReadOnly && (
-                <button type="submit" tabIndex={9} className="px-8 py-2 rounded-xl text-sm font-bold text-white bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 transition-all flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background">
+                <button type="submit" disabled={saving || uploading} tabIndex={9} className="px-8 py-2 rounded-xl text-sm font-bold text-white bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 transition-all flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50">
                   <Save size={18} /> <span>{editingService ? 'Lưu thay đổi' : 'Thêm dịch vụ'}</span>
                 </button>
               )}

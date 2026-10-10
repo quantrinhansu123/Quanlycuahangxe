@@ -28,6 +28,7 @@ import type { SalesCard } from '../data/salesCardData';
 import { getCustomersForPageRefs, getSalesForPageRefs, resolvePageSale } from '../data/ctFinancialLookupData';
 import { getOpeningBalance, setOpeningBalance as saveOpeningBalance } from '../data/cashBookData';
 import { formatTime24h } from '../utils/datetimeFormat';
+import { isCompletedTransaction } from '../lib/businessReportMetrics';
 
 const FinancialCharts = React.lazy(() => import('../components/FinancialCharts'));
 
@@ -77,7 +78,7 @@ const FinancialManagementPage: React.FC = () => {
   const [formData, setFormData] = useState<Partial<ThuChi>>({});
 
   const typeOptions = ["phiếu thu", "phiếu chi"];
-  const statusOptions = ["Hoàn thành", "Đang chờ", "Đã hủy"];
+  const statusOptions = ["Hoàn thành", "Đang chờ", "Chờ thanh toán", "Đã đối trừ", "Đã hủy"];
 
   // Debounce search
   useEffect(() => {
@@ -282,13 +283,9 @@ const FinancialManagementPage: React.FC = () => {
   };
 
   const handleSubmit = async (formDataToSave: Partial<ThuChi>) => {
-    try {
-      await upsertTransaction(formDataToSave);
-      await loadData();
-      handleCloseModal();
-    } catch {
-      alert('Lỗi: Không thể lưu thông tin giao dịch.');
-    }
+    await upsertTransaction(formDataToSave);
+    await loadData();
+    handleCloseModal();
   };
 
   const handleDownloadTemplate = () => {
@@ -485,8 +482,9 @@ const FinancialManagementPage: React.FC = () => {
     let runningBalance = openingBalance;
     return ordered.map((transaction) => {
       const isIncome = transaction.loai_phieu === 'phiếu thu';
-      const debit = isIncome ? transaction.so_tien : 0;
-      const credit = isIncome ? 0 : transaction.so_tien;
+      const completed = isCompletedTransaction(transaction.trang_thai);
+      const debit = completed && isIncome ? transaction.so_tien : 0;
+      const credit = completed && !isIncome ? transaction.so_tien : 0;
       runningBalance += debit - credit;
       return {
         ...transaction,
@@ -954,13 +952,14 @@ const FinancialManagementPage: React.FC = () => {
                             <td className="px-3 py-2 text-center whitespace-nowrap">{new Date(transaction.ngay).toLocaleDateString('vi-VN')}</td>
                             <td className="px-3 py-2 text-center whitespace-nowrap">{new Date(transaction.ngay).toLocaleDateString('vi-VN')}</td>
                             <td className="px-3 py-2 font-mono text-[11px]">
-                              {`${transaction.loai_phieu === 'phiếu thu' ? 'PT' : 'PC'}${transaction.id.slice(0, 6).toUpperCase()}`}
+                              <button type="button" onClick={() => handleOpenModal(transaction)} className="text-primary underline underline-offset-2">{`${transaction.loai_phieu === 'phiếu thu' ? 'PT' : 'PC'}${transaction.id.slice(0, 6).toUpperCase()}`}</button>
                             </td>
                             <td className="px-3 py-2 text-center font-semibold">
                               {transaction.loai_phieu === 'phiếu thu' ? 'Phiếu thu' : 'Phiếu chi'}
                             </td>
                             <td className="px-3 py-2 max-w-[280px] truncate" title={transaction.danh_muc || transaction.ghi_chu || ''}>
                               {transaction.danh_muc || transaction.ghi_chu || 'Không có diễn giải'}
+                              {!isCompletedTransaction(transaction.trang_thai) && <div className="text-xs text-amber-700">{transaction.trang_thai} · {formatCurrency(transaction.so_tien)}</div>}
                             </td>
                             <td className="px-3 py-2 text-center font-semibold">1111</td>
                             <td className="px-3 py-2 text-center text-muted-foreground">{transaction.loai_phieu === 'phiếu thu' ? '131' : '6422'}</td>

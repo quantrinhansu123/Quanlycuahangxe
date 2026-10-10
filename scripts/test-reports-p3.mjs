@@ -21,8 +21,14 @@ test('P3 lazy financial report reuses current CT while preserving all metrics, d
   const data=reportFixture(),calls=[];const a=loadReportRuntime(old,data).business(oldBusiness),runtime=loadReportRuntime(next,data,calls),b=runtime.business(newBusiness);
   const snapshot=await runtime.report.loadReportSnapshot(s,e);calls.length=0;
   const result=await b.getBusinessReportData(s,e,snapshot.records);
-  assert.deepEqual(result,await a.getBusinessReportData(s,e));
-  evidence.businessCases.push({s,e,fullJsonEqual:true,currentCtRefetch:false});
+  const legacy=await a.getBusinessReportData(s,e);
+  for(const key of ['summary','previousSummary','expenses','totalExpenses','profitBeforeTax','preTaxMargin','cashFlow','totalCashIn','totalCashOut','productCosts','inventory']) assert.deepEqual(result[key],legacy[key],key);
+  assert.ok(result.debts.every(row=>row.loai==='Khách hàng'),'Supplier debt requires a purchase invoice, not an arbitrary pending expense');
+  const reads=calls.length;
+  const branch=await b.getBusinessReportData(s,e,snapshot.records,undefined,'A',result.sources);
+  assert.equal(calls.length,reads,'Branch filtering reuses financial sources');
+  assert.ok(branch.costLines.every(line=>line.co_so==='A'));
+  evidence.businessCases.push({s,e,financialMetricsEqual:true,invoiceDebt:true,currentCtRefetch:false,branchSourceReuse:true});
  }
 });
 test('P3 snapshots are isolated, abortable and refresh mutations without a cross-request cache',async()=>{

@@ -34,6 +34,9 @@ export interface PurchaseReceipt {
   nguoi_thuc_hien: string | null;
   ghi_chu: string | null;
   tong_tien: number;
+  da_thanh_toan?: number;
+  con_no?: number;
+  trang_thai_thanh_toan?: string;
   created_at?: string;
   updated_at?: string;
   items?: PurchaseReceiptItem[];
@@ -227,6 +230,9 @@ export const getPurchaseReceiptsPaginated = async (
       nguoi_thuc_hien: row.nguoi_thuc_hien,
       ghi_chu: row.ghi_chu,
       tong_tien: Number(row.tong_tien || 0),
+      da_thanh_toan: row.da_thanh_toan == null ? undefined : Number(row.da_thanh_toan),
+      con_no: row.con_no == null ? undefined : Number(row.con_no),
+      trang_thai_thanh_toan: row.trang_thai_thanh_toan,
       created_at: row.created_at,
       updated_at: row.updated_at,
       items,

@@ -7,7 +7,10 @@ import type { NhanSu } from '../data/personnelData';
 import type { SalesCard, SalesCardFormData } from '../data/salesCardData';
 import type { EditHistoryRecord } from '../data/salesCardHistoryData';
 import { getEditHistory } from '../data/salesCardHistoryData';
-import type { DichVu } from '../data/serviceData';
+import { upsertService, type DichVu } from '../data/serviceData';
+import type { KhachHang } from '../data/customerData';
+import CustomerFormModal from './CustomerFormModal';
+import ServiceFormModal from './ServiceFormModal';
 import { MultiSearchableSelect } from './ui/MultiSearchableSelect';
 import { SearchableSelect } from './ui/SearchableSelect';
 import { useAuth } from '../context/AuthContext';
@@ -75,11 +78,13 @@ const SalesCardFormModal: React.FC<{
   onCustomerSearch?: (search: string, signal: AbortSignal) => Promise<{ value: string; label: string; searchKey?: string }[]>;
   personnel: NhanSu[];
   services: DichVu[];
+  onServiceCreated?: (service: DichVu) => void;
+  onCustomerCreated?: (customer: KhachHang) => void;
   onClose: () => void;
   onSubmit: (data: SalesCardFormData) => Promise<void>;
   onCollectPayment?: (data: SalesCardFormData, method: string) => Promise<void>;
   isReadOnly?: boolean;
-}> = React.memo(({ isOpen, editingCard, initialData, customerOptions, onCustomerSearch, personnel, services, onClose, onSubmit, isReadOnly: requestedReadOnly, onCollectPayment }) => {
+}> = React.memo(({ isOpen, editingCard, initialData, customerOptions, onCustomerSearch, personnel, services, onServiceCreated, onCustomerCreated, onClose, onSubmit, isReadOnly: requestedReadOnly, onCollectPayment }) => {
   const CUSTOMER_BRANCH_OPTIONS = useBranches();
   const { nhanVien, isAdmin, isTechnician } = useAuth();
   const isReadOnly = requestedReadOnly || (isTechnician && !!editingCard);
@@ -93,10 +98,19 @@ const SalesCardFormModal: React.FC<{
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showServiceWarning, setShowServiceWarning] = useState(false);
   const [showBranchWarning, setShowBranchWarning] = useState(false);
+  const [creatingCustomer, setCreatingCustomer] = useState(false);
+  const [creatingService, setCreatingService] = useState(false);
+  const [createdCustomers, setCreatedCustomers] = useState<KhachHang[]>([]);
+  const [createdServices, setCreatedServices] = useState<DichVu[]>([]);
+  const catalogServices = React.useMemo(() => [...services, ...createdServices.filter(s => !services.some(original => original.id === s.id))], [services, createdServices]);
+  const newServiceData = React.useMemo(() => ({ co_so: 'Cơ sở chính', ten_dich_vu: '', gia_nhap: 0, gia_ban: 0, hoa_hong: 0 }), []);
+  const initializedDraft = React.useRef<{ initialData: SalesCardFormData; editingCard: SalesCard | null } | null>(null);
 
   // Sync formData when modal opens — đơn mới: NV = user đăng nhập, km để trống.
   React.useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) { initializedDraft.current = null; return; }
+    if (initializedDraft.current?.initialData === initialData && initializedDraft.current.editingCard === editingCard) return;
+    initializedDraft.current = { initialData, editingCard };
     if (editingCard) {
       setFormData(initialData);
     } else {
@@ -111,11 +125,15 @@ const SalesCardFormModal: React.FC<{
     setShowBranchWarning(false);
   }, [isOpen, initialData, editingCard, nhanVien?.ho_ten, employeeBranchLocked, employeeBranch]);
 
+  React.useEffect(() => {
+    if (isOpen && employeeBranchLocked && employeeBranch) setFormData(previous => previous.co_so_khach === employeeBranch ? previous : { ...previous, co_so_khach: employeeBranch });
+  }, [isOpen, employeeBranchLocked, employeeBranch]);
+
   // Dùng customerOptions được parent tính toán sẵn 1 lần thay vì map lại gây đơ Mobile CPU
   // Removed heavy 10k items mapping here.
 
   const extendedCustomerOptions = React.useMemo(() => {
-    let options = [...customerOptions];
+    let options = [...customerOptions, ...createdCustomers.map(c => ({ value: c.ma_khach_hang || c.id, label: `${c.ho_va_ten} · ${c.bien_so_xe || ''}`, searchKey: `${c.ho_va_ten} ${c.bien_so_xe || ''}`, dia_chi_hien_tai: c.dia_chi_hien_tai || '', bien_so_xe: c.bien_so_xe }))];
     if (formData.khach_hang_id && !options.find(o => o.value === formData.khach_hang_id)) {
       const fallbackName = 
          initialData?.khach_hang?.ho_va_ten || 
@@ -134,7 +152,7 @@ const SalesCardFormModal: React.FC<{
       ];
     }
     return options;
-  }, [customerOptions, formData.khach_hang_id, initialData, isTechnician]);
+  }, [customerOptions, createdCustomers, formData.khach_hang_id, initialData, isTechnician]);
 
   const customerBranchFromProfile = React.useMemo(() => {
     if (!CUSTOMER_BRANCH_OPTIONS.length) return '';
@@ -158,8 +176,8 @@ const SalesCardFormModal: React.FC<{
 
   const servicesForBranch = React.useMemo(() => {
     if (!formBranchForServices) return [];
-    return services.filter((s) => matchesServiceBranch(s.co_so, formBranchForServices));
-  }, [services, formBranchForServices]);
+    return catalogServices.filter((s) => matchesServiceBranch(s.co_so, formBranchForServices));
+  }, [catalogServices, formBranchForServices]);
 
   // Sync service information based on dich_vu_ids (Multi-select support)
   React.useEffect(() => {
@@ -167,7 +185,7 @@ const SalesCardFormModal: React.FC<{
       const currentItems = formData.service_items || [];
       const newItems = formData.dich_vu_ids.map(id => {
         const s =
-          services.find(serv => serv.id === id || serv.ten_dich_vu === id) ||
+          catalogServices.find(serv => serv.id === id || serv.ten_dich_vu === id) ||
           servicesForBranch.find(serv => serv.id === id || serv.ten_dich_vu === id);
         const existing = currentItems.find(it => it.id === id || (s && it.id === s.id));
         if (s) {
@@ -197,7 +215,7 @@ const SalesCardFormModal: React.FC<{
         setFormData(prev => ({ ...prev, service_items: [] }));
       }
     }
-  }, [formData.dich_vu_ids, formData.dich_vu_id, formData.service_items, servicesForBranch, services]);
+  }, [formData.dich_vu_ids, formData.dich_vu_id, formData.service_items, servicesForBranch, catalogServices]);
 
   // Note: id_bh is now managed by the parent component (SalesCardManagementPage)
   // to ensure sequential and unique values via getNextSalesCardCode()
@@ -438,6 +456,7 @@ const SalesCardFormModal: React.FC<{
                   searchPlaceholder="Tìm tên, SĐT, biển số..."
                   className={clsx("font-bold overflow-hidden", isReadOnly && "pointer-events-none opacity-80")}
                 />
+                {!isReadOnly && <button type="button" onClick={() => setCreatingCustomer(true)} className="mt-2 rounded-xl border border-border px-3 py-2 text-xs font-medium hover:bg-muted">+ Thêm khách hàng</button>}
               </div>
 
               <InputField
@@ -537,6 +556,7 @@ const SalesCardFormModal: React.FC<{
                       searchPlaceholder="Tìm tên dịch vụ..."
                       className={clsx("font-bold", showServiceWarning && "border-red-500 ring-2 ring-red-500/20")}
                     />
+                    <button type="button" onClick={() => setCreatingService(true)} className="rounded-xl border border-border px-3 py-2 text-xs font-medium hover:bg-muted">+ Thêm hàng hóa / dịch vụ</button>
                     {showServiceWarning && (
                       <p className="text-[12px] font-bold text-red-600">
                         Vui lòng chọn ít nhất một dịch vụ trước khi lập phiếu.
@@ -604,7 +624,7 @@ const SalesCardFormModal: React.FC<{
                   label="Hình thức thanh toán" 
                   name="phuong_thuc_thanh_toan" 
                   type="select" 
-                  options={['', 'Tiền mặt', 'Chuyển khoản']} 
+                  options={['', 'Tiền mặt', 'Chuyển khoản', ...(!isTechnician ? ['Chưa thanh toán'] : [])]}
                   value={formData.thu_chi?.phuong_thuc || formData.phuong_thuc_thanh_toan || ''} 
                   onChange={handleInputChange} 
                   icon={Banknote} 
@@ -792,6 +812,16 @@ const SalesCardFormModal: React.FC<{
         </form>
       </div>
 
+      {creatingCustomer && <CustomerFormModal isOpen inline customer={null} currentStaffId={nhanVien?.id} onClose={() => setCreatingCustomer(false)} onSuccess={customer => {
+        setCreatedCustomers(prev => [...prev, customer]); onCustomerCreated?.(customer);
+        setFormData(prev => ({ ...prev, khach_hang_id: customer.ma_khach_hang || customer.id, khach_hang: customer, ten_khach_hang: customer.ho_va_ten }));
+        setCreatingCustomer(false);
+      }} />}
+      {creatingService && <div className="fixed inset-0" style={{ zIndex: 10000001 }}><ServiceFormModal isOpen editingService={null} initialData={newServiceData} branchOptions={['Cơ sở chính', ...CUSTOMER_BRANCH_OPTIONS]} showHoaHong={isAdmin} onClose={() => setCreatingService(false)} onSubmit={async data => {
+        const saved = await upsertService(data); setCreatedServices(prev => [...prev, saved]); onServiceCreated?.(saved);
+        setFormData(prev => ({ ...prev, dich_vu_ids: [...(prev.dich_vu_ids || []), saved.id], service_items: [...(prev.service_items || []), { id: saved.id, ten_dich_vu: saved.ten_dich_vu, gia_ban: saved.gia_ban, so_luong: 1 }] }));
+        setCreatingService(false);
+      }} /></div>}
     </div>,
     document.body
   );

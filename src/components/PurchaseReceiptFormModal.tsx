@@ -34,6 +34,7 @@ import {
 } from '../data/purchaseReceiptData';
 import { formatTime24h } from '../utils/datetimeFormat';
 import { isGlobalPurchaseReceiptRole } from '../utils/purchaseReceiptPermissions';
+import QuickProductModal from './QuickProductModal';
 
 interface PurchaseReceiptFormModalProps {
   isOpen: boolean;
@@ -90,9 +91,11 @@ export const PurchaseReceiptFormModal: React.FC<PurchaseReceiptFormModalProps> =
   const [productLoadError, setProductLoadError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [creatingProductAt, setCreatingProductAt] = useState<number | null>(null);
   const [autoPreviewCode, setAutoPreviewCode] = useState('');
   const [isManualCode, setIsManualCode] = useState(false);
   const codeInputDirtyRef = useRef(false);
+  const initializedReceipt = useRef<{ receipt: PurchaseReceipt | null } | null>(null);
 
   // Form State
   const [maPhieu, setMaPhieu] = useState('');
@@ -171,8 +174,9 @@ export const PurchaseReceiptFormModal: React.FC<PurchaseReceiptFormModalProps> =
 
   // Khởi tạo dữ liệu form khi mở modal
   useEffect(() => {
-    if (!isOpen) return;
-    let isMounted = true;
+    if (!isOpen) { initializedReceipt.current = null; return; }
+    if (initializedReceipt.current?.receipt === receipt) return;
+    initializedReceipt.current = { receipt };
     setErrorMessage(null);
 
     if (receipt) {
@@ -215,7 +219,13 @@ export const PurchaseReceiptFormModal: React.FC<PurchaseReceiptFormModalProps> =
       setGhiChu('');
       setItems([{ ten_san_pham: '', so_luong: 1, gia_nhap: 0 }]);
 
-      if (!isReadOnly) getNextPurchaseReceiptCode()
+    }
+  }, [isOpen, receipt, nhanVien?.ho_ten, branches, userAssignedBranch, isReadOnly]);
+
+  useEffect(() => {
+    if (!isOpen || receipt || isReadOnly) return;
+    let isMounted = true;
+    getNextPurchaseReceiptCode()
         .then((nextCode) => {
           if (!isMounted) return;
           setAutoPreviewCode(nextCode);
@@ -230,12 +240,15 @@ export const PurchaseReceiptFormModal: React.FC<PurchaseReceiptFormModalProps> =
             `Không tải được mã phiếu preview: ${(err as Error)?.message || 'Vui lòng thử lại hoặc để hệ thống cấp mã khi lưu.'}`
           );
         });
-    }
-
     return () => {
       isMounted = false;
     };
-  }, [isOpen, receipt, nhanVien, branches, userAssignedBranch, isReadOnly]);
+  }, [isOpen, receipt, isReadOnly]);
+
+  useEffect(() => {
+    if (!isOpen || receipt) return;
+    setCoSo(previous => userAssignedBranch || previous || branches[0] || '');
+  }, [isOpen, receipt, userAssignedBranch, branches]);
 
   // Reconcile historical selections with the canonical catalog spelling after
   // an async refresh. This keeps the selected value visible and guarantees a
@@ -706,6 +719,7 @@ export const PurchaseReceiptFormModal: React.FC<PurchaseReceiptFormModalProps> =
 
                     {/* Chọn mặt hàng */}
                     <div className="flex-1 min-w-[200px]">
+                      {!isReadOnly && <button type="button" onClick={() => setCreatingProductAt(idx)} className="mb-2 rounded-xl border border-border px-3 py-2 text-xs font-medium hover:bg-muted">+ Thêm hàng hóa</button>}
                       {isReadOnly ? (
                         <div className="font-bold text-sm text-foreground py-1">{item.ten_san_pham}</div>
                       ) : (
@@ -847,6 +861,11 @@ export const PurchaseReceiptFormModal: React.FC<PurchaseReceiptFormModalProps> =
           )}
         </div>
       </div>
+      {creatingProductAt !== null && <QuickProductModal onClose={() => setCreatingProductAt(null)} onCreated={product => {
+        setProducts(prev => [...prev, { id: product.id, ma_san_pham: product.ma_san_pham, ten_san_pham: product.ten_san_pham, gia: product.gia, source: 'product' }]);
+        setItems(prev => prev.map((item, index) => index === creatingProductAt ? { ...item, san_pham_id: product.id, ten_san_pham: product.ten_san_pham, gia_nhap: product.gia } : item));
+        setCreatingProductAt(null);
+      }} />}
     </div>,
     document.body
   );

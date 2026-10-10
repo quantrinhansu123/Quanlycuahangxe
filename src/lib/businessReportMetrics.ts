@@ -11,6 +11,10 @@ export interface BusinessTransactionInput {
   nguoi_nhan?: string | null;
   trang_thai?: string | null;
   phuong_thuc?: string | null;
+  source_type?: string | null;
+  source_id?: string | null;
+  co_so?: string | null;
+  ngay?: string | null;
 }
 
 export interface BusinessOrderInput {
@@ -19,6 +23,7 @@ export interface BusinessOrderInput {
   khach_hang_id?: string | null;
   ten_khach_hang?: string | null;
   tong_tien?: number | null;
+  co_so?: string | null;
 }
 
 export interface BusinessOrderDetailInput {
@@ -29,6 +34,7 @@ export interface BusinessOrderDetailInput {
   gia_von?: number | null;
   so_luong?: number | null;
   ngay?: string | null;
+  co_so?: string | null;
 }
 
 export interface BusinessProductInput {
@@ -61,6 +67,8 @@ export interface CashFlowMetricsRow {
   thu: number;
   chi: number;
   dong_tien_thuan: number;
+  cho_thu: number;
+  cho_chi: number;
 }
 
 export interface DebtMetricsRow {
@@ -70,6 +78,15 @@ export interface DebtMetricsRow {
   tong_phat_sinh: number;
   da_thanh_toan: number;
   con_no: number;
+}
+
+export interface BusinessPurchaseInput {
+  id: string;
+  ma_phieu: string;
+  nha_cung_cap?: string | null;
+  co_so?: string | null;
+  tong_tien?: number | null;
+  ngay?: string | null;
 }
 
 export interface ProductCostMetricsRow {
@@ -166,6 +183,15 @@ export function previousBusinessRange(startDate: string, endDate: string): { sta
   const start = parseDate(startDate);
   const end = parseDate(endDate);
   const duration = Math.max(1, Math.floor((end.getTime() - start.getTime()) / 86_400_000) + 1);
+  if (end < start) throw new Error('Ngày kết thúc phải từ ngày bắt đầu trở đi.');
+  // Complete calendar months/years compare to the previous calendar period.
+  if (start.getUTCMonth() === 0 && start.getUTCDate() === 1 && end.getUTCMonth() === 11 && end.getUTCDate() === 31 && start.getUTCFullYear() === end.getUTCFullYear()) {
+    const year = start.getUTCFullYear() - 1;
+    return { start: `${year}-01-01`, end: `${year}-12-31` };
+  }
+  if (start.getUTCDate() === 1 && start.getUTCFullYear() === end.getUTCFullYear() && start.getUTCMonth() === end.getUTCMonth() && end.getUTCDate() === new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() + 1, 0)).getUTCDate()) {
+    return { start: formatDate(new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() - 1, 1))), end: formatDate(new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 0))) };
+  }
   const previousEnd = new Date(start);
   previousEnd.setUTCDate(previousEnd.getUTCDate() - 1);
   const previousStart = new Date(previousEnd);
@@ -218,6 +244,8 @@ export function buildExpenseReport(transactions: BusinessTransactionInput[]): { 
   const totals = new Map<ExpenseCategory, number>(EXPENSE_CATEGORIES.map((category) => [category, 0]));
   for (const transaction of transactions) {
     if (!isCompletedTransaction(transaction.trang_thai) || isIncomeTransaction(transaction.loai_phieu)) continue;
+    // Purchases enter cost of goods sold when sold; do not deduct them twice.
+    if (transaction.source_type === 'purchase_receipt' || transaction.source_type === 'purchase_payment' || normalizedKey(transaction.danh_muc).includes('nhaphang')) continue;
     const category = normalizeExpenseCategory(transaction.danh_muc);
     totals.set(category, (totals.get(category) || 0) + numberValue(transaction.so_tien));
   }
@@ -232,18 +260,20 @@ export function buildExpenseReport(transactions: BusinessTransactionInput[]): { 
 }
 
 export function buildCashFlowReport(transactions: BusinessTransactionInput[]): CashFlowMetricsRow[] {
-  const totals = new Map<CashFlowMetricsRow['phuong_thuc'], { thu: number; chi: number }>();
+  const totals = new Map<CashFlowMetricsRow['phuong_thuc'], { thu: number; chi: number; cho_thu: number; cho_chi: number }>();
   for (const transaction of transactions) {
-    if (!isCompletedTransaction(transaction.trang_thai)) continue;
+    const status = normalizeBusinessText(transaction.trang_thai);
+    if (['da huy', 'cancelled', 'canceled', 'da doi tru'].includes(status)) continue;
     const method = normalizeCashFlowMethod(transaction.phuong_thuc);
-    const current = totals.get(method) || { thu: 0, chi: 0 };
-    if (isIncomeTransaction(transaction.loai_phieu)) current.thu += numberValue(transaction.so_tien);
-    else current.chi += numberValue(transaction.so_tien);
+    const current = totals.get(method) || { thu: 0, chi: 0, cho_thu: 0, cho_chi: 0 };
+    const completed = isCompletedTransaction(transaction.trang_thai);
+    const key = isIncomeTransaction(transaction.loai_phieu) ? (completed ? 'thu' : 'cho_thu') : (completed ? 'chi' : 'cho_chi');
+    current[key] += numberValue(transaction.so_tien);
     totals.set(method, current);
   }
   if (totals.size === 0) return [];
   return CASH_FLOW_METHODS.map((phuong_thuc) => {
-    const value = totals.get(phuong_thuc) || { thu: 0, chi: 0 };
+    const value = totals.get(phuong_thuc) || { thu: 0, chi: 0, cho_thu: 0, cho_chi: 0 };
     return { phuong_thuc, ...value, dong_tien_thuan: value.thu - value.chi };
   });
 }
@@ -252,7 +282,8 @@ export function buildCashFlowReport(transactions: BusinessTransactionInput[]): C
 export function buildDebtReport(
   orders: BusinessOrderInput[],
   details: BusinessOrderDetailInput[],
-  transactions: BusinessTransactionInput[]
+  transactions: BusinessTransactionInput[],
+  purchases?: BusinessPurchaseInput[]
 ): DebtMetricsRow[] {
   const detailTotals = new Map<string, number>();
   for (const detail of details) {
@@ -292,6 +323,23 @@ export function buildDebtReport(
   }
 
   const supplierDebt = new Map<string, DebtMetricsRow>();
+  if (purchases) {
+    for (const purchase of purchases) {
+      const paid = transactions.reduce((sum, t) => {
+        if (isIncomeTransaction(t.loai_phieu) || !isCompletedTransaction(t.trang_thai)) return sum;
+        return t.source_id === purchase.id || [purchase.id, purchase.ma_phieu].includes(String(t.id_don)) ? sum + numberValue(t.so_tien) : sum;
+      }, 0);
+      const total = numberValue(purchase.tong_tien);
+      const remaining = Math.max(0, total - paid);
+      if (!remaining) continue;
+      const name = purchase.nha_cung_cap?.trim() || 'Nhà cung cấp chưa xác định';
+      const key = `supplier:${normalizeBusinessText(name)}`;
+      const row = supplierDebt.get(key) || { key, doi_tuong: name, loai: 'Nhà cung cấp' as const, tong_phat_sinh: 0, da_thanh_toan: 0, con_no: 0 };
+      row.tong_phat_sinh += total; row.da_thanh_toan += paid; row.con_no += remaining;
+      supplierDebt.set(key, row);
+    }
+    return [...customerDebt.values(), ...supplierDebt.values()].sort((a, b) => b.con_no - a.con_no);
+  }
   for (const transaction of transactions) {
     if (isIncomeTransaction(transaction.loai_phieu) || isCompletedTransaction(transaction.trang_thai)) continue;
     const name = String(transaction.nguoi_nhan || transaction.danh_muc || 'Nhà cung cấp chưa xác định').trim() || 'Nhà cung cấp chưa xác định';

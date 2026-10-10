@@ -179,20 +179,26 @@
     {
       "s": "2026-09-01",
       "e": "2026-09-30",
-      "fullJsonEqual": true,
-      "currentCtRefetch": false
+      "financialMetricsEqual": true,
+      "invoiceDebt": true,
+      "currentCtRefetch": false,
+      "branchSourceReuse": true
     },
     {
       "s": "2026-09-10",
       "e": "2026-09-17",
-      "fullJsonEqual": true,
-      "currentCtRefetch": false
+      "financialMetricsEqual": true,
+      "invoiceDebt": true,
+      "currentCtRefetch": false,
+      "branchSourceReuse": true
     },
     {
       "s": "2030-01-01",
       "e": "2030-01-02",
-      "fullJsonEqual": true,
-      "currentCtRefetch": false
+      "financialMetricsEqual": true,
+      "invoiceDebt": true,
+      "currentCtRefetch": false,
+      "branchSourceReuse": true
     }
   ],
   "scope": "Actual transpiled OLD/NEW source functions on same scalar fixtures. No rewritten business formulas.",

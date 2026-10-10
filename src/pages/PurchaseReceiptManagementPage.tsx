@@ -421,8 +421,9 @@ const PurchaseReceiptManagementPage: React.FC = () => {
                           paymentMethod === 'Chuyển khoản' && 'bg-blue-500/10 text-blue-700 dark:text-blue-400',
                           paymentMethod === 'Chưa thanh toán' && 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
                         )}>
-                          {paymentMethod}
+                          {r.trang_thai_thanh_toan || paymentMethod}
                         </span>
+                        {r.con_no != null && <div className="mt-1 text-xs text-muted-foreground">Đã trả: {Number(r.da_thanh_toan || 0).toLocaleString('vi-VN')} đ · Còn nợ: {Number(r.con_no).toLocaleString('vi-VN')} đ</div>}
                       </td>
                       <td className="py-3.5 px-4 text-xs font-medium text-muted-foreground">
                         {r.nguoi_thuc_hien || '—'}

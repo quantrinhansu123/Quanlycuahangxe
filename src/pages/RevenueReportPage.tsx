@@ -53,12 +53,13 @@ import {
   type RevenueByService,
 } from '../data/reportData';
 import BusinessReportsPanel from '../components/reports/BusinessReportsPanel';
-import { getBusinessReportData, type BusinessReportData } from '../data/businessReportData';
+import { getBusinessReportData, type BusinessReportData, type BusinessReportSources } from '../data/businessReportData';
 import { useAuth } from '../context/AuthContext';
 import { getErrorDetails } from '../lib/errorDetails';
 import { getPersonnel, type NhanSu } from '../data/personnelData';
 import { SearchableSelect } from '../components/ui/SearchableSelect';
 import { branchKey, branchLabel } from '../lib/branchCatalog';
+import { useBranches } from '../hooks/useBranches';
 import ReportOrdersModal from '../components/ReportOrdersModal';
 import { selectReportOrderLines, type ReportDrillScope } from '../data/reportOrderDetails';
 
@@ -1454,6 +1455,7 @@ const RevenueReportPage: React.FC = () => {
   const [filteredSnapshot, setFilteredSnapshot] = useState<ReportSnapshot | null>(null);
   const [drillScope, setDrillScope] = useState<ReportDrillScope | null>(null);
   const [selectedBranch, setSelectedBranch] = useState('');
+  const allBranches = useBranches();
   const [selectedStaff, setSelectedStaff] = useState<string[]>([]);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [personnelCatalog, setPersonnelCatalog] = useState<NhanSu[]>([]);
@@ -1468,18 +1470,20 @@ const RevenueReportPage: React.FC = () => {
   const serviceOptions = useMemo(() => getReportServiceOptions(snapshot?.records ?? [], selectedBranch), [snapshot, selectedBranch]);
   const branchOptions = useMemo(() => {
     const labels = new Map<string, string>();
+    for (const label of allBranches) labels.set(branchKey(label), label);
     for (const row of snapshot?.records ?? []) {
       if (row.co_so?.trim()) labels.set(branchKey(row.co_so), branchLabel(row.co_so));
     }
     return [...labels.values()].sort((a, b) => a.localeCompare(b, 'vi')).map(label => ({ value: label, label }));
-  }, [snapshot]);
+  }, [snapshot, allBranches]);
   const loadController = useRef<AbortController | null>(null);
   const loadVersion = useRef(0);
   const personnelPending = useRef(false);
-  const financialPending = useRef(false);
   const [personnelError, setPersonnelError] = useState('');
   const [lazyRetry, setLazyRetry] = useState(0);
   const [financialResult, setFinancialResult] = useState<{ key: string; data: BusinessReportData | null; error: string }>({ key: '', data: null, error: '' });
+  const financialSources = useRef<BusinessReportSources | undefined>(undefined);
+  const financialCache = useRef(new Map<string, BusinessReportData>());
 
   const [summary, setSummary] = useState<ReportSummary | null>(null);
   const [serviceData, setServiceData] = useState<RevenueByService[]>([]);
@@ -1513,10 +1517,11 @@ const RevenueReportPage: React.FC = () => {
     const version = ++loadVersion.current;
     loadController.current?.abort();
     const controller = new AbortController(); loadController.current = controller;
-    personnelPending.current = false; financialPending.current = false;
+    personnelPending.current = false;
     setSnapshot(null); setFilteredSnapshot(null); setSummary(null); setFiltering(true);
     setPersonnelHeaders(null); setPersonnelData(null); setPersonnelError('');
     setFinancialResult({ key: '', data: null, error: '' });
+    financialSources.current = undefined; financialCache.current.clear();
     setLoading(true);
     setLoadError('');
     try {
@@ -1552,15 +1557,20 @@ const RevenueReportPage: React.FC = () => {
         if (!signal?.aborted && version === loadVersion.current) setPersonnelError(getErrorDetails(error).message || 'Không tải được báo cáo nhân sự.');
       });
     }
-    if (needsFinancial && !financialResult.data && !financialPending.current) {
-      financialPending.current = true;
-      void getBusinessReportData(startDate, endDate, snapshot.records, signal).then(data => {
-        if (!signal?.aborted && version === loadVersion.current) setFinancialResult({ key: `${startDate}:${endDate}`, data, error: '' });
-      }).catch(error => {
-        if (!signal?.aborted && version === loadVersion.current) setFinancialResult({ key: `${startDate}:${endDate}`, data: null, error: getErrorDetails(error).message || 'Không tải được báo cáo tài chính.' });
-      });
-    }
   }, [snapshot, startDate, endDate, needsPersonnel, needsFinancial, personnelHeaders, selectedStaff.length, financialResult.data, lazyRetry]);
+
+  useEffect(() => {
+    if (!needsFinancial || !snapshot || snapshot.startDate !== startDate || snapshot.endDate !== endDate) return;
+    const controller = new AbortController();
+    const key = `${startDate}:${endDate}:${selectedBranch}`;
+    const cached = financialCache.current.get(key);
+    if (cached) { setFinancialResult({ key, data: cached, error: '' }); return; }
+    setFinancialResult({ key: '', data: null, error: '' });
+    void getBusinessReportData(startDate, endDate, snapshot.records, controller.signal, selectedBranch, financialSources.current)
+      .then(data => { if (!controller.signal.aborted) { financialSources.current = data.sources; financialCache.current.set(key, data); setFinancialResult({ key, data, error: '' }); } })
+      .catch(error => { if (!controller.signal.aborted) setFinancialResult({ key, data: null, error: getErrorDetails(error).message || 'Không tải được báo cáo tài chính.' }); });
+    return () => controller.abort();
+  }, [needsFinancial, snapshot, startDate, endDate, selectedBranch, lazyRetry]);
 
   useEffect(() => {
     if (!snapshot) return;
@@ -1586,7 +1596,7 @@ const RevenueReportPage: React.FC = () => {
     return () => { active = false; };
   }, [needsPersonnel, filteredSnapshot, personnelHeaders, filtering, catalogLoading, startDate, endDate, filters, personnelCatalog]);
 
-  const retryFinancial = () => { financialPending.current = false; setFinancialResult({ key: '', data: null, error: '' }); setLazyRetry(n => n + 1); };
+  const retryFinancial = () => { void loadAll(); setLazyRetry(n => n + 1); };
   const drillRecords = useMemo(() => drillScope && filteredSnapshot
     ? selectReportOrderLines(filteredSnapshot.records, drillScope, personnelHeaders ?? [], personnelCatalog) : [],
     [drillScope, filteredSnapshot, personnelHeaders, personnelCatalog]);
@@ -1639,7 +1649,7 @@ const RevenueReportPage: React.FC = () => {
           </div>
         </div>
 
-        {!needsFinancial && (
+        {(
           <div className="flex flex-wrap items-end gap-3" aria-label="Bộ lọc báo cáo">
             <div className="w-full min-w-0 sm:w-52">
               <span className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><Building2 size={14} /> Cơ sở</span>
@@ -1647,7 +1657,7 @@ const RevenueReportPage: React.FC = () => {
                 placeholder="Tất cả cơ sở" ariaLabel="Lọc cơ sở" searchPlaceholder="Tìm cơ sở..."
                 disabled={loading} className="h-10 rounded-lg bg-card px-3 py-2 text-sm font-medium text-foreground" />
             </div>
-            <div className="w-full min-w-0 sm:w-56">
+            {!needsFinancial && <><div className="w-full min-w-0 sm:w-56">
               <span className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><Users size={14} /> Nhân sự</span>
               <SearchableSelect options={staffOptions} multiple values={selectedStaff} multipleLabel="nhân sự"
                 onValuesChange={setSelectedStaff} placeholder="Tất cả nhân sự" ariaLabel="Lọc nhân sự"
@@ -1660,7 +1670,7 @@ const RevenueReportPage: React.FC = () => {
                 onValuesChange={setSelectedServices} placeholder="Tất cả dịch vụ" ariaLabel="Lọc dịch vụ"
                 searchPlaceholder="Tìm dịch vụ..." emptyMessage="Không có dịch vụ trong kỳ tại cơ sở này."
                 disabled={loading} className="h-10 rounded-lg bg-card px-3 py-2 text-sm font-medium text-foreground" />
-            </div>
+            </div></>}
             <button type="button" title="Xóa bộ lọc báo cáo" aria-label="Xóa bộ lọc báo cáo"
               disabled={!hasFilters} onClick={() => { setSelectedBranch(''); setSelectedStaff([]); setSelectedServices([]); }}
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted disabled:opacity-40">
@@ -1678,13 +1688,13 @@ const RevenueReportPage: React.FC = () => {
         ) : visibleSummary ? (
           <>
             {/* KPI Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            {!needsFinancial && <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
               <StatCard label="Tổng doanh thu" value={fmt(visibleSummary.total_revenue)} sub={`${visibleSummary.date_range_days} ngày hoạt động`} icon={TrendingUp} color="#3b82f6" />
               <StatCard label="Lợi nhuận gộp" value={fmt(visibleSummary.total_profit)} sub={`Biên: ${((visibleSummary.total_profit / (visibleSummary.total_revenue || 1)) * 100).toFixed(1)}%`} icon={visibleSummary.total_profit >= 0 ? TrendingUp : TrendingDown} color="#10b981" />
               <StatCard label="Tổng đơn hàng" value={visibleSummary.total_orders.toLocaleString('vi-VN')} sub="đơn giao dịch" icon={BarChart2} color="#8b5cf6" />
               <StatCard label="TB / ngày" value={fmt(visibleSummary.avg_per_day)} sub="doanh thu bình quân" icon={Calendar} color="#f59e0b" />
               <StatCard label="TB / đơn" value={fmt(visibleSummary.avg_per_order)} sub="giá trị đơn bình quân" icon={ArrowUpRight} color="#ec4899" />
-            </div>
+            </div>}
 
             {/* Tabs */}
             <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
@@ -1717,7 +1727,7 @@ const RevenueReportPage: React.FC = () => {
                     personnelData={personnelData?.personnel ?? []}
                   />
                 )}
-                {activeTab === 'financial' && <BusinessReportsPanel startDate={startDate} endDate={endDate} sharedResult={{ ...financialResult, retry: retryFinancial }} />}
+                {activeTab === 'financial' && <BusinessReportsPanel startDate={startDate} endDate={endDate} branch={selectedBranch} sharedResult={{ ...financialResult, retry: retryFinancial }} />}
                 </>}
                 {(needsPersonnel || selectedStaff.length > 0) && personnelError && <p role="alert">{personnelError} <button type="button" onClick={() => { personnelPending.current = false; setLazyRetry(n => n + 1); }}>Thử lại</button></p>}
               </div>

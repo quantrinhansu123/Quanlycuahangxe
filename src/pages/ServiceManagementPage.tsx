@@ -746,7 +746,7 @@ const ServiceManagementPage: React.FC = () => {
         initialData={formData}
         onClose={handleCloseModal}
         onSubmit={handleSubmit}
-        branchOptions={[...BRANCH_OPTIONS]}
+        branchOptions={['Cơ sở chính', ...BRANCH_OPTIONS]}
         isReadOnly={isReadOnlyModal}
         showGiaNhap={showGiaNhap}
         showHoaHong={showHoaHong}

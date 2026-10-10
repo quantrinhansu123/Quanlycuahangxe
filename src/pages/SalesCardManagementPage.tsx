@@ -1036,10 +1036,11 @@ const SalesCardManagementPage: React.FC = () => {
       );
 
       const exportCoSo = orderBranch;
+      // The payment guard reads the committed order total after detail triggers run.
+      if (detailRecords.length > 0) await bulkUpsertSalesCardCTs(detailRecords);
 
       // Bước 3: Đẩy đồng thời TẤT CẢ TÁC VỤ còn lại không phụ thuộc nhau
       await Promise.all([
-        detailRecords.length > 0 ? bulkUpsertSalesCardCTs(detailRecords) : Promise.resolve(),
         syncInventoryExportFromSalesOrder({
           orderId: savedCard.id,
           orderCode: savedCard.id_bh,
@@ -1063,6 +1064,8 @@ const SalesCardManagementPage: React.FC = () => {
           const financialRecord: Partial<ThuChi> = {
             id: existingTx?.id,
             loai_phieu: 'phiếu thu',
+            source_type: 'sales_order',
+            source_id: savedCard.id,
             phuong_thuc: paymentMethod,
             id_don: savedCard.id,
             so_tien: totalAmount,
@@ -1071,7 +1074,7 @@ const SalesCardManagementPage: React.FC = () => {
             co_so: orderBranch,
             id_khach_hang: savedCard.khach_hang_id,
             danh_muc: 'Doanh thu dịch vụ',
-            trang_thai: 'Hoàn thành',
+            trang_thai: paymentMethod === 'Chưa thanh toán' ? 'Đang chờ' : 'Hoàn thành',
             ghi_chu: existingTx?.ghi_chu || `Hệ thống tự động: Đồng bộ tiền đơn hàng ${savedCard.id.slice(0, 8)}`
           };
           await upsertTransaction(financialRecord);
@@ -1181,9 +1184,9 @@ const SalesCardManagementPage: React.FC = () => {
         so_tien: totalAmount,
         ngay: data.ngay || new Date().toISOString().split('T')[0],
         gio: data.gio || formatTime24h(new Date(), false),
-        co_so: (items.length > 0)
-          ? (services.find(s => s.id === items[0].id)?.co_so || 'Cơ sở chính')
-          : 'Cơ sở chính',
+        co_so: resolveOrderBranchFromCard(editingCard),
+        source_type: 'sales_order',
+        source_id: editingCard.id,
         id_khach_hang: editingCard.khach_hang_id,
         nguoi_chi: currentCustomer?.ho_va_ten || data.khach_hang?.ho_va_ten || editingCard.khach_hang?.ho_va_ten || editingCard.ten_khach_hang || 'Khách vãng lai',
         danh_muc: 'Doanh thu dịch vụ',
@@ -2159,6 +2162,8 @@ const SalesCardManagementPage: React.FC = () => {
             onCustomerSearch={searchCustomersForForm}
             personnel={personnel}
             services={services}
+            onServiceCreated={service => setServices(prev => [...prev, service])}
+            onCustomerCreated={customer => setCustomers(prev => upsertCustomerInList(prev, customer))}
             onClose={handleCloseModal}
             onSubmit={handleSubmit}
             isReadOnly={isReadOnlyModal}

@@ -37,6 +37,7 @@ test('technician privacy and immutable saved orders use verified application ses
   const policyFix=await read('supabase/migrations/202610100002_cached_customer_privacy_policy.sql');
   await db.exec(policyFix);
   await db.exec(policyFix);
+  await db.exec(await read('supabase/migrations/202610100004_business_report_sources.sql'));
   await db.exec(`CREATE FUNCTION test_saved_record_write(kind text,record_id uuid) RETURNS void
     LANGUAGE plpgsql SECURITY DEFINER SET search_path=public,pg_temp AS $$ BEGIN
       IF kind='order' THEN UPDATE the_ban_hang SET ghi_chu='forged' WHERE id=record_id;
@@ -70,6 +71,9 @@ test('technician privacy and immutable saved orders use verified application ses
     assert.equal((await db.query(`UPDATE nhan_su SET vi_tri='Admin' WHERE ho_ten='Anh' RETURNING id`)).rows.length,0);
     const visible=(await db.query('SELECT * FROM khach_hang_visible')).rows;
     assert.ok(visible.length); assert.ok(visible.every(c=>c.so_dien_thoai===null));
+    const businessHeaders=(await db.query('SELECT * FROM business_order_headers')).rows;
+    assert.ok(businessHeaders.length);
+    assert.ok(!JSON.stringify(businessHeaders).includes('0984050141'),'Business report headers preserve the protected view phone masking');
     const customers=await rpc('customers_query',[null,null,null,null,1,100,null,'0984050141']);
     assert.equal(customers.data.length,1); assert.equal(customers.data[0].so_dien_thoai,null);
     for (const name of ['sales_query','sales_lookup','customer_order_stats']) {

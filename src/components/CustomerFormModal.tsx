@@ -49,9 +49,10 @@ interface CustomerFormModalProps {
   onSuccess: (customer: KhachHang, shouldCreateOrder?: boolean, isTemp?: boolean) => void;
   customer: KhachHang | null;
   currentStaffId?: string;
+  inline?: boolean;
 }
 
-const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen, onClose, onSuccess, customer, currentStaffId }) => {
+const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen, onClose, onSuccess, customer, currentStaffId, inline = false }) => {
   const CUSTOMER_BRANCH_OPTIONS = useBranches();
   const [formData, setFormData] = useState<Partial<KhachHang>>({});
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -202,6 +203,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
   };
 
   const goToExistingCustomer = (existing: KhachHang) => {
+    if (inline) { onSuccess(existing); setDuplicateWarning(null); onClose(); return; }
     navigate('/ban-hang/phieu-ban-hang', {
       state: { pendingCustomerData: existing },
     });
@@ -403,7 +405,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
             <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-xl text-sm font-bold text-muted-foreground hover:bg-muted border border-border transition-all">Hủy bỏ</button>
             <div className="flex items-center gap-2 w-full sm:w-auto">
               {/* Nút Lên đơn (Chỉ hiện khi thêm mới hoặc nếu cần thiết khi sửa) */}
-              <button
+              {!inline && <button
                 type="button"
                 disabled={uploadingImage}
                 onClick={(e) => handleSubmit(e, true)}
@@ -414,7 +416,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
               >
                 {uploadingImage ? <Loader2 className="animate-spin" size={18} /> : <ShoppingCart size={18} />}
                 <span>Lên đơn</span>
-              </button>
+              </button>}
 
               <button
                 type="submit"

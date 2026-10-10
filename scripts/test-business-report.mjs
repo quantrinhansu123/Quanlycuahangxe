@@ -11,7 +11,10 @@ import {
 } from '../src/lib/businessReportMetrics.ts';
 
 test('previous business range keeps calendar dates across months and years', () => {
-  assert.deepEqual(previousBusinessRange('2026-03-01', '2026-03-31'), { start: '2026-01-29', end: '2026-02-28' });
+  assert.deepEqual(previousBusinessRange('2026-03-01', '2026-03-31'), { start: '2026-02-01', end: '2026-02-28' });
+  assert.deepEqual(previousBusinessRange('2024-03-01', '2024-03-31'), { start: '2024-02-01', end: '2024-02-29' });
+  assert.deepEqual(previousBusinessRange('2024-01-01', '2024-12-31'), { start: '2023-01-01', end: '2023-12-31' });
+  assert.throws(() => previousBusinessRange('2026-04-01', '2026-03-01'));
   assert.deepEqual(previousBusinessRange('2026-01-01', '2026-01-01'), { start: '2025-12-31', end: '2025-12-31' });
 });
 
@@ -66,10 +69,22 @@ test('expense and cash reports standardize categories and payment methods while 
     ['Chi phí khác', 570],
   ]);
   assert.deepEqual(buildCashFlowReport(transactions), [
-    { phuong_thuc: 'Tiền mặt', thu: 4_000, chi: 300, dong_tien_thuan: 3_700 },
-    { phuong_thuc: 'Ngân hàng', thu: 0, chi: 3_070, dong_tien_thuan: -3_070 },
-    { phuong_thuc: 'Chưa phân loại', thu: 0, chi: 500, dong_tien_thuan: -500 },
+    { phuong_thuc: 'Tiền mặt', thu: 4_000, chi: 300, dong_tien_thuan: 3_700, cho_thu: 0, cho_chi: 9_999 },
+    { phuong_thuc: 'Ngân hàng', thu: 0, chi: 3_070, dong_tien_thuan: -3_070, cho_thu: 0, cho_chi: 0 },
+    { phuong_thuc: 'Chưa phân loại', thu: 0, chi: 500, dong_tien_thuan: -500, cho_thu: 0, cho_chi: 0 },
   ]);
+});
+
+test('supplier debts come from original invoices, with partial payments and pending vouchers excluded from paid amount', () => {
+  const purchases = [{ id: 'invoice-1', ma_phieu: 'NH-1', nha_cung_cap: 'A', tong_tien: 1_000 }, { id: 'invoice-2', ma_phieu: 'NH-2', nha_cung_cap: 'B', tong_tien: 500 }];
+  const transactions = [
+    { loai_phieu: 'phiếu chi', source_type: 'purchase_receipt', source_id: 'invoice-1', trang_thai: 'Chờ thanh toán', so_tien: 1_000 },
+    { loai_phieu: 'phiếu chi', source_type: 'purchase_payment', source_id: 'invoice-1', trang_thai: 'Hoàn thành', so_tien: 400 },
+    { loai_phieu: 'phiếu chi', id_don: 'NH-2', trang_thai: 'Hoàn thành', so_tien: 500 },
+    { loai_phieu: 'phiếu chi', trang_thai: 'Đang chờ', nguoi_nhan: 'Chủ nhà', so_tien: 100 },
+  ];
+  assert.deepEqual(buildDebtReport([], [], transactions, purchases), [{ key: 'supplier:a', doi_tuong: 'A', loai: 'Nhà cung cấp', tong_phat_sinh: 1_000, da_thanh_toan: 400, con_no: 600 }]);
+  assert.equal(buildExpenseReport(transactions).total, 500, 'Uncategorized legacy expense remains, linked purchase payment is not deducted twice');
 });
 
 test('debt accepts payments recorded by order UUID or sales code and keeps unpaid supplier vouchers', () => {

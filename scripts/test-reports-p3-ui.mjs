@@ -5,6 +5,8 @@ import { createServer } from 'vite';
 import { chromium } from 'playwright';
 import { reportFixture } from './reports-p3-test-runtime.mjs';
 const data=reportFixture(), dir='docs/performance-reports-p3', origin='http://127.0.0.1:5203';
+data.co_so=[{id:'branch-a',ten_co_so:'Cơ sở A'},{id:'branch-b',ten_co_so:'Cơ sở B'}];
+data.nhap_xuat_kho.forEach(row=>{row.co_so='A';row.id_xuat_nhap_kho='NH-UI';row.id_don_hang='NH-UI';});
 fs.mkdirSync('.build-verification',{recursive:true});
 const html=`<div id="root"></div><script type="module">
 import React from 'react';import{createRoot}from'react-dom/client';import App from '/src/App.tsx';import{ThemeProvider}from'/src/context/ThemeContext.tsx';import{ToastProvider}from'/src/context/ToastContext.tsx';import '/src/index.css';
@@ -27,7 +29,7 @@ try {
    if(delayCT)await new Promise(r=>setTimeout(r,300));
    if(failCT)return route.fulfill({status:500,contentType:'application/json',body:JSON.stringify({message:'P3 read failed'})});
   }
-  let rows=[...(data[table]||[])];
+  let rows=table==='business_order_headers'?data.the_ban_hang.map(order=>({...order,co_so:order.co_so||data.the_ban_hang_ct.find(line=>[order.id,order.id_bh].includes(line.id_don_hang))?.co_so})):[...(data[table]||[])];
   for(const expr of url.searchParams.getAll('ngay')){const [op,value]=expr.split('.');rows=rows.filter(r=>r.ngay!=null&&(op==='gte'?r.ngay>=value:r.ngay<=value));}
   const orders=(url.searchParams.get('order')||'').split(',').filter(Boolean).map(s=>s.split('.'));
   rows.sort((a,b)=>{for(const [key,direction]of orders){const diff=a[key]===b[key]?0:a[key]==null?-1:b[key]==null?1:a[key]<b[key]?-1:1;if(diff)return direction==='desc'?-diff:diff;}return 0;});
@@ -56,6 +58,22 @@ try {
  assert.ok(requests.some(r=>r.table==='nhap_xuat_kho'&&r.projection!=='*'));
  await tab('Theo ngày');await tab('Tài chính tổng hợp');assert.equal(requests.length,financeCalls);
  checks.push('Financial-only sources/inventory are lazy/compact, current CT reused, returning to tab needs no reads');
+ await page.getByRole('button',{name:'Lọc cơ sở',exact:true}).click();
+ await page.locator('.z-2000').getByText('Cơ sở A',{exact:true}).click();
+ await page.getByRole('heading',{name:'Tổng hợp tài chính · Cơ sở A',exact:true}).waitFor();await settled();
+ assert.equal(requests.length,financeCalls,'Financial branch filter reuses all-period sources');
+ const inventorySection=page.locator('section').filter({has:page.getByRole('heading',{name:'Nhập – xuất – tồn theo mã sản phẩm',exact:true})});
+ await inventorySection.getByRole('button',{name:'Product 1',exact:true}).click();
+ await page.getByRole('dialog').getByText('NH-UI',{exact:true}).first().waitFor();
+ await page.screenshot({path:'.build-verification/anc-inventory-desktop.png'});
+ await page.getByRole('button',{name:'Đóng chi tiết',exact:true}).click();
+ const download=page.waitForEvent('download');await page.getByRole('button',{name:'Xuất Excel',exact:true}).click();
+ await (await download).saveAs('.build-verification/anc-business-report.xlsx');
+ await page.setViewportSize({width:375,height:1000});await settled();
+ assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Financial report does not overflow a 375px viewport');
+ await page.screenshot({path:'.build-verification/anc-report-mobile.png'});
+ await page.setViewportSize({width:1440,height:1050});
+ checks.push('Financial branch scopes reuse sources; inventory drills into original slips; Excel downloads; mobile report remains within viewport');
  delayCT=true;await page.locator('input[type=date]').first().fill('2026-09-11');await page.locator('input[type=date]').first().fill('2026-09-12');await settled();delayCT=false;
  assert.equal(await page.locator('input[type=date]').first().inputValue(),'2026-09-12');assert.equal(await page.getByRole('alert').count(),0);
  await tab('Sản phẩm/DV');const beforeLocalFilter=requests.length;

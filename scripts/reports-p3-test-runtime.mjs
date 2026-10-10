@@ -14,7 +14,7 @@ export function loadReportRuntime(source,data,calls=[]) {
  const from=table=>{
   let projection='*',offset=0,limit=1000,signal;const filters=[],orders=[];
   const q={select:p=>(projection=p,q),gte:(key,value)=>(filters.push(r=>r[key]>=value),q),lte:(key,value)=>(filters.push(r=>r[key]<=value),q),order:(key,opts={})=>(orders.push([key,opts.ascending!==false]),q),range:(a,b)=>(offset=a,limit=b-a+1,q),abortSignal:s=>(signal=s,q),then:(resolve,reject)=>{
-   try{signal?.throwIfAborted();let rows=(data[table]||[]).filter(r=>filters.every(f=>f(r)));
+   try{signal?.throwIfAborted();const source=table==='business_order_headers'?data.the_ban_hang.map(order=>({...order,co_so:order.co_so||data.the_ban_hang_ct.find(line=>[order.id,order.id_bh].includes(line.id_don_hang))?.co_so})):data[table]||[];let rows=source.filter(r=>filters.every(f=>f(r)));
     rows.sort((a,b)=>{for(const [key,asc] of orders){const diff=compare(a[key],b[key]);if(diff)return asc?diff:-diff;}return 0;});
     rows=rows.slice(offset,offset+limit);if(projection!=='*')rows=rows.map(r=>Object.fromEntries(projection.split(',').map(k=>[k.trim(),r[k.trim()]??null])));
     calls.push({table,offset,rows:rows.length,projection});return Promise.resolve({data:rows,error:null}).then(resolve,reject);
@@ -25,12 +25,13 @@ export function loadReportRuntime(source,data,calls=[]) {
  const dependencies={
   './salesQueryData':{queryAllSales},'./personnelData':{getPersonnel:async()=>data.nhan_su||[]},'../lib/authStorage':{getStoredDemoRole:()=>null},
   '../lib/branchCatalog':{branchKey,branchLabel},
+  './branchCatalog':{branchKey,branchLabel},
   '../lib/supabase':{supabase:{from}},'../lib/utils':{removeVietnameseTones:normalize},
   '../lib/readRequest':{readRequest:async(name,run,signal)=>run(signal||new AbortController().signal)},
   './inventoryData':{calculateInventoryStockSummary,getInventoryStockSummary:async(s,e)=>calculateInventoryStockSummary(data.ds_san_pham,data.nhap_xuat_kho,s,e)},
  };
  const compile=code=>{const out={};new Function('require','exports',ts.transpileModule(code,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(key=>{
-  if(dependencies[key])return dependencies[key];if(key==='../lib/businessReportMetrics'){dependencies[key]=compile(fs.readFileSync('src/lib/businessReportMetrics.ts','utf8'));return dependencies[key];}throw Error('Unexpected dependency '+key);
+  if(dependencies[key])return dependencies[key];if(['../lib/businessReportMetrics','./businessReportMetrics','../lib/businessReportScope'].includes(key)){const file=key.includes('Scope')?'businessReportScope':'businessReportMetrics';dependencies[key]=compile(fs.readFileSync(`src/lib/${file}.ts`,'utf8'));return dependencies[key];}throw Error('Unexpected dependency '+key);
  },out);return out;};
  const report=compile(source);dependencies['./reportData']=report;
  return{report,business:code=>compile(code)};

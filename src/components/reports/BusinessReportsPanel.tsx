@@ -1,101 +1,104 @@
-import { AlertCircle, Banknote, Boxes, Landmark, Loader2, ReceiptText, Scale } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
-import { getBusinessReportData, type BusinessReportData } from '../../data/businessReportData';
+import { AlertCircle, Banknote, Boxes, Download, Landmark, Loader2, ReceiptText, Scale } from 'lucide-react';
+import React, { useEffect, useState, type ReactNode } from 'react';
+import { getBusinessReportData, type BusinessReportData, type BusinessTransactionRow } from '../../data/businessReportData';
+import { normalizeBusinessText, normalizeCashFlowMethod, isIncomeTransaction } from '../../lib/businessReportMetrics';
+import { useAuth } from '../../context/AuthContext';
+import ReportDetailsModal, { type ReportDetail } from './ReportDetailsModal';
+import ProductCostModal from './ProductCostModal';
 
 const money = (value: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(value || 0);
 const number = (value: number) => new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(value || 0);
 const dateVi = (value: string) => value.split('-').reverse().join('/');
+const percent = (value: number) => new Intl.NumberFormat('vi-VN', { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(value || 0);
+const voucherCode = (row: BusinessTransactionRow) => `${isIncomeTransaction(row.loai_phieu) ? 'PT' : 'PC'}-${row.id.slice(0, 8).toUpperCase()}`;
 
 function Delta({ current, previous }: { current: number; previous: number }) {
   if (!previous) return <span className="text-muted-foreground">Kỳ trước chưa có dữ liệu</span>;
-  const percent = ((current - previous) / Math.abs(previous)) * 100;
-  return <span className={percent >= 0 ? 'text-emerald-600' : 'text-rose-600'}>{percent >= 0 ? '+' : ''}{percent.toFixed(1)}% so với kỳ trước</span>;
+  const delta = (current - previous) / Math.abs(previous);
+  return <span>{delta >= 0 ? '+' : ''}{percent(delta)} so với kỳ trước</span>;
 }
 
-function Kpi({ label, value, note, icon: Icon }: { label: string; value: string; note: React.ReactNode; icon: React.ElementType }) {
-  return (
-    <div className="rounded-xl border border-border bg-background p-4">
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">{label}</span>
-        <Icon size={16} className="text-primary" />
-      </div>
-      <div className="mt-2 text-lg font-black text-foreground">{value}</div>
-      <div className="mt-1 text-[11px]">{note}</div>
-    </div>
-  );
+function Kpi({ label, value, note, icon: Icon }: { label: string; value: string; note: ReactNode; icon: React.ElementType }) {
+  return <div className="min-w-0 rounded-xl border border-border bg-background p-4"><div className="flex items-center justify-between gap-3"><span className="text-xs font-medium text-muted-foreground">{label}</span><Icon size={16} className="shrink-0 text-primary" /></div><div className="mt-2 text-lg font-semibold tabular-nums">{value}</div><div className="mt-1 text-xs text-muted-foreground">{note}</div></div>;
 }
 
-const EmptyRow = ({ cols }: { cols: number }) => <tr><td colSpan={cols} className="px-4 py-8 text-center italic text-muted-foreground">Không có dữ liệu trong kỳ.</td></tr>;
+function Table({ headers, rows }: { headers: string[]; rows: ReactNode[][] }) {
+  return <div className="space-y-1"><p className="text-xs text-muted-foreground sm:hidden">Vuốt ngang để xem đầy đủ các cột.</p><div className="min-w-0 overflow-x-auto rounded-xl border border-border"><table className="w-full text-xs"><thead className="bg-muted/50"><tr>{headers.map((label, index) => <th key={index} className={`whitespace-nowrap px-4 py-3 text-left font-medium ${index === 0 ? 'sticky left-0 z-10 bg-muted' : ''}`}>{label}</th>)}</tr></thead><tbody className="divide-y divide-border">{rows.length ? rows.map((row, index) => <tr key={index}>{row.map((value, column) => <td key={column} className={`whitespace-nowrap px-4 py-3 tabular-nums ${column === 0 ? 'sticky left-0 bg-card' : ''}`}>{value}</td>)}</tr>) : <tr><td colSpan={headers.length} className="px-4 py-8 text-center text-muted-foreground">Không có dữ liệu trong kỳ.</td></tr>}</tbody></table></div></div>;
+}
 
-export default function BusinessReportsPanel({ startDate, endDate, sharedResult }: { startDate: string; endDate: string; sharedResult?: { key: string; data: BusinessReportData | null; error: string; retry: () => void } }) {
-  const requestKey = `${startDate}:${endDate}`;
+export default function BusinessReportsPanel({ startDate, endDate, branch = '', sharedResult }: { startDate: string; endDate: string; branch?: string; sharedResult?: { key: string; data: BusinessReportData | null; error: string; retry: () => void } }) {
+  const { isAdmin } = useAuth();
+  const requestKey = `${startDate}:${endDate}:${branch}`;
   const [result, setResult] = useState<{ key: string; data: BusinessReportData | null; error: string }>({ key: '', data: null, error: '' });
-
+  const [detail, setDetail] = useState<ReportDetail | null>(null);
+  const [costProduct, setCostProduct] = useState<string | null>(null);
+  const [retry, setRetry] = useState(0);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
   useEffect(() => {
     if (sharedResult) return;
-    let active = true;
     const controller = new AbortController();
-    getBusinessReportData(startDate, endDate, undefined, controller.signal)
-      .then((data) => { if (active) setResult({ key: requestKey, data, error: '' }); })
-      .catch((reason) => { if (active) setResult({ key: requestKey, data: null, error: reason instanceof Error ? reason.message : String(reason) }); });
-    return () => { active = false; controller.abort(); };
-  }, [startDate, endDate, requestKey, sharedResult]);
-
+    getBusinessReportData(startDate, endDate, undefined, controller.signal, branch)
+      .then(data => { if (!controller.signal.aborted) setResult({ key: requestKey, data, error: '' }); })
+      .catch(reason => { if (!controller.signal.aborted) setResult({ key: requestKey, data: null, error: reason instanceof Error ? reason.message : String(reason) }); });
+    return () => controller.abort();
+  }, [startDate, endDate, branch, requestKey, sharedResult, retry]);
+  useEffect(() => { setDetail(null); setCostProduct(null); }, [requestKey]);
+  const refresh = () => { if (sharedResult) sharedResult.retry(); else { setResult({ key: '', data: null, error: '' }); setRetry(value => value + 1); } };
   const shown = sharedResult ?? result;
-
   if (shown.key !== requestKey) return <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground"><Loader2 size={17} className="animate-spin" /> Đang tổng hợp báo cáo tài chính...</div>;
-  if (shown.error || !shown.data) return <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700"><AlertCircle size={18} className="mt-0.5 shrink-0" /><div><strong>Không tải được báo cáo.</strong><div className="mt-1 text-xs">{shown.error}</div>{sharedResult && <button type="button" onClick={sharedResult.retry}>Thử lại</button>}</div></div>;
+  if (shown.error || !shown.data) return <div role="alert" className="flex items-start gap-2 rounded-xl border border-border p-4 text-sm"><AlertCircle size={18} /><div><strong>Không tải được báo cáo.</strong><p>{shown.error}</p><button type="button" onClick={refresh} className="mt-2 underline">Thử lại</button></div></div>;
   const data = shown.data;
-
-  const inventoryTotals = data.inventory.reduce((sum, row) => ({
-    opening: sum.opening + row.dau_ky_gia_tri,
-    input: sum.input + row.nhap_gia_tri,
-    output: sum.output + row.xuat_gia_tri,
-    closing: sum.closing + row.cuoi_ky_gia_tri,
-  }), { opening: 0, input: 0, output: 0, closing: 0 });
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-[15px] font-black text-foreground">Tổng hợp tài chính</h2>
-        <p className="mt-1 text-[11px] text-muted-foreground">Kỳ so sánh: {dateVi(data.previousStart)} – {dateVi(data.previousEnd)}. Chọn một ngày, tháng hoặc năm sẽ so sánh với kỳ liền trước có cùng độ dài.</p>
-      </div>
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        <Kpi label="Doanh thu" value={money(data.summary.total_revenue)} note={<Delta current={data.summary.total_revenue} previous={data.previousSummary.total_revenue} />} icon={Banknote} />
-        <Kpi label="Số xe đã phục vụ" value={number(data.summary.total_vehicles)} note={<Delta current={data.summary.total_vehicles} previous={data.previousSummary.total_vehicles} />} icon={Boxes} />
-        <Kpi label="Đã thu từ đơn" value={money(data.summary.total_collected)} note={<Delta current={data.summary.total_collected} previous={data.previousSummary.total_collected} />} icon={ReceiptText} />
-        <Kpi label="Giá vốn" value={money(data.summary.total_cost)} note={`${(data.summary.total_revenue ? data.summary.total_cost / data.summary.total_revenue * 100 : 0).toFixed(1)}% doanh thu`} icon={ReceiptText} />
-        <Kpi label="Lợi nhuận gộp" value={money(data.summary.total_profit)} note={`Biên lợi nhuận gộp ${(data.summary.gross_margin * 100).toFixed(1)}%`} icon={Scale} />
-        <Kpi label="Lợi nhuận trước thuế" value={money(data.profitBeforeTax)} note={`Biên trước thuế ${(data.preTaxMargin * 100).toFixed(1)}%`} icon={Landmark} />
-      </div>
-
-      <section className="space-y-2">
-        <div className="flex items-center justify-between gap-3"><h3 className="font-black text-foreground">Giá vốn và lợi nhuận gộp theo mã sản phẩm</h3><span className="text-xs text-muted-foreground">Tổng giá vốn: {money(data.summary.total_cost)}</span></div>
-        <div className="overflow-x-auto rounded-xl border border-border"><table className="w-full text-xs"><thead className="bg-muted/50 text-muted-foreground"><tr><th className="px-4 py-3 text-left">Mã sản phẩm</th><th className="px-4 py-3 text-left">Sản phẩm / dịch vụ</th><th className="px-4 py-3 text-right">Số lượng</th><th className="px-4 py-3 text-right">Doanh thu</th><th className="px-4 py-3 text-right">Giá vốn</th><th className="px-4 py-3 text-right">LN gộp</th><th className="px-4 py-3 text-right">Biên gộp</th></tr></thead><tbody className="divide-y divide-border">{data.productCosts.length === 0 ? <EmptyRow cols={7} /> : data.productCosts.map((row) => <tr key={row.key}><td className="px-4 py-3 font-semibold text-foreground">{row.ma_san_pham}</td><td className="px-4 py-3">{row.san_pham}</td><td className="px-4 py-3 text-right">{number(row.so_luong)}</td><td className="px-4 py-3 text-right">{money(row.doanh_thu)}</td><td className="px-4 py-3 text-right text-rose-600">{money(row.gia_von)}</td><td className="px-4 py-3 text-right font-bold text-emerald-600">{money(row.loi_nhuan_gop)}</td><td className="px-4 py-3 text-right">{(row.bien_loi_nhuan * 100).toFixed(1)}%</td></tr>)}</tbody></table></div>
-      </section>
-
-      <section className="space-y-2">
-        <div className="flex items-center justify-between gap-3"><div><h3 className="font-black text-foreground">Công nợ phải thu / phải trả</h3><p className="mt-0.5 text-[11px] text-muted-foreground">Khách hàng theo đơn chưa thu đủ; nhà cung cấp theo phiếu chi chưa hoàn thành.</p></div><span className="text-xs text-muted-foreground">Tổng còn nợ: {money(data.debts.reduce((sum, row) => sum + row.con_no, 0))}</span></div>
-        <div className="overflow-x-auto rounded-xl border border-border"><table className="w-full text-xs"><thead className="bg-muted/50 text-muted-foreground"><tr><th className="px-4 py-3 text-left">Đối tượng</th><th className="px-4 py-3 text-left">Loại</th><th className="px-4 py-3 text-right">Phát sinh</th><th className="px-4 py-3 text-right">Đã thanh toán</th><th className="px-4 py-3 text-right">Còn nợ</th></tr></thead><tbody className="divide-y divide-border">{data.debts.length === 0 ? <EmptyRow cols={5} /> : data.debts.map((row) => <tr key={row.key}><td className="px-4 py-3 font-semibold text-foreground">{row.doi_tuong}</td><td className="px-4 py-3">{row.loai}</td><td className="px-4 py-3 text-right">{money(row.tong_phat_sinh)}</td><td className="px-4 py-3 text-right text-emerald-600">{money(row.da_thanh_toan)}</td><td className="px-4 py-3 text-right font-bold text-rose-600">{money(row.con_no)}</td></tr>)}</tbody></table></div>
-      </section>
-
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <section className="space-y-2">
-          <div className="flex items-center justify-between"><h3 className="font-black text-foreground">Chi phí theo nhóm</h3><span className="text-xs font-bold text-rose-600">{money(data.totalExpenses)}</span></div>
-          <div className="overflow-x-auto rounded-xl border border-border"><table className="w-full text-xs"><thead className="bg-muted/50 text-muted-foreground"><tr><th className="px-4 py-3 text-left">Danh mục</th><th className="px-4 py-3 text-right">Số tiền</th><th className="px-4 py-3 text-right">Tỷ trọng</th></tr></thead><tbody className="divide-y divide-border">{data.expenses.length === 0 ? <EmptyRow cols={3} /> : data.expenses.map((row) => <tr key={row.danh_muc}><td className="px-4 py-3 font-semibold text-foreground">{row.danh_muc}</td><td className="px-4 py-3 text-right">{money(row.so_tien)}</td><td className="px-4 py-3 text-right">{(row.ty_trong * 100).toFixed(1)}%</td></tr>)}</tbody></table></div>
-        </section>
-
-        <section className="space-y-2">
-          <div className="flex items-center justify-between"><h3 className="font-black text-foreground">Dòng tiền tiền mặt / ngân hàng</h3><span className="text-xs text-muted-foreground">Thu {money(data.totalCashIn)} · Chi {money(data.totalCashOut)}</span></div>
-          <div className="overflow-x-auto rounded-xl border border-border"><table className="w-full text-xs"><thead className="bg-muted/50 text-muted-foreground"><tr><th className="px-4 py-3 text-left">Tiền mặt / ngân hàng</th><th className="px-4 py-3 text-right">Thu</th><th className="px-4 py-3 text-right">Chi</th><th className="px-4 py-3 text-right">Thuần</th></tr></thead><tbody className="divide-y divide-border">{data.cashFlow.length === 0 ? <EmptyRow cols={4} /> : data.cashFlow.map((row) => <tr key={row.phuong_thuc}><td className="px-4 py-3 font-semibold text-foreground">{row.phuong_thuc}</td><td className="px-4 py-3 text-right text-emerald-600">{money(row.thu)}</td><td className="px-4 py-3 text-right text-rose-600">{money(row.chi)}</td><td className="px-4 py-3 text-right font-bold">{money(row.dong_tien_thuan)}</td></tr>)}</tbody></table></div>
-        </section>
-      </div>
-
-      <section className="space-y-2">
-        <div className="flex items-center justify-between gap-3"><h3 className="flex items-center gap-2 font-black text-foreground"><Boxes size={16} /> Nhập – xuất – tồn theo mã sản phẩm</h3><span className="text-xs text-muted-foreground">Giá trị tồn cuối kỳ: {money(inventoryTotals.closing)}</span></div>
-        <div className="overflow-x-auto rounded-xl border border-border"><table className="w-full text-xs"><thead className="bg-muted/50 text-muted-foreground"><tr><th className="px-4 py-3 text-left">Mã</th><th className="px-4 py-3 text-left">Sản phẩm</th><th className="px-4 py-3 text-right">Đầu kỳ SL</th><th className="px-4 py-3 text-right">Đầu kỳ GT</th><th className="px-4 py-3 text-right">Nhập SL</th><th className="px-4 py-3 text-right">Nhập GT</th><th className="px-4 py-3 text-right">Xuất SL</th><th className="px-4 py-3 text-right">Xuất GT</th><th className="px-4 py-3 text-right">Cuối kỳ SL</th><th className="px-4 py-3 text-right">Cuối kỳ GT</th></tr></thead><tbody className="divide-y divide-border">{data.inventory.length === 0 ? <EmptyRow cols={10} /> : data.inventory.map((row) => <tr key={row.id}><td className="px-4 py-3">{row.ma_hang || '—'}</td><td className="px-4 py-3 font-semibold text-foreground">{row.ten_hang}</td><td className="px-4 py-3 text-right">{number(row.dau_ky_so_luong)}</td><td className="px-4 py-3 text-right">{money(row.dau_ky_gia_tri)}</td><td className="px-4 py-3 text-right text-emerald-600">{number(row.nhap_so_luong)}</td><td className="px-4 py-3 text-right text-emerald-600">{money(row.nhap_gia_tri)}</td><td className="px-4 py-3 text-right text-rose-600">{number(row.xuat_so_luong)}</td><td className="px-4 py-3 text-right text-rose-600">{money(row.xuat_gia_tri)}</td><td className="px-4 py-3 text-right font-bold">{number(row.cuoi_ky_so_luong)}</td><td className="px-4 py-3 text-right font-bold">{money(row.cuoi_ky_gia_tri)}</td></tr>)}</tbody></table></div>
-      </section>
+  const sourceCode = (row: BusinessTransactionRow) => data.purchases.find(p => p.id === row.source_id || p.id === row.id_don || p.ma_phieu === row.id_don)?.ma_phieu || data.orders.find(order => order.id === row.id_don || order.id_bh === row.id_don)?.id_bh || row.id_don || '—';
+  const openVoucher = (row: BusinessTransactionRow) => setDetail({ title: `Chứng từ ${voucherCode(row)}`, headers: ['Thông tin', 'Giá trị'], rows: [['Ngày', dateVi(row.ngay)], ['Cơ sở', row.co_so || '—'], ['Loại phiếu', row.loai_phieu], ['Chứng từ đối trừ', sourceCode(row)], ['Người nhận', row.nguoi_nhan || '—'], ['Quỹ', row.phuong_thuc || 'Chưa phân loại'], ['Số tiền', money(Number(row.so_tien))], ['Trạng thái', row.trang_thai], ['Danh mục', row.danh_muc || '—'], ['Ghi chú', row.ghi_chu || '—']] });
+  const voucherRows = (rows: BusinessTransactionRow[]) => rows.map(row => [<button type="button" className="min-h-8 min-w-8 text-foreground underline underline-offset-2 hover:bg-muted focus-visible:bg-muted outline-none" onClick={() => openVoucher(row)}>{voucherCode(row)}</button>, dateVi(row.ngay), row.co_so || '—', sourceCode(row), row.danh_muc || '—', row.trang_thai, money(Number(row.so_tien))]);
+  const cashHeaders = ['Mã PT/PC', 'Ngày', 'Cơ sở', 'Đơn đối trừ', 'Danh mục', 'Trạng thái', 'Số tiền'];
+  const exportReport = async () => {
+    setExporting(true); setExportError('');
+    try {
+      const XLSX = await import('xlsx');
+      const workbook = XLSX.utils.book_new();
+      const add = (name: string, headers: string[], rows: (string | number)[][]) => { const sheet = XLSX.utils.aoa_to_sheet([headers, ...rows]); sheet['!cols'] = headers.map(() => ({ wch: 24 })); XLSX.utils.book_append_sheet(workbook, sheet, name); };
+      add('Tổng hợp', ['Kỳ', 'Cơ sở', 'Doanh thu', 'Số xe', 'Đã thu', 'Giá vốn', 'LN gộp', 'Biên gộp', 'Chi phí', 'LN trước thuế', 'Biên trước thuế'], [[`${startDate} - ${endDate}`, branch || 'Toàn hệ thống', data.summary.total_revenue, data.summary.total_vehicles, data.summary.total_collected, data.summary.total_cost, data.summary.total_profit, percent(data.summary.gross_margin), data.totalExpenses, data.profitBeforeTax, percent(data.preTaxMargin)]]);
+      add('Công nợ', ['Đối tượng', 'Loại', 'Phát sinh', 'Đã thanh toán', 'Còn nợ'], data.debts.map(row => [row.doi_tuong, row.loai, row.tong_phat_sinh, row.da_thanh_toan, row.con_no]));
+      add('Giá vốn', ['Mã sản phẩm', 'Tên sản phẩm', 'SL', 'Doanh thu', 'Giá vốn', 'LN gộp', 'Biên gộp'], data.productCosts.map(row => [row.ma_san_pham, row.san_pham, row.so_luong, row.doanh_thu, row.gia_von, row.loi_nhuan_gop, percent(row.bien_loi_nhuan)]));
+      add('Chi phí', ['Nhóm', 'Số tiền', 'Tỷ trọng'], data.expenses.map(row => [row.danh_muc, row.so_tien, percent(row.ty_trong)]));
+      add('Dòng tiền', ['Quỹ', 'Đã thu', 'Đã chi', 'Thuần', 'Chờ thu', 'Chờ chi'], data.cashFlow.map(row => [row.phuong_thuc, row.thu, row.chi, row.dong_tien_thuan, row.cho_thu, row.cho_chi]));
+      add('Sổ thu chi', cashHeaders, data.transactions.map(row => [voucherCode(row), row.ngay, row.co_so || '', sourceCode(row), row.danh_muc || '', row.trang_thai, Number(row.so_tien)]));
+      add('Nhập xuất tồn', ['Mã', 'Sản phẩm', 'Đầu kỳ SL', 'Đầu kỳ GT', 'Nhập SL', 'Nhập GT', 'Xuất SL', 'Xuất GT', 'Cuối kỳ SL', 'Cuối kỳ GT'], data.inventory.map(row => [row.ma_hang, row.ten_hang, row.dau_ky_so_luong, row.dau_ky_gia_tri, row.nhap_so_luong, row.nhap_gia_tri, row.xuat_so_luong, row.xuat_gia_tri, row.cuoi_ky_so_luong, row.cuoi_ky_gia_tri]));
+      add('Chi tiết kho', ['Mã phiếu', 'Ngày', 'Cơ sở', 'Sản phẩm', 'Loại', 'SL', 'Đơn giá', 'Giá trị', 'Đơn liên quan'], data.inventoryMovements.map(row => [row.id_xuat_nhap_kho || row.id, row.ngay, row.co_so || '', row.ten_mat_hang, row.loai_phieu, Number(row.so_luong), Number(row.gia), Number(row.tong_tien), row.id_don_hang || '']));
+      XLSX.writeFile(workbook, `Bao-cao-kinh-doanh-${startDate}-${endDate}.xlsx`);
+    } catch (cause) { setExportError(cause instanceof Error ? cause.message : 'Không xuất được báo cáo.'); }
+    finally { setExporting(false); }
+  };
+  return <div className="min-w-0 space-y-6">
+    <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-base font-semibold">Tổng hợp tài chính · {branch || 'Toàn hệ thống'}</h2><p className="mt-1 text-xs text-muted-foreground">Kỳ so sánh: {dateVi(data.previousStart)} – {dateVi(data.previousEnd)}. Tháng/năm đầy đủ so sánh với tháng/năm liền trước.</p></div><button type="button" disabled={exporting} onClick={() => void exportReport()} className="flex h-10 items-center gap-2 rounded-xl border border-border px-4 text-sm hover:bg-muted disabled:opacity-50"><Download size={16} />{exporting ? 'Đang xuất...' : 'Xuất Excel'}</button></div>
+    {exportError && <p role="alert" className="text-sm text-rose-700">{exportError}</p>}
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <Kpi label="Doanh thu" value={money(data.summary.total_revenue)} note={<Delta current={data.summary.total_revenue} previous={data.previousSummary.total_revenue} />} icon={Banknote} />
+      <Kpi label="Số xe đã phục vụ" value={number(data.summary.total_vehicles)} note={<Delta current={data.summary.total_vehicles} previous={data.previousSummary.total_vehicles} />} icon={Boxes} />
+      <Kpi label="Đã thu từ đơn" value={money(data.summary.total_collected)} note={<Delta current={data.summary.total_collected} previous={data.previousSummary.total_collected} />} icon={ReceiptText} />
+      <Kpi label="Giá vốn" value={money(data.summary.total_cost)} note={`${data.missingCostLines} dòng có giá vốn bằng 0 hoặc chưa nhập`} icon={ReceiptText} />
+      <Kpi label="Lợi nhuận gộp" value={money(data.summary.total_profit)} note={`Biên lợi nhuận gộp ${percent(data.summary.gross_margin)}`} icon={Scale} />
+      <Kpi label="Lợi nhuận trước thuế" value={money(data.profitBeforeTax)} note={`Biên trước thuế ${percent(data.preTaxMargin)}`} icon={Landmark} />
     </div>
-  );
+    <section className="min-w-0 space-y-2"><h3 className="font-semibold">Giá vốn và lợi nhuận gộp theo mã sản phẩm</h3><p className="text-xs text-muted-foreground">Bấm tên sản phẩm để xem giá vốn từng đơn{isAdmin ? ' và cập nhật.' : '.'}</p>
+      <Table headers={['Mã sản phẩm', 'Sản phẩm / dịch vụ', 'Số lượng', 'Doanh thu', 'Giá vốn', 'LN gộp', 'Biên gộp']} rows={data.productCosts.map(row => [row.ma_san_pham, <button type="button" className="min-h-8 min-w-8 text-foreground underline underline-offset-2 hover:bg-muted focus-visible:bg-muted outline-none" onClick={() => setCostProduct(row.san_pham)}>{row.san_pham}</button>, number(row.so_luong), money(row.doanh_thu), money(row.gia_von), money(row.loi_nhuan_gop), percent(row.bien_loi_nhuan)])} />
+    </section>
+    <section className="min-w-0 space-y-2"><h3 className="font-semibold">Công nợ phải thu / phải trả</h3><p className="text-xs text-muted-foreground">Công nợ còn lại đến {dateVi(endDate)}, gồm chứng từ phát sinh trước kỳ. Tổng còn nợ: {money(data.debts.reduce((sum, row) => sum + row.con_no, 0))}.</p>
+      <Table headers={['Đối tượng', 'Loại', 'Phát sinh', 'Đã thanh toán', 'Còn nợ']} rows={data.debts.map(row => [row.doi_tuong, row.loai, money(row.tong_phat_sinh), money(row.da_thanh_toan), money(row.con_no)])} />
+    </section>
+    <section className="min-w-0 space-y-2"><div className="flex items-center justify-between"><h3 className="font-semibold">Chi phí theo nhóm</h3><span className="text-xs">{money(data.totalExpenses)}</span></div><p className="text-xs text-muted-foreground">Ghi nhận tại Thu chi theo nhóm thuê nhà, lương, điện nước, chi phí khác. Tiền mua hàng được tính trong giá vốn.</p>
+      <Table headers={['Danh mục', 'Số tiền', 'Tỷ trọng']} rows={data.expenses.map(row => [row.danh_muc, money(row.so_tien), percent(row.ty_trong)])} />
+    </section>
+    <section className="min-w-0 space-y-2"><h3 className="font-semibold">Dòng tiền tiền mặt / ngân hàng</h3><p className="text-xs text-muted-foreground">Khoản chờ thu/chi chưa làm thay đổi dòng tiền thực tế. Bấm quỹ để xem chứng từ.</p>
+      <Table headers={['Quỹ', 'Đã thu', 'Đã chi', 'Thuần', 'Chờ thu', 'Chờ chi']} rows={data.cashFlow.map(row => [<button type="button" className="min-h-8 min-w-8 text-foreground underline underline-offset-2 hover:bg-muted focus-visible:bg-muted outline-none" onClick={() => setDetail({ title: `Sổ quỹ ${row.phuong_thuc}`, headers: cashHeaders, rows: voucherRows(data.transactions.filter(t => normalizeCashFlowMethod(t.phuong_thuc) === row.phuong_thuc)) })}>{row.phuong_thuc}</button>, money(row.thu), money(row.chi), money(row.dong_tien_thuan), money(row.cho_thu), money(row.cho_chi)])} />
+      <Table headers={cashHeaders} rows={voucherRows(data.transactions)} />
+    </section>
+    <section className="min-w-0 space-y-2"><h3 className="font-semibold">Nhập – xuất – tồn theo mã sản phẩm</h3><p className="text-xs text-muted-foreground">Bấm tên sản phẩm để xem các phiếu nhập/xuất trong kỳ.{branch && ' Tồn đầu hệ thống chưa phân bổ cơ sở được giữ trong báo cáo toàn hệ thống.'}</p>
+      <Table headers={['Mã', 'Sản phẩm', 'Đầu kỳ SL', 'Đầu kỳ GT', 'Nhập SL', 'Nhập GT', 'Xuất SL', 'Xuất GT', 'Cuối kỳ SL', 'Cuối kỳ GT']} rows={data.inventory.map(row => [row.ma_hang || '—', <button type="button" className="min-h-8 min-w-8 text-foreground underline underline-offset-2 hover:bg-muted focus-visible:bg-muted outline-none" onClick={() => setDetail({ title: `Chi tiết kho: ${row.ma_hang || ''} ${row.ten_hang}`, headers: ['Mã phiếu', 'Ngày', 'Cơ sở', 'Loại', 'Số lượng', 'Đơn giá', 'Giá trị', 'Đơn liên quan'], rows: data.inventoryMovements.filter(m => normalizeBusinessText(m.ten_mat_hang) === normalizeBusinessText(row.ten_hang)).map(m => [m.id_xuat_nhap_kho || m.id, dateVi(m.ngay), m.co_so, m.loai_phieu, number(Number(m.so_luong)), money(Number(m.gia)), money(Number(m.tong_tien)), m.id_don_hang || '—']) })}>{row.ten_hang}</button>, number(row.dau_ky_so_luong), money(row.dau_ky_gia_tri), number(row.nhap_so_luong), money(row.nhap_gia_tri), number(row.xuat_so_luong), money(row.xuat_gia_tri), number(row.cuoi_ky_so_luong), money(row.cuoi_ky_gia_tri)])} />
+    </section>
+    {detail && <ReportDetailsModal detail={detail} onClose={() => setDetail(null)} />}
+    {costProduct && <ProductCostModal name={costProduct} lines={data.costLines.filter(row => normalizeBusinessText(row.san_pham) === normalizeBusinessText(costProduct))} editable={isAdmin} onClose={() => setCostProduct(null)} onSaved={refresh} />}
+  </div>;
 }
