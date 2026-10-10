@@ -263,14 +263,14 @@ export const OrderMessageApprovalPanel: React.FC = () => {
                         />
                       </td>
                       <td className="px-3 py-3 font-medium text-foreground">{row.order_code}</td>
-                      <td className="px-3 py-3 text-muted-foreground">{row.service_name || 'Chưa có dịch vụ'}</td>
+                      <td className="w-[220px] max-w-[220px] whitespace-normal break-words px-3 py-3 text-muted-foreground">{row.service_name || 'Chưa có dịch vụ'}</td>
                       <td className="px-3 py-3 font-medium text-foreground">{row.customer_name}</td>
                       <td className="px-3 py-3 text-muted-foreground">{row.phone || 'Chưa có số điện thoại'}</td>
                       <td className="px-3 py-3 text-right text-muted-foreground">{money(row.total_amount)}</td>
                       <td className="px-3 py-3 text-center text-foreground">{row.send_count}</td>
-                      <td className="px-3 py-3">
+                      <td className="whitespace-nowrap px-3 py-3">
                         <span className={`rounded-full px-2 py-1 text-xs font-semibold ${badge.className}`}>{badge.label}</span>
-                        {row.last_error ? <p className="mt-1 max-w-[200px] text-xs text-red-500">{row.last_error}</p> : null}
+                        {row.last_error ? <p className="mt-1 whitespace-nowrap text-xs text-red-500">{row.last_error}</p> : null}
                       </td>
                       <td className="px-3 py-3">
                         <div className="flex items-center gap-2">
