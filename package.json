@@ -19,6 +19,7 @@
     "db:measure": "node scripts/measure-supabase.mjs",
     "test:ui": "node scripts/test-branches-ui.mjs && node scripts/test-forms-ui.mjs && node scripts/test-cashbook-ui.mjs && node scripts/test-attendance-ui.mjs && node scripts/test-attendance-p1-ui.mjs && node scripts/test-ct-financial-p2-ui.mjs && node scripts/test-reports-p3-ui.mjs && node scripts/test-inline-create-ui.mjs && node scripts/test-auth-session-ui.mjs",
     "test:business-workflows": "node scripts/test-business-report.mjs && node scripts/test-business-payment-sync.mjs && node scripts/test-purchase-receipt.mjs && node scripts/test-reports-p3.mjs && node scripts/test-reports-p3-ui.mjs && node scripts/test-inline-create-ui.mjs",
+    "test:anc-accounting": "node scripts/test-anc-accounting.mjs && node scripts/test-anc-accounting-ui.mjs",
     "typecheck": "tsc -b --pretty false",
     "test:attendance-p1": "node scripts/test-attendance-p1.mjs && node scripts/test-attendance-p1-ui.mjs",
     "db:measure-attendance-p1": "node scripts/measure-attendance-p1.mjs",
@@ -49,7 +50,8 @@
     "recharts": "^3.8.0",
     "tailwind-merge": "^3.5.0",
     "tailwindcss-animate": "^1.0.7",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "xlsx-js-style": "^1.2.0"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",

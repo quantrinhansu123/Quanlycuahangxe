@@ -31,7 +31,7 @@ export function loadReportRuntime(source,data,calls=[]) {
   './inventoryData':{calculateInventoryStockSummary,getInventoryStockSummary:async(s,e)=>calculateInventoryStockSummary(data.ds_san_pham,data.nhap_xuat_kho,s,e)},
  };
  const compile=code=>{const out={};new Function('require','exports',ts.transpileModule(code,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText)(key=>{
-  if(dependencies[key])return dependencies[key];if(['../lib/businessReportMetrics','./businessReportMetrics','../lib/businessReportScope'].includes(key)){const file=key.includes('Scope')?'businessReportScope':'businessReportMetrics';dependencies[key]=compile(fs.readFileSync(`src/lib/${file}.ts`,'utf8'));return dependencies[key];}throw Error('Unexpected dependency '+key);
+  if(dependencies[key])return dependencies[key];if(['../lib/businessReportMetrics','./businessReportMetrics','../lib/businessReportScope','../lib/businessAccountingDetails'].includes(key)){const file=key.includes('Scope')?'businessReportScope':key.includes('Accounting')?'businessAccountingDetails':'businessReportMetrics';dependencies[key]=compile(fs.readFileSync(`src/lib/${file}.ts`,'utf8'));return dependencies[key];}throw Error('Unexpected dependency '+key);
  },out);return out;};
  const report=compile(source);dependencies['./reportData']=report;
  return{report,business:code=>compile(code)};

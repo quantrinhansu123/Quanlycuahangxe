@@ -6,6 +6,7 @@ import { uploadTransactionImage, loadPaymentInvoiceOptions } from '../data/finan
 import { EXPENSE_CATEGORIES } from '../lib/businessReportMetrics';
 import { getErrorDetails } from '../lib/errorDetails';
 import { SearchableSelect } from './ui/SearchableSelect';
+import FinancialAllocationFields from './FinancialAllocationFields';
 import { loadFinancialCustomerOptions } from '../data/ctFinancialLookupData';
 
 interface FinancialFormModalProps {
@@ -92,7 +93,7 @@ const FinancialFormModal: React.FC<FinancialFormModalProps> = React.memo(({
       const numericValue = value.replace(/\D/g, '');
       setFormData(prev => ({ ...prev, [name]: Number(numericValue) }));
     } else {
-      setFormData(prev => ({ ...prev, [name]: value, ...(['loai_phieu', 'co_so'].includes(name) && prev[name as keyof ThuChi] !== value ? { id_don: null, source_id: null, source_type: null } : {}) }));
+      setFormData(prev => ({ ...prev, [name]: value, ...(['loai_phieu', 'co_so'].includes(name) && prev[name as keyof ThuChi] !== value ? { id_don: null, source_id: null, source_type: null, payment_allocations: [], payroll_employee_id: null, payroll_month: null, payroll_year: null, payroll_payment_kind: null, expense_start_month: null, expense_months: 1 } : {}), ...(name === 'danh_muc' && value !== 'Lương' ? { payroll_employee_id: null, payroll_month: null, payroll_year: null, payroll_payment_kind: null } : {}) }));
     }
   };
 
@@ -125,6 +126,9 @@ const FinancialFormModal: React.FC<FinancialFormModalProps> = React.memo(({
     if (saving) return;
     setSaveError('');
     if (!formData.so_tien || formData.so_tien <= 0) { setSaveError('Số tiền phải lớn hơn 0.'); return; }
+    const allocations = formData.payment_allocations || [];
+    if (allocations.length && (allocations.some(a => !a.source_id || !Number.isFinite(a.amount) || a.amount <= 0) || Math.abs(allocations.reduce((sum,a) => sum + a.amount, 0) - formData.so_tien) > 0.005 || new Set(allocations.map(a => a.source_id)).size !== allocations.length)) { setSaveError('Chọn hóa đơn không trùng, nhập số tiền từng dòng và phân bổ đủ số tiền phiếu.'); return; }
+    if (formData.payroll_employee_id && (!formData.payroll_month || !formData.payroll_year)) { setSaveError('Chọn kỳ lương của nhân viên nhận tiền.'); return; }
     setSaving(true);
     try { await onSubmit(formData); }
     catch (error) { setSaveError(getErrorDetails(error).message || 'Không thể lưu phiếu.'); }
@@ -139,7 +143,7 @@ const FinancialFormModal: React.FC<FinancialFormModalProps> = React.memo(({
           <button type="button" onClick={onClose} className="p-2 rounded-full hover:bg-muted text-muted-foreground transition-colors"><X size={20} /></button>
         </div>
 
-        <form onSubmit={handleSubmit} className="overflow-y-auto p-8 flex-1">
+        <form onSubmit={handleSubmit} className="overflow-y-auto p-4 sm:p-8 flex-1">
           {saveError && <p role="alert" className="mb-4 text-sm text-rose-700">{saveError}</p>}
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -166,7 +170,7 @@ const FinancialFormModal: React.FC<FinancialFormModalProps> = React.memo(({
               </div>
 
               <InputField label="Danh mục" name="danh_muc" value={formData.danh_muc || ''} onChange={handleInputChange} icon={Tag} placeholder="Vd: Thu sửa xe, Chi nhập hàng..." tabIndex={3} />
-              {isPurchase && <div className="md:col-span-2 flex flex-wrap gap-2" aria-label="Nhóm chi phí">{EXPENSE_CATEGORIES.map(category => <button type="button" key={category} onClick={() => setFormData(prev => ({ ...prev, danh_muc: category }))} className="rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-muted">{category}</button>)}</div>}
+              {isPurchase && <div className="md:col-span-2 flex flex-wrap gap-2" aria-label="Nhóm chi phí">{EXPENSE_CATEGORIES.map(category => <button type="button" key={category} onClick={() => setFormData(prev => ({ ...prev, danh_muc: category, ...(category !== 'Lương' ? { payroll_employee_id: null, payroll_month: null, payroll_year: null, payroll_payment_kind: null } : {}) }))} className="min-h-8 rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-muted">{category}</button>)}</div>}
               <InputField label="Phương thức thanh toán" name="phuong_thuc" type="select" options={['Tiền mặt', 'Chuyển khoản', 'Ngân hàng']} value={formData.phuong_thuc || ''} onChange={handleInputChange} icon={BadgeDollarSign} tabIndex={4} />
               <InputField label="Cơ sở" name="co_so" type="select" options={branchOptions} value={formData.co_so || ''} onChange={handleInputChange} icon={Building2} tabIndex={5} />
               
@@ -174,16 +178,17 @@ const FinancialFormModal: React.FC<FinancialFormModalProps> = React.memo(({
               <InputField label="Người nhận" name="nguoi_nhan" value={formData.nguoi_nhan || ''} onChange={handleInputChange} icon={User} placeholder="Tên người nhận tiền..." tabIndex={7} />
 
               <InputField label="Ghi chú" name="ghi_chu" type="textarea" value={formData.ghi_chu || ''} onChange={handleInputChange} icon={FileText} placeholder="Thông tin thêm..." tabIndex={8} className="md:col-span-2" />
-              <div className="md:col-span-2 space-y-1.5">
+              {!formData.payment_allocations?.length && <div className="md:col-span-2 space-y-1.5">
                 <label className="text-xs font-bold text-muted-foreground">{isPurchase ? 'Phiếu nhập đối trừ' : 'Đơn bán đối trừ'}</label>
                 <SearchableSelect ariaLabel="Chọn chứng từ đối trừ" options={formData.id_don && !invoiceOptions.some(option => option.value === formData.id_don) ? [{ value: formData.id_don, label: formData.id_don }, ...invoiceOptions] : invoiceOptions} value={formData.id_don || ''} loadOptions={loadInvoiceOptions}
                   onValueChange={value => {
                     const invoice = invoiceOptions.find(row => row.value === value);
-                    setFormData(prev => ({ ...prev, id_don: value || null, source_type: value ? (isPurchase ? 'purchase_payment' : 'sales_payment') : null, source_id: value || null, ...(invoice ? (isPurchase ? { nguoi_nhan: invoice.recipient, danh_muc: 'Chi nhập hàng' } : { id_khach_hang: invoice.customerId }) : {}) }));
+                    setFormData(prev => ({ ...prev, id_don: value || null, source_type: value ? (isPurchase ? 'purchase_payment' : 'sales_payment') : null, source_id: value || null, ...(value ? { payroll_employee_id: null, payroll_month: null, payroll_year: null, payroll_payment_kind: null, expense_start_month: null, expense_months: 1 } : {}), ...(invoice ? (isPurchase ? { nguoi_nhan: invoice.recipient, danh_muc: 'Chi nhập hàng' } : { id_khach_hang: invoice.customerId }) : {}) }));
                   }} placeholder="Chọn phiếu cần thanh toán (nếu có)" searchPlaceholder="Tìm mã phiếu hoặc tên..." disabled={formData.source_type === 'purchase_receipt' || formData.source_type === 'sales_order'} />
                 {isPurchase && <p className="text-xs text-muted-foreground">Gắn phiếu nhập để tự giảm công nợ. Có thể thanh toán nhiều lần.</p>}
                 {(formData.source_type === 'purchase_receipt' || formData.source_type === 'sales_order') && <p className="text-xs text-muted-foreground">Phiếu tự động theo số tiền còn lại của chứng từ. Tạo phiếu mới có đối trừ để thanh toán từng phần.</p>}
-              </div>
+              </div>}
+              <FinancialAllocationFields value={formData} onChange={patch => setFormData(prev => ({ ...prev, ...patch }))} />
               
               {formData.loai_phieu !== 'phiếu chi' && (
                 <>

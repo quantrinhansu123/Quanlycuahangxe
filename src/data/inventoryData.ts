@@ -68,6 +68,7 @@ export interface ProductRecord {
   don_vi_tinh: string | null;
   gia: number;
   ton_dau_ky: number;
+  canh_bao_ton?: number;
   created_at?: string;
   updated_at?: string;
 }
@@ -366,6 +367,7 @@ export const upsertProductRecord = async (
     don_vi_tinh: (product.don_vi_tinh || 'Cái').trim(),
     gia: Math.max(0, Math.round(Number(product.gia ?? 0))),
     ton_dau_ky: Math.max(0, Number(product.ton_dau_ky ?? 0)),
+    ...(product.canh_bao_ton === undefined ? {} : { canh_bao_ton: product.canh_bao_ton }),
   };
 
   const { data, error } = await supabase.from('ds_san_pham').upsert(row).select().single();
@@ -375,6 +377,12 @@ export const upsertProductRecord = async (
   }
   return data as ProductRecord;
 };
+
+export async function setProductStockThreshold(id: string, threshold: number): Promise<void> {
+  if (!Number.isFinite(threshold) || threshold < 0) throw new Error('Ngưỡng tồn phải từ 0 trở lên.');
+  const { error } = await supabase.from('ds_san_pham').update({ canh_bao_ton: threshold }).eq('id', id);
+  if (error) throw error;
+}
 
 /**
  * Load the complete product catalog in deterministic PostgREST pages.

@@ -39,6 +39,9 @@ export interface BangLuong {
   mo_khoa_boi?: string | null;
   ly_do_mo_khoa?: string | null;
   ghi_chu: string | null;
+  da_nhan?: number;
+  tam_ung?: number;
+  con_phai_tra?: number;
   chi_tiet?: BangLuongChiTiet[];
   ngay_cong_them?: number;
   phu_cap_chuyen_can?: number;
@@ -242,8 +245,22 @@ export const getPayrollBatch = async (thang: number, nam: number, coSo?: string)
     console.error('Error fetching payroll batch:', error);
     throw error;
   }
-  return (data as BangLuong[]).map(hydratePayrollBreakdown);
+  if (!data?.length) return [];
+  const { data: totals, error: paymentError } = await supabase.from('business_payroll_payment_totals')
+    .select('nhan_su_id,da_nhan,tam_ung').eq('thang', thang).eq('nam', nam);
+  if (paymentError) throw paymentError;
+  const byEmployee = new Map((totals || []).map(t => [t.nhan_su_id, t]));
+  return (data as BangLuong[]).map(item => {
+    const paid = byEmployee.get(item.nhan_su_id);
+    const da_nhan = Number(paid?.da_nhan || 0), tam_ung = Number(paid?.tam_ung || 0);
+    return { ...hydratePayrollBreakdown(item), da_nhan, tam_ung, con_phai_tra: Number(item.thuc_linh || 0) - da_nhan - tam_ung };
+  });
 };
+
+function withoutPaymentTotals(item: Partial<BangLuong>): Partial<BangLuong> {
+  const copy = { ...item }; delete copy.da_nhan; delete copy.tam_ung; delete copy.con_phai_tra;
+  return copy;
+}
 
 /**
  * Thay các chi tiết lương do màn hình chấm công quản lý, nhưng giữ nguyên mọi
@@ -287,7 +304,7 @@ export const replacePayrollBreakdowns = async (
 export const upsertPayrollItem = async (item: Partial<BangLuong>): Promise<BangLuong> => {
   const { data, error } = await supabase
     .from('bang_luong')
-    .upsert(item)
+    .upsert(withoutPaymentTotals(item))
     .select()
     .single();
 
@@ -332,7 +349,7 @@ export const updatePayrollStatus = async (ids: string[], status: string): Promis
 export const bulkCreatePayrollItems = async (items: Partial<BangLuong>[]): Promise<void> => {
   const { error } = await supabase
     .from('bang_luong')
-    .insert(items);
+    .insert(items.map(withoutPaymentTotals));
 
   if (error) {
     console.error('Error bulk creating payroll items:', error);
@@ -351,7 +368,7 @@ export const bulkUpsertPayrollItems = async (items: Partial<BangLuong>[]): Promi
   // (DB phải tự sinh id). Nếu trộn hai dạng, PostgREST sẽ điền NULL cho id của
   // dòng mới và vi phạm khóa chính. Khóa nghiệp vụ dưới đây đủ để update dòng cũ.
   const payload = items.map((item) => {
-    const cleanItem = { ...item };
+    const cleanItem = withoutPaymentTotals(item);
     delete cleanItem.id;
     return cleanItem;
   });

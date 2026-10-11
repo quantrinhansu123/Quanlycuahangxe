@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { readRequest } from '../lib/readRequest';
+import type { PaymentAllocation } from '../lib/businessReportMetrics';
 
 export interface ThuChi {
   id: string;
@@ -23,6 +24,13 @@ export interface ThuChi {
   source_id?: string | null;
   created_at?: string;
   updated_at?: string;
+  payment_allocations?: PaymentAllocation[];
+  payroll_employee_id?: string | null;
+  payroll_month?: number | null;
+  payroll_year?: number | null;
+  payroll_payment_kind?: 'salary' | 'advance' | null;
+  expense_start_month?: string | null;
+  expense_months?: number;
 }
 
 export const getTransactions = async (range?: { from: string; to: string }): Promise<ThuChi[]> => {
@@ -143,7 +151,7 @@ export const getTransactionsByOrderIds = async (orderIds: string[], signal?: Abo
   // Use chunking if needed for very large lists, using a helper or just running directly 
   // if length is likely small. For safety, let's just query up to 50 items safely.
   const transactionQuery = supabase
-    .from('thu_chi')
+    .from('business_invoice_receipts')
     .select('*')
     .in('id_don', orderIds)
     .eq('trang_thai', 'Hoàn thành');

@@ -103,6 +103,7 @@ export const PurchaseReceiptFormModal: React.FC<PurchaseReceiptFormModalProps> =
   const [gio, setGio] = useState(formatTime24h(new Date(), false));
   const [coSo, setCoSo] = useState('');
   const [nhaCungCap, setNhaCungCap] = useState('');
+  const [maNhaCungCap, setMaNhaCungCap] = useState('');
   const [phuongThucThanhToan, setPhuongThucThanhToan] = useState<PurchasePaymentMethod>('Chưa thanh toán');
   const [nguoiThucHien, setNguoiThucHien] = useState('');
   const [ghiChu, setGhiChu] = useState('');
@@ -188,6 +189,7 @@ export const PurchaseReceiptFormModal: React.FC<PurchaseReceiptFormModalProps> =
       setGio(receipt.gio || formatTime24h(new Date(), false));
       setCoSo(receipt.co_so);
       setNhaCungCap(receipt.nha_cung_cap || '');
+      setMaNhaCungCap(receipt.ma_nha_cung_cap || '');
       setPhuongThucThanhToan(receipt.phuong_thuc_thanh_toan || 'Chưa thanh toán');
       setNguoiThucHien(receipt.nguoi_thuc_hien || nhanVien?.ho_ten || '');
       setGhiChu(receipt.ghi_chu || '');
@@ -214,6 +216,7 @@ export const PurchaseReceiptFormModal: React.FC<PurchaseReceiptFormModalProps> =
       setGio(formatTime24h(new Date(), false));
       setCoSo(userAssignedBranch || branches[0] || '');
       setNhaCungCap('');
+      setMaNhaCungCap('');
       setPhuongThucThanhToan('Chưa thanh toán');
       setNguoiThucHien(nhanVien?.ho_ten || '');
       setGhiChu('');
@@ -441,6 +444,7 @@ export const PurchaseReceiptFormModal: React.FC<PurchaseReceiptFormModalProps> =
         phuong_thuc_thanh_toan: phuongThucThanhToan,
         co_so: coSo,
         nha_cung_cap: nhaCungCap,
+        ma_nha_cung_cap: maNhaCungCap || null,
         nguoi_thuc_hien: nguoiThucHien,
         ghi_chu: ghiChu,
         items: items.map((it) => ({
@@ -625,6 +629,7 @@ export const PurchaseReceiptFormModal: React.FC<PurchaseReceiptFormModalProps> =
                   placeholder="Ví dụ: Cty Phụ tùng A..."
                   className="w-full px-3.5 py-2.5 bg-background border border-border rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/20"
                 />
+                <label className="block text-xs text-muted-foreground">Mã nhà cung cấp (nếu có)<input aria-label="Mã nhà cung cấp" type="text" maxLength={64} disabled={isReadOnly} value={maNhaCungCap} onChange={e => setMaNhaCungCap(e.target.value)} placeholder="Ví dụ: NCC-001" className="mt-1 h-10 w-full rounded-xl border border-border bg-background px-3 text-sm" /></label>
               </div>
 
               {/* Phương thức thanh toán */}

@@ -15,7 +15,16 @@ export interface BusinessTransactionInput {
   source_id?: string | null;
   co_so?: string | null;
   ngay?: string | null;
+  payment_allocations?: PaymentAllocation[] | null;
+  expense_start_month?: string | null;
+  expense_months?: number | null;
+  payroll_employee_id?: string | null;
+  payroll_month?: number | null;
+  payroll_year?: number | null;
+  payroll_payment_kind?: 'salary' | 'advance' | null;
 }
+
+export interface PaymentAllocation { source_type: 'sales_order' | 'purchase_receipt'; source_id: string; amount: number }
 
 export interface BusinessOrderInput {
   id: string;
@@ -84,6 +93,7 @@ export interface BusinessPurchaseInput {
   id: string;
   ma_phieu: string;
   nha_cung_cap?: string | null;
+  ma_nha_cung_cap?: string | null;
   co_so?: string | null;
   tong_tien?: number | null;
   ngay?: string | null;
@@ -240,14 +250,35 @@ export function buildPeriodBusinessMetrics(
   return { total_vehicles: vehicles.size, total_collected };
 }
 
-export function buildExpenseReport(transactions: BusinessTransactionInput[]): { rows: ExpenseMetricsRow[]; total: number } {
-  const totals = new Map<ExpenseCategory, number>(EXPENSE_CATEGORIES.map((category) => [category, 0]));
+export interface ExpenseRecognition { transaction: BusinessTransactionInput; category: ExpenseCategory; date: string; amount: number }
+export function expenseRecognitionLines(transactions: BusinessTransactionInput[], start = '', end = '9999-12-31'): ExpenseRecognition[] {
+  const lines: ExpenseRecognition[] = [];
   for (const transaction of transactions) {
     if (!isCompletedTransaction(transaction.trang_thai) || isIncomeTransaction(transaction.loai_phieu)) continue;
-    // Purchases enter cost of goods sold when sold; do not deduct them twice.
-    if (transaction.source_type === 'purchase_receipt' || transaction.source_type === 'purchase_payment' || normalizedKey(transaction.danh_muc).includes('nhaphang')) continue;
-    const category = normalizeExpenseCategory(transaction.danh_muc);
-    totals.set(category, (totals.get(category) || 0) + numberValue(transaction.so_tien));
+    if (transaction.source_type === 'purchase_receipt' || transaction.source_type === 'purchase_payment' || transaction.payment_allocations?.length || normalizedKey(transaction.danh_muc).includes('nhaphang')) continue;
+    const category = transaction.payroll_employee_id ? 'Lương' : normalizeExpenseCategory(transaction.danh_muc);
+    const payrollStart = transaction.payroll_year && transaction.payroll_month ? `${transaction.payroll_year}-${String(transaction.payroll_month).padStart(2, '0')}-01` : null;
+    const first = transaction.expense_start_month || payrollStart;
+    if (!first) {
+      if ((transaction.ngay || '') >= start && (transaction.ngay || '') <= end) lines.push({ transaction, category, date: transaction.ngay || '', amount: numberValue(transaction.so_tien) });
+      continue;
+    }
+    const months = Math.max(1, Math.min(120, numberValue(transaction.expense_months) || 1));
+    const cents = Math.round(numberValue(transaction.so_tien) * 100);
+    const monthly = Math.floor(cents / months);
+    const [year, month] = first.split('-').map(Number);
+    for (let i = 0; i < months; i++) {
+      const date = new Date(Date.UTC(year, month - 1 + i, 1)).toISOString().slice(0, 10);
+      if (date >= start && date <= end) lines.push({ transaction, category, date, amount: (i === months - 1 ? cents - monthly * i : monthly) / 100 });
+    }
+  }
+  return lines;
+}
+
+export function buildExpenseReport(transactions: BusinessTransactionInput[], start?: string, end?: string): { rows: ExpenseMetricsRow[]; total: number } {
+  const totals = new Map<ExpenseCategory, number>(EXPENSE_CATEGORIES.map((category) => [category, 0]));
+  for (const line of expenseRecognitionLines(transactions, start, end)) {
+    totals.set(line.category, (totals.get(line.category) || 0) + line.amount);
   }
   const total = [...totals.values()].reduce((sum, value) => sum + value, 0);
   return {

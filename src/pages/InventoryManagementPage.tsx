@@ -18,6 +18,7 @@ import { getServices } from '../data/serviceData';
 import Pagination from '../components/Pagination';
 import type { DichVu } from '../data/serviceData';
 import InventoryFormModal from '../components/InventoryFormModal';
+import StockAlertPanel from '../components/StockAlertPanel';
 
 const InventoryManagementPage: React.FC = () => {
   const deptOptions = useBranches();
@@ -45,6 +46,7 @@ const InventoryManagementPage: React.FC = () => {
   const [, setFormData] = useState<Partial<InventoryRecord>>({});
   const [services, setServices] = useState<DichVu[]>([]);
   const [products, setProducts] = useState<ProductRecord[]>([]);
+  const [stockRevision, setStockRevision] = useState(0);
 
   const [visibleColumns, setVisibleColumns] = useState<string[]>([
     'id_xuat_nhap_kho', 'loai_phieu', 'id_don_hang', 'co_so', 'ten_mat_hang', 'ton_dau_ky', 'so_luong', 
@@ -89,6 +91,7 @@ const InventoryManagementPage: React.FC = () => {
       });
       setRecords(result.data);
       setTotalCount(result.totalCount);
+      setStockRevision(value => value + 1);
     } catch (error) {
       console.error(error);
     } finally {
@@ -531,6 +534,7 @@ const InventoryManagementPage: React.FC = () => {
           </div>
         </div>
 
+        <StockAlertPanel branches={selectedDepts} refreshKey={stockRevision} />
         {/* Data Table */}
         <div className="bg-card rounded-lg border border-border shadow-sm overflow-hidden">
           {/* Desktop Table */}

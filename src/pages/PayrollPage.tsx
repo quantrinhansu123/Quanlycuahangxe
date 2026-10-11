@@ -18,6 +18,7 @@ import * as XLSX from 'xlsx';
 import { useAuth } from '../context/AuthContext';
 import { syncPayrollFromAttendance } from '../data/payrollAttendanceSyncData';
 import PayrollSlipModal from '../components/PayrollSlipModal';
+import PayrollPaymentsModal from '../components/PayrollPaymentsModal';
 import {
   cancelPayrollPayments,
   getPayrollHistory,
@@ -49,6 +50,7 @@ const PayrollPage: React.FC = () => {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showAddEmployee, setShowAddEmployee] = useState(false);
   const [payrollSlipItem, setPayrollSlipItem] = useState<BangLuong | null>(null);
+  const [paymentDetail, setPaymentDetail] = useState<BangLuong | null>(null);
   const [isPaying, setIsPaying] = useState(false);
   const [isSyncingAttendance, setIsSyncingAttendance] = useState(false);
   const [workflowBusy, setWorkflowBusy] = useState(false);
@@ -1210,6 +1212,7 @@ const PayrollPage: React.FC = () => {
                       <div className="flex items-center justify-end gap-3">
                         <div className="flex flex-col items-end">
                           <p className="text-sm font-black text-emerald-700">{formatCurrency(item.thuc_linh)}</p>
+                          <button type="button" onClick={() => setPaymentDetail(item)} className="mt-2 min-h-10 text-right text-xs underline"><span className="block">Đã nhận: {formatCurrency(item.da_nhan || 0)}</span><span className="block">Ứng trước: {formatCurrency(item.tam_ung || 0)}</span><span className="block">Còn phải trả: {formatCurrency(item.con_phai_tra ?? item.thuc_linh)}</span></button>
                           <div className="flex items-center gap-1 mt-1">
                             <span className={clsx('rounded-full border px-2 py-0.5 text-[9px] font-black uppercase', payrollStatusClass(item.trang_thai))}>
                               {item.trang_thai}
@@ -1318,6 +1321,7 @@ const PayrollPage: React.FC = () => {
                       <span className="text-[11px] font-black text-slate-400 uppercase">Thực lĩnh</span>
                       <span className="text-[15px] font-black text-emerald-700">{formatCurrency(item.thuc_linh)}</span>
                     </div>
+                    <button type="button" onClick={event => { event.stopPropagation(); setPaymentDetail(item); }} className="mt-2 min-h-10 w-full text-left text-xs underline">Đã nhận {formatCurrency(item.da_nhan || 0)} · Ứng trước {formatCurrency(item.tam_ung || 0)} · Còn phải trả {formatCurrency(item.con_phai_tra ?? item.thuc_linh)}</button>
                     <button
                       type="button"
                       onClick={(event) => {
@@ -1355,6 +1359,7 @@ const PayrollPage: React.FC = () => {
         </div>
       </div>
       {/* Selection Modal */}
+      {paymentDetail && <PayrollPaymentsModal item={paymentDetail} onClose={() => setPaymentDetail(null)} />}
       <SelectPayrollEmployeeModal 
         isOpen={showAddEmployee}
         onClose={() => setShowAddEmployee(false)}

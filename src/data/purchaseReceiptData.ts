@@ -31,6 +31,7 @@ export interface PurchaseReceipt {
   phuong_thuc_thanh_toan: PurchasePaymentMethod;
   co_so: string;
   nha_cung_cap: string | null;
+  ma_nha_cung_cap?: string | null;
   nguoi_thuc_hien: string | null;
   ghi_chu: string | null;
   tong_tien: number;
@@ -54,6 +55,7 @@ export interface PurchaseReceiptFormData {
   phuong_thuc_thanh_toan: PurchasePaymentMethod;
   co_so: string;
   nha_cung_cap: string;
+  ma_nha_cung_cap?: string | null;
   nguoi_thuc_hien: string;
   ghi_chu: string;
   items: Array<{
@@ -227,6 +229,7 @@ export const getPurchaseReceiptsPaginated = async (
       phuong_thuc_thanh_toan: row.phuong_thuc_thanh_toan || 'Chưa thanh toán',
       co_so: row.co_so,
       nha_cung_cap: row.nha_cung_cap,
+      ma_nha_cung_cap: row.ma_nha_cung_cap,
       nguoi_thuc_hien: row.nguoi_thuc_hien,
       ghi_chu: row.ghi_chu,
       tong_tien: Number(row.tong_tien || 0),
@@ -289,7 +292,7 @@ export const createPurchaseReceipt = async (
     : normalizePurchaseReceiptCode(formData.ma_phieu);
 
   // Thực thi Atomic RPC qua save_purchase_receipt
-  const { data: rpcData, error: rpcError } = await supabase.rpc('save_purchase_receipt', {
+  const { data: rpcData, error: rpcError } = await supabase.rpc('save_purchase_receipt_with_supplier_code', {
     p_receipt: {
       ma_phieu: code,
       ma_phieu_tu_dong: autoCode,
@@ -299,6 +302,7 @@ export const createPurchaseReceipt = async (
       phuong_thuc_thanh_toan: formData.phuong_thuc_thanh_toan,
       co_so: branch,
       nha_cung_cap: formData.nha_cung_cap?.trim() || null,
+      ma_nha_cung_cap: formData.ma_nha_cung_cap?.trim() || null,
       nguoi_thuc_hien: formData.nguoi_thuc_hien?.trim() || null,
       ghi_chu: formData.ghi_chu?.trim() || null,
       items: cleanItems,
@@ -306,16 +310,8 @@ export const createPurchaseReceipt = async (
   });
 
   if (rpcError) {
-    // Nếu RPC chưa tồn tại (chưa chạy migration 202609110003)
-    if (
-      rpcError.code === '42883' ||
-      (rpcError.message && (
-        rpcError.message.includes('save_purchase_receipt') ||
-        rpcError.message.includes('function') ||
-        rpcError.message.includes('does not exist')
-      ))
-    ) {
-      throw new Error('Database chưa áp dụng migration 202609110003_purchase_receipt_atomic_rpc.sql');
+    if (rpcError.code === '42883' || rpcError.code === 'PGRST202') {
+      throw new Error('Database chưa áp dụng migration 202610110001_anc_accounting_details.sql');
     }
 
     console.error('Lỗi RPC save_purchase_receipt:', rpcError);
@@ -335,6 +331,7 @@ export const createPurchaseReceipt = async (
     phuong_thuc_thanh_toan: rpcData.phuong_thuc_thanh_toan || 'Chưa thanh toán',
     co_so: rpcData.co_so,
     nha_cung_cap: rpcData.nha_cung_cap,
+    ma_nha_cung_cap: rpcData.ma_nha_cung_cap,
     nguoi_thuc_hien: rpcData.nguoi_thuc_hien,
     ghi_chu: rpcData.ghi_chu,
     tong_tien: Number(rpcData.tong_tien || 0),
@@ -363,7 +360,7 @@ export const updatePurchaseReceipt = async (
   // Validate nghiêm ngặt
   const cleanItems = validateReceiptItems(formData.items);
 
-  const { data: rpcData, error: rpcError } = await supabase.rpc('save_purchase_receipt', {
+  const { data: rpcData, error: rpcError } = await supabase.rpc('save_purchase_receipt_with_supplier_code', {
     p_receipt: {
       id,
       ma_phieu: formData.ma_phieu?.trim() || null,
@@ -372,6 +369,7 @@ export const updatePurchaseReceipt = async (
       phuong_thuc_thanh_toan: formData.phuong_thuc_thanh_toan,
       co_so: branch,
       nha_cung_cap: formData.nha_cung_cap?.trim() || null,
+      ma_nha_cung_cap: formData.ma_nha_cung_cap?.trim() || null,
       nguoi_thuc_hien: formData.nguoi_thuc_hien?.trim() || null,
       ghi_chu: formData.ghi_chu?.trim() || null,
       items: cleanItems,
@@ -379,15 +377,8 @@ export const updatePurchaseReceipt = async (
   });
 
   if (rpcError) {
-    if (
-      rpcError.code === '42883' ||
-      (rpcError.message && (
-        rpcError.message.includes('save_purchase_receipt') ||
-        rpcError.message.includes('function') ||
-        rpcError.message.includes('does not exist')
-      ))
-    ) {
-      throw new Error('Database chưa áp dụng migration 202609110003_purchase_receipt_atomic_rpc.sql');
+    if (rpcError.code === '42883' || rpcError.code === 'PGRST202') {
+      throw new Error('Database chưa áp dụng migration 202610110001_anc_accounting_details.sql');
     }
 
     console.error('Lỗi RPC update save_purchase_receipt:', rpcError);
@@ -407,6 +398,7 @@ export const updatePurchaseReceipt = async (
     phuong_thuc_thanh_toan: rpcData.phuong_thuc_thanh_toan || 'Chưa thanh toán',
     co_so: rpcData.co_so,
     nha_cung_cap: rpcData.nha_cung_cap,
+    ma_nha_cung_cap: rpcData.ma_nha_cung_cap,
     nguoi_thuc_hien: rpcData.nguoi_thuc_hien,
     ghi_chu: rpcData.ghi_chu,
     tong_tien: Number(rpcData.tong_tien || 0),

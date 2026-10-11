@@ -1,0 +1,168 @@
+{
+  "deploymentDate": "2026-10-12",
+  "migration": {
+    "version": "202610110001",
+    "name": "anc_accounting_details"
+  },
+  "transactionCommitted": true,
+  "backupSavedLocally": true,
+  "existingRecordsUnchanged": true,
+  "completedCashAndBankTotalsUnchanged": true,
+  "privacyGuardsPreserved": true,
+  "columnsReady": true,
+  "protectedViews": [
+    {
+      "name": "business_invoice_receipts",
+      "invoker": true,
+      "anonSelect": true
+    },
+    {
+      "name": "business_order_headers",
+      "invoker": true,
+      "anonSelect": true
+    },
+    {
+      "name": "business_payroll_payment_details",
+      "invoker": true,
+      "anonSelect": true
+    },
+    {
+      "name": "business_payroll_payment_totals",
+      "invoker": true,
+      "anonSelect": true
+    }
+  ],
+  "guardStates": [
+    {
+      "name": "product_stock_threshold_guard",
+      "table": "ds_san_pham",
+      "enabled": "O"
+    },
+    {
+      "name": "guard_technician_saved_data",
+      "table": "khach_hang",
+      "enabled": "O"
+    },
+    {
+      "name": "guard_technician_saved_data",
+      "table": "nhan_su",
+      "enabled": "O"
+    },
+    {
+      "name": "changed_purchase_balance_sync",
+      "table": "phieu_nhap_hang",
+      "enabled": "O"
+    },
+    {
+      "name": "paid_purchase_receipt_guard",
+      "table": "phieu_nhap_hang",
+      "enabled": "O"
+    },
+    {
+      "name": "changed_sales_balance_sync",
+      "table": "the_ban_hang",
+      "enabled": "O"
+    },
+    {
+      "name": "guard_technician_saved_data",
+      "table": "the_ban_hang",
+      "enabled": "O"
+    },
+    {
+      "name": "paid_sales_invoice_guard",
+      "table": "the_ban_hang",
+      "enabled": "O"
+    },
+    {
+      "name": "guard_technician_saved_data",
+      "table": "the_ban_hang_ct",
+      "enabled": "O"
+    },
+    {
+      "name": "sales_cost_warehouse_sync",
+      "table": "the_ban_hang_ct",
+      "enabled": "O"
+    },
+    {
+      "name": "a_business_transaction_guard",
+      "table": "thu_chi",
+      "enabled": "O"
+    },
+    {
+      "name": "business_transaction_sync",
+      "table": "thu_chi",
+      "enabled": "O"
+    },
+    {
+      "name": "guard_technician_saved_data",
+      "table": "thu_chi",
+      "enabled": "O"
+    }
+  ],
+  "purchaseBalanceErrors": 0,
+  "internalHelpersNotCallable": true,
+  "existingPurchasePaidHelper": "verified under anon permissions in PGlite and read-only SQL on live Supabase",
+  "apiChecks": [
+    {
+      "check": "voucher_fields",
+      "status": 200,
+      "ready": true,
+      "errorCode": null
+    },
+    {
+      "check": "stock_threshold",
+      "status": 200,
+      "ready": true,
+      "errorCode": null
+    },
+    {
+      "check": "supplier_code",
+      "status": 200,
+      "ready": true,
+      "errorCode": null
+    },
+    {
+      "check": "payroll_totals",
+      "status": 200,
+      "ready": true,
+      "errorCode": null
+    },
+    {
+      "check": "payroll_details",
+      "status": 200,
+      "ready": true,
+      "errorCode": null
+    },
+    {
+      "check": "invoice_receipts",
+      "status": 200,
+      "ready": true,
+      "errorCode": null
+    },
+    {
+      "check": "customer_code",
+      "status": 200,
+      "ready": true,
+      "errorCode": null
+    }
+  ],
+  "tests": {
+    "fullDataSuite": "passed",
+    "ancAccountingPGliteAndExcel": "passed",
+    "ancUi1440And375": "passed",
+    "reportCacheFiltersAndInventoryUi": "passed (7 checks)",
+    "inlineCreateUi1440And375": "passed",
+    "technicianPrivacyAndReportDetails": "passed (9 tests)",
+    "purchaseAccessAndWarehouseGuards": "passed",
+    "salesPaymentSync": "passed",
+    "build": "passed",
+    "typecheck": "passed",
+    "eslintChangedTypescript": "passed",
+    "uiProbe37576810241440": "completed; screenshots inspected; existing border/scrollbar/focus styles retained"
+  },
+  "local": {
+    "url": "http://localhost:5173",
+    "status": 200
+  },
+  "liveAuthenticatedWriteWorkflow": "awaiting user testing; automated write tests use local fixtures only"
+}

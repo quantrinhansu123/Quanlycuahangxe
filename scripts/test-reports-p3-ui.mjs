@@ -39,7 +39,7 @@ try {
  });
  page=await context.newPage();page.setDefaultTimeout(25000);page.on('pageerror',e=>errors.push(e.message));page.on('requestfailed',r=>failedRequests.push({path:new URL(r.url()).pathname,error:r.failure()?.errorText}));page.on('console',m=>{if(m.type()==='error')consoleErrors.push(m.text());});
  const settled=async()=>{await page.waitForTimeout(120);await page.waitForFunction(()=>[...document.querySelectorAll('button')].find(b=>b.textContent==='Làm mới')?.disabled===false);await page.waitForLoadState('networkidle');};
- const tab=async label=>{await page.locator('button[class*="border-b-2"]').filter({hasText:label}).first().click();await page.waitForFunction(text=>[...document.querySelectorAll('button[class*="border-b-2"]')].some(b=>b.textContent.trim()===text&&b.className.includes('border-primary')),label);await settled();};
+ const tab=async label=>{await page.locator('button[class*="border-b-2"]').filter({hasText:label}).first().click();await page.waitForFunction(text=>[...document.querySelectorAll('button[class*="border-b-2"]')].some(b=>b.textContent.trim()===text&&b.className.includes('border-primary')),label);if(label==='Tài chính tổng hợp')await page.getByRole('heading',{name:/^Tổng hợp tài chính/}).waitFor();await settled();};
  await page.goto(origin+'/bao-cao/san-pham',{waitUntil:'commit'});
  await page.getByRole('button',{name:'Làm mới',exact:true}).waitFor();await page.locator('input[type=date]').first().fill('2026-09-01');await settled();
  assert.equal(requests.filter(r=>r.table==='the_ban_hang_ct'&&r.query.includes('gte.2026-09-01')).length,3);
@@ -54,7 +54,7 @@ try {
  checks.push('Personnel/charts lazy-load compact headers once, retain results across tab switches');
  await tab('Tài chính tổng hợp');const financeCalls=requests.length;
  assert.equal(requests.filter(r=>r.table==='the_ban_hang_ct'&&r.query.includes('gte.2026-09-01')).length,3,'Financial report reuses current-period CT');
- assert.ok(requests.some(r=>r.table==='ds_san_pham'&&!r.projection.includes('anh')&&r.projection!=='*'));
+ assert.ok(requests.some(r=>r.table==='ds_san_pham'&&!r.projection.split(',').includes('anh')&&r.projection!=='*'));
  assert.ok(requests.some(r=>r.table==='nhap_xuat_kho'&&r.projection!=='*'));
  await tab('Theo ngày');await tab('Tài chính tổng hợp');assert.equal(requests.length,financeCalls);
  checks.push('Financial-only sources/inventory are lazy/compact, current CT reused, returning to tab needs no reads');
@@ -62,6 +62,7 @@ try {
  await page.locator('.z-2000').getByText('Cơ sở A',{exact:true}).click();
  await page.getByRole('heading',{name:'Tổng hợp tài chính · Cơ sở A',exact:true}).waitFor();await settled();
  assert.equal(requests.length,financeCalls,'Financial branch filter reuses all-period sources');
+ await page.getByRole('button',{name:/^Kho /}).click();
  const inventorySection=page.locator('section').filter({has:page.getByRole('heading',{name:'Nhập – xuất – tồn theo mã sản phẩm',exact:true})});
  await inventorySection.getByRole('button',{name:'Product 1',exact:true}).click();
  await page.getByRole('dialog').getByText('NH-UI',{exact:true}).first().waitFor();
