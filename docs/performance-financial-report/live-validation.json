@@ -1,0 +1,36 @@
+{
+  "date": "2026-10-12",
+  "migration": "202610120001_financial_report_snapshot",
+  "parity": {
+    "rows": {
+      "orders": 10021,
+      "products": 26,
+      "services": 1292,
+      "movements": 8115,
+      "purchases": 11,
+      "transactions": 5478
+    },
+    "sameSources": true,
+    "functionInvoker": true,
+    "oldPayloadBytes": 8981667,
+    "migrationInstalled": true,
+    "packedPayloadBytes": 5003854
+  },
+  "deployment": {
+    "committed": true,
+    "records_funds_and_guards_unchanged": true
+  },
+  "endpoint": {
+    "http": 200,
+    "packedSources": 6,
+    "scope": "anonymous; endpoint readiness only",
+    "invokerAndAcl": {
+      "invoker": true,
+      "anon_execute": true,
+      "authenticated_execute": true
+    },
+    "localHttp": 200,
+    "liveBusinessWrites": 0
+  },
+  "actualLoggedInBrowserTimingMeasured": false
+}

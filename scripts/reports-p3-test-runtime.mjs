@@ -26,7 +26,7 @@ export function loadReportRuntime(source,data,calls=[]) {
   './salesQueryData':{queryAllSales},'./personnelData':{getPersonnel:async()=>data.nhan_su||[]},'../lib/authStorage':{getStoredDemoRole:()=>null},
   '../lib/branchCatalog':{branchKey,branchLabel},
   './branchCatalog':{branchKey,branchLabel},
-  '../lib/supabase':{supabase:{from}},'../lib/utils':{removeVietnameseTones:normalize},
+  '../lib/supabase':{supabase:{from,rpc(name,args){let signal;return{abortSignal:s=>(signal=s,{then(resolve,reject){try{signal?.throwIfAborted();if(name!=='business_report_snapshot')throw Error('Unexpected RPC '+name);calls.push({table:name,projection:'compact snapshot'});const dateRows=table=>(data[table]||[]).filter(r=>r.ngay<=args.p_end);return Promise.resolve({data:{transactions:data.thu_chi||[],orders:dateRows(data.business_order_headers?'business_order_headers':'the_ban_hang'),purchases:dateRows('phieu_nhap_hang'),products:data.ds_san_pham||[],services:data.dich_vu||[],movements:dateRows('nhap_xuat_kho')},error:null}).then(resolve,reject);}catch(error){return Promise.reject(error).then(resolve,reject);}}})};}}},'../lib/utils':{removeVietnameseTones:normalize},
   '../lib/readRequest':{readRequest:async(name,run,signal)=>run(signal||new AbortController().signal)},
   './inventoryData':{calculateInventoryStockSummary,getInventoryStockSummary:async(s,e)=>calculateInventoryStockSummary(data.ds_san_pham,data.nhap_xuat_kho,s,e)},
  };

@@ -38,14 +38,17 @@ Khi cài trên một CSDL khác, áp dụng các migration cũ của repository 
 2. `202610100004_business_report_sources.sql`
 3. `202610100005_sales_payment_reconciliation.sql`
 4. `202610110001_anc_accounting_details.sql` — phần bổ sung theo ảnh viết tay: nhiều đối trừ, liên kết lương, phân bổ tháng, mã NCC, ngưỡng tồn và view truy vấn phiếu theo hóa đơn.
+5. `202610120001_financial_report_snapshot.sql` — gom nguồn lịch sử thành một lần đọc, giảm kích thước phản hồi; vẫn giữ quyền phiên gọi và đủ lịch sử.
 
-Nếu chạy bằng SQL Editor, dùng `supabase/anc-business-reports.sql` cho ba migration đầu trong một giao dịch. Sau đó chạy riêng migration thứ tư. Triển khai frontend cùng bản cập nhật CSDL vì giao diện mới dùng các cột/view/RPC bổ sung.
+Nếu chạy bằng SQL Editor, dùng `supabase/anc-business-reports.sql` cho ba migration đầu trong một giao dịch. Sau đó chạy riêng migration thứ tư và thứ năm. Triển khai frontend cùng bản cập nhật CSDL vì giao diện mới dùng các cột/view/RPC bổ sung.
 
 Migration bổ sung cột, view, index và trigger; cập nhật liên kết/trạng thái trên các chứng từ có tham chiếu xác định. Không xóa hóa đơn hay gộp chứng từ lịch sử. Quyền sửa thanh toán tại cơ sở được kiểm tra trong trigger; kỹ thuật viên không được sửa thanh toán liên kết đơn bán. View báo cáo tiếp tục đi qua view bảo vệ dữ liệu hiện có.
 
 Migration thứ tư đã áp dụng ngày **12/10/2026** và ghi nhận lịch sử migration. Trước khi cập nhật đã sao lưu định nghĩa hàm/trigger/view vào `.build-verification/anc-details-schema-backup.json` (Git bỏ qua). Giao dịch triển khai đối chiếu số bản ghi, dấu kiểm dữ liệu cũ, tổng thu/chi hoàn thành và trạng thái bảo vệ quyền trước/sau; tất cả khớp. Bảy API cột/view mới trả HTTP 200; các trigger bảo vệ vẫn bật và không có lỗi số dư phiếu nhập. Hàm công nợ cũ được kiểm tra lại quyền gọi sau cập nhật.
 
 ## Kiểm chứng
+
+Cập nhật hiệu năng ngày **12/10/2026**: migration thứ năm đã áp dụng, nguồn dữ liệu thật khớp cách đọc cũ và giảm kích thước JSON 44,3%. Excel được tạo trong Web Worker để giao diện tiếp tục phản hồi. Xem [kết quả kiểm chứng hiệu năng](performance-financial-report/README.md) cho số đo CSDL, benchmark fixture và giới hạn phép đo.
 
 - `npm test`: toàn bộ bộ kiểm thử dữ liệu hiện có đã chạy qua.
 - `npm run test:business-workflows`: tính số liệu, migration PostgreSQL/PGlite, thanh toán từng phần/đủ/vượt/hủy/xóa/khác cơ sở/không có quyền, chạy lại migration, đồng bộ lặp lại, lọc báo cáo với cache nguồn, xuất Excel, chi tiết kho và thêm mới giữ phiếu trên 1440px/375px.

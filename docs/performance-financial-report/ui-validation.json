@@ -1,0 +1,41 @@
+{
+  "fixtureCounts": {
+    "business_order_headers": 10021,
+    "thu_chi": 5478,
+    "nhap_xuat_kho": 8115,
+    "ds_san_pham": 26,
+    "dich_vu": 1292,
+    "phieu_nhap_hang": 1,
+    "the_ban_hang_ct": 121
+  },
+  "networkDelayMs": 120,
+  "liveWrites": 0,
+  "baseline": {
+    "loadMs": 1867,
+    "revenue": 12100000,
+    "debt": 865250000,
+    "inventory": 26,
+    "requests": 32
+  },
+  "report": {
+    "loadMs": 455,
+    "sources": {
+      "orders": 10021,
+      "transactions": 5478,
+      "movements": 8115,
+      "services": 1292
+    },
+    "revenue": 12100000,
+    "debt": 865250000,
+    "inventory": 26,
+    "requests": 3
+  },
+  "excel": {
+    "ms": 1204,
+    "ticks": 73,
+    "bytes": 1081622,
+    "clickDuringGeneration": true,
+    "abort": true,
+    "datesPercentAndRowCountVerified": true
+  }
+}

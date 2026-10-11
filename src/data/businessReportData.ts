@@ -12,18 +12,7 @@ import { calculateInventoryStockSummary, type ProductRecord, type InventoryRecor
 import { fetchAllCTRecords, type ReportCTRecords, type ReportSummary } from './reportData';
 import { readRequest } from '../lib/readRequest';
 
-const PAGE_SIZE = 1000;
 const isDemo = () => typeof window !== 'undefined' && !!getStoredDemoRole();
-
-async function fetchAll<T>(buildPage: (from: number, to: number) => Promise<{ data: T[] | null; error: unknown }>): Promise<T[]> {
-  const rows: T[] = [];
-  for (let from = 0; ; from += PAGE_SIZE) {
-    const { data, error } = await buildPage(from, from + PAGE_SIZE - 1);
-    if (error) throw error;
-    rows.push(...(data ?? []));
-    if (!data || data.length < PAGE_SIZE) return rows;
-  }
-}
 
 export type BusinessTransactionRow = {
   id: string; loai_phieu: string; id_don: string | null; danh_muc: string | null;
@@ -35,6 +24,30 @@ export type BusinessTransactionRow = {
 };
 type OrderRow = { id: string; id_bh: string | null; ngay: string; co_so?: string | null; khach_hang_id: string | null; ten_khach_hang: string | null; tong_tien: number | null; ma_khach_hang?: string | null };
 type ServiceCodeRow = { id_dich_vu: string | null; ten_dich_vu: string };
+type HistoricalSources = Pick<BusinessReportSources, 'transactions' | 'orders' | 'purchases' | 'products' | 'services' | 'movements'>;
+const historicalKeys = ['transactions','orders','purchases','products','services','movements'] as const;
+export function decodeFinancialSnapshot(payload: unknown): HistoricalSources {
+  if(!payload || typeof payload!=='object')throw new Error('Dữ liệu báo cáo tài chính không đầy đủ. Vui lòng thử lại.');
+  const result: Record<string,unknown[]>={};
+  for(const key of historicalKeys){
+    const value=(payload as Record<string,unknown>)[key];
+    // Accept the first snapshot format during a frontend/database rolling update.
+    if(Array.isArray(value)){result[key]=value;continue;}
+    const packed=value as {columns?: unknown;rows?: unknown} | undefined;
+    if(!packed || !Array.isArray(packed.columns) || !packed.columns.every(c=>typeof c==='string') || !Array.isArray(packed.rows))throw new Error('Dữ liệu báo cáo tài chính không đầy đủ. Vui lòng thử lại.');
+    const columns=packed.columns as string[];
+    result[key]=packed.rows.map(row=>{
+      if(!Array.isArray(row) || row.length!==columns.length)throw new Error('Dòng dữ liệu báo cáo không hợp lệ. Vui lòng thử lại.');
+      return Object.fromEntries(columns.map((column,i)=>[column,row[i]]));
+    });
+  }
+  return result as unknown as HistoricalSources;
+}
+async function fetchHistoricalSources(start: string,end: string,signal?: AbortSignal): Promise<HistoricalSources> {
+  const { data,error } = await readRequest('report_financial_snapshot', s => supabase.rpc('business_report_snapshot', { p_start:start,p_end:end }).abortSignal(s),signal);
+  if (error) throw error;
+  return decodeFinancialSnapshot(data);
+}
 export interface BusinessReportSources {
   startDate: string; endDate: string;
   transactions: BusinessTransactionRow[]; orders: OrderRow[]; purchases: BusinessPurchaseInput[];
@@ -69,36 +82,14 @@ export async function getBusinessReportData(startDate: string, endDate: string, 
   const demo = isDemo();
   // Outstanding debt includes earlier invoices and payments through the end date.
   const reuse = sharedSources?.startDate === startDate && sharedSources.endDate === endDate ? sharedSources : undefined;
-  const [transactions, orders, purchases, products, services, movements, details, priorDetails] = reuse
-    ? [reuse.transactions, reuse.orders, reuse.purchases, reuse.products, reuse.services, reuse.movements, reuse.details, reuse.priorDetails]
+  const [history, details, priorDetails] = reuse
+    ? [reuse, reuse.details, reuse.priorDetails]
     : await Promise.all([
-    demo ? Promise.resolve([] as BusinessTransactionRow[]) : fetchAll<BusinessTransactionRow>(async (from, to) => {
-      const result = await readRequest('report_transactions', s => supabase.from('thu_chi').select('id,loai_phieu,id_don,danh_muc,so_tien,nguoi_nhan,trang_thai,ngay,gio,phuong_thuc,co_so,source_type,source_id,ghi_chu,payment_allocations,expense_start_month,expense_months,payroll_employee_id,payroll_month,payroll_year,payroll_payment_kind').order('ngay').order('id').range(from, to).abortSignal(s), signal);
-      return { data: result.data, error: result.error };
-    }),
-    demo ? Promise.resolve([] as OrderRow[]) : fetchAll<OrderRow>(async (from, to) => {
-      const result = await readRequest('report_business_headers', s => supabase.from('business_order_headers').select('id,id_bh,ngay,co_so,khach_hang_id,ten_khach_hang,tong_tien,ma_khach_hang').lte('ngay', endDate).order('ngay').order('id').range(from, to).abortSignal(s), signal);
-      return { data: result.data, error: result.error };
-    }),
-    demo ? Promise.resolve([] as BusinessPurchaseInput[]) : fetchAll<BusinessPurchaseInput>(async (from, to) => {
-      const result = await readRequest('report_purchase_debt', s => supabase.from('phieu_nhap_hang').select('id,ma_phieu,nha_cung_cap,ma_nha_cung_cap,co_so,tong_tien,ngay').lte('ngay', endDate).order('ngay').order('id').range(from, to).abortSignal(s), signal);
-      return { data: result.data, error: result.error };
-    }),
-    demo ? Promise.resolve([] as ProductRecord[]) : fetchAll<ProductRecord>(async (from, to) => {
-      const result = await readRequest('report_product_catalog', s => supabase.from('ds_san_pham').select('id,ma_san_pham,ten_san_pham,don_vi_tinh,gia,ton_dau_ky,canh_bao_ton').order('ten_san_pham').order('id').range(from, to).abortSignal(s), signal);
-      return { data: result.data, error: result.error };
-    }),
-    demo ? Promise.resolve([] as ServiceCodeRow[]) : fetchAll<ServiceCodeRow>(async (from, to) => {
-      const result = await readRequest('report_service_catalog', s => supabase.from('dich_vu').select('id,id_dich_vu,ten_dich_vu').order('id').range(from, to).abortSignal(s), signal);
-      return { data: result.data, error: result.error };
-    }),
-    demo ? Promise.resolve([] as InventoryRecord[]) : fetchAll<InventoryRecord>(async (from, to) => {
-      const result = await readRequest('report_inventory', s => supabase.from('nhap_xuat_kho').select('id,id_xuat_nhap_kho,loai_phieu,id_don_hang,co_so,ten_mat_hang,ton_dau_ky,so_luong,gia,tong_tien,ngay,gio,nguoi_thuc_hien').lte('ngay', endDate).order('ngay').order('id').range(from, to).abortSignal(s), signal);
-      return { data: result.data, error: result.error };
-    }),
+    demo ? Promise.resolve({ transactions:[],orders:[],purchases:[],products:[],services:[],movements:[] } as HistoricalSources) : fetchHistoricalSources(startDate,endDate,signal),
     sharedDetails ?? (demo ? Promise.resolve([] as ReportCTRecords) : fetchAllCTRecords(startDate, endDate, signal)),
     demo ? Promise.resolve([] as ReportCTRecords) : fetchAllCTRecords(prior.start, prior.end, signal),
   ]);
+  const { transactions,orders,purchases,products,services,movements } = history;
   signal?.throwIfAborted();
   const scopedTransactions = transactions.filter(row => belongsToReportBranch(row.co_so, branch));
   const scopedMovements = movements.filter(row => belongsToReportBranch(row.co_so, branch));

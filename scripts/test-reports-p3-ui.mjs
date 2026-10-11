@@ -23,7 +23,11 @@ try {
  await context.route('**/*',async route=>{
   const request=route.request(),url=new URL(request.url());
   if(url.origin===origin){if(url.pathname==='/src/context/AuthContext.tsx')return route.fulfill({contentType:'application/javascript',body:`const session={access_token:'fixture-session'};globalThis.__p3Auth={id:'fixture-user',ho_ten:'Fixture admin',co_so:'A',vi_tri:'Admin'};const subscribe=listener=>{window.addEventListener('p3-auth-change',listener);return()=>window.removeEventListener('p3-auth-change',listener);};export const useAuth=()=>{const nhanVien=globalThis.__p3UseSyncExternalStore(subscribe,()=>globalThis.__p3Auth);return{isAdmin:true,isLoading:false,canModifyData:true,isTechnician:false,session,nhanVien,hasViewAccess:()=>true,logout:async()=>{}};};`});return route.continue();}
-  assert.equal(request.method(),'GET','No business writes in report UI');
+  if(url.pathname.endsWith('/rpc/business_report_snapshot')&&request.method()==='POST'){
+   requests.push({table:'business_report_snapshot',projection:'compact snapshot'});const args=request.postDataJSON(),dateRows=rows=>rows.filter(r=>r.ngay<=args.p_end);
+   return route.fulfill({contentType:'application/json',body:JSON.stringify({transactions:data.thu_chi,orders:dateRows(data.the_ban_hang.map(order=>({...order,co_so:order.co_so||data.the_ban_hang_ct.find(line=>[order.id,order.id_bh].includes(line.id_don_hang))?.co_so}))),purchases:[],products:data.ds_san_pham,services:[],movements:dateRows(data.nhap_xuat_kho)})});
+  }
+  assert.equal(request.method(),'GET','No business writes in report UI; only the snapshot read RPC may POST');
   const table=url.pathname.split('/').pop();if (table in data) requests.push({table,query:url.search,projection:url.searchParams.get('select')});
   if(table==='the_ban_hang_ct'){
    if(delayCT)await new Promise(r=>setTimeout(r,300));
@@ -54,8 +58,7 @@ try {
  checks.push('Personnel/charts lazy-load compact headers once, retain results across tab switches');
  await tab('Tài chính tổng hợp');const financeCalls=requests.length;
  assert.equal(requests.filter(r=>r.table==='the_ban_hang_ct'&&r.query.includes('gte.2026-09-01')).length,3,'Financial report reuses current-period CT');
- assert.ok(requests.some(r=>r.table==='ds_san_pham'&&!r.projection.split(',').includes('anh')&&r.projection!=='*'));
- assert.ok(requests.some(r=>r.table==='nhap_xuat_kho'&&r.projection!=='*'));
+ assert.equal(requests.filter(r=>r.table==='business_report_snapshot').length,1,'Financial history uses one read instead of sequential table pages');
  await tab('Theo ngày');await tab('Tài chính tổng hợp');assert.equal(requests.length,financeCalls);
  checks.push('Financial-only sources/inventory are lazy/compact, current CT reused, returning to tab needs no reads');
  await page.getByRole('button',{name:'Lọc cơ sở',exact:true}).click();

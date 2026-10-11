@@ -1,16 +1,20 @@
 import { AlertCircle, Banknote, Boxes, Download, Landmark, Loader2, ReceiptText, Scale } from 'lucide-react';
-import React, { useEffect, useState, type ReactNode } from 'react';
+import React, { useEffect, useRef, useState, type ReactNode } from 'react';
 import { getBusinessReportData, type BusinessReportData, type BusinessTransactionRow } from '../../data/businessReportData';
 import { normalizeBusinessText, normalizeCashFlowMethod, isIncomeTransaction, expenseRecognitionLines } from '../../lib/businessReportMetrics';
 import type { DebtLedger } from '../../lib/businessAccountingDetails';
 import { useAuth } from '../../context/AuthContext';
 import ReportDetailsModal, { type ReportDetail } from './ReportDetailsModal';
 import ProductCostModal from './ProductCostModal';
+import { FinancialReportExporter,downloadReportExcel,type ReportSheet } from '../../lib/financialReportExport';
 
-const money = (value: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(value || 0);
-const number = (value: number) => new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(value || 0);
+const moneyFormatter = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 });
+const numberFormatter = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 });
+const percentFormatter = new Intl.NumberFormat('vi-VN', { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const money = (value: number) => moneyFormatter.format(value || 0);
+const number = (value: number) => numberFormatter.format(value || 0);
 const dateVi = (value: string) => value.split('-').reverse().join('/');
-const percent = (value: number) => new Intl.NumberFormat('vi-VN', { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(value || 0);
+const percent = (value: number) => percentFormatter.format(value || 0);
 const voucherCode = (row: BusinessTransactionRow) => `${isIncomeTransaction(row.loai_phieu) ? 'PT' : 'PC'}-${row.id.slice(0, 8).toUpperCase()}`;
 
 function Delta({ current, previous }: { current: number; previous: number }) {
@@ -37,6 +41,16 @@ export default function BusinessReportsPanel({ startDate, endDate, branch = '', 
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState('');
   const [selectedReport, setSelectedReport] = useState('revenue');
+  const exporter = useRef<FinancialReportExporter | null>(null);
+  const exportController = useRef<AbortController | null>(null);
+  const exportReady=(sharedResult ?? result).key===requestKey && !!(sharedResult ?? result).data;
+  // Warm the isolated workbook module without parsing its large dependency on
+  // the UI thread. Dispose on period/branch changes so an old export cannot win.
+  useEffect(() => {
+    if(!exportReady)return;
+    const client=new FinancialReportExporter(); exporter.current=client;
+    return () => { exportController.current?.abort(); client.dispose(); if(exporter.current===client)exporter.current=null; };
+  }, [requestKey,exportReady]);
   useEffect(() => {
     if (sharedResult) return;
     const controller = new AbortController();
@@ -58,11 +72,12 @@ export default function BusinessReportsPanel({ startDate, endDate, branch = '', 
   const voucherRows = (rows: BusinessTransactionRow[]) => rows.map(row => [<button type="button" className="min-h-8 min-w-8 text-foreground underline underline-offset-2 hover:bg-muted focus-visible:bg-muted outline-none" onClick={() => openVoucher(row)}>{voucherCode(row)}</button>, dateVi(row.ngay), row.co_so || '—', sourceCode(row), row.danh_muc || '—', row.trang_thai, money(Number(row.so_tien))]);
   const cashHeaders = ['Mã PT/PC', 'Ngày', 'Cơ sở', 'Đơn đối trừ', 'Danh mục', 'Trạng thái', 'Số tiền'];
   const exportReport = async () => {
+    if (exportController.current && !exportController.current.signal.aborted) return;
+    const controller=new AbortController(); exportController.current=controller;
     setExporting(true); setExportError('');
     try {
-      const excel = await import('../../lib/reportExcel');
-      const workbook = excel.createReportWorkbook();
-      const add = (name: string, headers: string[], rows: (string | number)[][]) => excel.appendReportSheet(workbook, name, headers, rows);
+      const sheets: ReportSheet[]=[];
+      const add = (name: string, headers: string[], rows: (string | number)[][]) => sheets.push({name,headers,rows});
       add('Tổng hợp', ['Kỳ', 'Cơ sở', 'Doanh thu', 'Số xe', 'Đã thu', 'Giá vốn', 'LN gộp', 'Biên gộp', 'Chi phí', 'LN trước thuế', 'Biên trước thuế'], [[`${startDate} - ${endDate}`, branch || 'Toàn hệ thống', data.summary.total_revenue, data.summary.total_vehicles, data.summary.total_collected, data.summary.total_cost, data.summary.total_profit, data.summary.gross_margin, data.totalExpenses, data.profitBeforeTax, data.preTaxMargin]]);
       add('Công nợ', ['Đối tượng', 'Loại', 'Phát sinh', 'Đã thanh toán', 'Còn nợ'], data.debts.map(row => [row.doi_tuong, row.loai, row.tong_phat_sinh, row.da_thanh_toan, row.con_no]));
       add('Giá vốn', ['Mã sản phẩm', 'Tên sản phẩm', 'SL', 'Doanh thu', 'Giá vốn', 'LN gộp', 'Biên gộp'], data.productCosts.map(row => [row.ma_san_pham, row.san_pham, row.so_luong, row.doanh_thu, row.gia_von, row.loi_nhuan_gop, row.bien_loi_nhuan]));
@@ -73,9 +88,12 @@ export default function BusinessReportsPanel({ startDate, endDate, branch = '', 
       add('Chi tiết kho', ['Mã phiếu', 'Ngày', 'Cơ sở', 'Sản phẩm', 'Loại', 'SL', 'Đơn giá', 'Giá trị', 'Đơn liên quan'], data.inventoryMovements.map(row => [row.id_xuat_nhap_kho || row.id, row.ngay, row.co_so || '', row.ten_mat_hang, row.loai_phieu, Number(row.so_luong), Number(row.gia), Number(row.tong_tien), row.id_don_hang || '']));
       add('Chi tiết công nợ', ['Đối tượng', 'Ngày', 'Chứng từ', 'Hóa đơn', 'Nội dung', 'Phát sinh', 'Thanh toán', 'Số dư'], (data.debtLedgers || []).flatMap(a => [[a.doi_tuong, startDate, 'Dư đầu kỳ', '', '', 0, 0, a.opening], ...a.movements.map(m => [a.doi_tuong, m.date, m.code, m.invoiceCode, m.description, m.incurred, m.paid, m.balance])]));
       add('Phân bổ chi phí', ['Ngày ghi nhận', 'Phiếu chi', 'Nhóm', 'Ngày chi tiền', 'Tiền đã chi', 'Chi phí trong kỳ'], expenseLines.map(line => [line.date, `PC-${String(line.transaction.id || '').slice(0,8).toUpperCase()}`, line.category, line.transaction.ngay || '', Number(line.transaction.so_tien || 0), line.amount]));
-      excel.saveReportWorkbook(workbook, `Bao-cao-kinh-doanh-${startDate}-${endDate}.xlsx`);
-    } catch (cause) { setExportError(cause instanceof Error ? cause.message : 'Không xuất được báo cáo.'); }
-    finally { setExporting(false); }
+      const client=exporter.current;
+      if(!client)throw new Error('Bộ xuất Excel chưa sẵn sàng. Vui lòng thử lại.');
+      const buffer=await client.generate(sheets,controller.signal);
+      if(!controller.signal.aborted)downloadReportExcel(buffer, `Bao-cao-kinh-doanh-${startDate}-${endDate}.xlsx`);
+    } catch (cause) { if(!controller.signal.aborted)setExportError(cause instanceof Error ? cause.message : 'Không xuất được báo cáo.'); }
+    finally { if(exportController.current===controller){exportController.current=null;setExporting(false);} }
   };
   return <div className="min-w-0 space-y-6">
     <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-base font-semibold">Tổng hợp tài chính · {branch || 'Toàn hệ thống'}</h2><p className="mt-1 text-xs text-muted-foreground">Kỳ so sánh: {dateVi(data.previousStart)} – {dateVi(data.previousEnd)}. Tháng/năm đầy đủ so sánh với tháng/năm liền trước.</p></div><button type="button" disabled={exporting} onClick={() => void exportReport()} className="flex h-10 items-center gap-2 rounded-xl border border-border px-4 text-sm hover:bg-muted disabled:opacity-50"><Download size={16} />{exporting ? 'Đang xuất...' : 'Xuất Excel'}</button></div>

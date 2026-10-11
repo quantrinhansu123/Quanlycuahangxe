@@ -1,5 +1,5 @@
 {
-  "at": "2026-10-11T17:41:43.968Z",
+  "at": "2026-10-11T18:25:45.241Z",
   "passed": true,
   "checks": [
     "One full CT dataset (2347 rows / 3 pages), repeated shared-tab navigation does not remount/refetch",
@@ -10,7 +10,7 @@
     "Failed read shows retry; explicit refresh fetches changed data instead of stale global cache",
     "Same user with changed branch/role scope invalidates prior snapshot"
   ],
-  "reads": 26,
+  "reads": 22,
   "allRemoteMocked": true,
   "liveWrites": 0,
   "errors": []

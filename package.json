@@ -20,6 +20,7 @@
     "test:ui": "node scripts/test-branches-ui.mjs && node scripts/test-forms-ui.mjs && node scripts/test-cashbook-ui.mjs && node scripts/test-attendance-ui.mjs && node scripts/test-attendance-p1-ui.mjs && node scripts/test-ct-financial-p2-ui.mjs && node scripts/test-reports-p3-ui.mjs && node scripts/test-inline-create-ui.mjs && node scripts/test-auth-session-ui.mjs",
     "test:business-workflows": "node scripts/test-business-report.mjs && node scripts/test-business-payment-sync.mjs && node scripts/test-purchase-receipt.mjs && node scripts/test-reports-p3.mjs && node scripts/test-reports-p3-ui.mjs && node scripts/test-inline-create-ui.mjs",
     "test:anc-accounting": "node scripts/test-anc-accounting.mjs && node scripts/test-anc-accounting-ui.mjs",
+    "test:financial-report-performance": "node scripts/test-financial-report-performance.mjs && node scripts/test-financial-report-performance-ui.mjs",
     "typecheck": "tsc -b --pretty false",
     "test:attendance-p1": "node scripts/test-attendance-p1.mjs && node scripts/test-attendance-p1-ui.mjs",
     "db:measure-attendance-p1": "node scripts/measure-attendance-p1.mjs",
