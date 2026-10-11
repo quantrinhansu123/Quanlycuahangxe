@@ -587,7 +587,8 @@ const SalesCardManagementPage: React.FC = () => {
     void loadReferenceData();
 
     const injectCustomer = (customer: KhachHang) => {
-      setPendingNewCustomer(customer);
+      // Only the deferred-create form supplies a PENDING id; saved customers are just selected.
+      setPendingNewCustomer(customer.id?.startsWith('PENDING-') ? customer : null);
       setCustomers((prev) => upsertCustomerInList(prev, customer));
     };
 
