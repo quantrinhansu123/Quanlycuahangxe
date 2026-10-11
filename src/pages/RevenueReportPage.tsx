@@ -22,20 +22,6 @@ import {
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Legend,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
-import {
   loadReportSnapshot,
   aggregateReportSnapshot,
   fetchReportPersonnelHeaders,
@@ -62,6 +48,8 @@ import { branchKey, branchLabel } from '../lib/branchCatalog';
 import { useBranches } from '../hooks/useBranches';
 import ReportOrdersModal from '../components/ReportOrdersModal';
 import { selectReportOrderLines, type ReportDrillScope } from '../data/reportOrderDetails';
+import DailyRevenueChart, { ReportChartControls, type DailyRevenueSeries } from '../components/reports/DailyRevenueChart';
+import { buildReportDateRange, REPORT_CHART_COLORS, type ReportChartUnit, type ReportChartVariant } from '../lib/reportChart';
 
 const ReportDrillContext = React.createContext<(scope: ReportDrillScope) => void>(() => {});
 
@@ -846,38 +834,20 @@ const tabs: { key: TabKey; label: string; icon: React.ElementType }[] = [
   { key: 'financial', label: 'Tài chính tổng hợp', icon: Banknote },
 ];
 
-const CHART_COLORS = ['#eab308', '#3b82f6', '#ef4444', '#10b981', '#8b5cf6', '#f97316', '#06b6d4', '#84cc16'];
-type ChartVariant = 'line' | 'bar' | 'area';
-
-const compactMoney = (value: number) =>
-  new Intl.NumberFormat('vi-VN', { notation: 'compact', compactDisplay: 'short' }).format(value || 0);
-
-function buildDateRange(startDate: string, endDate: string): string[] {
-  if (!startDate || !endDate || startDate > endDate) return [];
-  const days: string[] = [];
-  const cursor = new Date(`${startDate}T00:00:00`);
-  const end = new Date(`${endDate}T00:00:00`);
-  while (cursor <= end) {
-    days.push(cursor.toISOString().slice(0, 10));
-    cursor.setDate(cursor.getDate() + 1);
-  }
-  return days;
-}
-
 function DailyRevenueChartBlock({
   dayData,
   serviceData,
   personnelData,
   dateList,
   chartType,
-  onChartTypeChange,
+  unit,
 }: {
   dayData: RevenueByDay[];
   serviceData: RevenueByService[];
   personnelData: RevenueByPersonnel[];
   dateList: string[];
-  chartType: ChartVariant;
-  onChartTypeChange: (value: ChartVariant) => void;
+  chartType: ReportChartVariant;
+  unit: ReportChartUnit;
 }) {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [serviceKeyword, setServiceKeyword] = useState('');
@@ -957,7 +927,7 @@ function DailyRevenueChartBlock({
   const chartData = useMemo(
     () =>
       dateList.map((date) => ({
-        date: fmtDate(date),
+        date,
         totalRevenue: totalRevenueByDate[date] || 0,
         filteredServiceRevenue: serviceRevenueByDate[date] || 0,
         filteredPersonnelRevenue: personnelRevenueByDate[date] || 0,
@@ -965,22 +935,38 @@ function DailyRevenueChartBlock({
     [dateList, totalRevenueByDate, serviceRevenueByDate, personnelRevenueByDate]
   );
 
+  const series: DailyRevenueSeries[] = [{ key: 'totalRevenue', name: 'Tổng doanh thu', color: REPORT_CHART_COLORS[0] }];
+  if (hasServiceFilter) series.push({ key: 'filteredServiceRevenue', name: 'Doanh thu theo lọc sản phẩm', color: REPORT_CHART_COLORS[2] });
+  if (hasPersonnelFilter) series.push({ key: 'filteredPersonnelRevenue', name: 'Doanh thu theo lọc nhân sự', color: REPORT_CHART_COLORS[3] });
+
   return (
-    <div className="bg-card border border-border rounded-xl p-3 sm:p-4 space-y-3">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-        <h3 className="text-[14px] font-black text-foreground">Doanh thu theo ngày</h3>
-        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2">
-          <div className="relative col-span-2 sm:col-span-1">
+    <section className="min-w-0 space-y-4 border-t border-border py-5" aria-label="Doanh thu theo ngày">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="min-w-0 text-sm font-bold text-foreground">Doanh thu theo ngày</h3>
+          <div className="relative shrink-0">
             <button
               type="button"
+              aria-expanded={isFilterOpen}
+              aria-haspopup="true"
               onClick={() => setIsFilterOpen((prev) => !prev)}
-              className="inline-flex w-full sm:w-auto items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border text-[11px] font-bold hover:bg-accent"
+              className="inline-flex h-8 items-center justify-center gap-1.5 whitespace-nowrap px-2.5 rounded-md border border-border text-xs font-medium hover:bg-accent"
             >
+              <Filter size={14} />
               Bộ lọc
               <ChevronDown size={12} className={isFilterOpen ? 'rotate-180 transition-transform' : 'transition-transform'} />
             </button>
             {isFilterOpen && (
-              <div className="absolute left-0 sm:left-auto sm:right-0 top-10 z-20 w-[min(92vw,20rem)] sm:w-80 bg-card border border-border rounded-lg shadow-lg p-2.5 space-y-2">
+              <div className="absolute right-0 top-full mt-2 z-20 w-[min(20rem,calc(100vw-4rem))] bg-card border border-border rounded-lg shadow-lg p-3 space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" onClick={() => {
+                    setSelectedServices(new Set(serviceItems));
+                    setSelectedPersonnel(new Set(personnelItems));
+                  }} className="h-8 whitespace-nowrap px-2.5 rounded-md border border-border text-xs font-medium hover:bg-accent">Chọn tất cả</button>
+                  <button type="button" onClick={() => {
+                    setSelectedServices(new Set());
+                    setSelectedPersonnel(new Set());
+                  }} className="h-8 whitespace-nowrap px-2.5 rounded-md border border-border text-xs font-medium hover:bg-accent">Bỏ chọn</button>
+                </div>
                 <div className="space-y-1">
                   <p className="text-[11px] font-bold text-foreground">Sản phẩm</p>
                   <input
@@ -1046,114 +1032,28 @@ function DailyRevenueChartBlock({
               </div>
             )}
           </div>
-          <select
-            value={chartType}
-            onChange={(e) => onChartTypeChange(e.target.value as ChartVariant)}
-            className="w-full sm:w-auto px-2.5 py-1.5 rounded-md border border-border text-[11px] font-bold bg-background text-foreground"
-          >
-            <option value="line">Line</option>
-            <option value="bar">Bar</option>
-            <option value="area">Area</option>
-          </select>
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedServices(new Set(serviceItems));
-              setSelectedPersonnel(new Set(personnelItems));
-            }}
-            className="w-full sm:w-auto px-2.5 py-1.5 rounded-md border border-border text-[11px] font-bold hover:bg-accent"
-          >
-            Chọn tất cả
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedServices(new Set());
-              setSelectedPersonnel(new Set());
-            }}
-            className="w-full sm:w-auto px-2.5 py-1.5 rounded-md border border-border text-[11px] font-bold text-muted-foreground hover:bg-accent"
-          >
-            Bỏ chọn
-          </button>
-        </div>
       </div>
 
-      <div className="h-64 sm:h-72">
-        <ResponsiveContainer width="100%" height="100%">
-          {chartType === 'line' && (
-            <LineChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis dataKey="date" tick={{ fontSize: 10 }} minTickGap={24} />
-              <YAxis tickFormatter={compactMoney} tick={{ fontSize: 10 }} width={48} />
-              <Tooltip
-                formatter={(value) => fmt(Number(value || 0))}
-                contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb' }}
-              />
-              <Legend />
-              <Line type="monotone" dataKey="totalRevenue" name="Tổng doanh thu" stroke={CHART_COLORS[0]} strokeWidth={2} dot={false} />
-              {hasServiceFilter && (
-                <Line type="monotone" dataKey="filteredServiceRevenue" name="Doanh thu theo lọc sản phẩm" stroke={CHART_COLORS[1]} strokeWidth={2} dot={false} />
-              )}
-              {hasPersonnelFilter && (
-                <Line type="monotone" dataKey="filteredPersonnelRevenue" name="Doanh thu theo lọc nhân sự" stroke={CHART_COLORS[2]} strokeWidth={2} dot={false} />
-              )}
-            </LineChart>
-          )}
-          {chartType === 'bar' && (
-            <BarChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis dataKey="date" tick={{ fontSize: 10 }} minTickGap={24} />
-              <YAxis tickFormatter={compactMoney} tick={{ fontSize: 10 }} width={48} />
-              <Tooltip
-                formatter={(value) => fmt(Number(value || 0))}
-                contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb' }}
-              />
-              <Legend />
-              <Bar dataKey="totalRevenue" name="Tổng doanh thu" fill={CHART_COLORS[0]} radius={[4, 4, 0, 0]} />
-              {hasServiceFilter && (
-                <Bar dataKey="filteredServiceRevenue" name="Doanh thu theo lọc sản phẩm" fill={CHART_COLORS[1]} radius={[4, 4, 0, 0]} />
-              )}
-              {hasPersonnelFilter && (
-                <Bar dataKey="filteredPersonnelRevenue" name="Doanh thu theo lọc nhân sự" fill={CHART_COLORS[2]} radius={[4, 4, 0, 0]} />
-              )}
-            </BarChart>
-          )}
-          {chartType === 'area' && (
-            <AreaChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis dataKey="date" tick={{ fontSize: 10 }} minTickGap={24} />
-              <YAxis tickFormatter={compactMoney} tick={{ fontSize: 10 }} width={48} />
-              <Tooltip
-                formatter={(value) => fmt(Number(value || 0))}
-                contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb' }}
-              />
-              <Legend />
-              <Area type="monotone" dataKey="totalRevenue" name="Tổng doanh thu" stroke={CHART_COLORS[0]} fill={CHART_COLORS[0]} fillOpacity={0.15} strokeWidth={2} />
-              {hasServiceFilter && (
-                <Area type="monotone" dataKey="filteredServiceRevenue" name="Doanh thu theo lọc sản phẩm" stroke={CHART_COLORS[1]} fill={CHART_COLORS[1]} fillOpacity={0.15} strokeWidth={2} />
-              )}
-              {hasPersonnelFilter && (
-                <Area type="monotone" dataKey="filteredPersonnelRevenue" name="Doanh thu theo lọc nhân sự" stroke={CHART_COLORS[2]} fill={CHART_COLORS[2]} fillOpacity={0.15} strokeWidth={2} />
-              )}
-            </AreaChart>
-          )}
-        </ResponsiveContainer>
-      </div>
-    </div>
+      {dayData.length === 0 || chartData.length === 0 ? (
+        <p className="flex h-80 items-center justify-center text-xs text-muted-foreground">Không có dữ liệu trong khoảng thời gian đã chọn.</p>
+      ) : <DailyRevenueChart data={chartData} series={series} chartType={chartType} unit={unit} label="Doanh thu từng ngày" />}
+    </section>
   );
 }
 
 /** So sánh doanh thu theo ngày giữa các cơ sở (mỗi cơ sở một series). */
 function BranchDailyChartBlock({
   branchData,
+  branchNames,
   dateList,
   chartType,
-  onChartTypeChange,
+  unit,
 }: {
   branchData: RevenueByBranch[];
+  branchNames: string[];
   dateList: string[];
-  chartType: ChartVariant;
-  onChartTypeChange: (value: ChartVariant) => void;
+  chartType: ReportChartVariant;
+  unit: ReportChartUnit;
 }) {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [branchKeyword, setBranchKeyword] = useState('');
@@ -1195,39 +1095,49 @@ function BranchDailyChartBlock({
     return ordered.slice(0, 8);
   }, [branchItems, effectiveSelected]);
 
+  const colorKeys = useMemo(() => [...new Set([...branchNames, ...branchItems].map(branchKey))], [branchNames, branchItems]);
+  const series = useMemo(() => activeBranches.map(coSo => ({
+    key: `branch-${branchItems.indexOf(coSo)}`,
+    name: coSo,
+    color: REPORT_CHART_COLORS[colorKeys.indexOf(branchKey(coSo)) % REPORT_CHART_COLORS.length],
+  })), [activeBranches, branchItems, colorKeys]);
+
   const chartData = useMemo(
     () =>
       dateList.map((date) => {
-        const row: Record<string, string | number> = { date: fmtDate(date) };
-        activeBranches.forEach((coSo) => {
-          row[coSo] = seriesByDate[coSo]?.[date] || 0;
+        const row = { date } as { date: string; [key: string]: string | number };
+        series.forEach((item) => {
+          row[item.key] = seriesByDate[item.name]?.[date] || 0;
         });
         return row;
       }),
-    [activeBranches, dateList, seriesByDate]
+    [series, dateList, seriesByDate]
   );
 
-  const axisProps = {
-    tick: { fontSize: 10 } as const,
-    minTickGap: 24,
-  };
-
   return (
-    <div className="bg-card border border-border rounded-xl p-3 sm:p-4 space-y-3">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-        <h3 className="text-[14px] font-black text-foreground">Theo cơ sở (theo ngày)</h3>
-        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2">
-          <div className="relative col-span-2 sm:col-span-1">
+    <section className="min-w-0 space-y-4 border-t border-border py-5" aria-label="Theo cơ sở (theo ngày)">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="min-w-0 text-sm font-bold text-foreground">Theo cơ sở (theo ngày)</h3>
+          <div className="relative shrink-0">
             <button
               type="button"
+              aria-expanded={isFilterOpen}
+              aria-haspopup="true"
               onClick={() => setIsFilterOpen((prev) => !prev)}
-              className="inline-flex w-full sm:w-auto items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border text-[11px] font-bold hover:bg-accent"
+              className="inline-flex h-8 items-center justify-center gap-1.5 whitespace-nowrap px-2.5 rounded-md border border-border text-xs font-medium hover:bg-accent"
             >
+              <Filter size={14} />
               Bộ lọc cơ sở
               <ChevronDown size={12} className={isFilterOpen ? 'rotate-180 transition-transform' : 'transition-transform'} />
             </button>
             {isFilterOpen && (
-              <div className="absolute left-0 sm:left-auto sm:right-0 top-10 z-20 w-[min(92vw,20rem)] sm:w-80 bg-card border border-border rounded-lg shadow-lg p-2.5 space-y-2">
+              <div className="absolute right-0 top-full mt-2 z-20 w-[min(20rem,calc(100vw-4rem))] bg-card border border-border rounded-lg shadow-lg p-3 space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" onClick={() => setSelectedBranches(new Set(branchItems))}
+                    className="h-8 whitespace-nowrap px-2.5 rounded-md border border-border text-xs font-medium hover:bg-accent">Chọn tất cả</button>
+                  <button type="button" onClick={() => setSelectedBranches(new Set())}
+                    className="h-8 whitespace-nowrap px-2.5 rounded-md border border-border text-xs font-medium hover:bg-accent">Bỏ chọn</button>
+                </div>
                 <div className="space-y-1">
                   <p className="text-[11px] font-bold text-foreground">Cơ sở</p>
                   <input
@@ -1271,33 +1181,9 @@ function BranchDailyChartBlock({
               </div>
             )}
           </div>
-          <select
-            value={chartType}
-            onChange={(e) => onChartTypeChange(e.target.value as ChartVariant)}
-            className="w-full sm:w-auto px-2.5 py-1.5 rounded-md border border-border text-[11px] font-bold bg-background text-foreground"
-          >
-            <option value="line">Line</option>
-            <option value="bar">Bar</option>
-            <option value="area">Area</option>
-          </select>
-          <button
-            type="button"
-            onClick={() => setSelectedBranches(new Set(branchItems))}
-            className="w-full sm:w-auto px-2.5 py-1.5 rounded-md border border-border text-[11px] font-bold hover:bg-accent"
-          >
-            Chọn tất cả
-          </button>
-          <button
-            type="button"
-            onClick={() => setSelectedBranches(new Set())}
-            className="w-full sm:w-auto px-2.5 py-1.5 rounded-md border border-border text-[11px] font-bold text-muted-foreground hover:bg-accent"
-          >
-            Bỏ chọn
-          </button>
-        </div>
       </div>
 
-      {branchData.length === 0 ? (
+      {branchData.length === 0 || dateList.length === 0 ? (
         <p className="text-[12px] text-muted-foreground italic py-8 text-center">
           Không có dữ liệu theo cơ sở trong khoảng thời gian đã chọn.
         </p>
@@ -1306,80 +1192,9 @@ function BranchDailyChartBlock({
           Chọn ít nhất một cơ sở trong bộ lọc để hiển thị biểu đồ.
         </p>
       ) : (
-        <div className="h-64 sm:h-72">
-          <ResponsiveContainer width="100%" height="100%">
-            {chartType === 'line' && (
-              <LineChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="date" {...axisProps} />
-                <YAxis tickFormatter={compactMoney} tick={{ fontSize: 10 }} width={48} />
-                <Tooltip
-                  formatter={(value) => fmt(Number(value || 0))}
-                  contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb' }}
-                />
-                <Legend />
-                {activeBranches.map((coSo, index) => (
-                  <Line
-                    key={coSo}
-                    type="monotone"
-                    dataKey={coSo}
-                    name={coSo}
-                    stroke={CHART_COLORS[index % CHART_COLORS.length]}
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                ))}
-              </LineChart>
-            )}
-            {chartType === 'bar' && (
-              <BarChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="date" {...axisProps} />
-                <YAxis tickFormatter={compactMoney} tick={{ fontSize: 10 }} width={48} />
-                <Tooltip
-                  formatter={(value) => fmt(Number(value || 0))}
-                  contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb' }}
-                />
-                <Legend />
-                {activeBranches.map((coSo, index) => (
-                  <Bar
-                    key={coSo}
-                    dataKey={coSo}
-                    name={coSo}
-                    fill={CHART_COLORS[index % CHART_COLORS.length]}
-                    radius={[4, 4, 0, 0]}
-                  />
-                ))}
-              </BarChart>
-            )}
-            {chartType === 'area' && (
-              <AreaChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="date" {...axisProps} />
-                <YAxis tickFormatter={compactMoney} tick={{ fontSize: 10 }} width={48} />
-                <Tooltip
-                  formatter={(value) => fmt(Number(value || 0))}
-                  contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb' }}
-                />
-                <Legend />
-                {activeBranches.map((coSo, index) => (
-                  <Area
-                    key={coSo}
-                    type="monotone"
-                    dataKey={coSo}
-                    name={coSo}
-                    stroke={CHART_COLORS[index % CHART_COLORS.length]}
-                    fill={CHART_COLORS[index % CHART_COLORS.length]}
-                    fillOpacity={0.15}
-                    strokeWidth={2}
-                  />
-                ))}
-              </AreaChart>
-            )}
-          </ResponsiveContainer>
-        </div>
+        <DailyRevenueChart data={chartData} series={series} chartType={chartType} unit={unit} label="Doanh thu các cơ sở theo ngày" />
       )}
-    </div>
+    </section>
   );
 }
 
@@ -1389,6 +1204,7 @@ function RevenueComparisonView({
   dayData,
   serviceData,
   branchData,
+  branchNames = [],
   personnelData,
 }: {
   startDate: string;
@@ -1396,19 +1212,16 @@ function RevenueComparisonView({
   dayData: RevenueByDay[];
   serviceData: RevenueByService[];
   branchData: RevenueByBranch[];
+  branchNames?: string[];
   personnelData: RevenueByPersonnel[];
 }) {
-  const dateList = useMemo(() => buildDateRange(startDate, endDate), [startDate, endDate]);
-  const [chartType, setChartType] = useState<ChartVariant>('bar');
+  const dateList = useMemo(() => buildReportDateRange(startDate, endDate), [startDate, endDate]);
+  const [chartType, setChartType] = useState<ReportChartVariant>('bar');
+  const [unit, setUnit] = useState<ReportChartUnit>('million');
 
   return (
-    <div className="space-y-4">
-      <div className="bg-muted/30 border border-border rounded-xl p-3">
-        <p className="text-[12px] text-muted-foreground">
-          Biểu đồ thể hiện doanh thu theo ngày trong khoảng <strong>{fmtDate(startDate)}</strong> đến <strong>{fmtDate(endDate)}</strong>. 
-          Sản phẩm và nhân sự được chuyển về bộ lọc để tiện theo dõi; cơ sở có biểu đồ so sánh riêng bên dưới.
-        </p>
-      </div>
+    <div className="min-w-0 space-y-4">
+      <ReportChartControls chartType={chartType} onChartTypeChange={setChartType} unit={unit} onUnitChange={setUnit} />
 
       <DailyRevenueChartBlock
         dayData={dayData}
@@ -1416,14 +1229,15 @@ function RevenueComparisonView({
         personnelData={personnelData}
         dateList={dateList}
         chartType={chartType}
-        onChartTypeChange={setChartType}
+        unit={unit}
       />
 
       <BranchDailyChartBlock
         branchData={branchData}
+        branchNames={branchNames}
         dateList={dateList}
         chartType={chartType}
-        onChartTypeChange={setChartType}
+        unit={unit}
       />
     </div>
   );
@@ -1724,6 +1538,7 @@ const RevenueReportPage: React.FC = () => {
                     dayData={dayData}
                     serviceData={serviceData}
                     branchData={branchData}
+                    branchNames={allBranches}
                     personnelData={personnelData?.personnel ?? []}
                   />
                 )}

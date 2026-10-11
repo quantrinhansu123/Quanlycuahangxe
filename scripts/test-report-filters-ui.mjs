@@ -40,7 +40,7 @@ const server = await createServer({
       res.end(await s.transformIndexHtml(req.url, html));
     });
   } }],
-  server: { host: '127.0.0.1', port: 5211, strictPort: true, open: false }, logLevel: 'silent',
+  server: { host: '127.0.0.1', port: 5211, strictPort: true, open: false, hmr: false }, logLevel: 'silent',
 });
 let browser;
 await mkdir('.build-verification/report-filters', { recursive: true });
