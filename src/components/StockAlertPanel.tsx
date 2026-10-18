@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { getProductRecords, setProductStockThreshold, calculateInventoryStockSummary, type ProductRecord, type InventoryRecord } from '../data/inventoryData';
 import { supabase } from '../lib/supabase';
 import { branchKey } from '../lib/branchCatalog';
 import { useAuth } from '../context/AuthContext';
 import { getErrorDetails } from '../lib/errorDetails';
+import { readRequest } from '../lib/readRequest';
 
 export default function StockAlertPanel({ branches, refreshKey }: { branches: string[]; refreshKey?: unknown }) {
   const { isAdmin } = useAuth();
@@ -18,7 +19,7 @@ export default function StockAlertPanel({ branches, refreshKey }: { branches: st
       const movements: InventoryRecord[] = [];
       const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
       for (let from = 0; ; from += 1000) {
-        const result = await supabase.from('nhap_xuat_kho').select('id,ten_mat_hang,loai_phieu,so_luong,gia,tong_tien,ngay,co_so').lte('ngay', today).order('id').range(from, from + 999).abortSignal(controller.signal);
+        const result = await readRequest('stock_movements', signal => supabase.from('nhap_xuat_kho').select('id,ten_mat_hang,loai_phieu,so_luong,gia,tong_tien,ngay,co_so').lte('ngay', today).order('id').range(from, from + 999).abortSignal(signal), controller.signal);
         if (result.error) throw result.error;
         movements.push(...result.data as InventoryRecord[]);
         if (result.data.length < 1000) break;
@@ -27,8 +28,11 @@ export default function StockAlertPanel({ branches, refreshKey }: { branches: st
     })().catch(reason => { if (!controller.signal.aborted) setError(getErrorDetails(reason).message || 'Không tính được tồn kho hiện tại.'); });
     return () => controller.abort();
   }, [revision, refreshKey]);
-  const scope = new Set(branches.map(branchKey));
-  const stock = data ? calculateInventoryStockSummary(data.products.map(p => branches.length ? { ...p, ton_dau_ky: 0 } : p), data.movements.filter(m => !branches.length || scope.has(branchKey(m.co_so))), '0001-01-01', '9999-12-31') : [];
+  const stock = useMemo(() => {
+    if (!data) return [];
+    const scope = new Set(branches.map(branchKey));
+    return calculateInventoryStockSummary(data.products.map(p => branches.length ? { ...p, ton_dau_ky: 0 } : p), data.movements.filter(m => !branches.length || scope.has(branchKey(m.co_so))), '0001-01-01', '9999-12-31');
+  }, [data, branches]);
   const quantities = new Map(stock.map(r => [r.ten_hang, r.cuoi_ky_so_luong]));
   const alerts = data?.products.filter(p => Number(p.canh_bao_ton) > 0 && (quantities.get(p.ten_san_pham) || 0) <= Number(p.canh_bao_ton)) || [];
   const save = async (id: string, threshold: number) => {

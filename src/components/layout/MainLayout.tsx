@@ -4,17 +4,26 @@ import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 import MobileBottomNav from './MobileBottomNav';
 import { clsx } from 'clsx';
-import { AnimatePresence, motion } from 'framer-motion';
 import { moduleData } from '../../data/moduleData';
 import { ToastContainer } from '../ui/Toast';
 import { useAuth } from '../../context/AuthContext';
 import { resolveViewKeyByPath } from '../../data/viewPermissions';
+import { ErrorBoundary } from '../ErrorBoundary';
+import TopProgressBar from '../ui/TopProgressBar';
 
 const MainLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [globalSearch, setGlobalSearch] = useState('');
   const location = useLocation();
+  const mainRef = React.useRef<HTMLElement | null>(null);
+  const pageKey = location.pathname === '/bao-cao' || location.pathname.startsWith('/bao-cao/') ? '/bao-cao' : location.pathname;
   const { hasViewAccess, isAdmin } = useAuth();
+
+  React.useEffect(() => {
+    mainRef.current?.scrollTo({ top: 0 });
+    const timer = window.setTimeout(() => setGlobalSearch(''), 0);
+    return () => window.clearTimeout(timer);
+  }, [pageKey]);
 
   // Pages that focus on heavy data (management tables)
   // Hide sidebar/bottom nav to give maximum space
@@ -65,25 +74,17 @@ const MainLayout: React.FC = () => {
         />
 
         {/* Scrollable Content */}
-        <main className={clsx(
+        <main ref={mainRef} className={clsx(
           "flex-1 overflow-y-auto custom-scrollbar relative pb-24 lg:pb-6",
           isDataView ? "p-0" : "p-4 lg:p-6"
         )}>
-          <AnimatePresence mode="popLayout" initial={false}>
-            <motion.div
-              key={location.pathname === '/bao-cao' || location.pathname.startsWith('/bao-cao/') ? '/bao-cao' : location.pathname}
-              initial={{ opacity: 0, scale: 0.98, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, y: -5 }}
-              transition={{ 
-                duration: 0.35, 
-                ease: [0.32, 0.72, 0, 1] 
-              }}
-              className="w-full h-full flex flex-col"
-            >
-              <Outlet context={{ globalSearch, setGlobalSearch }} />
-            </motion.div>
-          </AnimatePresence>
+          <div key={pageKey} className="w-full h-full flex flex-col animate-in fade-in duration-150 motion-reduce:animate-none">
+            <ErrorBoundary key={pageKey}>
+              <React.Suspense fallback={<TopProgressBar />}>
+                <Outlet context={{ globalSearch, setGlobalSearch }} />
+              </React.Suspense>
+            </ErrorBoundary>
+          </div>
         </main>
 
         {/* Mobile Bottom Navigation - Always show on mobile */}

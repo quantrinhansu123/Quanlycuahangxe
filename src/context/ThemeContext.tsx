@@ -47,6 +47,17 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Handle font change
   useEffect(() => {
+    // Load only the selected family after the first paint. Loading every theme
+    // font in index.html blocked all routes on an external CSS request.
+    const id = 'app-theme-font';
+    let stylesheet = document.getElementById(id) as HTMLLinkElement | null;
+    if (!stylesheet) {
+      stylesheet = document.createElement('link');
+      stylesheet.id = id;
+      stylesheet.rel = 'stylesheet';
+      document.head.appendChild(stylesheet);
+    }
+    stylesheet.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(font)}:wght@400;500;600;700&display=swap`;
     const root = window.document.documentElement;
     root.style.setProperty('--font-sans', `'${font}', sans-serif`);
     localStorage.setItem('font', font);

@@ -16,6 +16,10 @@ export const supabase = createClient(
   supabaseUrl || "https://placeholder.supabase.co",
   supabaseAnonKey || "invalid-anon-key",
   {
+    // This app authenticates through login_with_phone + x-app-session, not
+    // Supabase Auth. Its refresh/lock must never block REST, RPC or Storage.
+    // null keeps the SDK's normal anon-key Authorization header.
+    accessToken: async () => null,
     global: {
       // Đọc token ở thời điểm gửi từng request để lần đăng nhập đầu tiên có
       // hiệu lực ngay, không cần tạo lại Supabase client hay F5 trang.

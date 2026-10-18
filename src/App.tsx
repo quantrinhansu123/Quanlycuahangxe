@@ -1,11 +1,11 @@
 import { lazy, Suspense } from 'react';
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
-import MainLayout from './components/layout/MainLayout';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import TopProgressBar from './components/ui/TopProgressBar';
 import ProtectedRoute from './components/layout/ProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Lazy load all pages for optimal performance
+const MainLayout = lazy(() => import('./components/layout/MainLayout'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const AttendanceManagementPage = lazy(() => import('./pages/AttendanceManagementPage'));
@@ -39,10 +39,8 @@ const ZaloOauthCallbackPage = lazy(() => import('./pages/ZaloOauthCallbackPage')
 
 
 function AppRoutes() {
-  const location = useLocation();
-
   return (
-    <ErrorBoundary key={location.pathname === '/bao-cao' || location.pathname.startsWith('/bao-cao/') ? '/bao-cao' : location.pathname}>
+    <ErrorBoundary>
       <Suspense fallback={<TopProgressBar />}>
         <Routes>
           {/* Public route â€” khÃ´ng cáº§n login */}

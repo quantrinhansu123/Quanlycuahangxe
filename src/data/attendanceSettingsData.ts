@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { readRequest } from '../lib/readRequest';
 import {
   DEFAULT_ATTENDANCE_SETTINGS,
   validateAttendanceSettings,
@@ -62,12 +63,12 @@ export async function getAttendanceSettings(force = false): Promise<AttendanceSe
   if (!force && pending) return pending;
 
   pending = (async () => {
-    const { data, error } = await supabase
+    const { data, error } = await readRequest('attendance_settings', signal => supabase
       .from('attendance_settings')
       .select('*')
       .eq('scope', 'global')
       .limit(1)
-      .maybeSingle();
+      .abortSignal(signal).maybeSingle()).catch(() => ({ data: null, error: { message: 'Máy chủ phản hồi chậm hoặc mất kết nối.' } }));
 
     if (error) {
       // Giữ ứng dụng hoạt động bằng mặc định khi môi trường chưa chạy migration.

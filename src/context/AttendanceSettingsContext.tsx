@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { getAttendanceSettings } from '../data/attendanceSettingsData';
 import { DEFAULT_ATTENDANCE_SETTINGS, type AttendanceSettings } from '../utils/timekeeping';
 import {
@@ -9,6 +9,7 @@ import {
 export function AttendanceSettingsProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<AttendanceSettings>({ ...DEFAULT_ATTENDANCE_SETTINGS });
   const [loading, setLoading] = useState(true);
+  const started = useRef(false);
 
   const refresh = useCallback(async () => {
     const value = await getAttendanceSettings(true);
@@ -16,14 +17,14 @@ export function AttendanceSettingsProvider({ children }: { children: React.React
     return value;
   }, []);
 
-  useEffect(() => {
-    let active = true;
+  const ensureLoaded = useCallback(() => {
+    if (started.current) return;
+    started.current = true;
     void getAttendanceSettings().then((value) => {
-      if (active) setSettings(value);
+      setSettings(value);
     }).finally(() => {
-      if (active) setLoading(false);
+      setLoading(false);
     });
-    return () => { active = false; };
   }, []);
 
   const value = useMemo<AttendanceSettingsContextValue>(() => ({
@@ -31,7 +32,8 @@ export function AttendanceSettingsProvider({ children }: { children: React.React
     loading,
     refresh,
     replace: setSettings,
-  }), [settings, loading, refresh]);
+    ensureLoaded,
+  }), [settings, loading, refresh, ensureLoaded]);
 
   return <AttendanceSettingsContext.Provider value={value}>{children}</AttendanceSettingsContext.Provider>;
 }

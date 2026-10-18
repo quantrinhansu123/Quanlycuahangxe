@@ -15,12 +15,13 @@ import {
   Upload,
   Wrench
 } from 'lucide-react';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import * as XLSX from 'xlsx';
+
 import Pagination from '../components/Pagination';
 import ServiceFormModal from '../components/ServiceFormModal';
 import { useAuth } from '../context/AuthContext';
+import { isAbortError, getReadErrorMessage } from '../lib/errorDetails';
 import type { DichVu } from '../data/serviceData';
 import {
   bulkUpsertServices,
@@ -363,6 +364,9 @@ const ServiceManagementPage: React.FC = () => {
     Object.fromEntries(BRANCH_OPTIONS.map((b) => [b, 1]))
   );
   const [branchData, setBranchData] = useState<Record<string, BranchData>>({});
+  const requestVersion = useRef(0);
+  const listAbort = useRef<AbortController | null>(null);
+  const [loadError, setLoadError] = useState('');
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isReadOnlyModal, setIsReadOnlyModal] = useState(false);
@@ -374,42 +378,42 @@ const ServiceManagementPage: React.FC = () => {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  useEffect(() => {
-    setBranchPages((prev) => {
-      const next = { ...prev };
-      visibleBranches.forEach((b) => {
-        if (!next[b]) next[b] = 1;
-      });
-      return next;
-    });
-  }, [visibleBranches]);
-
   const loadData = useCallback(async () => {
+    const request = ++requestVersion.current;
+    listAbort.current?.abort();
+    const controller = new AbortController();
+    listAbort.current = controller;
     try {
       setLoading(true);
+      setLoadError('');
       const results = await Promise.all(
         visibleBranches.map(async (branch) => {
           const page = branchPages[branch] ?? 1;
           const { data, totalCount } = await getServicesPaginated(page, pageSize, debouncedSearch, {
             branches: [branch]
-          });
+          }, controller.signal);
           return { branch, data, totalCount };
         })
       );
+      if (request !== requestVersion.current || controller.signal.aborted) return;
       const next: Record<string, BranchData> = {};
       results.forEach(({ branch, data, totalCount }) => {
         next[branch] = { services: data, totalCount };
       });
       setBranchData(next);
     } catch (error) {
-      console.error(error);
+      if (request === requestVersion.current && !controller.signal.aborted && !isAbortError(error)) {
+        setLoadError(getReadErrorMessage(error, 'Không tải được danh sách dịch vụ. Vui lòng thử lại.'));
+      }
     } finally {
-      setLoading(false);
+      if (request === requestVersion.current) setLoading(false);
     }
   }, [visibleBranches, branchPages, pageSize, debouncedSearch]);
 
   useEffect(() => {
-    loadData();
+    void loadData();
+    const requestRef = requestVersion, abortRef = listAbort;
+    return () => { requestRef.current++; abortRef.current?.abort(); };
   }, [loadData]);
 
   const resetAllBranchPages = () => {
@@ -476,23 +480,29 @@ const ServiceManagementPage: React.FC = () => {
     }
   };
 
-  const handleDownloadTemplate = () => {
-    const templateData = [
-      {
-        id: '',
-        'Tên dịch vụ': 'Bảo dưỡng toàn bộ',
-        'Cơ sở': 'Cơ sở Bắc Giang',
-        'Giá nhập': 200000,
-        'Giá bán': 350000,
-        'Hoa hồng': 50000,
-        'Từ ngày': '2024-01-01',
-        'Tới ngày': '2024-12-31'
-      }
-    ];
-    const worksheet = XLSX.utils.json_to_sheet(templateData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'MauDichVu');
-    XLSX.writeFile(workbook, 'Mau_nhap_dich_vu.xlsx');
+  const handleDownloadTemplate = async () => {
+    try {
+      const XLSX = await import('xlsx');
+      const templateData = [
+        {
+          id: '',
+          'Tên dịch vụ': 'Bảo dưỡng toàn bộ',
+          'Cơ sở': 'Cơ sở Bắc Giang',
+          'Giá nhập': 200000,
+          'Giá bán': 350000,
+          'Hoa hồng': 50000,
+          'Từ ngày': '2024-01-01',
+          'Tới ngày': '2024-12-31'
+        }
+      ];
+      const worksheet = XLSX.utils.json_to_sheet(templateData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'MauDichVu');
+      XLSX.writeFile(workbook, 'Mau_nhap_dich_vu.xlsx');
+    } catch (error) {
+      console.error('Excel load failed:', error);
+      window.alert('Không tải được thư viện Excel. Vui lòng thử lại.');
+    }
   };
 
   const handleDeleteAll = async () => {
@@ -518,6 +528,7 @@ const ServiceManagementPage: React.FC = () => {
     const reader = new FileReader();
     reader.onload = async (evt) => {
       try {
+      const XLSX = await import('xlsx');
         const bstr = evt.target?.result;
         const wb = XLSX.read(bstr, { type: 'binary' });
         const ws = wb.Sheets[wb.SheetNames[0]];
@@ -626,6 +637,7 @@ const ServiceManagementPage: React.FC = () => {
   return (
     <div className="w-full h-full flex flex-col p-4 lg:p-6 animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-y-auto pt-8">
       <div className="w-full space-y-4 sm:space-y-6">
+        {loadError && <p role="alert" className="p-3 text-sm text-red-600">{loadError} <button type="button" className="underline" onClick={() => void loadData()}>Thử lại</button></p>}
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-xl sm:text-2xl font-black text-foreground tracking-tight flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-600">

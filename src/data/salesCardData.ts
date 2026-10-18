@@ -1281,11 +1281,11 @@ export type CustomerPhoneRow = {
  * Lấy ngày mua gần nhất + tổng doanh số / số lần ghé theo mã KH, UUID, SĐT.
  * Kết quả map theo `customer.id` và `ma_khach_hang` (cùng object stats) để UI giữ nguyên lookup.
  */
-export async function getCustomerOrderAggregatesByPhone(customers: CustomerPhoneRow[]): Promise<{
+export async function getCustomerOrderAggregatesByPhone(customers: CustomerPhoneRow[], signal?: AbortSignal): Promise<{
   lastOrderDates: Record<string, string>;
   stats: Record<string, { totalRevenue: number; visitCount: number; latestSoKm?: number }>;
 }> {
-  const { data, error } = await supabase.rpc('customer_order_stats', { p_ids: customers.map(c => c.id) });
+  const { data, error } = await readRequest('customer_order_stats', s => supabase.rpc('customer_order_stats', { p_ids: customers.map(c => c.id) }).abortSignal(s), signal);
   if (error) throw error;
   return data;
 }

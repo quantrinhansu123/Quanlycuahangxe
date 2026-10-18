@@ -45,9 +45,8 @@ const SparePartsListPage: React.FC = () => {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [data, svc] = await Promise.all([getProductRecords(), getServices()]);
+      const data = await getProductRecords();
       setRows(data);
-      setServices(svc);
     } catch (e) {
       console.error(e);
       setRows([]);
@@ -59,6 +58,13 @@ const SparePartsListPage: React.FC = () => {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    if (!modalOpen) return;
+    let active = true;
+    void getServices().then(rows => { if (active) setServices(rows); }).catch(console.error);
+    return () => { active = false; };
+  }, [modalOpen]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();

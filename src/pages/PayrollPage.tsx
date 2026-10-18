@@ -14,7 +14,7 @@ import SelectPayrollEmployeeModal from '../components/SelectPayrollEmployeeModal
 import type { NhanSu } from '../data/personnelData';
 import { clsx } from 'clsx';
 import { removeVietnameseTones } from '../lib/utils';
-import * as XLSX from 'xlsx';
+
 import { useAuth } from '../context/AuthContext';
 import { syncPayrollFromAttendance } from '../data/payrollAttendanceSyncData';
 import PayrollSlipModal from '../components/PayrollSlipModal';
@@ -362,77 +362,83 @@ const PayrollPage: React.FC = () => {
     }
   };
 
-  const handleExportExcel = () => {
-    if (filteredData.length === 0) {
-      alert('Không có dữ liệu để xuất file!');
-      return;
-    }
+  const handleExportExcel = async () => {
+    try {
+      const XLSX = await import('xlsx');
+      if (filteredData.length === 0) {
+        alert('Không có dữ liệu để xuất file!');
+        return;
+      }
 
-    const labels: Record<string, string> = {
-      ho_ten: 'Họ và tên',
-      don_vi: 'Đơn vị',
-      luong_co_ban: 'Lương cơ bản',
-      ngay_cong: 'Tổng ngày công',
-      doanh_so: 'Doanh số',
-      doanh_so_mt: 'Doanh số mục tiêu',
-      ty_le: 'Tỷ lệ HT',
-      luong_ngay: 'Lương ngày',
-      luong_lam_them: 'Lương tăng ca',
-      luong_doanh_so: 'Lương doanh số',
-      chuyen_can: 'Chuyên cần',
-      xang_dien_thoai: 'Xăng xe điện thoại',
-      tham_nien: 'Thâm niên',
-      tro_ngoai: 'Trọ ngoài',
-      tien_an: 'Tiền ăn',
-      tien_an_tang_ca: 'Tiền ăn tăng ca',
-      hoa_hong: 'Tiền % hoa hồng',
-      tong_luong: 'Tổng lương',
-      phu_cap: 'Phụ cấp',
-      thuc_linh: 'Thực lĩnh'
-    };
-
-    const rows = filteredData.map(item => {
-      const rowData: Record<string, string | number> = {};
-      const exportValues: Record<string, string | number> = {
-        doanh_so: item.doanh_so || 0,
-        doanh_so_mt: item.doanh_so_muc_tieu || 0,
-        ty_le: item.doanh_so_muc_tieu
-          ? (item.doanh_so / item.doanh_so_muc_tieu) * 100
-          : 0,
-        luong_ngay: item.luong_ngay_cong || 0,
-        luong_co_ban: item.luong_co_ban || 0,
-        luong_lam_them: item.luong_lam_them || 0,
-        luong_doanh_so: item.luong_doanh_so || 0,
-        chuyen_can: item.phu_cap_chuyen_can || 0,
-        xang_dien_thoai: item.phu_cap_xang_dien_thoai || 0,
-        tham_nien: item.phu_cap_tham_nien || 0,
-        tro_ngoai: item.phu_cap_tro_ngoai || 0,
-        tien_an: item.tien_an || 0,
-        tien_an_tang_ca: item.tien_an_tang_ca || 0,
-        hoa_hong: item.hoa_hong ?? item.luong_doanh_so ?? 0,
-        tong_luong: item.tong_thu_nhap || 0,
-        phu_cap: item.tong_phu_cap || 0,
+      const labels: Record<string, string> = {
+        ho_ten: 'Họ và tên',
+        don_vi: 'Đơn vị',
+        luong_co_ban: 'Lương cơ bản',
+        ngay_cong: 'Tổng ngày công',
+        doanh_so: 'Doanh số',
+        doanh_so_mt: 'Doanh số mục tiêu',
+        ty_le: 'Tỷ lệ HT',
+        luong_ngay: 'Lương ngày',
+        luong_lam_them: 'Lương tăng ca',
+        luong_doanh_so: 'Lương doanh số',
+        chuyen_can: 'Chuyên cần',
+        xang_dien_thoai: 'Xăng xe điện thoại',
+        tham_nien: 'Thâm niên',
+        tro_ngoai: 'Trọ ngoài',
+        tien_an: 'Tiền ăn',
+        tien_an_tang_ca: 'Tiền ăn tăng ca',
+        hoa_hong: 'Tiền % hoa hồng',
+        tong_luong: 'Tổng lương',
+        phu_cap: 'Phụ cấp',
+        thuc_linh: 'Thực lĩnh'
       };
-      visibleColumns
-        .filter(col => col !== 'selection' && col !== 'stt')
-        .forEach(col => {
-          const label = labels[col] || col;
-          if (col === 'ho_ten') rowData[label] = item.nhan_su?.ho_ten || '';
-          else if (col === 'don_vi') rowData[label] = item.co_so;
-          else if (col === 'ngay_cong') rowData[label] = (item.ngay_cong_thuc_te || 0) + (item.ngay_cong_them || 0);
-          else if (col === 'luong_lam_them') rowData[label] = item.luong_lam_them;
-          else if (col === 'thuc_linh') rowData[label] = item.thuc_linh;
-          else rowData[label] = exportValues[col] ?? 0;
-        });
-      return rowData;
-    });
 
-    const worksheet = XLSX.utils.json_to_sheet(rows);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "BangLuong");
-    XLSX.writeFile(workbook, `Bang_luong_${selectedMonth}_${selectedYear}.xlsx`);
+      const rows = filteredData.map(item => {
+        const rowData: Record<string, string | number> = {};
+        const exportValues: Record<string, string | number> = {
+          doanh_so: item.doanh_so || 0,
+          doanh_so_mt: item.doanh_so_muc_tieu || 0,
+          ty_le: item.doanh_so_muc_tieu
+            ? (item.doanh_so / item.doanh_so_muc_tieu) * 100
+            : 0,
+          luong_ngay: item.luong_ngay_cong || 0,
+          luong_co_ban: item.luong_co_ban || 0,
+          luong_lam_them: item.luong_lam_them || 0,
+          luong_doanh_so: item.luong_doanh_so || 0,
+          chuyen_can: item.phu_cap_chuyen_can || 0,
+          xang_dien_thoai: item.phu_cap_xang_dien_thoai || 0,
+          tham_nien: item.phu_cap_tham_nien || 0,
+          tro_ngoai: item.phu_cap_tro_ngoai || 0,
+          tien_an: item.tien_an || 0,
+          tien_an_tang_ca: item.tien_an_tang_ca || 0,
+          hoa_hong: item.hoa_hong ?? item.luong_doanh_so ?? 0,
+          tong_luong: item.tong_thu_nhap || 0,
+          phu_cap: item.tong_phu_cap || 0,
+        };
+        visibleColumns
+          .filter(col => col !== 'selection' && col !== 'stt')
+          .forEach(col => {
+            const label = labels[col] || col;
+            if (col === 'ho_ten') rowData[label] = item.nhan_su?.ho_ten || '';
+            else if (col === 'don_vi') rowData[label] = item.co_so;
+            else if (col === 'ngay_cong') rowData[label] = (item.ngay_cong_thuc_te || 0) + (item.ngay_cong_them || 0);
+            else if (col === 'luong_lam_them') rowData[label] = item.luong_lam_them;
+            else if (col === 'thuc_linh') rowData[label] = item.thuc_linh;
+            else rowData[label] = exportValues[col] ?? 0;
+          });
+        return rowData;
+      });
+
+      const worksheet = XLSX.utils.json_to_sheet(rows);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "BangLuong");
+      XLSX.writeFile(workbook, `Bang_luong_${selectedMonth}_${selectedYear}.xlsx`);
     
-    alert('Đã xuất file Excel thành công!');
+      alert('Đã xuất file Excel thành công!');
+    } catch (error) {
+      console.error('Excel load failed:', error);
+      window.alert('Không tải được thư viện Excel. Vui lòng thử lại.');
+    }
   };
 
   const handleOpenSelectedPayrollSlip = () => {

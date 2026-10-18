@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import * as XLSX from 'xlsx';
+
 import CustomerDetailsModal from '../components/CustomerDetailsModal';
 import CustomerFormModal from '../components/CustomerFormModal';
 import Pagination from '../components/Pagination';
@@ -40,6 +40,7 @@ import {
 } from '../data/customerData';
 import { getCustomerOrderAggregatesByPhone } from '../data/salesCardData';
 import { formatDateVi } from '../utils/datetimeFormat';
+import { isAbortError, getReadErrorMessage } from '../lib/errorDetails';
 
 function resolveCustomerStats(
   customer: KhachHang,
@@ -90,6 +91,8 @@ const CustomerManagementPage: React.FC = () => {
   const [customerStats, setCustomerStats] = useState<Record<string, { totalRevenue: number; visitCount: number; latestSoKm?: number }>>({});
   const [latestKmMap, setLatestKmMap] = useState<Record<string, number>>({});
   const [exportingExcel, setExportingExcel] = useState(false);
+  const listRequest = useRef(0);
+  const listAbort = useRef<AbortController | null>(null);
 
 
 
@@ -143,7 +146,7 @@ const CustomerManagementPage: React.FC = () => {
     [canViewRevenue, isTechnician]
   );
 
-  const loadCustomerStats = useCallback(async (rows: KhachHang[]) => {
+  const loadCustomerStats = useCallback(async (rows: KhachHang[], request: number, signal: AbortSignal) => {
     if (rows.length === 0) {
       setLatestKmMap({});
       setCustomerStats({});
@@ -157,7 +160,8 @@ const CustomerManagementPage: React.FC = () => {
     }));
 
     try {
-      const { stats: statsMap } = await getCustomerOrderAggregatesByPhone(phoneRows);
+      const { stats: statsMap } = await getCustomerOrderAggregatesByPhone(phoneRows, signal);
+      if (signal.aborted || request !== listRequest.current) return;
       const kmMap: Record<string, number> = {};
       for (const c of phoneRows) {
         const st = statsMap[c.id] || (c.ma_khach_hang ? statsMap[c.ma_khach_hang] : undefined);
@@ -169,6 +173,7 @@ const CustomerManagementPage: React.FC = () => {
       setLatestKmMap(kmMap);
       setCustomerStats(statsMap);
     } catch (error) {
+      if (signal.aborted || request !== listRequest.current || isAbortError(error)) return;
       const msg =
         error && typeof error === 'object' && 'message' in error
           ? String((error as { message?: string }).message)
@@ -183,9 +188,15 @@ const CustomerManagementPage: React.FC = () => {
 
   // Load data from Supabase with pagination
   const loadCustomers = useCallback(async () => {
+    const request = ++listRequest.current;
+    listAbort.current?.abort();
+    const controller = new AbortController();
+    listAbort.current = controller;
     try {
       setLoading(true);
       setFetchError(null);
+      setLatestKmMap({});
+      setCustomerStats({});
 
       const { data, totalCount } = await getCustomersPaginated(
         currentPage,
@@ -193,34 +204,38 @@ const CustomerManagementPage: React.FC = () => {
         debouncedSearch,
         canUseDataFilters ? selectedDepts : [],
         [],
-        undefined
+        undefined,
+        controller.signal,
       );
+      if (controller.signal.aborted || request !== listRequest.current) return;
       setCustomers(data);
       setTotalCount(totalCount);
       setLoading(false);
 
       if (totalCount === 0) {
         const access = await diagnoseKhachHangAccess();
+        if (controller.signal.aborted || request !== listRequest.current) return;
         setRlsBlocked(access === 'rls_blocked');
         setLatestKmMap({});
         setCustomerStats({});
       } else {
         setRlsBlocked(false);
-        void loadCustomerStats(data);
+        void loadCustomerStats(data, request, controller.signal);
       }
     } catch (error) {
+      if (controller.signal.aborted || request !== listRequest.current || isAbortError(error)) return;
       console.error(error);
       const timedOut = error && typeof error === 'object' && 'code' in error && error.code === '57014';
       const message = timedOut
         ? 'Truy vấn quá thời gian cho phép. Cần cập nhật bản tối ưu database.'
-        : 'Không tải được danh sách khách hàng. Vui lòng thử lại.';
+        : getReadErrorMessage(error, 'Không tải được danh sách khách hàng. Vui lòng thử lại.');
       setFetchError(message);
       setCustomers([]);
       setTotalCount(0);
       setRlsBlocked(false);
       showToast(message, 'error');
     } finally {
-      setLoading(false);
+      if (request === listRequest.current) setLoading(false);
     }
   }, [currentPage, pageSize, debouncedSearch, canUseDataFilters, selectedDepts, loadCustomerStats, showToast]);
 
@@ -237,7 +252,9 @@ const CustomerManagementPage: React.FC = () => {
   }, [selectedDepts]);
 
   useEffect(() => {
-    loadCustomers();
+    void loadCustomers();
+    const requestRef = listRequest, abortRef = listAbort;
+    return () => { requestRef.current++; abortRef.current?.abort(); };
   }, [loadCustomers]);
 
   useEffect(() => {
@@ -328,6 +345,7 @@ const CustomerManagementPage: React.FC = () => {
 
   const handleExportFilteredExcel = async () => {
     try {
+      const XLSX = await import('xlsx');
       setExportingExcel(true);
       const rows = await getCustomersForExport(debouncedSearch, selectedDepts, [], undefined);
 
@@ -373,24 +391,30 @@ const CustomerManagementPage: React.FC = () => {
     }
   };
 
-  const handleDownloadTemplate = () => {
-    const templateData = [
-      {
-        "id": "KH-" + Math.random().toString(36).substring(2, 8).toUpperCase(),
-        "Họ và tên": "Nguyễn Văn A",
-        "SĐT": "0912345678",
-        "Ảnh": "https://example.com/image.png",
-        "Địa chỉ lưu trú hiện tại": "Bắc Giang",
-        "Biển số Xe": "98A-123.45",
-        "Ngày đăng ký": "2024-01-01",
-        "Số Km": 15000
-      }
-    ];
+  const handleDownloadTemplate = async () => {
+    try {
+      const XLSX = await import('xlsx');
+      const templateData = [
+        {
+          "id": "KH-" + Math.random().toString(36).substring(2, 8).toUpperCase(),
+          "Họ và tên": "Nguyễn Văn A",
+          "SĐT": "0912345678",
+          "Ảnh": "https://example.com/image.png",
+          "Địa chỉ lưu trú hiện tại": "Bắc Giang",
+          "Biển số Xe": "98A-123.45",
+          "Ngày đăng ký": "2024-01-01",
+          "Số Km": 15000
+        }
+      ];
 
-    const worksheet = XLSX.utils.json_to_sheet(templateData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
-    XLSX.writeFile(workbook, "Mau_nhap_khach_hang.xlsx");
+      const worksheet = XLSX.utils.json_to_sheet(templateData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
+      XLSX.writeFile(workbook, "Mau_nhap_khach_hang.xlsx");
+    } catch (error) {
+      console.error('Excel load failed:', error);
+      window.alert('Không tải được thư viện Excel. Vui lòng thử lại.');
+    }
   };
 
   const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -400,6 +424,7 @@ const CustomerManagementPage: React.FC = () => {
     const reader = new FileReader();
     reader.onload = async (evt) => {
       try {
+      const XLSX = await import('xlsx');
         const bstr = evt.target?.result;
         const wb = XLSX.read(bstr, { type: 'binary' });
         const wsname = wb.SheetNames[0];

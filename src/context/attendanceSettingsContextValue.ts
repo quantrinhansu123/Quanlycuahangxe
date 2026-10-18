@@ -6,6 +6,7 @@ export interface AttendanceSettingsContextValue {
   loading: boolean;
   refresh: () => Promise<AttendanceSettings>;
   replace: (settings: AttendanceSettings) => void;
+  ensureLoaded?: () => void;
 }
 
 export const AttendanceSettingsContext = createContext<AttendanceSettingsContextValue | null>(null);

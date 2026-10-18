@@ -23,7 +23,7 @@ import {
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import * as XLSX from 'xlsx';
+
 import Pagination from '../components/Pagination';
 import { useAuth } from '../context/AuthContext';
 import { useAttendanceSettings } from '../hooks/useAttendanceSettings';
@@ -588,26 +588,32 @@ const AttendanceManagementPage: React.FC = () => {
     }
   };
 
-  const handleDownloadTemplate = () => {
-    const example = {
-      "Ngày": "2024-03-24",
-      "Ảnh": "",
-      "vị trí": "21.273, 106.194",
-      "Nhân sự": "Nguyễn Văn A"
-    };
-    const templateData = attendanceSettings.splitShiftEnabled
-      ? [
-          { "id": "CC-001", ...example, "Checkin": attendanceSettings.morningStart, "Checkout": attendanceSettings.morningEnd },
-          { "id": "CC-002", ...example, "Checkin": attendanceSettings.afternoonStart, "Checkout": attendanceSettings.afternoonEnd },
-        ]
-      : [
-          { "id": "CC-001", ...example, "Checkin": attendanceSettings.fullDayStart, "Checkout": attendanceSettings.fullDayEnd },
-        ];
+  const handleDownloadTemplate = async () => {
+    try {
+      const XLSX = await import('xlsx');
+      const example = {
+        "Ngày": "2024-03-24",
+        "Ảnh": "",
+        "vị trí": "21.273, 106.194",
+        "Nhân sự": "Nguyễn Văn A"
+      };
+      const templateData = attendanceSettings.splitShiftEnabled
+        ? [
+            { "id": "CC-001", ...example, "Checkin": attendanceSettings.morningStart, "Checkout": attendanceSettings.morningEnd },
+            { "id": "CC-002", ...example, "Checkin": attendanceSettings.afternoonStart, "Checkout": attendanceSettings.afternoonEnd },
+          ]
+        : [
+            { "id": "CC-001", ...example, "Checkin": attendanceSettings.fullDayStart, "Checkout": attendanceSettings.fullDayEnd },
+          ];
 
-    const worksheet = XLSX.utils.json_to_sheet(templateData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "MauChamCong");
-    XLSX.writeFile(workbook, "Mau_nhap_cham_cong.xlsx");
+      const worksheet = XLSX.utils.json_to_sheet(templateData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "MauChamCong");
+      XLSX.writeFile(workbook, "Mau_nhap_cham_cong.xlsx");
+    } catch (error) {
+      console.error('Excel load failed:', error);
+      window.alert('Không tải được thư viện Excel. Vui lòng thử lại.');
+    }
   };
 
   const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -617,6 +623,7 @@ const AttendanceManagementPage: React.FC = () => {
     const reader = new FileReader();
     reader.onload = async (evt) => {
       try {
+      const XLSX = await import('xlsx');
         const bstr = evt.target?.result;
         const wb = XLSX.read(bstr, { type: 'binary' });
         console.log('Attendance Sheet Names:', wb.SheetNames);

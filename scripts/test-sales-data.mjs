@@ -24,8 +24,8 @@ await db.exec(`
  ('00000000-0000-0000-0000-000000000003', 'KH3', '---', '0984 050 141', '98A-12345', 'Bắc Giang'),
  ('00000000-0000-0000-0000-000000000004', 'KH4', 'Đinh Thị Thiều', '0987654321', '98A-11111', 'Bắc Giang');
  INSERT INTO nhan_su(ho_ten, id_nhan_su, vi_tri, co_so) VALUES ('An', 'NV1', 'quản lý', 'Bắc Ninh'), ('Anh', 'NV2', 'kỹ thuật viên', 'Bắc Giang');
- INSERT INTO the_ban_hang(id_bh, ngay, gio, khach_hang_id, nhan_vien_id, so_km, tong_tien)
- SELECT 'BH-' || n, '2026-09-07', '10:03', CASE WHEN n % 2 = 0 THEN 'KH1' ELSE '00000000-0000-0000-0000-000000000001' END,
+ INSERT INTO the_ban_hang(id, id_bh, ngay, gio, khach_hang_id, nhan_vien_id, so_km, tong_tien)
+ SELECT ('00000000-0000-0000-0001-' || lpad(n::text, 12, '0'))::uuid, 'BH-' || n, '2026-09-07', '10:03', CASE WHEN n % 2 = 0 THEN 'KH1' ELSE '00000000-0000-0000-0000-000000000001' END,
    'NV1, Anh', 1000 + n, CASE WHEN n = 43 THEN 1220000 ELSE 310000 END
  FROM generate_series(1, 43) n;
  INSERT INTO the_ban_hang_ct(id_don_hang, san_pham, co_so, gia_ban, so_luong, ngay)
@@ -68,9 +68,9 @@ test('four final plate digits find matching sales without becoming a phone searc
       INSERT INTO khach_hang(id, ma_khach_hang, ho_va_ten, so_dien_thoai, bien_so_xe, dia_chi_hien_tai) VALUES
         ('00000000-0000-0000-0000-000000000010', 'KH-TARGET', 'Hưng', '0988123456', '99D1-37435', 'Bắc Ninh'),
         ('00000000-0000-0000-0000-000000000011', 'PHONE-ONLY', 'Số điện thoại', '098837435', '99D1-00001', 'Bắc Ninh');
-      INSERT INTO the_ban_hang(id_bh, ngay, khach_hang_id, tong_tien) VALUES
-        ('PLATE-SUFFIX', '2026-09-10', 'KH-TARGET', 100),
-        ('PHONE-SUFFIX', '2026-09-10', 'PHONE-ONLY', 200);
+      INSERT INTO the_ban_hang(id, id_bh, ngay, khach_hang_id, tong_tien) VALUES
+        ('00000000-0000-0000-0002-000000000010', 'PLATE-SUFFIX', '2026-09-10', 'KH-TARGET', 100),
+        ('00000000-0000-0000-0002-000000000011', 'PHONE-SUFFIX', '2026-09-10', 'PHONE-ONLY', 200);
     `);
     const result = await sales({ p_search: '7435' });
     assert.equal(result.totalCount, 1);

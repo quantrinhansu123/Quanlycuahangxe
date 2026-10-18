@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase';
 import type { PostgrestError } from '@supabase/supabase-js';
 import { readEmployeeSession, type EmployeeSessionResult } from '../lib/employeeSession';
 import { getStoredNhanVien, getStoredSessionToken } from '../lib/authStorage';
+import { readRequest } from '../lib/readRequest';
 
 export interface NhanSu {
   id: string;
@@ -46,10 +47,10 @@ export const getPersonnel = async (): Promise<NhanSu[]> => {
   if (personnelCache?.scope === scope && personnelCache.expires > Date.now()) return personnelCache.rows;
   if (personnelRequest?.scope === scope) return personnelRequest.promise;
   const request = { scope, promise: (async () => {
-  const { data, error } = await supabase
+  const { data, error } = await readRequest('personnel_list', signal => supabase
     .from('nhan_su')
     .select('*')
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false }).abortSignal(signal));
 
   if (error) {
     console.error('Error fetching personnel:', error);
@@ -137,11 +138,11 @@ export const bulkUpsertPersonnel = async (personnel: Partial<NhanSu>[]): Promise
 /** Phân biệt lỗi đọc, nhân sự không tồn tại và phiên thực sự không hợp lệ. */
 export const fetchNhanVienById = (id: string, hasSessionToken: boolean): Promise<EmployeeSessionResult> =>
   readEmployeeSession(id, hasSessionToken,
-    () => supabase.rpc('current_app_nhan_su_uuid'),
+    () => readRequest('employee_session', signal => supabase.rpc('current_app_nhan_su_uuid').abortSignal(signal)),
     async () => {
-      const result = await supabase.from('nhan_su')
+      const result = await readRequest('employee_profile', signal => supabase.from('nhan_su')
         .select('id, id_nhan_su, ho_ten, vi_tri, co_so, email, sdt, auth_user_id')
-        .eq('id', id).maybeSingle();
+        .eq('id', id).abortSignal(signal).maybeSingle());
       if (!result.data) return result;
       return { ...result, data: {
         ...result.data,

@@ -5,6 +5,7 @@ import tailwindcss from '@tailwindcss/vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  optimizeDeps: { include: ['xlsx', 'xlsx-js-style'] },
   server: {
     watch: { ignored: ['**/.build-verification/**'] }
   },
@@ -15,7 +16,8 @@ export default defineConfig({
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
           'vendor-ui': ['framer-motion', 'lucide-react', 'clsx', 'tailwind-merge'],
           'vendor-charts': ['recharts'],
-          'vendor-utils': ['xlsx', 'date-fns', 'luxon']
+          'vendor-excel': ['xlsx'],
+          'vendor-utils': ['date-fns', 'luxon']
         }
       }
     },

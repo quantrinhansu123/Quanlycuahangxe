@@ -1,6 +1,11 @@
 @import "tailwindcss";
 @plugin "tailwindcss-animate";
 
+@keyframes route-progress {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(400%); }
+}
+
 :root {
   --font-sans: 'Inter', 'Noto Sans', sans-serif;
   --primary: #3b82f6;

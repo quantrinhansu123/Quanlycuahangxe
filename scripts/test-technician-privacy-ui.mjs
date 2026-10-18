@@ -41,6 +41,7 @@ try {
         if(url.pathname==='/src/context/AuthContext.tsx')return route.fulfill({contentType:'application/javascript',body:`const staff=${JSON.stringify(staff)};export const useAuth=()=>({isAdmin:${!technician},isTechnician:${technician},canModifyData:${!technician},nhanVien:staff,session:{access_token:'fixture-session'},hasViewAccess:()=>true});`});
         return route.continue();
       }
+      if (['fonts.googleapis.com','fonts.gstatic.com'].includes(url.hostname)) return route.fulfill({ contentType:'text/css', body:'' });
       const endpoint=url.pathname.split('/').pop();requests.push(endpoint);
       assert.equal(request.headers()['x-app-session'],'fixture-session');
       let data=[];

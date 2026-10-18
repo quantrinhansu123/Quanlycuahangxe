@@ -83,6 +83,7 @@ try {
         });
         return route.continue();
       }
+      if (['fonts.googleapis.com','fonts.gstatic.com'].includes(url.hostname)) return route.fulfill({ contentType:'text/css', body:'' });
       assert.equal(request.headers()['x-app-session'], 'fixture-session');
       const endpoint = url.pathname.split('/').pop();
       const json = (data, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) });

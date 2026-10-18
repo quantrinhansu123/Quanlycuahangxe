@@ -12,7 +12,7 @@ import {
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import * as XLSX from 'xlsx';
+
 import Pagination from '../components/Pagination';
 import SalesCardCTFormModal from '../components/SalesCardCTFormModal';
 import type { SalesCardCT } from '../data/salesCardCTData';
@@ -100,27 +100,33 @@ const SalesCardCTManagementPage: React.FC = () => {
     setEditingItem(null);
   };
 
-  const handleDownloadTemplate = () => {
-    const templateData = [
-      {
-        "id_don_hang": "BH-123456",
-        "id_ban_hang_ct": "CT-789",
-        "Ngày": "2024-03-24",
-        "Tên đơn hàng": "Bảo dưỡng xe SH 2023",
-        "Sản phẩm": "Thay dầu máy",
-        "Cơ sở": "Cơ sở Bắc Giang",
-        "Giá bán": 150000,
-        "Giá vốn": 100000,
-        "Số lượng": 1,
-        "Chi phí": 0,
-        "Ghi chú": "Khách quen"
-      }
-    ];
+  const handleDownloadTemplate = async () => {
+    try {
+      const XLSX = await import('xlsx');
+      const templateData = [
+        {
+          "id_don_hang": "BH-123456",
+          "id_ban_hang_ct": "CT-789",
+          "Ngày": "2024-03-24",
+          "Tên đơn hàng": "Bảo dưỡng xe SH 2023",
+          "Sản phẩm": "Thay dầu máy",
+          "Cơ sở": "Cơ sở Bắc Giang",
+          "Giá bán": 150000,
+          "Giá vốn": 100000,
+          "Số lượng": 1,
+          "Chi phí": 0,
+          "Ghi chú": "Khách quen"
+        }
+      ];
 
-    const worksheet = XLSX.utils.json_to_sheet(templateData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "MauSalesCardsCT");
-    XLSX.writeFile(workbook, "Mau_nhap_chi_tiet_ban_hang.xlsx");
+      const worksheet = XLSX.utils.json_to_sheet(templateData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "MauSalesCardsCT");
+      XLSX.writeFile(workbook, "Mau_nhap_chi_tiet_ban_hang.xlsx");
+    } catch (error) {
+      console.error('Excel load failed:', error);
+      window.alert('Không tải được thư viện Excel. Vui lòng thử lại.');
+    }
   };
 
   const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -130,6 +136,7 @@ const SalesCardCTManagementPage: React.FC = () => {
     const reader = new FileReader();
     reader.onload = async (evt) => {
       try {
+      const XLSX = await import('xlsx');
         const bstr = evt.target?.result;
         const wb = XLSX.read(bstr, { type: 'binary' });
         const ws = wb.Sheets[wb.SheetNames[0]];

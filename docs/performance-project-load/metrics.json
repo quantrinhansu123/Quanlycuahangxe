@@ -1,0 +1,557 @@
+{
+  "at": "2026-10-18T12:26:29.273Z",
+  "scope": "Real built UI, signed-in LIVE reads; bytes are decoded/minified, not gzip transfer. One sample per route. LIVE data and load can change; elapsed time includes idle/fonts, no latency improvement guarantee.",
+  "routes": 22,
+  "businessWrites": 0,
+  "layoutNavigation": {
+    "beforeNotificationReads": 4,
+    "afterNotificationReads": 1,
+    "shellRetained": true
+  },
+  "rows": [
+    {
+      "name": "Home",
+      "path": "/",
+      "jsBytes": {
+        "before": 690889,
+        "after": 691490,
+        "reductionPercent": -0.1
+      },
+      "apiRequests": {
+        "before": 4,
+        "after": 3
+      },
+      "apiBytes": {
+        "before": 1972,
+        "after": 1411,
+        "reductionPercent": 28.4
+      },
+      "singleColdLoadIncludingIdleMs": {
+        "before": 3345,
+        "after": 6704
+      },
+      "success": true
+    },
+    {
+      "name": "Customers",
+      "path": "/ban-hang/khach-hang",
+      "jsBytes": {
+        "before": 1260356,
+        "after": 796937,
+        "reductionPercent": 36.8
+      },
+      "apiRequests": {
+        "before": 7,
+        "after": 6
+      },
+      "apiBytes": {
+        "before": 46627,
+        "after": 45926,
+        "reductionPercent": 1.5
+      },
+      "singleColdLoadIncludingIdleMs": {
+        "before": 4550,
+        "after": 4774
+      },
+      "success": true
+    },
+    {
+      "name": "Sales",
+      "path": "/ban-hang/phieu-ban-hang",
+      "jsBytes": {
+        "before": 1273689,
+        "after": 810039,
+        "reductionPercent": 36.4
+      },
+      "apiRequests": {
+        "before": 15,
+        "after": 12
+      },
+      "apiBytes": {
+        "before": 953244,
+        "after": 332738,
+        "reductionPercent": 65.1
+      },
+      "singleColdLoadIncludingIdleMs": {
+        "before": 3677,
+        "after": 4718
+      },
+      "success": true
+    },
+    {
+      "name": "CT",
+      "path": "/ban-hang/phieu-ban-hang-ct",
+      "jsBytes": {
+        "before": 1233710,
+        "after": 769805,
+        "reductionPercent": 37.6
+      },
+      "apiRequests": {
+        "before": 6,
+        "after": 5
+      },
+      "apiBytes": {
+        "before": 31841,
+        "after": 33763,
+        "reductionPercent": -6
+      },
+      "singleColdLoadIncludingIdleMs": {
+        "before": 3251,
+        "after": 2953
+      },
+      "success": true
+    },
+    {
+      "name": "Financial",
+      "path": "/thu-chi",
+      "jsBytes": {
+        "before": 1239168,
+        "after": 815327,
+        "reductionPercent": 34.2
+      },
+      "apiRequests": {
+        "before": 8,
+        "after": 7
+      },
+      "apiBytes": {
+        "before": 45456,
+        "after": 45117,
+        "reductionPercent": 0.7
+      },
+      "singleColdLoadIncludingIdleMs": {
+        "before": 2827,
+        "after": 2924
+      },
+      "success": true
+    },
+    {
+      "name": "Cashbook",
+      "path": "/so-quy",
+      "jsBytes": {
+        "before": 1239168,
+        "after": 815327,
+        "reductionPercent": 34.2
+      },
+      "apiRequests": {
+        "before": 8,
+        "after": 7
+      },
+      "apiBytes": {
+        "before": 45456,
+        "after": 45117,
+        "reductionPercent": 0.7
+      },
+      "singleColdLoadIncludingIdleMs": {
+        "before": 2714,
+        "after": 4364
+      },
+      "success": true
+    },
+    {
+      "name": "Services",
+      "path": "/dich-vu",
+      "jsBytes": {
+        "before": 1219814,
+        "after": 757339,
+        "reductionPercent": 37.9
+      },
+      "apiRequests": {
+        "before": 17,
+        "after": 9
+      },
+      "apiBytes": {
+        "before": 43584,
+        "after": 21976,
+        "reductionPercent": 49.6
+      },
+      "singleColdLoadIncludingIdleMs": {
+        "before": 2874,
+        "after": 3138
+      },
+      "success": true
+    },
+    {
+      "name": "Attendance",
+      "path": "/nhan-su/bang-cham-cong",
+      "jsBytes": {
+        "before": 1208246,
+        "after": 744183,
+        "reductionPercent": 38.4
+      },
+      "apiRequests": {
+        "before": 6,
+        "after": 6
+      },
+      "apiBytes": {
+        "before": 46733,
+        "after": 46733,
+        "reductionPercent": 0
+      },
+      "singleColdLoadIncludingIdleMs": {
+        "before": 2883,
+        "after": 3253
+      },
+      "success": true
+    },
+    {
+      "name": "CheckIn",
+      "path": "/cham-cong",
+      "jsBytes": {
+        "before": 696753,
+        "after": 697421,
+        "reductionPercent": -0.1
+      },
+      "apiRequests": {
+        "before": 6,
+        "after": 6
+      },
+      "apiBytes": {
+        "before": 46733,
+        "after": 46733,
+        "reductionPercent": 0
+      },
+      "singleColdLoadIncludingIdleMs": {
+        "before": 2691,
+        "after": 3843
+      },
+      "success": true
+    },
+    {
+      "name": "Personnel",
+      "path": "/nhan-su/danh-sach",
+      "jsBytes": {
+        "before": 1232200,
+        "after": 768216,
+        "reductionPercent": 37.7
+      },
+      "apiRequests": {
+        "before": 9,
+        "after": 8
+      },
+      "apiBytes": {
+        "before": 7404,
+        "after": 6843,
+        "reductionPercent": 7.6
+      },
+      "singleColdLoadIncludingIdleMs": {
+        "before": 2992,
+        "after": 2728
+      },
+      "success": true
+    },
+    {
+      "name": "Candidates",
+      "path": "/nhan-su/ung-vien",
+      "jsBytes": {
+        "before": 738522,
+        "after": 739169,
+        "reductionPercent": -0.1
+      },
+      "apiRequests": {
+        "before": 5,
+        "after": 4
+      },
+      "apiBytes": {
+        "before": 7238,
+        "after": 6677,
+        "reductionPercent": 7.8
+      },
+      "singleColdLoadIncludingIdleMs": {
+        "before": 2646,
+        "after": 2969
+      },
+      "success": true
+    },
+    {
+      "name": "Inventory",
+      "path": "/kho-van/xuat-nhap-kho",
+      "jsBytes": {
+        "before": 1250939,
+        "after": 787838,
+        "reductionPercent": 37
+      },
+      "apiRequests": {
+        "before": 20,
+        "after": 16
+      },
+      "apiBytes": {
+        "before": 2380265,
+        "after": 1756079,
+        "reductionPercent": 26.2
+      },
+      "singleColdLoadIncludingIdleMs": {
+        "before": 5001,
+        "after": 5404
+      },
+      "success": true
+    },
+    {
+      "name": "Products",
+      "path": "/kho-van/danh-sach-phu-tung",
+      "jsBytes": {
+        "before": 754770,
+        "after": 755782,
+        "reductionPercent": -0.1
+      },
+      "apiRequests": {
+        "before": 7,
+        "after": 4
+      },
+      "apiBytes": {
+        "before": 628438,
+        "after": 8274,
+        "reductionPercent": 98.7
+      },
+      "singleColdLoadIncludingIdleMs": {
+        "before": 2999,
+        "after": 2720
+      },
+      "success": true
+    },
+    {
+      "name": "Stock",
+      "path": "/kho-van/danh-sach-kho",
+      "jsBytes": {
+        "before": 704696,
+        "after": 705406,
+        "reductionPercent": -0.1
+      },
+      "apiRequests": {
+        "before": 6,
+        "after": 5
+      },
+      "apiBytes": {
+        "before": 435845,
+        "after": 435227,
+        "reductionPercent": 0.1
+      },
+      "singleColdLoadIncludingIdleMs": {
+        "before": 3681,
+        "after": 5762
+      },
+      "success": true
+    },
+    {
+      "name": "Purchases",
+      "path": "/kho-van/nhap-hang",
+      "jsBytes": {
+        "before": 790738,
+        "after": 791680,
+        "reductionPercent": -0.1
+      },
+      "apiRequests": {
+        "before": 6,
+        "after": 5
+      },
+      "apiBytes": {
+        "before": 16396,
+        "after": 15835,
+        "reductionPercent": 3.4
+      },
+      "singleColdLoadIncludingIdleMs": {
+        "before": 2861,
+        "after": 3000
+      },
+      "success": true
+    },
+    {
+      "name": "Reports",
+      "path": "/bao-cao/san-pham",
+      "jsBytes": {
+        "before": 1217933,
+        "after": 816653,
+        "reductionPercent": 32.9
+      },
+      "apiRequests": {
+        "before": 7,
+        "after": 6
+      },
+      "apiBytes": {
+        "before": 69221,
+        "after": 71826,
+        "reductionPercent": -3.8
+      },
+      "singleColdLoadIncludingIdleMs": {
+        "before": 4154,
+        "after": 4546
+      },
+      "success": true
+    },
+    {
+      "name": "Payroll attendance",
+      "path": "/tien-luong/bang-luong-cham-cong",
+      "jsBytes": {
+        "before": 782520,
+        "after": 783638,
+        "reductionPercent": -0.1
+      },
+      "apiRequests": {
+        "before": 14,
+        "after": 14
+      },
+      "apiBytes": {
+        "before": 2097687,
+        "after": 2119224,
+        "reductionPercent": -1
+      },
+      "singleColdLoadIncludingIdleMs": {
+        "before": 6434,
+        "after": 9270
+      },
+      "success": true
+    },
+    {
+      "name": "Revenue reconciliation",
+      "path": "/tien-luong/doi-soat-doanh-so",
+      "jsBytes": {
+        "before": 742677,
+        "after": 743487,
+        "reductionPercent": -0.1
+      },
+      "apiRequests": {
+        "before": 11,
+        "after": 10
+      },
+      "apiBytes": {
+        "before": 2081512,
+        "after": 2102488,
+        "reductionPercent": -1
+      },
+      "singleColdLoadIncludingIdleMs": {
+        "before": 5101,
+        "after": 8243
+      },
+      "success": true
+    },
+    {
+      "name": "Attendance reconciliation",
+      "path": "/tien-luong/doi-soat-cham-cong",
+      "jsBytes": {
+        "before": 724883,
+        "after": 725694,
+        "reductionPercent": -0.1
+      },
+      "apiRequests": {
+        "before": 8,
+        "after": 8
+      },
+      "apiBytes": {
+        "before": 112206,
+        "after": 112206,
+        "reductionPercent": 0
+      },
+      "singleColdLoadIncludingIdleMs": {
+        "before": 2776,
+        "after": 2807
+      },
+      "success": true
+    },
+    {
+      "name": "Branches",
+      "path": "/cai-dat/co-so",
+      "jsBytes": {
+        "before": 689271,
+        "after": 689806,
+        "reductionPercent": -0.1
+      },
+      "apiRequests": {
+        "before": 5,
+        "after": 4
+      },
+      "apiBytes": {
+        "before": 2140,
+        "after": 1579,
+        "reductionPercent": 26.2
+      },
+      "singleColdLoadIncludingIdleMs": {
+        "before": 2803,
+        "after": 2585
+      },
+      "success": true
+    },
+    {
+      "name": "Attendance settings",
+      "path": "/cai-dat/cham-cong",
+      "jsBytes": {
+        "before": 691067,
+        "after": 691653,
+        "reductionPercent": -0.1
+      },
+      "apiRequests": {
+        "before": 4,
+        "after": 4
+      },
+      "apiBytes": {
+        "before": 1972,
+        "after": 1972,
+        "reductionPercent": 0
+      },
+      "singleColdLoadIncludingIdleMs": {
+        "before": 2694,
+        "after": 2686
+      },
+      "success": true
+    },
+    {
+      "name": "Payroll settings",
+      "path": "/tien-luong/thong-so",
+      "jsBytes": {
+        "before": 733040,
+        "after": 733833,
+        "reductionPercent": -0.1
+      },
+      "apiRequests": {
+        "before": 7,
+        "after": 6
+      },
+      "apiBytes": {
+        "before": 2685,
+        "after": 2124,
+        "reductionPercent": 20.9
+      },
+      "singleColdLoadIncludingIdleMs": {
+        "before": 2827,
+        "after": 2622
+      },
+      "success": true
+    }
+  ],
+  "checks": {
+    "build": true,
+    "unitSuite": true,
+    "projectLoadUi": [
+      {
+        "name": "Shared shell retained; settings loaded on demand; lazy Excel template contains both shifts",
+        "width": 1440
+      },
+      {
+        "name": "Shared shell retained; settings loaded on demand; lazy Excel template contains both shifts",
+        "width": 375
+      },
+      {
+        "name": "Inventory pagination reuses lookup/history; API failure visible; retry recovers"
+      },
+      {
+        "name": "Service initial reads bounded; failed search displayed as server error",
+        "count": 4
+      },
+      {
+        "name": "New customer search cancels stale list/statistics; old stats cannot overwrite new rows"
+      },
+      {
+        "name": "Payroll starts saved wages, revenue and attendance in parallel with meal settings; no business writes"
+      }
+    ],
+    "authPerformanceUi": 10,
+    "attendanceUi": 7,
+    "reportUi": 7,
+    "chartUi": true,
+    "privacyUi": true,
+    "salesBranchUi": true,
+    "customerOrderUi": true,
+    "eslint": {
+      "errors": 0,
+      "existingWarnings": 4
+    }
+  }
+}

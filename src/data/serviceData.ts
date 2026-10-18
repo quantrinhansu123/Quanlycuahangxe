@@ -2,6 +2,7 @@ import { branchKey } from '../lib/branchCatalog';
 import type { PostgrestError } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { invalidateServiceLookupCache } from './salesCardData';
+import { readRequest } from '../lib/readRequest';
 
 export function formatServiceSaveError(error: unknown): string {
   const e = error as PostgrestError & { status?: number };
@@ -470,7 +471,8 @@ export const getServicesPaginated = async (
   page: number,
   pageSize: number,
   searchQuery?: string,
-  filters?: ServiceFilters
+  filters?: ServiceFilters,
+  signal?: AbortSignal,
 ): Promise<{ data: DichVu[], totalCount: number }> => {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
@@ -482,9 +484,10 @@ export const getServicesPaginated = async (
   }
 
 
-  const { data, count, error } = await query
+  const { data, count, error } = await readRequest('services_page', s => query
     .order('created_at', { ascending: false })
-    .range(from, to);
+    .order('id', { ascending: false })
+    .range(from, to).abortSignal(s), signal);
 
   if (error) {
     console.error('Error fetching paginated services:', error);

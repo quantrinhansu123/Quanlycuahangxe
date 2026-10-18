@@ -4,7 +4,7 @@ import {
   Search, Plus, Edit2, Trash2, Camera, Loader2, ChevronDown, 
   Building2, Wallet, BadgeDollarSign, Download, Upload, Calendar, RefreshCw
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
+
 import { useLocation } from 'react-router-dom';
 import { clsx } from 'clsx';
 import { format } from 'date-fns';
@@ -288,29 +288,35 @@ const FinancialManagementPage: React.FC = () => {
     handleCloseModal();
   };
 
-  const handleDownloadTemplate = () => {
-    const templateData = [
-      {
-        "Ngày": "2024-03-24",
-        "Giờ": "08:30",
-        "Loại phiếu": "phiếu thu",
-        "Cơ sở": "Cơ sở Bắc Giang",
-        "Số tiền": 500000,
-        "Danh mục": "Thu tiền sửa xe",
-        "Trạng thái": "Hoàn thành",
-        "ID": "Optional: UUID format",
-        "ID Đơn": "ORD-123",
-        "ID Khách hàng": "0912345678",
-        "Người chi": "Nguyễn Văn A",
-        "Người nhận": "Trần Thị B",
-        "Ghi chú": "Thanh toán tiền mặt"
-      }
-    ];
+  const handleDownloadTemplate = async () => {
+    try {
+      const XLSX = await import('xlsx');
+      const templateData = [
+        {
+          "Ngày": "2024-03-24",
+          "Giờ": "08:30",
+          "Loại phiếu": "phiếu thu",
+          "Cơ sở": "Cơ sở Bắc Giang",
+          "Số tiền": 500000,
+          "Danh mục": "Thu tiền sửa xe",
+          "Trạng thái": "Hoàn thành",
+          "ID": "Optional: UUID format",
+          "ID Đơn": "ORD-123",
+          "ID Khách hàng": "0912345678",
+          "Người chi": "Nguyễn Văn A",
+          "Người nhận": "Trần Thị B",
+          "Ghi chú": "Thanh toán tiền mặt"
+        }
+      ];
 
-    const worksheet = XLSX.utils.json_to_sheet(templateData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "MauThuChi");
-    XLSX.writeFile(workbook, "Mau_nhap_thu_chi.xlsx");
+      const worksheet = XLSX.utils.json_to_sheet(templateData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "MauThuChi");
+      XLSX.writeFile(workbook, "Mau_nhap_thu_chi.xlsx");
+    } catch (error) {
+      console.error('Excel load failed:', error);
+      window.alert('Không tải được thư viện Excel. Vui lòng thử lại.');
+    }
   };
 
   const handleDeleteAll = async () => {
@@ -354,6 +360,7 @@ const FinancialManagementPage: React.FC = () => {
     const reader = new FileReader();
     reader.onload = async (evt) => {
       try {
+      const XLSX = await import('xlsx');
         const bstr = evt.target?.result;
         const wb = XLSX.read(bstr, { type: 'binary' });
         const ws = wb.Sheets[wb.SheetNames[0]];

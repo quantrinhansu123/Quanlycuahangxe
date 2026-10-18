@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import * as XLSX from 'xlsx';
+
 import Pagination from '../components/Pagination';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/toast';
@@ -202,13 +202,10 @@ const SalesCardManagementPage: React.FC = () => {
     if (hasLoadedRefData.current) return;
     hasLoadedRefData.current = true;
     try {
-      const [persData, servData] = await Promise.all([
-        getPersonnel(),
-        getServices(),
-      ]);
+      const persData = await getPersonnel();
       setPersonnel(persData);
-      setServices(servData);
     } catch (error) {
+      hasLoadedRefData.current = false;
       console.error('Error loading reference data:', error);
     }
 
@@ -225,6 +222,10 @@ const SalesCardManagementPage: React.FC = () => {
       return [];
     }
   }, []);
+
+  useEffect(() => {
+    if (isModalOpen && services.length === 0) void reloadServices();
+  }, [isModalOpen, services.length, reloadServices]);
 
   const salesRequest = useRef(0);
   const salesAbort = useRef<AbortController | null>(null);
@@ -1208,24 +1209,30 @@ const SalesCardManagementPage: React.FC = () => {
     }
   };
 
-  const handleDownloadTemplate = () => {
-    const templateData = [
-      {
-        "id": "BH-" + Math.random().toString(36).substring(2, 8).toUpperCase(),
-        "Ngày": "2024-03-24",
-        "Giờ": "08:30:00",
-        "id khách hàng": "KH-XXXXXX",
-        "Người phụ trách": "Nguyễn Văn B",
-        "Dịch vụ sử dụng": "Thay dầu máy",
-        "Số Km": 12000,
-        "Ngày nhắc thay dầu": "2024-05-24"
-      }
-    ];
+  const handleDownloadTemplate = async () => {
+    try {
+      const XLSX = await import('xlsx');
+      const templateData = [
+        {
+          "id": "BH-" + Math.random().toString(36).substring(2, 8).toUpperCase(),
+          "Ngày": "2024-03-24",
+          "Giờ": "08:30:00",
+          "id khách hàng": "KH-XXXXXX",
+          "Người phụ trách": "Nguyễn Văn B",
+          "Dịch vụ sử dụng": "Thay dầu máy",
+          "Số Km": 12000,
+          "Ngày nhắc thay dầu": "2024-05-24"
+        }
+      ];
 
-    const worksheet = XLSX.utils.json_to_sheet(templateData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "MauSalesCards");
-    XLSX.writeFile(workbook, "Mau_nhap_phieu_ban_hang.xlsx");
+      const worksheet = XLSX.utils.json_to_sheet(templateData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "MauSalesCards");
+      XLSX.writeFile(workbook, "Mau_nhap_phieu_ban_hang.xlsx");
+    } catch (error) {
+      console.error('Excel load failed:', error);
+      window.alert('Không tải được thư viện Excel. Vui lòng thử lại.');
+    }
   };
 
   const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1235,6 +1242,7 @@ const SalesCardManagementPage: React.FC = () => {
     const reader = new FileReader();
     reader.onload = async (evt) => {
       try {
+      const XLSX = await import('xlsx');
         const bstr = evt.target?.result;
         const wb = XLSX.read(bstr, { type: 'binary' });
         const ws = wb.Sheets[wb.SheetNames[0]];
@@ -1491,6 +1499,7 @@ const SalesCardManagementPage: React.FC = () => {
 
   const handleExportFilteredExcel = async () => {
     try {
+      const XLSX = await import('xlsx');
       setExportingExcel(true);
       const cards = await getSalesCardsForExport(
         debouncedSearch,

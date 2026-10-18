@@ -1,0 +1,59 @@
+{
+  "at": "2026-10-18T11:46:10.848Z",
+  "productionDeployed": false,
+  "scope": "Production UI baseline and local production build reading LIVE API with actual login. Desktop/mobile Chromium contexts; no physical Safari claim.",
+  "videoSeconds": 38.4667,
+  "baseline": {
+    "loginUiMs": 329,
+    "attendanceUiMs": [
+      2479,
+      2802,
+      2623
+    ]
+  },
+  "controlledFaultBefore": {
+    "scenario": "expired Supabase Auth refresh never resolves; app uses separate app_session_token",
+    "rpcReachedNetwork": 0,
+    "unrelatedAuthRefreshes": 1,
+    "buttonText": "Đang đăng nhập...",
+    "buttonDisabled": true
+  },
+  "after": {
+    "expiredSdkSessionInjected": true,
+    "loginUiMs": 481,
+    "desktopAttendanceUiMs": [
+      4073,
+      2488,
+      2372
+    ],
+    "mobileAttendanceUiMs": [
+      4538,
+      3375,
+      2909
+    ],
+    "mobileSdkRefreshes": [
+      0,
+      0,
+      0
+    ],
+    "sameBusinessSummary": true,
+    "attendanceRows": 286,
+    "personnelRows": 12
+  },
+  "regressionChecks": 10,
+  "regressionPassed": true,
+  "checks": {
+    "build": true,
+    "npmTest": true,
+    "scopedEslint": true,
+    "authSessionUi": 23,
+    "attendanceUi": 7,
+    "technicianPrivacyUi": {
+      "roles": 3,
+      "viewports": 2,
+      "passed": true
+    }
+  },
+  "businessWrites": 0,
+  "testSessionsRevoked": 2
+}

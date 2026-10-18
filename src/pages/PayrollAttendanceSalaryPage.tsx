@@ -372,6 +372,12 @@ function formatDonGiaGon(value: number): string {
   return `${new Intl.NumberFormat('vi-VN').format(value)}đ`;
 }
 
+// Start independent reads together; consume each failure in its existing catch.
+// A rejected background read must not become an unhandled rejection on navigation.
+function startRead<T>(request: Promise<T>): Promise<() => T> {
+  return request.then(value => () => value, error => () => { throw error; });
+}
+
 const PayrollAttendanceSalaryPage: React.FC = () => {
   const { settings: attendanceSettings } = useAttendanceSettings();
   const navigate = useNavigate();
@@ -441,6 +447,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
     loadedKyRef.current = periodKey;
 
     let cancelled = false;
+    const controller = new AbortController();
     (async () => {
       setRevenueLoading(true);
       const { start, end } = khoangNgayCuaThang(nam, thang);
@@ -448,11 +455,12 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
       let hasSavedRows = false;
       let defaultMealPrice = DEFAULT_MEAL_UNIT_PRICE;
       let defaultOvertimeMealPrice = DEFAULT_OVERTIME_MEAL_UNIT_PRICE;
+      const defaultsRead = startRead(Promise.all([getDefaultMealUnitPrice(), getDefaultOvertimeMealUnitPrice()]));
+      const savedPayrollRead = startRead(getPayrollBatch(thang, nam));
+      const revenueRead = startRead(loadPayrollRevenueData(nam, thang, controller.signal));
+      const attendanceRead = startRead(getChamCongTrongKhoang(start, end, controller.signal));
       try {
-        [defaultMealPrice, defaultOvertimeMealPrice] = await Promise.all([
-          getDefaultMealUnitPrice(),
-          getDefaultOvertimeMealUnitPrice(),
-        ]);
+        [defaultMealPrice, defaultOvertimeMealPrice] = (await defaultsRead)();
         if (cancelled || loadedKyRef.current !== periodKey) return;
         setDonGiaTienAnMacDinh(defaultMealPrice);
         setDonGiaTienAnTangCaMacDinh(defaultOvertimeMealPrice);
@@ -464,7 +472,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
         console.error('Lấy đơn giá tiền ăn mặc định thất bại:', e);
       }
       try {
-        const savedPayroll = await getPayrollBatch(thang, nam);
+        const savedPayroll = (await savedPayrollRead)();
         if (cancelled || loadedKyRef.current !== periodKey) return;
         setKyDaLuu(savedPayroll.length > 0);
         const savedRows = payrollBatchToInputRows(savedPayroll);
@@ -515,7 +523,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
         console.error('Lấy bảng lương đã lưu thất bại:', e);
       }
       try {
-        const payrollData = await loadPayrollRevenueData(nam, thang);
+        const payrollData = (await revenueRead)();
         const merged = hasSavedRows
           ? sourceRows
           : (await gopDoanhSoTheoBaoCao(sourceRows, nam, thang, payrollData)).rows;
@@ -526,7 +534,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
         console.error('Lấy doanh số tháng tự động thất bại:', e);
       }
       try {
-        const dongs = await getChamCongTrongKhoang(start, end);
+        const dongs = (await attendanceRead)();
         if (cancelled || loadedKyRef.current !== periodKey) return;
         setChamDong(dongs as DongChamBuaNhap[]);
       } catch (e) {
@@ -541,6 +549,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [nam, thang]);
 

@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 import type { PostgrestError } from '@supabase/supabase-js';
 import { normalizeBranchLabel } from '../constants/customerBranches';
+import { readRequest } from '../lib/readRequest';
 
 export function formatProductSaveError(error: unknown): string {
   const e = error as PostgrestError & { status?: number };
@@ -287,7 +288,8 @@ export const getInventoryPaginated = async (
   page: number,
   pageSize: number,
   searchQuery?: string,
-  filters?: InventoryFilters
+  filters?: InventoryFilters,
+  signal?: AbortSignal,
 ): Promise<{ data: InventoryRecord[]; totalCount: number }> => {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
@@ -308,9 +310,10 @@ export const getInventoryPaginated = async (
     query = query.in('co_so', filters.co_so);
   }
 
-  const { data, count, error } = await query
+  const { data, count, error } = await readRequest('inventory_page', s => query
     .order('created_at', { ascending: false })
-    .range(from, to);
+    .order('id', { ascending: false })
+    .range(from, to).abortSignal(s), signal);
 
   if (error) {
     console.error('Error fetching paginated inventory:', error);

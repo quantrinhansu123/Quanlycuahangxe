@@ -48,10 +48,12 @@ import { branchKey, branchLabel } from '../lib/branchCatalog';
 import { useBranches } from '../hooks/useBranches';
 import ReportOrdersModal from '../components/ReportOrdersModal';
 import { selectReportOrderLines, type ReportDrillScope } from '../data/reportOrderDetails';
-import DailyRevenueChart, { ReportChartControls, type DailyRevenueSeries } from '../components/reports/DailyRevenueChart';
+import type { DailyRevenueSeries } from '../components/reports/DailyRevenueChart';
 import { buildReportDateRange, REPORT_CHART_COLORS, type ReportChartUnit, type ReportChartVariant } from '../lib/reportChart';
 
 const ReportDrillContext = React.createContext<(scope: ReportDrillScope) => void>(() => {});
+const DailyRevenueChart = React.lazy(() => import('../components/reports/DailyRevenueChart'));
+const ReportChartControls = React.lazy(async () => ({ default: (await import('../components/reports/DailyRevenueChart')).ReportChartControls }));
 
 // ──────────── Formatters ────────────
 const fmt = (n: number) =>

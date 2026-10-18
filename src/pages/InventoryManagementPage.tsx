@@ -8,7 +8,7 @@ import {
   Building2, Package,
   Download, Upload
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
+
 import { useNavigate } from 'react-router-dom';
 import { clsx } from 'clsx';
 import { deleteInventoryRecord, bulkUpsertInventoryRecords, deleteAllInventoryRecords, getInventoryPaginated, getInventoryRecords, getProductRecords, upsertProductsFromInventory } from '../data/inventoryData';
@@ -19,6 +19,7 @@ import Pagination from '../components/Pagination';
 import type { DichVu } from '../data/serviceData';
 import InventoryFormModal from '../components/InventoryFormModal';
 import StockAlertPanel from '../components/StockAlertPanel';
+import { isAbortError, getReadErrorMessage } from '../lib/errorDetails';
 
 const InventoryManagementPage: React.FC = () => {
   const deptOptions = useBranches();
@@ -47,6 +48,9 @@ const InventoryManagementPage: React.FC = () => {
   const [services, setServices] = useState<DichVu[]>([]);
   const [products, setProducts] = useState<ProductRecord[]>([]);
   const [stockRevision, setStockRevision] = useState(0);
+  const listRequest = useRef(0);
+  const listAbort = useRef<AbortController | null>(null);
+  const [loadError, setLoadError] = useState('');
 
   const [visibleColumns, setVisibleColumns] = useState<string[]>([
     'id_xuat_nhap_kho', 'loai_phieu', 'id_don_hang', 'co_so', 'ten_mat_hang', 'ton_dau_ky', 'so_luong', 
@@ -83,19 +87,26 @@ const InventoryManagementPage: React.FC = () => {
 
   // Load data from Supabase
   const loadRecords = React.useCallback(async () => {
+    const request = ++listRequest.current;
+    listAbort.current?.abort();
+    const controller = new AbortController();
+    listAbort.current = controller;
     try {
       setLoading(true);
+      setLoadError('');
       const result = await getInventoryPaginated(currentPage, pageSize, debouncedSearch, {
         loai_phieu: selectedTypes,
         co_so: selectedDepts
-      });
+      }, controller.signal);
+      if (request !== listRequest.current || controller.signal.aborted) return;
       setRecords(result.data);
       setTotalCount(result.totalCount);
-      setStockRevision(value => value + 1);
     } catch (error) {
-      console.error(error);
+      if (request === listRequest.current && !isAbortError(error) && !controller.signal.aborted) {
+        setLoadError(getReadErrorMessage(error, 'Không tải được dữ liệu kho. Vui lòng thử lại.'));
+      }
     } finally {
-      setLoading(false);
+      if (request === listRequest.current) setLoading(false);
     }
   }, [currentPage, pageSize, debouncedSearch, selectedTypes, selectedDepts]);
 
@@ -109,11 +120,19 @@ const InventoryManagementPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    loadRecords();
-    // Load services for dropdown
-    getServices().then(setServices).catch(console.error);
-    loadProducts();
-  }, [loadRecords, loadProducts]);
+    void loadRecords();
+    const requestRef = listRequest, abortRef = listAbort;
+    return () => { requestRef.current++; abortRef.current?.abort(); };
+  }, [loadRecords]);
+
+  useEffect(() => { void loadProducts(); }, [loadProducts]);
+
+  useEffect(() => {
+    if (!isModalOpen) return;
+    let active = true;
+    void getServices().then(rows => { if (active) setServices(rows); }).catch(console.error);
+    return () => { active = false; };
+  }, [isModalOpen]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -176,27 +195,33 @@ const InventoryManagementPage: React.FC = () => {
 
 
 
-  const handleDownloadTemplate = () => {
-    const templateData = [
-      {
-        "Ngày": "2024-03-24",
-        "Giờ": "10:30",
-        "ID": "Optional: UUID format",
-        "Loại phiếu": "Nhập kho",
-        "Mã đơn hàng": "DH-001",
-        "Cơ sở": "Cơ sở Bắc Giang",
-        "Tên mặt hàng": "Lốp xe Honda",
-        "Tồn đầu kỳ": 5,
-        "Số lượng": 10,
-        "Giá": 450000,
-        "Người thực hiện": "Nguyễn Văn A"
-      }
-    ];
+  const handleDownloadTemplate = async () => {
+    try {
+      const XLSX = await import('xlsx');
+      const templateData = [
+        {
+          "Ngày": "2024-03-24",
+          "Giờ": "10:30",
+          "ID": "Optional: UUID format",
+          "Loại phiếu": "Nhập kho",
+          "Mã đơn hàng": "DH-001",
+          "Cơ sở": "Cơ sở Bắc Giang",
+          "Tên mặt hàng": "Lốp xe Honda",
+          "Tồn đầu kỳ": 5,
+          "Số lượng": 10,
+          "Giá": 450000,
+          "Người thực hiện": "Nguyễn Văn A"
+        }
+      ];
 
-    const worksheet = XLSX.utils.json_to_sheet(templateData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "MauKho");
-    XLSX.writeFile(workbook, "Mau_nhap_kho.xlsx");
+      const worksheet = XLSX.utils.json_to_sheet(templateData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "MauKho");
+      XLSX.writeFile(workbook, "Mau_nhap_kho.xlsx");
+    } catch (error) {
+      console.error('Excel load failed:', error);
+      window.alert('Không tải được thư viện Excel. Vui lòng thử lại.');
+    }
   };
 
   const handleDeleteAll = async () => {
@@ -204,6 +229,7 @@ const InventoryManagementPage: React.FC = () => {
       try {
         setLoading(true);
         await deleteAllInventoryRecords();
+        setStockRevision(value => value + 1);
         await loadRecords();
         alert('Đã xóa toàn bộ lịch sử kho.');
       } catch {
@@ -221,6 +247,7 @@ const InventoryManagementPage: React.FC = () => {
     const reader = new FileReader();
     reader.onload = async (evt) => {
       try {
+      const XLSX = await import('xlsx');
         const bstr = evt.target?.result;
         const wb = XLSX.read(bstr, { type: 'binary' });
         const ws = wb.Sheets[wb.SheetNames[0]];
@@ -320,6 +347,7 @@ const InventoryManagementPage: React.FC = () => {
           });
           await bulkUpsertInventoryRecords(formattedData);
           await upsertProductsFromInventory(formattedData.map(r => ({ ten_mat_hang: r.ten_mat_hang })));
+          setStockRevision(value => value + 1);
           await loadRecords();
           await loadProducts();
           const newCount = formattedData.length - updatedCount;
@@ -340,6 +368,7 @@ const InventoryManagementPage: React.FC = () => {
     if (window.confirm('Bạn có chắc chắn muốn xóa bản ghi này?')) {
       try {
         await deleteInventoryRecord(id);
+        setStockRevision(value => value + 1);
         await loadRecords();
       } catch {
         alert('Lỗi: Không thể xóa bản ghi.');
@@ -534,6 +563,7 @@ const InventoryManagementPage: React.FC = () => {
           </div>
         </div>
 
+        {loadError && <p role="alert" className="p-3 text-sm text-red-600">{loadError} <button type="button" className="underline" onClick={() => void loadRecords()}>Thử lại</button></p>}
         <StockAlertPanel branches={selectedDepts} refreshKey={stockRevision} />
         {/* Data Table */}
         <div className="bg-card rounded-lg border border-border shadow-sm overflow-hidden">
@@ -739,6 +769,7 @@ const InventoryManagementPage: React.FC = () => {
         record={editingRecord}
         onSuccess={() => {
           setIsModalOpen(false);
+          setStockRevision(value => value + 1);
           loadRecords();
           loadProducts();
         }}

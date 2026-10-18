@@ -251,7 +251,7 @@ export async function fetchAllCTRecords(startDate?: string, endDate?: string, si
 }
 
 // Fetch all header records within a date range (for personnel N-N mapping)
-async function fetchAllHeaderRecords(startDate?: string, endDate?: string) {
+async function fetchAllHeaderRecords(startDate?: string, endDate?: string, signal?: AbortSignal) {
   if (isDemo()) {
     const data = [];
     const staff = ['Nguyễn Văn A', 'Trần Thị B', 'Lê Văn C', 'Phạm Văn D'];
@@ -270,7 +270,7 @@ async function fetchAllHeaderRecords(startDate?: string, endDate?: string) {
     }
     return data;
   }
-  return queryAllSales({ p_start: startDate || null, p_end: endDate || null });
+  return queryAllSales({ p_start: startDate || null, p_end: endDate || null }, signal);
 }
 
 export type ReportCTRecords = Awaited<ReturnType<typeof fetchAllCTRecords>>;
@@ -690,7 +690,7 @@ function pushPayrollOrder(
  * sách nhân viên duy nhất sau khi chuẩn hóa tên/mã; tên lặp chỉ tính một lần.
  * Ưu tiên tổng chi tiết đơn; fallback tong_tien.
  */
-export async function loadPayrollRevenueData(nam: number, thang: number): Promise<PayrollRevenueData> {
+export async function loadPayrollRevenueData(nam: number, thang: number, signal?: AbortSignal): Promise<PayrollRevenueData> {
   const { start: startDate, end: endDate } = khoangNgayCuaThangReport(nam, thang);
   const grossTotals = new Map<string, number>();
   const totals = new Map<string, number>();
@@ -733,11 +733,12 @@ export async function loadPayrollRevenueData(nam: number, thang: number): Promis
   }
 
   const [headers, ctRecords, personnel] = await Promise.all([
-    fetchAllHeaderRecords(startDate, endDate),
-    fetchAllCTRecords(startDate, endDate),
+    fetchAllHeaderRecords(startDate, endDate, signal),
+    fetchAllCTRecords(startDate, endDate, signal),
     getPersonnel().catch(() => [] as Awaited<ReturnType<typeof getPersonnel>>),
   ]);
 
+  signal?.throwIfAborted();
   const aliases = buildPersonnelAliasMap(personnel);
   const orderRevenueMap = buildOrderRevenueFromCT(ctRecords, nam, thang);
 

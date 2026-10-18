@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import * as XLSX from 'xlsx';
+
 import { useAuth } from '../context/AuthContext';
 import Pagination from '../components/Pagination';
 import PersonnelDailyStatsModal from '../components/PersonnelDailyStatsModal';
@@ -221,25 +221,31 @@ const PersonnelManagementPage: React.FC = () => {
     }
   };
 
-  const handleDownloadTemplate = () => {
-    const templateData = [
-      {
-        "id": "NV-001",
-        "Họ và tên": "Nguyễn Văn A",
-        "Ngày vào làm": "2024-01-15",
-        "Lương cơ bản": 10000000,
-        "SĐT": "0912345678",
-        "Password": "123456",
-        "Hình ảnh": "",
-        "Vị trí": "kỹ thuật viên",
-        "Cơ sở": "Cơ sở Bắc Giang"
-      }
-    ];
+  const handleDownloadTemplate = async () => {
+    try {
+      const XLSX = await import('xlsx');
+      const templateData = [
+        {
+          "id": "NV-001",
+          "Họ và tên": "Nguyễn Văn A",
+          "Ngày vào làm": "2024-01-15",
+          "Lương cơ bản": 10000000,
+          "SĐT": "0912345678",
+          "Password": "123456",
+          "Hình ảnh": "",
+          "Vị trí": "kỹ thuật viên",
+          "Cơ sở": "Cơ sở Bắc Giang"
+        }
+      ];
 
-    const worksheet = XLSX.utils.json_to_sheet(templateData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "MauNhanSu");
-    XLSX.writeFile(workbook, "Mau_nhap_nhan_su.xlsx");
+      const worksheet = XLSX.utils.json_to_sheet(templateData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "MauNhanSu");
+      XLSX.writeFile(workbook, "Mau_nhap_nhan_su.xlsx");
+    } catch (error) {
+      console.error('Excel load failed:', error);
+      window.alert('Không tải được thư viện Excel. Vui lòng thử lại.');
+    }
   };
 
   const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -249,6 +255,7 @@ const PersonnelManagementPage: React.FC = () => {
     const reader = new FileReader();
     reader.onload = async (evt) => {
       try {
+      const XLSX = await import('xlsx');
         const bstr = evt.target?.result;
         const wb = XLSX.read(bstr, { type: 'binary' });
         const ws = wb.Sheets[wb.SheetNames[0]];

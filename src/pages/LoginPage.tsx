@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth, type NhanVien } from '../context/AuthContext';
 import { getLoginRedirectPath } from '../data/viewPermissions';
 import { supabase } from '../lib/supabase';
+import { getReadErrorMessage, isAbortError } from '../lib/errorDetails';
 
 interface PhoneLoginResult {
   id: string;
@@ -32,7 +33,7 @@ const getPhoneCandidates = (value: string): string[] => {
   return Array.from(candidates).filter(Boolean);
 };
 
-const callPhoneLoginRpc = async (phone: string, password: string): Promise<{
+const callPhoneLoginRpc = async (phone: string, password: string, signal: AbortSignal): Promise<{
   data: PhoneLoginResult[] | null;
   error: {
     code?: string;
@@ -61,7 +62,8 @@ const callPhoneLoginRpc = async (phone: string, password: string): Promise<{
   } | null = null;
 
   for (const args of attempts) {
-    const { data, error } = await supabase.rpc('login_with_phone', args);
+    const { data, error } = await supabase.rpc('login_with_phone', args).abortSignal(signal);
+    if (signal.aborted) throw new DOMException('Login request aborted', 'AbortError');
     if (!error) {
       return { data: data as PhoneLoginResult[] | null, error: null };
     }
@@ -90,6 +92,9 @@ const LoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const loginRequest = useRef<AbortController | null>(null);
+
+  useEffect(() => () => loginRequest.current?.abort(), []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -111,11 +116,16 @@ const LoginPage: React.FC = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loginRequest.current) return;
+    const controller = new AbortController();
+    loginRequest.current = controller;
+    let timedOut = false;
+    const timer = window.setTimeout(() => { timedOut = true; controller.abort(); }, 20_000);
     setError('');
     setLoading(true);
 
     try {
-      const { data: rpcData, error: rpcError } = await callPhoneLoginRpc(phone, password);
+      const { data: rpcData, error: rpcError } = await callPhoneLoginRpc(phone, password, controller.signal);
 
       if (rpcError) {
         console.error('Phone login rpc error detail:', {
@@ -147,9 +157,14 @@ const LoginPage: React.FC = () => {
       );
       navigate(homePath, { replace: true });
     } catch (err) {
+      if (isAbortError(err) && !timedOut) return;
       console.error('Unexpected login error:', err);
-      setError('Không thể kết nối tới server. Vui lòng kiểm tra kết nối mạng.');
+      setError(timedOut
+        ? 'Máy chủ phản hồi chậm. Vui lòng thử lại.'
+        : getReadErrorMessage(err, 'Không thể kết nối tới server. Vui lòng kiểm tra kết nối mạng.'));
     } finally {
+      window.clearTimeout(timer);
+      if (loginRequest.current === controller) loginRequest.current = null;
       setLoading(false);
     }
   };

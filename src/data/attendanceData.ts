@@ -219,7 +219,8 @@ export type ChamCongBuaDongNhap = Pick<
  */
 export async function getChamCongTrongKhoang(
   start: string,
-  end: string
+  end: string,
+  signal?: AbortSignal,
 ): Promise<ChamCongBuaDongNhap[]> {
   // Supabase/PostgREST mặc định chỉ trả tối đa 1.000 dòng. Một kỳ lương của
   // nhiều cơ sở rất dễ vượt ngưỡng này, khiến các nhân viên nằm ở trang sau bị
@@ -228,14 +229,14 @@ export async function getChamCongTrongKhoang(
   const rows: ChamCongBuaDongNhap[] = [];
 
   for (let offset = 0; ; offset += pageSize) {
-    const { data, error } = await supabase
+    const { data, error } = await readRequest('payroll_attendance', s => supabase
       .from('cham_cong')
       .select('nhan_su, ngay, checkin, checkout, vi_tri')
       .gte('ngay', start)
       .lte('ngay', end)
       .order('ngay', { ascending: true })
       .order('id', { ascending: true })
-      .range(offset, offset + pageSize - 1);
+      .range(offset, offset + pageSize - 1).abortSignal(s), signal);
 
     if (error) {
       console.error('getChamCongTrongKhoang:', error);
