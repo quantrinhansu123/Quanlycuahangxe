@@ -28,6 +28,10 @@ Các màn này nay dùng cùng `lineRevenue`, `lineCost`, `lineQuantity` với b
 
 Nay chỉ gợi ý đối chiếu khi cùng hồ sơ khách/xe, ngày, cơ sở, danh sách dịch vụ, số lượng và số tiền chính xác. Không dùng riêng tên/SĐT để kết luận; không cảnh báo nếu thiếu chi tiết đối chiếu. Mã phiếu còn lại được hiển thị ngay dưới mã đơn và có liên kết mở trực tiếp, kể cả khi phiếu đó thuộc nhân viên khác. Cảnh báo không loại đơn khỏi doanh số và không tự xóa/gộp dữ liệu.
 
+Ảnh phản hồi bổ sung xác nhận màn Bảng lương → Rà soát doanh số → tháng 10 → Huân. Kiểm tra bằng đúng RPC `sales_query` trên production trả đủ dữ liệu trong kỳ. Hồ sơ nhân viên được phản ánh có 108 đơn; cả tiêu chí trước và sau sửa đều trả 0 cảnh báo trên dữ liệu hiện tại, số đơn và doanh số không đổi. Không suy ra rằng các đơn chưa từng trùng trước đó. Bằng chứng chi tiết được giữ trong thư mục local bị Git bỏ qua.
+
+Phát hiện khung giải thích màu vàng trước đây luôn xuất hiện ngay cả khi 0 cảnh báo, có thể khiến người dùng tưởng có phiếu trùng nhưng không tìm thấy. Nay chỉ hiện khung vàng khi thật sự có phiếu cần đối chiếu; danh sách đã tải xong và không có cảnh báo hiện thông tin trung tính “Không có cảnh báo nghi trùng trong danh sách này.” Trạng thái đang tải và danh sách rỗng không hiển thị kết luận này. Đã kiểm thử cả bốn trạng thái trên desktop/mobile.
+
 ## Kiểm tra
 
 - `npm test`: gồm hồi quy cũ và kiểm thử mới về báo cáo, nghi trùng, xóa giao dịch.

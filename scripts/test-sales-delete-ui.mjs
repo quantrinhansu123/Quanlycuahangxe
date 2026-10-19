@@ -12,8 +12,10 @@ import {ToastProvider} from '/src/context/ToastContext.tsx';
 import {ToastContainer} from '/src/components/ui/Toast.tsx'; import '/src/index.css';
 import DuplicateModal from '/src/components/PersonnelRevenueOrdersModal.tsx';
 const duplicate = {id_bh:'BH-SELF',ngay:'2026-10-19',khach_hang:'Khách kiểm thử',tong_tien_don:150000,phan_bo:150000,so_nhan_vien:1,phu_trach:'Văn Huân',duplicate_order_ids:['BH-OTHER']};
+const duplicateMode=new URLSearchParams(location.search).get('duplicates');
+const orders=duplicateMode==='none'?[{...duplicate,duplicate_order_ids:[]}]:duplicateMode==='empty'||duplicateMode==='loading'?[]:[duplicate];
 createRoot(document.getElementById('root')).render(React.createElement(BrowserRouter,null,
-  React.createElement(ToastProvider,null,location.search?React.createElement(DuplicateModal,{isOpen:true,onClose:()=>{},hoTen:'Văn Huân',thang:10,nam:2026,orders:[duplicate]}):React.createElement(Page),React.createElement(ToastContainer))));
+  React.createElement(ToastProvider,null,location.search?React.createElement(DuplicateModal,{isOpen:true,onClose:()=>{},hoTen:'Văn Huân',thang:10,nam:2026,orders,loading:duplicateMode==='loading'}):React.createElement(Page),React.createElement(ToastContainer))));
 </script>`;
 const server = await createServer({ cacheDir: 'node_modules/.vite-sales-delete-ui', logLevel: 'error',
   server: { host: '127.0.0.1', port: 5215, strictPort: true, open: false },
@@ -88,10 +90,23 @@ try {
     assert.ok((await counterpart.innerText()).includes('BH-OTHER'), 'Counterpart code is visible without hovering');
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false);
     await page.screenshot({ path: `.build-verification/customer-issues/duplicate-counterpart-${width}.png`, fullPage: true });
+    await page.goto(origin + '/sales-delete-test?duplicates=none', { waitUntil: 'commit' });
+    await page.getByRole('status').filter({ hasText: 'Không có cảnh báo nghi trùng trong danh sách này.' }).waitFor();
+    assert.equal(await page.getByText('Cần đối chiếu', { exact: true }).count(), 0);
+    assert.equal(await page.getByText(/Cảnh báo đối chiếu các phiếu/).count(), 0, 'No amber warning when no order is flagged');
+    assert.equal(await page.getByRole('link', { name: 'BH-SELF', exact: true }).count(), 1, 'Clean orders remain accessible');
+    await page.screenshot({ path: `.build-verification/customer-issues/duplicate-none-${width}.png`, fullPage: true });
+    for (const mode of ['empty', 'loading']) {
+      await page.goto(origin + '/sales-delete-test?duplicates=' + mode, { waitUntil: 'commit' });
+      await page.getByText(mode === 'empty' ? 'Không có đơn nào trong kỳ với Phụ trách khớp tên này.' : 'Đang tải đơn hàng...', { exact: true }).waitFor();
+      assert.equal(await page.getByText('Không có cảnh báo nghi trùng trong danh sách này.', { exact: true }).count(), 0,
+        'Loading or empty data must not be presented as a completed duplicate check');
+      assert.equal(await page.getByText(/Cảnh báo đối chiếu các phiếu/).count(), 0);
+    }
     assert.deepEqual(errors, []);
     await context.close();
   }
-  console.log('PASS sales issue UI: desktop/mobile, manager delete, server error, retained invoice, success refresh, one RPC, visible counterpart links');
+  console.log('PASS sales issue UI: desktop/mobile, manager delete, server error, retained invoice, success refresh, one RPC, counterpart links, clean/empty/loading duplicate states');
 } catch (error) {
   console.error(JSON.stringify({ errors: browserErrors, consoleErrors, remoteRequests, body: lastPage ? (await lastPage.locator('body').innerText()).slice(0, 2000) : '' }));
   await lastPage?.screenshot({ path: '.build-verification/customer-issues/ui-failure.png', fullPage: true });

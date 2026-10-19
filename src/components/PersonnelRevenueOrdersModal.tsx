@@ -75,10 +75,13 @@ const PersonnelRevenueOrdersModal: React.FC<PersonnelRevenueOrdersModalProps> = 
           )}
         </div>
 
-        <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-5 py-2 text-xs text-amber-900">
+        {!loading && suspiciousCount > 0 && <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-5 py-2 text-xs text-amber-900">
           Cảnh báo đối chiếu các phiếu cùng khách/xe, ngày, cơ sở, mặt hàng, số lượng và số tiền.
           Bấm mã phiếu dưới nhãn <strong>Cần đối chiếu</strong> để mở phiếu còn lại và xác nhận.
-        </div>
+        </div>}
+        {!loading && orders.length > 0 && suspiciousCount === 0 && <p role="status" className="shrink-0 border-b border-border px-5 py-2 text-xs text-muted-foreground">
+          Không có cảnh báo nghi trùng trong danh sách này.
+        </p>}
 
         <div className="flex-1 min-h-0 overflow-auto p-4">
           {loading ? (
