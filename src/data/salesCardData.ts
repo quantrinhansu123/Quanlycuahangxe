@@ -978,12 +978,12 @@ export const bulkUpsertSalesCards = async (cards: Partial<SalesCard>[]): Promise
 };
 
 export const deleteSalesCard = async (id: string): Promise<void> => {
-  const { error } = await supabase
-    .from('the_ban_hang')
-    .delete()
-    .eq('id', id);
+  const { error } = await supabase.rpc('delete_sales_order', { p_order_id: id });
 
   if (error) {
+    if (error.code === 'PGRST202') {
+      throw new Error('Máy chủ chưa cập nhật chức năng xóa phiếu. Vui lòng liên hệ quản trị viên.');
+    }
     console.error('Error deleting sales card:', error);
     throw error;
   }

@@ -5,6 +5,7 @@ import { loadReportOrderDetails, type ReportDrillScope, type ReportOrderDetail }
 import type { ReportCTRecords } from '../data/reportData';
 import { getErrorDetails } from '../lib/errorDetails';
 import { formatDateVi } from '../utils/datetimeFormat';
+import { lineRevenue } from '../lib/businessReportMetrics';
 
 const money = (amount: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
 
@@ -55,7 +56,7 @@ export default function ReportOrdersModal({ scope, records, onClose }: {
         </div>
         <div className="flex shrink-0 flex-wrap gap-x-6 gap-y-1 border-b border-border bg-primary/5 px-4 py-3 text-sm">
           {!loading && !error && <span><strong>{orders.length}</strong> đơn</span>}
-          <span>Doanh thu: <strong>{money(records.reduce((s, r) => s + (r.thanh_tien || r.gia_ban * r.so_luong || 0), 0))}</strong></span>
+          <span>Doanh thu: <strong>{money(records.reduce((s, r) => s + lineRevenue(r), 0))}</strong></span>
           <span>SL: <strong>{records.reduce((s, r) => s + (r.so_luong || 1), 0)}</strong></span>
         </div>
         <div className="min-h-0 flex-1 overflow-auto p-4">
@@ -78,7 +79,7 @@ export default function ReportOrdersModal({ scope, records, onClose }: {
                   <div className="mt-3 space-y-2 text-sm">
                     {order.lines.map(line => <div key={line.id} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1">
                       <span className="break-words">{line.san_pham || 'Chưa phân loại'}</span>
-                      <span className="whitespace-nowrap text-right tabular-nums">{money(line.thanh_tien || line.gia_ban * line.so_luong || 0)}</span>
+                      <span className="whitespace-nowrap text-right tabular-nums">{money(lineRevenue(line))}</span>
                       <span className="text-xs text-muted-foreground">SL: {line.so_luong || 1} · {line.co_so || 'Chưa rõ cơ sở'}</span>
                     </div>)}
                   </div>

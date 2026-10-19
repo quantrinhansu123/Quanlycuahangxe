@@ -127,7 +127,7 @@ function refsForOrder(order: BusinessOrderInput): string[] {
     .filter(Boolean)));
 }
 
-function lineQuantity(detail: BusinessOrderDetailInput): number {
+export function lineQuantity(detail: BusinessOrderDetailInput): number {
   return detail.so_luong == null ? 1 : Math.max(0, numberValue(detail.so_luong));
 }
 

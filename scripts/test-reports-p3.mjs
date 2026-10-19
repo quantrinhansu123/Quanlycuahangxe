@@ -4,9 +4,16 @@ const dir='docs/performance-reports-p3';
 const old=fs.readFileSync(`${dir}/source-before/src--data--reportData.ts`,'utf8'),next=fs.readFileSync('src/data/reportData.ts','utf8');
 const oldBusiness=fs.readFileSync(`${dir}/source-before/src--data--businessReportData.ts`,'utf8'),newBusiness=fs.readFileSync('src/data/businessReportData.ts','utf8');
 const evidence={cases:[],businessCases:[],scope:'Actual transpiled OLD/NEW source functions on same scalar fixtures. No rewritten business formulas.'};
+// Legacy parity covers ordinary rows. The deliberate corrections for explicit
+// zero amounts/quantities and missing totals are in test-report-line-amounts.mjs.
+function legacyParityFixture() {
+ const data=reportFixture();
+ data.the_ban_hang_ct=data.the_ban_hang_ct.filter(row=>row.so_luong>0 && row.thanh_tien>0);
+ return data;
+}
 test('P3 one CT snapshot preserves summary/services/days/branches/personnel for dates and user-visible scopes',async()=>{
  for(const scope of ['all','A','B'])for(const [start,end] of [[undefined,undefined],['2026-09-01','2026-09-30'],['2026-09-10','2026-09-17'],['2026-09-28','2026-09-30'],['2026-09-02','2026-09-02'],['2030-01-01','2030-01-02']]){
-  const data=reportFixture();if(scope!=='all')data.the_ban_hang_ct=data.the_ban_hang_ct.filter(r=>r.co_so===scope);
+  const data=legacyParityFixture();if(scope!=='all')data.the_ban_hang_ct=data.the_ban_hang_ct.filter(r=>r.co_so===scope);
   const beforeCalls=[],afterCalls=[];const a=loadReportRuntime(old,data,beforeCalls).report,b=loadReportRuntime(next,data,afterCalls).report;
   const expected=await Promise.all([a.getReportSummary(start,end),a.getRevenueByService(start,end),a.getRevenueByDay(start,end),a.getRevenueByBranch(start,end),a.getRevenueByPersonnel(start,end)]);
   const snapshot=await b.loadReportSnapshot(start,end);const staff=await b.getRevenueByPersonnel(start,end,snapshot.records);

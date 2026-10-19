@@ -6,6 +6,8 @@ import { removeVietnameseTones } from '../lib/utils';
 import { readRequest } from '../lib/readRequest';
 import { branchKey, branchLabel } from '../lib/branchCatalog';
 import type { NhanSu } from './personnelData';
+import { lineRevenue, lineCost, lineQuantity } from '../lib/businessReportMetrics';
+import { findSalesOrderDuplicates } from '../lib/salesOrderDuplicates';
 
 /** Chuẩn hóa tên để khớp bảng lương / nhan_vien_id trên đơn (bỏ dấu, thường, gộp khoảng trắng). */
 export function chuanHoaTenTheoDon(s: string): string {
@@ -339,8 +341,8 @@ export function filterReportRecords(
 
 export async function getReportSummary(startDate?: string, endDate?: string, sharedRecords?: ReportCTRecords): Promise<ReportSummary> {
   const ctRecords = sharedRecords ?? await fetchAllCTRecords(startDate, endDate);
-  const total_revenue = ctRecords.reduce((s, r) => s + (r.thanh_tien || r.gia_ban * r.so_luong || 0), 0);
-  const total_profit = ctRecords.reduce((s, r) => s + ((r.thanh_tien || 0) - (r.gia_von || 0) * (r.so_luong || 1)), 0);
+  const total_revenue = ctRecords.reduce((s, r) => s + lineRevenue(r), 0);
+  const total_profit = ctRecords.reduce((s, r) => s + lineRevenue(r) - lineCost(r), 0);
 
   const uniqueOrders = new Set(ctRecords.map(r => r.id_don_hang).filter(Boolean));
   const uniqueDates = new Set(ctRecords.map(r => r.ngay).filter(Boolean));
@@ -372,9 +374,9 @@ export async function getRevenueByService(startDate?: string, endDate?: string, 
   records.forEach(r => {
     const key = r.san_pham || 'Không rõ';
     const existing = map.get(key) || { revenue: 0, profit: 0, quantity: 0, orders: new Set<string>(), daily: new Map() };
-    const rev = r.thanh_tien || r.gia_ban * r.so_luong || 0;
-    const pro = rev - (r.gia_von || 0) * (r.so_luong || 1);
-    const qty = r.so_luong || 1;
+    const rev = lineRevenue(r);
+    const pro = rev - lineCost(r);
+    const qty = lineQuantity(r);
     existing.revenue += rev;
     existing.profit += pro;
     existing.quantity += qty;
@@ -425,9 +427,9 @@ export async function getRevenueByDay(startDate?: string, endDate?: string, shar
     const key = r.ngay || '';
     if (!key) return;
     const existing = map.get(key) || { revenue: 0, profit: 0, orders: new Set<string>(), services: new Map() };
-    const rev = r.thanh_tien || r.gia_ban * r.so_luong || 0;
-    const pro = rev - (r.gia_von || 0) * (r.so_luong || 1);
-    const qty = r.so_luong || 1;
+    const rev = lineRevenue(r);
+    const pro = rev - lineCost(r);
+    const qty = lineQuantity(r);
     existing.revenue += rev;
     existing.profit += pro;
     if (r.id_don_hang) existing.orders.add(r.id_don_hang);
@@ -470,8 +472,8 @@ export async function getRevenueByBranch(startDate?: string, endDate?: string, s
   records.forEach(r => {
     const key = r.co_so || 'Chưa phân loại';
     const existing = map.get(key) || { revenue: 0, profit: 0, orders: new Set<string>(), daily: new Map() };
-    const rev = r.thanh_tien || r.gia_ban * r.so_luong || 0;
-    const pro = rev - (r.gia_von || 0) * (r.so_luong || 1);
+    const rev = lineRevenue(r);
+    const pro = rev - lineCost(r);
     existing.revenue += rev;
     existing.profit += pro;
     if (r.id_don_hang) existing.orders.add(r.id_don_hang);
@@ -523,8 +525,8 @@ export async function getRevenueByPersonnel(
     if (!raw) return;
     const key = raw.toLowerCase();
     const existing = orderRevenueMap.get(key) || { revenue: 0, profit: 0, date: r.ngay || '' };
-    const rev = r.thanh_tien || r.gia_ban * r.so_luong || 0;
-    const pro = rev - (r.gia_von || 0) * (r.so_luong || 1);
+    const rev = lineRevenue(r);
+    const pro = rev - lineCost(r);
     existing.revenue += rev;
     existing.profit += pro;
     if (r.ngay && !existing.date) existing.date = r.ngay;
@@ -660,7 +662,7 @@ export interface PayrollRevenueOrderRow {
   phan_bo: number;
   so_nhan_vien: number;
   phu_trach: string;
-  /** Các mã đơn khác có cùng ngày + khách hàng + số tiền, cần kiểm tra nhập trùng. */
+  /** Các phiếu khác cùng xe/khách, ngày, cơ sở, mặt hàng, số lượng và số tiền để đối chiếu. */
   duplicate_order_ids: string[];
 }
 
@@ -752,39 +754,15 @@ export async function loadPayrollRevenueData(nam: number, thang: number, signal?
     ten_khach_hang?: string | null;
     khach_hang_id?: string | null;
     so_dien_thoai?: string | null;
+    co_so?: string | null;
+    khach_hang?: { id?: string | null } | null;
   };
 
   const payrollHeaders = headers as PayrollOrderHeader[];
-  const duplicateCandidates = new Map<string, string[]>();
-  const duplicateBuckets = new Map<string, string[]>();
-  for (const header of payrollHeaders) {
+  const duplicateCandidates = findSalesOrderDuplicates(payrollHeaders.filter(header => {
     const ky = extractNamThangTuNgayCot(header.ngay);
-    if (ky !== null && (ky.nam !== nam || ky.thang !== thang)) continue;
-    const amount = revenueForOrderHeader(header, orderRevenueMap);
-    if (amount <= 0) continue;
-    const phone = String(header.so_dien_thoai ?? '').replace(/\D/g, '');
-    const customerId = String(header.khach_hang_id ?? '').trim().toLowerCase();
-    const customerName = chuanHoaTenTheoDon(String(header.ten_khach_hang ?? ''));
-    const customerKey = phone.length >= 6
-      ? `phone:${phone}`
-      : customerId
-        ? `id:${customerId}`
-        : customerName && customerName !== '—'
-          ? `name:${customerName}`
-          : '';
-    if (!customerKey) continue;
-    const signature = `${header.ngay}|${customerKey}|${Math.round(amount)}`;
-    const orderRef = String(header.id_bh || header.id);
-    const bucket = duplicateBuckets.get(signature) ?? [];
-    bucket.push(orderRef);
-    duplicateBuckets.set(signature, bucket);
-  }
-  duplicateBuckets.forEach((orderRefs) => {
-    if (orderRefs.length < 2) return;
-    orderRefs.forEach((orderRef) => {
-      duplicateCandidates.set(orderRef, orderRefs.filter((candidate) => candidate !== orderRef));
-    });
-  });
+    return ky === null || (ky.nam === nam && ky.thang === thang);
+  }).map(header => ({ ...header, amount: revenueForOrderHeader(header, orderRevenueMap) })), ctRecords);
 
   for (const h of payrollHeaders) {
     const ky = extractNamThangTuNgayCot(h.ngay);

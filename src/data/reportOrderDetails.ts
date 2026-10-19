@@ -4,6 +4,7 @@ import { branchKey } from '../lib/branchCatalog';
 import { chuanHoaTenTheoDon } from './reportData';
 import type { ReportCTRecords, ReportPersonnelHeaders } from './reportData';
 import type { NhanSu } from './personnelData';
+import { lineRevenue, lineCost, lineQuantity } from '../lib/businessReportMetrics';
 
 export type ReportDrillScope = { date: string; service?: string; branch?: string; staff?: string };
 export type ReportOrderDetail = {
@@ -36,10 +37,10 @@ export function groupReportOrderLines(records: ReportCTRecords, headers: Array<{
       customer: h?.ten_khach_hang || undefined, time: h?.gio || undefined, staff: h?.nhan_vien_id || undefined,
       revenue: 0, profit: 0, quantity: 0, lines: [] };
     // Same arithmetic as the report, including free services and manual amounts.
-    const revenue = r.thanh_tien || r.gia_ban * r.so_luong || 0;
+    const revenue = lineRevenue(r);
     group.revenue += revenue;
-    group.profit += revenue - (r.gia_von || 0) * (r.so_luong || 1);
-    group.quantity += r.so_luong || 1;
+    group.profit += revenue - lineCost(r);
+    group.quantity += lineQuantity(r);
     group.lines.push(r);
     groups.set(key, group);
   }

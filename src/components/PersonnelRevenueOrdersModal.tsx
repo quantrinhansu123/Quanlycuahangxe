@@ -76,8 +76,8 @@ const PersonnelRevenueOrdersModal: React.FC<PersonnelRevenueOrdersModalProps> = 
         </div>
 
         <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-5 py-2 text-xs text-amber-900">
-          Bấm vào <strong>mã đơn</strong> để mở phiếu gốc. Cảnh báo trùng dựa trên đơn cùng ngày,
-          cùng khách hàng và cùng số tiền; quản lý cần mở đơn để xác nhận trước khi xóa hoặc sửa.
+          Cảnh báo đối chiếu các phiếu cùng khách/xe, ngày, cơ sở, mặt hàng, số lượng và số tiền.
+          Bấm mã phiếu dưới nhãn <strong>Cần đối chiếu</strong> để mở phiếu còn lại và xác nhận.
         </div>
 
         <div className="flex-1 min-h-0 overflow-auto p-4">
@@ -101,7 +101,6 @@ const PersonnelRevenueOrdersModal: React.FC<PersonnelRevenueOrdersModalProps> = 
                   <th className="py-2 pr-2 font-semibold text-center whitespace-nowrap">Số người</th>
                   <th className="py-2 pr-2 font-semibold text-right whitespace-nowrap">Phần được hưởng</th>
                   <th className="py-2 pr-2 font-semibold">Người phụ trách</th>
-                  <th className="py-2 font-semibold whitespace-nowrap">Kiểm tra</th>
                 </tr>
               </thead>
               <tbody>
@@ -117,6 +116,15 @@ const PersonnelRevenueOrdersModal: React.FC<PersonnelRevenueOrdersModalProps> = 
                       >
                         {o.id_bh} <ExternalLink className="h-3.5 w-3.5" />
                       </a>
+                      {o.duplicate_order_ids.length > 0 && <div className="mt-2 space-y-1 text-xs">
+                        <span className="flex items-center gap-1 text-amber-700"><AlertTriangle className="h-3.5 w-3.5" /> Cần đối chiếu</span>
+                        {o.duplicate_order_ids.map(ref => <a key={ref}
+                          href={getSalesCardDetailHref(ref)} target="_blank" rel="noopener noreferrer"
+                          className="flex min-h-8 items-center gap-1 font-mono font-semibold text-primary underline underline-offset-2"
+                          aria-label={`Đối chiếu ${o.id_bh} với ${ref}`}>
+                          {ref}<ExternalLink className="h-3.5 w-3.5" />
+                        </a>)}
+                      </div>}
                     </td>
                     <td className="py-2.5 pr-2 whitespace-nowrap">
                       <div>{formatDateVi(o.ngay)}</div>
@@ -139,21 +147,6 @@ const PersonnelRevenueOrdersModal: React.FC<PersonnelRevenueOrdersModalProps> = 
                         <Users className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                         <span>{o.phu_trach}</span>
                       </div>
-                    </td>
-                    <td className="py-2.5 text-xs whitespace-nowrap">
-                      {o.duplicate_order_ids.length > 0 ? (
-                        <a
-                          href={getSalesCardDetailHref(o.id_bh)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-1 font-bold text-amber-800 hover:bg-amber-100"
-                          title={`Có thể trùng với: ${o.duplicate_order_ids.join(', ')}`}
-                        >
-                          <AlertTriangle className="h-3.5 w-3.5" /> Nghi trùng
-                        </a>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
                     </td>
                   </tr>
                 ))}

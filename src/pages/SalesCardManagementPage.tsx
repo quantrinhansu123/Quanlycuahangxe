@@ -34,12 +34,12 @@ import { useToast } from '../context/toast';
 import type { KhachHang } from '../data/customerData';
 import { upsertCustomer } from '../data/customerData';
 import type { ThuChi } from '../data/financialData';
-import { deleteTransactionByOrderId, getTransactionByOrderId, upsertTransaction } from '../data/financialData';
+import { getTransactionByOrderId, upsertTransaction } from '../data/financialData';
 import type { NhanSu } from '../data/personnelData';
 import { getPersonnel } from '../data/personnelData';
 import { isQuanLyViTri } from '../data/viewPermissions';
 import { bulkUpsertSalesCardCTs, deleteSalesCardCTsByOrderId, type SalesCardCT } from '../data/salesCardCTData';
-import { deleteInventoryExportsByOrderId, syncInventoryExportFromSalesOrder } from '../data/inventoryData';
+import { syncInventoryExportFromSalesOrder } from '../data/inventoryData';
 import { getServices } from '../data/serviceData';
 import type { SalesCard, SalesCardFormData } from '../data/salesCardData';
 import { 
@@ -1441,7 +1441,7 @@ const SalesCardManagementPage: React.FC = () => {
     reader.readAsBinaryString(file);
   };
 
-  const handleDelete = async (id: string, orderCode?: string | null) => {
+  const handleDelete = async (id: string) => {
     if (!isAdmin) {
       showToast('Chỉ quản trị viên được xóa phiếu bán hàng.', 'error');
       return;
@@ -1449,13 +1449,9 @@ const SalesCardManagementPage: React.FC = () => {
     if (window.confirm('Bạn có chắc chắn muốn xóa phiếu này?')) {
       try {
         await deleteSalesCard(id);
-        await Promise.all([
-          deleteTransactionByOrderId(id),
-          deleteInventoryExportsByOrderId(id, orderCode),
-        ]);
         await reloadAfterMutation();
-      } catch {
-        alert('Lỗi: Không thể xóa phiếu.');
+      } catch (error) {
+        showToast(getReadErrorMessage(error, 'Không thể xóa phiếu. Vui lòng thử lại.'), 'error');
       }
     }
   };
@@ -1903,7 +1899,7 @@ const SalesCardManagementPage: React.FC = () => {
                             </button>
                           )}
                           {isAdmin && (
-                            <button onClick={() => handleDelete(card.id, card.id_bh)} className="flex items-center gap-1 px-3 py-1.5 text-destructive hover:bg-destructive/10 rounded-lg text-[12px] font-bold border border-destructive/20 transition-colors">
+                            <button onClick={() => handleDelete(card.id)} className="flex items-center gap-1 px-3 py-1.5 text-destructive hover:bg-destructive/10 rounded-lg text-[12px] font-bold border border-destructive/20 transition-colors">
                               <Trash2 size={14} /> Xóa
                             </button>
                           )}
@@ -2104,7 +2100,7 @@ const SalesCardManagementPage: React.FC = () => {
                           <button onClick={() => handleOpenModal(card)} className="h-9 w-9 inline-flex items-center justify-center text-primary hover:bg-primary/10 rounded-md transition-colors border border-transparent hover:border-blue-100" title="Chỉnh sửa"><Edit2 size={18} /></button>
                         )}
                         {isAdmin && (
-                          <button onClick={() => handleDelete(card.id, card.id_bh)} className="h-9 w-9 inline-flex items-center justify-center text-destructive hover:bg-destructive/10 rounded-md transition-colors border border-transparent hover:border-red-100" title="Xóa"><Trash2 size={18} /></button>
+                          <button onClick={() => handleDelete(card.id)} className="h-9 w-9 inline-flex items-center justify-center text-destructive hover:bg-destructive/10 rounded-md transition-colors border border-transparent hover:border-red-100" title="Xóa"><Trash2 size={18} /></button>
                         )}
                       </div>
                     </td>

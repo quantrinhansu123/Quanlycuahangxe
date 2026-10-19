@@ -10,7 +10,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "security:zalo": "node scripts/check-zalo-secrets.mjs",
-    "test": "node scripts/test-attendance.mjs && node scripts/test-attendance-p1.mjs && node scripts/test-sales-data.mjs && node scripts/test-sales-helpers.mjs && node scripts/test-sales-p0.mjs && node scripts/test-ct-financial-p2.mjs && node scripts/test-business-report.mjs && node scripts/test-reports-p3.mjs && node scripts/test-purchase-receipt.mjs && npm run test:performance",
+    "test": "node scripts/test-attendance.mjs && node scripts/test-attendance-p1.mjs && node scripts/test-sales-data.mjs && node scripts/test-sales-helpers.mjs && node scripts/test-sales-p0.mjs && node scripts/test-ct-financial-p2.mjs && node scripts/test-business-report.mjs && node scripts/test-reports-p3.mjs && node scripts/test-purchase-receipt.mjs && node --test scripts/test-report-line-amounts.mjs scripts/test-sales-order-duplicates.mjs scripts/test-sales-delete.mjs && npm run test:performance",
     "test:sales-p0": "node scripts/test-sales-p0.mjs",
     "db:measure-sales-p0": "node scripts/measure-sales-p0.mjs",
     "db:measure-sales-p0-http": "node scripts/measure-sales-p0-http.mjs",
@@ -33,7 +33,8 @@
     "test:report-charts": "node --test scripts/test-report-charts.mjs && node scripts/test-report-charts-ui.mjs",
     "test:sales-branch": "node scripts/test-sales-order-branch.mjs && node scripts/test-sales-order-branch-ui.mjs",
     "test:technician-privacy": "node --test scripts/test-technician-privacy.mjs scripts/test-report-order-details.mjs && node scripts/test-technician-privacy-ui.mjs && node scripts/test-customer-order-create-ui.mjs && node scripts/test-report-filters-ui.mjs",
-    "db:measure-reports-p3": "node scripts/measure-reports-p3.mjs"
+    "db:measure-reports-p3": "node scripts/measure-reports-p3.mjs",
+    "test:sales-issues": "node --test scripts/test-report-line-amounts.mjs scripts/test-sales-order-duplicates.mjs scripts/test-sales-delete.mjs && node scripts/test-sales-delete-ui.mjs"
   },
   "dependencies": {
     "@radix-ui/react-popover": "^1.1.15",
