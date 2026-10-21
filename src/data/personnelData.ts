@@ -74,9 +74,9 @@ export const upsertPersonnel = async (personnel: Partial<NhanSu>): Promise<NhanS
   // Fallback tạm thời cho môi trường DB chưa chạy migration mới (thiếu cột như luong_co_ban).
   if (error?.code === 'PGRST204') {
     const missingCol = getMissingColumnFromErr(error);
-    // Không được âm thầm bỏ ghi_chu_noi_bo: nếu migration chưa chạy, giao diện phải báo lỗi
-    // thay vì báo lưu thành công rồi làm mất ghi chú của người dùng.
-    if (missingCol && missingCol !== 'ghi_chu_noi_bo' && Object.prototype.hasOwnProperty.call(personnel, missingCol)) {
+    // Credentials and internal notes must never be silently discarded while
+    // reporting a successful save against an outdated database schema.
+    if (missingCol && !['ghi_chu_noi_bo', 'password', 'sdt'].includes(missingCol) && Object.prototype.hasOwnProperty.call(personnel, missingCol)) {
       const retryPayload = { ...personnel } as Record<string, unknown>;
       delete retryPayload[missingCol];
       const retry = await supabase
@@ -100,7 +100,6 @@ export const upsertPersonnel = async (personnel: Partial<NhanSu>): Promise<NhanS
     }
     const detail = formatPostgrestErr(error);
     console.error(`Error upserting personnel: ${detail}`);
-    console.error('Personnel payload:', personnel);
     throw new Error(formatPostgrestErr(error));
   }
   return data as NhanSu;
