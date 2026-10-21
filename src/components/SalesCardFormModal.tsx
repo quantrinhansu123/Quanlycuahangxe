@@ -193,7 +193,9 @@ const SalesCardFormModal: React.FC<{
             id: s.id,
             ten_dich_vu: s.ten_dich_vu,
             gia_ban: existing?.gia_ban ?? s.gia_ban ?? 0,
+            gia_von: existing?.gia_von ?? s.gia_nhap ?? 0,
             so_luong: existing?.so_luong ?? 1,
+            chi_phi: existing?.chi_phi ?? 0,
           };
         }
         if (existing) return existing;
@@ -819,7 +821,7 @@ const SalesCardFormModal: React.FC<{
       }} />}
       {creatingService && <div className="fixed inset-0" style={{ zIndex: 10000001 }}><ServiceFormModal isOpen editingService={null} initialData={newServiceData} branchOptions={['Cơ sở chính', ...CUSTOMER_BRANCH_OPTIONS]} showHoaHong={isAdmin} onClose={() => setCreatingService(false)} onSubmit={async data => {
         const saved = await upsertService(data); setCreatedServices(prev => [...prev, saved]); onServiceCreated?.(saved);
-        setFormData(prev => ({ ...prev, dich_vu_ids: [...(prev.dich_vu_ids || []), saved.id], service_items: [...(prev.service_items || []), { id: saved.id, ten_dich_vu: saved.ten_dich_vu, gia_ban: saved.gia_ban, so_luong: 1 }] }));
+        setFormData(prev => ({ ...prev, dich_vu_ids: [...(prev.dich_vu_ids || []), saved.id], service_items: [...(prev.service_items || []), { id: saved.id, ten_dich_vu: saved.ten_dich_vu, gia_ban: saved.gia_ban, gia_von: saved.gia_nhap ?? 0, so_luong: 1 }] }));
         setCreatingService(false);
       }} /></div>}
     </div>,

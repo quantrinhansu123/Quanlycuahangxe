@@ -286,7 +286,7 @@ export interface SalesCard {
 /** Trường form lập phiếu (một số chỉ dùng UI, không lưu vào the_ban_hang). */
 export type SalesCardFormData = Partial<SalesCard> & {
   dich_vu_ids?: string[];
-  service_items?: { id: string; ten_dich_vu: string; gia_ban: number; so_luong?: number }[];
+  service_items?: { id: string; ten_dich_vu: string; gia_ban: number; gia_von?: number; so_luong?: number; chi_phi?: number }[];
   co_so_khach?: string;
 };
 

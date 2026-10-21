@@ -18,6 +18,10 @@ const scenarios = [
   ['zero quantity stays zero', [row('a', { so_luong: 0, thanh_tien: null })], 0, 0, 0],
   ['null quantity defaults to one', [row('a', { so_luong: null, thanh_tien: null })], 150000, 62000, 1],
   ['stored manual amount is authoritative', [row('a', { so_luong: 2, thanh_tien: 250000 })], 250000, 124000, 2],
+  ['screenshot bearing cups: three units', [row('a', { gia_ban: 380000, gia_von: 130000, so_luong: 3, thanh_tien: 1140000 })], 1140000, 390000, 3],
+  ['screenshot tyre: one unit', [row('a', { gia_ban: 980000, gia_von: 760000, thanh_tien: 980000 })], 980000, 760000, 1],
+  ['screenshot steering bearings: two units', [row('a', { gia_ban: 480000, gia_von: 45000, so_luong: 2, thanh_tien: 960000 })], 960000, 90000, 2],
+  ['zero stored cost yields revenue as gross profit', [row('a', { gia_ban: 4500000, gia_von: 0, thanh_tien: 4500000 })], 4500000, 0, 1],
 ];
 for (const [name, records, revenue, cost, quantity] of scenarios) {
   test(`all report views agree: ${name}`, async () => {

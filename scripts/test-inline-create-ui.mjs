@@ -7,7 +7,7 @@ const origin = 'http://127.0.0.1:5217', branch = 'Cơ sở Bắc Giang';
 const html = `<div id="root"></div><script type="module">
 import React,{useState} from 'react';import {createRoot} from 'react-dom/client';import {BrowserRouter} from 'react-router-dom';
 import {ToastProvider} from '/src/context/ToastContext.tsx';import Sale from '/src/components/SalesCardFormModal.tsx';import {PurchaseReceiptFormModal as Purchase} from '/src/components/PurchaseReceiptFormModal.tsx';import Finance from '/src/components/FinancialFormModal.tsx';import '/src/index.css';
-const initial={id_bh:'BH-DRAFT',ngay:'2026-09-01',gio:'10:00',khach_hang_id:'KH-OLD',co_so_khach:'${branch}',nhan_vien_id:'Admin',dich_vu_ids:['service-old'],phuong_thuc_thanh_toan:'Tiền mặt'};
+const initial={id_bh:'BH-DRAFT',ngay:'2026-09-01',gio:'10:00',khach_hang_id:'KH-OLD',co_so_khach:'${branch}',nhan_vien_id:'Admin',dich_vu_ids:['service-old'],service_items:[{id:'service-old',ten_dich_vu:'Rửa xe',gia_ban:100,gia_von:45,so_luong:1,chi_phi:7}],phuong_thuc_thanh_toan:'Tiền mặt'};
 const customers=[{value:'KH-OLD',label:'Khách cũ',dia_chi_hien_tai:'${branch}'}],personnel=[{id:'staff',ho_ten:'Admin',co_so:'${branch}'}];
 const finance={loai_phieu:'phiếu chi',co_so:'${branch}',ngay:'2026-09-01',gio:'10:00',trang_thai:'Hoàn thành',so_tien:0,phuong_thuc:'Tiền mặt'};
 function Harness(){const [active,setActive]=useState('sale'),[saved,setSaved]=useState(''),[services,setServices]=useState([{id:'service-old',ten_dich_vu:'Rửa xe',co_so:'Cơ sở chính',gia_ban:100,gia_nhap:20}]);
@@ -68,6 +68,9 @@ try {
     await page.waitForFunction(() => document.querySelector('output')?.textContent.includes('Bugi inline'));
     const sale = JSON.parse(await page.locator('output').textContent());
     assert.equal(sale.so_km, 1234); assert.ok(sale.service_items.some(row => row.ten_dich_vu === 'Bugi inline'));
+    assert.equal(sale.service_items.find(row => row.ten_dich_vu === 'Bugi inline').gia_von, 80);
+    assert.equal(sale.service_items.find(row => row.id === 'service-old').gia_von, 45, 'stored cost survives a different current catalog cost');
+    assert.equal(sale.service_items.find(row => row.id === 'service-old').chi_phi, 7);
     await page.getByRole('button', { name: 'Open purchase', exact: true }).click();
     await page.getByPlaceholder('Ví dụ: Cty Phụ tùng A...').fill('Nhà cung cấp đang nhập');
     await page.getByPlaceholder('SL', { exact: true }).fill('3');

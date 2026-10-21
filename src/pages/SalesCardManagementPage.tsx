@@ -3,6 +3,7 @@ import type { DailySalesSummary } from '../data/salesQueryData';
 import { getErrorDetails, getReadErrorMessage, isAbortError } from '../lib/errorDetails';
 import { useBranches } from '../hooks/useBranches';
 import { salesAmount } from '../lib/salesAmount';
+import { mergeSalesLineAmounts } from '../lib/salesLineSnapshot';
 import {
   ArrowLeft,
   Building,
@@ -69,7 +70,7 @@ import { getSalesOrderBranchError } from '../utils/salesOrderBranch';
 
 const SalesCardFormModal = React.lazy(() => import('../components/SalesCardFormModal'));
 
-type ServiceLineItem = { id: string; ten_dich_vu: string; gia_ban: number; so_luong: number };
+type ServiceLineItem = { id: string; ten_dich_vu: string; gia_ban: number; gia_von: number; so_luong: number; chi_phi: number };
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -95,7 +96,10 @@ function mergeServiceLineItems(
     ten_dich_vu?: string | null;
     san_pham?: string | null;
     gia_ban?: number | null;
+    gia_von?: number | null;
     so_luong?: number | null;
+    thanh_tien?: number | null;
+    chi_phi?: number | null;
     co_so?: string | null;
   }>,
   services: DichVu[],
@@ -114,19 +118,12 @@ function mergeServiceLineItems(
     const serviceId = masterService?.id || ct.dich_vu_id || ct.san_pham_vat_tu_id || raw || displayName;
     if (!serviceId) continue;
 
-    const qty = ct.so_luong || 1;
-    const price = ct.gia_ban || 0;
     const existing = merged.get(serviceId);
-    if (existing) {
-      existing.so_luong += qty;
-    } else {
-      merged.set(serviceId, {
-        id: serviceId,
-        ten_dich_vu: displayName,
-        gia_ban: price,
-        so_luong: qty,
-      });
-    }
+    merged.set(serviceId, {
+      id: serviceId,
+      ten_dich_vu: existing?.ten_dich_vu || displayName,
+      ...mergeSalesLineAmounts(existing ? [existing, ct] : [ct]),
+    });
   }
 
   return Array.from(merged.values());
@@ -961,8 +958,9 @@ const SalesCardManagementPage: React.FC = () => {
           const service = services.find(s => s.id === sId);
           const override = (formDataHeader.service_items || []).find(it => it.id === sId);
           return { san_pham: service?.ten_dich_vu || override?.ten_dich_vu || 'Dịch vụ',
-            gia_ban: override?.gia_ban ?? service?.gia_ban ?? 0, gia_von: service?.gia_nhap || 0,
-            so_luong: override?.so_luong ?? 1, chi_phi: 0 };
+            gia_ban: override?.gia_ban ?? service?.gia_ban ?? 0,
+            gia_von: override?.gia_von ?? service?.gia_nhap ?? 0,
+            so_luong: override?.so_luong ?? 1, chi_phi: override?.chi_phi ?? 0 };
         });
         // One server transaction seals the header, details and payment together.
         const { data, error } = await supabase.rpc('create_technician_sales_order', { p_header: cleanData, p_details: details });
@@ -1010,8 +1008,7 @@ const SalesCardManagementPage: React.FC = () => {
       // 'Deep Clean': Clear ALL old records (both by UUID and by Order Code) to prevent phantom duplicates
       await deleteSalesCardCTsByOrderId(savedCard.id, savedCard.id_bh || undefined);
 
-      // Robust Service Mapping: Always use dich_vu_ids as the source of truth for ADD/DELETE,
-      // and lookup in service_items ONLY for price overrides.
+      // Keep saved order prices/costs when editing; catalog changes apply to new items.
       const detailRecords: Partial<SalesCardCT>[] = (dich_vu_ids || []).map((sId: string) => {
         const service = services.find(s => s.id === sId);
         // Look for a manual price override from the modal's state
@@ -1024,9 +1021,9 @@ const SalesCardManagementPage: React.FC = () => {
           san_pham: service?.ten_dich_vu || override?.ten_dich_vu || 'Dịch vụ',
           co_so: orderBranch,
           gia_ban: override?.gia_ban ?? (service?.gia_ban || 0),
-          gia_von: service?.gia_nhap || 0,
+          gia_von: override?.gia_von ?? service?.gia_nhap ?? 0,
           so_luong: override?.so_luong ?? 1,
-          chi_phi: 0,
+          chi_phi: override?.chi_phi ?? 0,
           ngay: savedCard.ngay
         };
       });

@@ -74,8 +74,8 @@ const SalesCardCTForm: React.FC<SalesCardCTFormModalProps> = React.memo(({
     setFormData(prev => ({
       ...prev,
       san_pham: val,
-      gia_ban: selectedService?.gia_ban || prev.gia_ban,
-      gia_von: selectedService?.gia_nhap || prev.gia_von,
+      gia_ban: selectedService?.gia_ban ?? prev.gia_ban,
+      gia_von: selectedService?.gia_nhap ?? prev.gia_von,
       ten_don_hang: prev.ten_don_hang || (val ? `Bán ${val}` : '')
     }));
   };
