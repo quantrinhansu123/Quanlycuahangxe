@@ -39,7 +39,7 @@ import { getTransactionByOrderId, upsertTransaction } from '../data/financialDat
 import type { NhanSu } from '../data/personnelData';
 import { getPersonnel } from '../data/personnelData';
 import { isQuanLyViTri } from '../data/viewPermissions';
-import { bulkUpsertSalesCardCTs, deleteSalesCardCTsByOrderId, type SalesCardCT } from '../data/salesCardCTData';
+import type { SalesCardCT } from '../data/salesCardCTData';
 import { syncInventoryExportFromSalesOrder } from '../data/inventoryData';
 import { getServices } from '../data/serviceData';
 import type { SalesCard, SalesCardFormData } from '../data/salesCardData';
@@ -56,7 +56,7 @@ import {
   normalizeSalesCards,
   resolveServiceDisplayName,
   resolveServiceNameForDetail,
-  upsertSalesCard,
+  saveSalesOrder,
   validateSalesOrderBranch,
 } from '../data/salesCardData';
 import { computeChanges, saveEditHistory } from '../data/salesCardHistoryData';
@@ -981,66 +981,41 @@ const SalesCardManagementPage: React.FC = () => {
         return;
       }
 
-      // Cổ chai 4 & 5: Các bước lưu data độc lập có thể chạy song song (Promise.all)
-      // Bước 1 & 2: Sinh/Cập nhật phiếu gốc và xóa chi tiết cũ phải chạy trước vì phần dưới phụ thuộc nó
-      const savedCard = await upsertSalesCard(cleanData, !editingCard);
-
-      // Ghi lịch sử chỉnh sửa khi cập nhật phiếu cũ
-      if (editingCard) {
-        // formDataHeader.service_items chứa form mảng mới, editingCard.the_ban_hang_ct chứa mảng cũ
-        const changes = computeChanges(editingCard, cleanData, editingCard.the_ban_hang_ct || [], formDataHeader.service_items || []);
-        if (changes.length > 0) {
-          saveEditHistory(savedCard.id, nhanVien?.ho_ten || 'Hệ thống', changes);
-        }
-      } else {
-        // Ghi lại người lập phiếu từ thời điểm triển khai tính năng kiểm tra đơn.
-        // Các phiếu cũ không thể suy ngược chính xác người đã nhập ban đầu.
-        saveEditHistory(savedCard.id, nhanVien?.ho_ten || 'Hệ thống', [
-          {
-            field: 'created',
-            label: 'Tạo phiếu',
-            old_value: null,
-            new_value: savedCard.id_bh || savedCard.id,
-          },
-        ]);
-      }
-
-      // 'Deep Clean': Clear ALL old records (both by UUID and by Order Code) to prevent phantom duplicates
-      await deleteSalesCardCTsByOrderId(savedCard.id, savedCard.id_bh || undefined);
-
       // Keep saved order prices/costs when editing; catalog changes apply to new items.
       const detailRecords: Partial<SalesCardCT>[] = (dich_vu_ids || []).map((sId: string) => {
         const service = services.find(s => s.id === sId);
         // Look for a manual price override from the modal's state
         const override = (formDataHeader.service_items || []).find(it => it.id === sId);
-        const orderRef = savedCard.id_bh || savedCard.id;
+        const orderRef = cleanData.id_bh || cleanData.id || null;
 
         return {
           id_don_hang: orderRef,
-          ten_don_hang: formDataHeader.id_bh || `Đơn hàng ${savedCard.id_bh || savedCard.id.slice(0, 8)}`,
+          ten_don_hang: cleanData.id_bh || null,
           san_pham: service?.ten_dich_vu || override?.ten_dich_vu || 'Dịch vụ',
           co_so: orderBranch,
           gia_ban: override?.gia_ban ?? (service?.gia_ban || 0),
           gia_von: override?.gia_von ?? service?.gia_nhap ?? 0,
           so_luong: override?.so_luong ?? 1,
           chi_phi: override?.chi_phi ?? 0,
-          ngay: savedCard.ngay
+          ngay: cleanData.ngay
         };
       });
 
-      // AUTOMATION: Định hình dòng tài chính - Dựa trên detailRecords vừa tính ở trên cho chính xác
-      const totalAmount = detailRecords.reduce(
-        (sum, item) => sum + ((item.gia_ban || 0) * (item.so_luong || 1)),
-        0
-      );
-
+      // The server calculates the invoice total and commits services and receipt atomically.
+      const savedCard = await saveSalesOrder(cleanData, detailRecords, !editingCard);
+      const totalAmount = Number(savedCard.tong_tien ?? 0);
+      if (editingCard) {
+        const changes = computeChanges(editingCard, cleanData, editingCard.the_ban_hang_ct || [], formDataHeader.service_items || []);
+        if (changes.length > 0) void saveEditHistory(savedCard.id, nhanVien?.ho_ten || 'Hệ thống', changes);
+      } else {
+        void saveEditHistory(savedCard.id, nhanVien?.ho_ten || 'Hệ thống', [{
+          field: 'created', label: 'Tạo phiếu', old_value: null, new_value: savedCard.id_bh || savedCard.id,
+        }]);
+      }
       const exportCoSo = orderBranch;
-      // The payment guard reads the committed order total after detail triggers run.
-      if (detailRecords.length > 0) await bulkUpsertSalesCardCTs(detailRecords);
-
-      // Bước 3: Đẩy đồng thời TẤT CẢ TÁC VỤ còn lại không phụ thuộc nhau
-      await Promise.all([
-        syncInventoryExportFromSalesOrder({
+      let inventoryFailed = false;
+      try {
+        await syncInventoryExportFromSalesOrder({
           orderId: savedCard.id,
           orderCode: savedCard.id_bh,
           ngay: savedCard.ngay,
@@ -1052,33 +1027,11 @@ const SalesCardManagementPage: React.FC = () => {
             so_luong: item.so_luong ?? 1,
             gia: item.gia_von ?? 0,
           })),
-        }),
-        (async () => {
-          const existingTx = await getTransactionByOrderId(savedCard.id);
-          const paymentMethod =
-            existingTx?.phuong_thuc ||
-            savedCard.phuong_thuc_thanh_toan ||
-            cleanData.phuong_thuc_thanh_toan ||
-            'Tiền mặt';
-          const financialRecord: Partial<ThuChi> = {
-            id: existingTx?.id,
-            loai_phieu: 'phiếu thu',
-            source_type: 'sales_order',
-            source_id: savedCard.id,
-            phuong_thuc: paymentMethod,
-            id_don: savedCard.id,
-            so_tien: totalAmount,
-            ngay: savedCard.ngay,
-            gio: savedCard.gio,
-            co_so: orderBranch,
-            id_khach_hang: savedCard.khach_hang_id,
-            danh_muc: 'Doanh thu dịch vụ',
-            trang_thai: paymentMethod === 'Chưa thanh toán' ? 'Đang chờ' : 'Hoàn thành',
-            ghi_chu: existingTx?.ghi_chu || `Hệ thống tự động: Đồng bộ tiền đơn hàng ${savedCard.id.slice(0, 8)}`
-          };
-          await upsertTransaction(financialRecord);
-        })()
-      ]);
+        });
+      } catch (inventoryError) {
+        inventoryFailed = true;
+        console.error('Không đồng bộ được xuất kho cho đơn đã lưu:', inventoryError);
+      }
 
       // Đơn mới được đưa vào hàng đợi duyệt Zalo. Không gửi tự động: chỉ quản trị viên
       // mới có thể bấm duyệt ở trang Gửi ZNS → Duyệt tin nhắn.
@@ -1138,7 +1091,7 @@ const SalesCardManagementPage: React.FC = () => {
       }
 
       handleCloseModal();
-      showToast('Lập phiếu bán hàng thành công!', 'success');
+      showToast(inventoryFailed ? 'Đơn đã lưu. Vui lòng kiểm tra đồng bộ xuất kho.' : 'Lưu phiếu bán hàng thành công!', inventoryFailed ? 'warning' : 'success');
       if (!editingCard && currentPage !== 1) {
         // Về trang 1 tải đồng thời danh sách và tổng từ cùng một truy vấn.
         setCurrentPage(1);

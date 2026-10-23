@@ -17,8 +17,9 @@ new Function('exports', 'mergeSalesLineAmounts', 'findServiceForOrderDetailLine'
   (line, services) => services.find(service => service.id === line.dich_vu_id || service.ten_dich_vu === line.san_pham),
   () => false, raw => raw);
 const detailStart = page.indexOf('const detailRecords: Partial<SalesCardCT>[] =');
-const detailSource = page.slice(detailStart, page.indexOf('// AUTOMATION:', detailStart));
+const detailSource = page.slice(detailStart, page.indexOf('// The server calculates', detailStart));
 new Function('exports', compile(`export function buildDetails(services:any[],formDataHeader:any,savedCard:any,orderBranch:string,dich_vu_ids:string[]) {
+  const cleanData = { ...savedCard, ...formDataHeader };
   ${detailSource}
   return detailRecords;
 }`))(exported);

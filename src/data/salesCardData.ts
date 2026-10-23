@@ -949,6 +949,25 @@ export const upsertSalesCard = async (card: Partial<SalesCard>, isNew: boolean =
   throw new Error("Failed to insert after multiple attempts due to ID collision.");
 };
 
+/** Save editable invoices and their amounts together; never fall back to delete/insert REST calls. */
+export async function saveSalesOrder(card: Partial<SalesCard>, details: Partial<SalesCardCT>[], isNew = false): Promise<SalesCard> {
+  const header = salesWritePayload(card);
+  if (isNew) delete header.id;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { data, error } = await supabase.rpc('save_sales_order', { p_header: header, p_details: details });
+    if (!error) return data as SalesCard;
+    if (error.code === 'PGRST202') {
+      throw new Error('Máy chủ chưa cập nhật chức năng lưu đơn. Vui lòng liên hệ quản lý.');
+    }
+    if (isNew && error.code === '23505' && attempt < 2) {
+      header.id_bh = await getNextSalesCardCode();
+      continue;
+    }
+    throw error;
+  }
+  throw new Error('Không tạo được mã phiếu bán hàng. Vui lòng thử lại.');
+}
+
 export const bulkUpsertSalesCards = async (cards: Partial<SalesCard>[]): Promise<void> => {
   cards = cards.map(salesWritePayload);
   const toUpdate = cards.filter(c => c.id);
