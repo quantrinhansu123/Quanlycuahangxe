@@ -1,6 +1,6 @@
 import { queryCustomers } from '../data/salesQueryData';
 import type { DailySalesSummary } from '../data/salesQueryData';
-import { getErrorDetails, getReadErrorMessage, getSalesWriteErrorMessage, isAbortError } from '../lib/errorDetails';
+import { getErrorDetails, getReadErrorMessage, isAbortError } from '../lib/errorDetails';
 import { useBranches } from '../hooks/useBranches';
 import { salesAmount } from '../lib/salesAmount';
 import { mergeSalesLineAmounts } from '../lib/salesLineSnapshot';
@@ -138,6 +138,22 @@ function upsertCustomerInList(prev: KhachHang[], customer: KhachHang): KhachHang
   return exists ? prev : [customer, ...prev];
 }
 
+function toLocalIsoDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/** Tuần hiện tại (T2 → CN, local) — phạm vi tải mặc định để tránh timeout. */
+function currentWeekBounds(now = new Date()): { start: string; end: string } {
+  const day = now.getDay(); // 0=CN … 6=T7
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() + mondayOffset);
+  const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
+  return { start: toLocalIsoDate(start), end: toLocalIsoDate(end) };
+}
+
 const SalesCardManagementPage: React.FC = () => {
   const branches = useBranches();
   const { nhanVien, isAdmin, isTechnician, canManageOrders, canViewRevenue, canUseDataFilters } = useAuth();
@@ -177,9 +193,9 @@ const SalesCardManagementPage: React.FC = () => {
   const [editingCard, setEditingCard] = useState<SalesCard | null>(null);
   const [formData, setFormData] = useState<SalesCardFormData>({});
 
-  // Date filtering states — mặc định không lọc ngày (hiển thị tất cả)
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  // Date filtering — mặc định tuần hiện tại để tránh quét toàn DB (timeout 57014)
+  const [startDate, setStartDate] = useState(() => currentWeekBounds().start);
+  const [endDate, setEndDate] = useState(() => currentWeekBounds().end);
   const [selectedMonth, setSelectedMonth] = useState('');
   const [selectedStaff, setSelectedStaff] = useState('');
   const [selectedBranch, setSelectedBranch] = useState('');
@@ -237,8 +253,9 @@ const SalesCardManagementPage: React.FC = () => {
       setLoading(true);
       const staffFilter = isAdmin && selectedStaff ? selectedStaff : undefined;
       const branchFilter = isAdmin && selectedBranch ? selectedBranch : undefined;
-      const dateStart = canUseDataFilters ? (startDate || undefined) : undefined;
-      const dateEnd = canUseDataFilters ? (endDate || undefined) : undefined;
+      // Luôn gửi khoảng ngày (kể cả kỹ thuật viên) để sales_query không quét toàn bộ lịch sử.
+      const dateStart = startDate || undefined;
+      const dateEnd = endDate || undefined;
       const search = canUseDataFilters ? debouncedSearch : '';
 
       const cardsResult = await getSalesCardsPaginated(
@@ -1107,7 +1124,7 @@ const SalesCardManagementPage: React.FC = () => {
         hint: error?.hint,
         raw: cause,
       });
-      showToast(`Lỗi lưu phiếu: ${getSalesWriteErrorMessage(cause, 'save')}`, 'error');
+      showToast(`Lỗi lưu phiếu: ${error?.message || 'Không thể lưu phiếu bán hàng.'}`, 'error');
     }
   };
 
@@ -1401,23 +1418,17 @@ const SalesCardManagementPage: React.FC = () => {
         await deleteSalesCard(id);
         await reloadAfterMutation();
       } catch (error) {
-        showToast(getSalesWriteErrorMessage(error, 'delete'), 'error');
+        showToast(getReadErrorMessage(error, 'Không thể xóa phiếu. Vui lòng thử lại.'), 'error');
       }
     }
   };
 
-  const toLocalIsoDate = (d: Date): string => {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-  };
-
   const handleMonthChange = (monthStr: string) => {
-    setSelectedMonth(monthStr);
     if (!monthStr) {
-      setStartDate('');
-      setEndDate('');
+      const week = currentWeekBounds();
+      setSelectedMonth('');
+      setStartDate(week.start);
+      setEndDate(week.end);
       setCurrentPage(1);
       return;
     }
@@ -1434,9 +1445,10 @@ const SalesCardManagementPage: React.FC = () => {
   };
 
   const handleClearFilters = () => {
+    const week = currentWeekBounds();
     setSearchQuery('');
-    setStartDate('');
-    setEndDate('');
+    setStartDate(week.start);
+    setEndDate(week.end);
     setSelectedMonth('');
     setSelectedStaff('');
     setSelectedBranch('');
@@ -1660,7 +1672,7 @@ const SalesCardManagementPage: React.FC = () => {
                   onChange={(e) => handleMonthChange(e.target.value)}
                   className="appearance-none min-w-[6.5rem] sm:min-w-[7.5rem] pl-2 pr-7 sm:pl-3 sm:pr-8 py-1.5 bg-muted/50 border border-border rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none cursor-pointer transition-all text-[11px] sm:text-[13px]"
                 >
-                  <option value="">Tháng...</option>
+                  <option value="">Tuần này</option>
                   {Array.from({ length: 12 }, (_, i) => {
                     const d = new Date();
                     d.setMonth(d.getMonth() - i);
@@ -1679,6 +1691,7 @@ const SalesCardManagementPage: React.FC = () => {
                 value={startDate}
                 onChange={(e) => {
                   setStartDate(e.target.value);
+                  setSelectedMonth('');
                   setCurrentPage(1);
                 }}
                 className="bg-transparent border-none text-[11px] sm:text-[13px] font-medium outline-none p-1 w-[7.25rem] sm:w-[8.5rem] cursor-pointer"
@@ -1689,17 +1702,18 @@ const SalesCardManagementPage: React.FC = () => {
                 value={endDate}
                 onChange={(e) => {
                   setEndDate(e.target.value);
+                  setSelectedMonth('');
                   setCurrentPage(1);
                 }}
                 className="bg-transparent border-none text-[11px] sm:text-[13px] font-medium outline-none p-1 w-[7.25rem] sm:w-[8.5rem] cursor-pointer"
               />
             </div>
 
-            {(startDate || endDate || searchQuery || selectedMonth || (isAdmin && (selectedStaff || selectedBranch))) && (
+            {(searchQuery || selectedStaff || selectedBranch || selectedMonth || startDate !== currentWeekBounds().start || endDate !== currentWeekBounds().end) && (
               <button
                 onClick={handleClearFilters}
                 className="p-1.5 sm:p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-all border border-transparent hover:border-rose-100 shrink-0"
-                title="Xóa bộ lọc"
+                title="Về tuần hiện tại"
               >
                 <X size={18} className="sm:hidden" />
                 <X size={20} className="hidden sm:block" />
@@ -1718,6 +1732,38 @@ const SalesCardManagementPage: React.FC = () => {
             </button>
           </div>
         </div>
+        )}
+
+        {/* Kỹ thuật viên: chỉ chọn tháng (vẫn giới hạn phạm vi để tránh timeout) */}
+        {!canUseDataFilters && (
+          <div className="bg-card p-2 sm:p-3 rounded-xl border border-border shadow-sm font-sans">
+            <div className="flex items-center justify-end gap-2">
+              <div className="flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold text-muted-foreground">
+                <Calendar size={14} />
+                <span>Tháng:</span>
+                <div className="relative">
+                  <select
+                    value={selectedMonth}
+                    onChange={(e) => handleMonthChange(e.target.value)}
+                    className="appearance-none min-w-[7.5rem] pl-3 pr-8 py-1.5 bg-muted/50 border border-border rounded-lg outline-none cursor-pointer text-[11px] sm:text-[13px]"
+                  >
+                    <option value="">Tuần này</option>
+                    {Array.from({ length: 12 }, (_, i) => {
+                      const d = new Date();
+                      d.setMonth(d.getMonth() - i);
+                      const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                      return (
+                        <option key={val} value={val}>
+                          Tháng {d.getMonth() + 1}/{d.getFullYear()}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 size-3.5 pointer-events-none text-muted-foreground" />
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Summary Bar - Tổng đơn & Tổng tiền (ẩn với kỹ thuật viên) */}
