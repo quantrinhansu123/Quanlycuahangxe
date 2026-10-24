@@ -3,6 +3,8 @@ import fs from 'node:fs';
 import { createServer } from 'vite';
 import { chromium } from 'playwright';
 
+process.env.PW_TEST_SCREENSHOT_NO_FONTS_READY='1';
+
 const origin='http://127.0.0.1:5223';
 const html=`<div id="root"></div><script type="module">
 import React from 'react';import {createRoot} from 'react-dom/client';import {BrowserRouter} from 'react-router-dom';
@@ -26,7 +28,7 @@ try{
   for(const width of [1440,375]){
     const context=await browser.newContext({viewport:{width,height:1000},timezoneId:'Asia/Ho_Chi_Minh'});
     const page=await context.newPage();lastPage=page;page.setDefaultTimeout(20000);
-    const errors=[],requests=[],saves=[];let fail=true,inventoryFail=false;
+    const errors=[],requests=[],saves=[];let fail='validation',inventoryFail=false;
     let invoice={id:'00000000-0000-0000-0000-000000000099',id_bh:'BH-EDIT-TEST',ngay:'2026-10-01',gio:'10:00',co_so:staff.co_so,
       nhan_vien_id:staff.ho_ten,khach_hang_id:customer.ma_khach_hang,khach_hang:customer,nhan_su:{ho_ten:staff.ho_ten},dich_vu_id:services[0].id,
       so_km:1234,tong_tien:0,resolved_amount:80000,phuong_thuc_thanh_toan:'Tiền mặt',
@@ -43,6 +45,9 @@ try{
       requests.push({endpoint,method:request.method()});
       if(endpoint==='save_sales_order'){
         const args=request.postDataJSON();saves.push(args);
+        await new Promise(resolve=>setTimeout(resolve,200));
+        if(fail==='timeout')return json({code:'57014',message:'canceling statement due to statement timeout'},500);
+        if(fail==='network')return route.abort('failed');
         if(fail)return json({code:'23514',message:'Lỗi lưu kiểm thử: dữ liệu gốc được giữ nguyên.'},409);
         const total=args.p_details.reduce((sum,line)=>sum+line.gia_ban*line.so_luong,0);
         invoice={...invoice,...args.p_header,tong_tien:total,resolved_amount:total,the_ban_hang_ct:args.p_details.map((line,i)=>({...line,id:'detail-'+i,id_don_hang:invoice.id_bh,thanh_tien:line.gia_ban*line.so_luong}))};tx.so_tien=total;
@@ -73,9 +78,20 @@ try{
     const line=page.locator('div.bg-card').filter({has:page.locator('span[title="Puly côn SH 2020"]')}).last();
     await line.locator('input').first().fill('150000');await line.locator('input').last().fill('2');
     await page.getByRole('button',{name:'Lưu thay đổi',exact:true}).click();
+    await page.locator('form').evaluate(form=>{
+      form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));
+      form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));
+    });
     await page.getByText('Lỗi lưu phiếu: Lỗi lưu kiểm thử: dữ liệu gốc được giữ nguyên.',{exact:true}).waitFor();
+    assert.equal(saves.length,1,'Repeated submit events while saving send one RPC');
     assert.equal(invoice.tong_tien,0);assert.equal(await page.locator('input[name="id_bh"]').isVisible(),true);
     assert.equal(saves[0].p_details[0].san_pham,'Puly côn SH 2020');assert.equal(saves[0].p_details[0].gia_ban,150000);assert.equal(saves[0].p_details[0].so_luong,2);
+    fail='timeout';await page.getByRole('button',{name:'Lưu thay đổi',exact:true}).click();
+    await page.getByText('Lỗi lưu phiếu: Lưu phiếu quá thời gian. Thay đổi chưa được lưu. Vui lòng thử lại.',{exact:true}).waitFor();
+    assert.equal(invoice.tong_tien,0);
+    fail='network';await page.getByRole('button',{name:'Lưu thay đổi',exact:true}).click();
+    await page.getByText('Lỗi lưu phiếu: Mất kết nối máy chủ. Vui lòng tải lại danh sách để kiểm tra phiếu trước khi thao tác lại.',{exact:true}).waitFor();
+    assert.equal(invoice.tong_tien,0);
     fail=false;await page.getByRole('button',{name:'Lưu thay đổi',exact:true}).click();
     await page.locator('input[name="id_bh"]').waitFor({state:'detached'});await page.getByText('Lưu phiếu bán hàng thành công!',{exact:true}).waitFor();
     assert.equal(invoice.tong_tien,300000);assert.equal(tx.so_tien,300000);
@@ -87,11 +103,12 @@ try{
     await page.getByText('Đơn đã lưu. Vui lòng kiểm tra đồng bộ xuất kho.',{exact:true}).waitFor();
     assert.equal(invoice.tong_tien,180000);assert.equal(tx.so_tien,180000);
     assert.equal(await page.locator('input[name="id_bh"]').count(),0,'A failed inventory sync closes the saved editor instead of reporting that the order failed to save');
-    assert.equal(saves.length,3);assert.equal(requests.filter(r=>['the_ban_hang','the_ban_hang_ct','thu_chi'].includes(r.endpoint)&&r.method!=='GET').length,0);
+    assert.equal(saves.length,5);assert.equal(requests.filter(r=>['the_ban_hang','the_ban_hang_ct','thu_chi'].includes(r.endpoint)&&r.method!=='GET').length,0);
     assert.deepEqual(errors,[]);await context.close();console.log(`PASS ${width}px: replace service, edit quantity/price, failed save preserves draft, retry, reopen, one RPC, inventory warning`);
   }
 }catch(error){
-  await lastPage?.screenshot({path:'.build-verification/sales-save/failure.png',fullPage:true});
+  console.error('Sales save UI failure:',error);
+  await lastPage?.screenshot({path:'.build-verification/sales-save/failure.png',fullPage:true,timeout:3000}).catch(()=>{});
   if(lastPage)fs.writeFileSync('.build-verification/sales-save/failure.html',await lastPage.content());
   throw error;
 }finally{await browser?.close();await server.close();}

@@ -37,7 +37,7 @@
     "test:technician-privacy": "node --test scripts/test-technician-privacy.mjs scripts/test-report-order-details.mjs && node scripts/test-technician-privacy-ui.mjs && node scripts/test-customer-order-create-ui.mjs && node scripts/test-report-filters-ui.mjs",
     "db:measure-reports-p3": "node scripts/measure-reports-p3.mjs",
     "test:sales-issues": "node --test scripts/test-report-line-amounts.mjs scripts/test-sales-order-duplicates.mjs scripts/test-sales-delete.mjs && node scripts/test-sales-delete-ui.mjs",
-    "test:sales-save": "node --test scripts/test-sales-save.mjs scripts/test-sales-cost-snapshot.mjs && node scripts/test-sales-save-ui.mjs"
+    "test:sales-save": "node --test scripts/test-sales-save.mjs scripts/test-sales-cost-snapshot.mjs scripts/test-sales-operations-performance.mjs && node scripts/test-sales-save-ui.mjs"
   },
   "dependencies": {
     "@radix-ui/react-popover": "^1.1.15",

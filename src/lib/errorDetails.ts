@@ -31,3 +31,18 @@ export function getReadErrorMessage(error: unknown, fallback: string): string {
   }
   return message?.trim() || fallback;
 }
+
+/** A database timeout rolls back the write; a disconnected response is ambiguous. */
+export function getSalesWriteErrorMessage(error: unknown, action: 'save' | 'delete'): string {
+  const details = getErrorDetails(error);
+  const text = [details.message, details.details, details.hint].filter(Boolean).join(' ');
+  if (details.code === '57014' || /statement timeout|canceling statement/i.test(text)) {
+    return action === 'save'
+      ? 'Lưu phiếu quá thời gian. Thay đổi chưa được lưu. Vui lòng thử lại.'
+      : 'Xoá phiếu quá thời gian. Phiếu chưa bị xoá. Vui lòng thử lại.';
+  }
+  if (/failed to fetch|fetch failed|network\s*error|network request failed|load failed/i.test(text)) {
+    return 'Mất kết nối máy chủ. Vui lòng tải lại danh sách để kiểm tra phiếu trước khi thao tác lại.';
+  }
+  return getReadErrorMessage(error, action === 'save' ? 'Không thể lưu phiếu bán hàng.' : 'Không thể xoá phiếu bán hàng.');
+}

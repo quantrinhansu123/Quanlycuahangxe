@@ -96,6 +96,7 @@ const SalesCardFormModal: React.FC<{
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submittingRef = React.useRef(false);
   const [showServiceWarning, setShowServiceWarning] = useState(false);
   const [showBranchWarning, setShowBranchWarning] = useState(false);
   const [creatingCustomer, setCreatingCustomer] = useState(false);
@@ -350,6 +351,7 @@ const SalesCardFormModal: React.FC<{
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submittingRef.current || isCollecting) return;
 
     if (!isAdmin && branchAccessError) {
       alert(branchAccessError);
@@ -401,10 +403,12 @@ const SalesCardFormModal: React.FC<{
       return;
     }
 
+    submittingRef.current = true;
     setIsSubmitting(true);
     try {
       await onSubmit({ ...formData, co_so_khach: coSo });
     } finally {
+      submittingRef.current = false;
       setIsSubmitting(false);
     }
   };

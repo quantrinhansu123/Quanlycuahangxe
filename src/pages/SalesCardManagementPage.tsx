@@ -1,6 +1,6 @@
 import { queryCustomers } from '../data/salesQueryData';
 import type { DailySalesSummary } from '../data/salesQueryData';
-import { getErrorDetails, getReadErrorMessage, isAbortError } from '../lib/errorDetails';
+import { getErrorDetails, getReadErrorMessage, getSalesWriteErrorMessage, isAbortError } from '../lib/errorDetails';
 import { useBranches } from '../hooks/useBranches';
 import { salesAmount } from '../lib/salesAmount';
 import { mergeSalesLineAmounts } from '../lib/salesLineSnapshot';
@@ -1107,7 +1107,7 @@ const SalesCardManagementPage: React.FC = () => {
         hint: error?.hint,
         raw: cause,
       });
-      showToast(`Lỗi lưu phiếu: ${error?.message || 'Không thể lưu phiếu bán hàng.'}`, 'error');
+      showToast(`Lỗi lưu phiếu: ${getSalesWriteErrorMessage(cause, 'save')}`, 'error');
     }
   };
 
@@ -1401,7 +1401,7 @@ const SalesCardManagementPage: React.FC = () => {
         await deleteSalesCard(id);
         await reloadAfterMutation();
       } catch (error) {
-        showToast(getReadErrorMessage(error, 'Không thể xóa phiếu. Vui lòng thử lại.'), 'error');
+        showToast(getSalesWriteErrorMessage(error, 'delete'), 'error');
       }
     }
   };
