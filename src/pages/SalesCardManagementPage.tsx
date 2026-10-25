@@ -1124,7 +1124,11 @@ const SalesCardManagementPage: React.FC = () => {
         hint: error?.hint,
         raw: cause,
       });
-      showToast(`Lỗi lưu phiếu: ${error?.message || 'Không thể lưu phiếu bán hàng.'}`, 'error');
+      const rawMsg = error?.message || '';
+      const friendlyMsg = /Khách hàng\/xe đã tồn tại/i.test(rawMsg)
+        ? 'Khách hàng/xe này đã có trên hệ thống (trùng SĐT và biển số). Hãy chọn khách đã tồn tại rồi lưu lại.'
+        : rawMsg || 'Không thể lưu phiếu bán hàng.';
+      showToast(`Lỗi lưu phiếu: ${friendlyMsg}`, 'error');
     }
   };
 

@@ -46,7 +46,9 @@ export const ToastContainer: React.FC = () => {
             >
               <div className="flex items-center gap-3">
                 <div className="shrink-0">{icons[toast.type]}</div>
-                <p className="text-[14px] font-bold tracking-tight">{toast.message}</p>
+                <p className="text-[14px] font-bold tracking-tight break-words whitespace-pre-wrap leading-snug">
+                  {toast.message}
+                </p>
               </div>
               <button 
                 onClick={() => removeToast(toast.id)}
@@ -56,7 +58,6 @@ export const ToastContainer: React.FC = () => {
                 <X size={16} className="opacity-40" />
               </button>
               
-              {/* Progress Bar for 2s duration */}
               <motion.div 
                 className={cn(
                   "absolute bottom-0 left-0 h-0.5 w-full origin-left",
@@ -67,7 +68,7 @@ export const ToastContainer: React.FC = () => {
                 )}
                 initial={{ scaleX: 1 }}
                 animate={{ scaleX: 0 }}
-                transition={{ duration: 2, ease: "linear" }}
+                transition={{ duration: toast.type === 'error' ? 5 : 2, ease: "linear" }}
               />
             </motion.div>
           ))}

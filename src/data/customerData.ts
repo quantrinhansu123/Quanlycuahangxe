@@ -80,12 +80,45 @@ export const getCustomersPaginated = (page: number, pageSize: number, searchQuer
 export const getCustomersForExport = (searchQuery?: string, depts?: string[], cycles?: number[], branchScope?: string) =>
   queryAllCustomers({ p_search: searchQuery, p_branches: depts, p_cycles: cycles, p_scope: branchScope });
 
+/** ID khách đã có từ lỗi trigger check_customer_identity (trùng SĐT + biển số). */
+export function parseDuplicateCustomerId(error: unknown): string | null {
+  if (!error || typeof error !== 'object') return null;
+  const message = typeof (error as { message?: unknown }).message === 'string'
+    ? (error as { message: string }).message
+    : '';
+  const match = message.match(
+    /Khách hàng\/xe đã tồn tại:\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i
+  );
+  return match?.[1] ?? null;
+}
+
+export async function getCustomerById(id: string): Promise<KhachHang | null> {
+  const { data, error } = await supabase.from('khach_hang').select('*').eq('id', id).maybeSingle();
+  if (error) throw error;
+  return (data as KhachHang | null) ?? null;
+}
+
+/** Khi tạo mới trùng SĐT+biển số: trả về khách đã có thay vì ném lỗi. */
+async function resolveExistingCustomerOnDuplicate(error: unknown): Promise<KhachHang | null> {
+  const existingId = parseDuplicateCustomerId(error);
+  if (!existingId) return null;
+  try {
+    return await getCustomerById(existingId);
+  } catch {
+    return null;
+  }
+}
+
 export const upsertCustomer = async (customer: Partial<KhachHang>): Promise<KhachHang> => {
   const payload = sanitizeCustomerPayload(customer);
   if (payload.id) assertCanEditSavedRecord();
   if (isStoredTechnician()) {
     const { data, error } = await supabase.rpc('create_technician_customer', { p_customer: payload });
-    if (error) throw error;
+    if (error) {
+      const existing = await resolveExistingCustomerOnDuplicate(error);
+      if (existing) return existing;
+      throw error;
+    }
     return data as KhachHang;
   }
   let myHoTen = '';
@@ -126,6 +159,11 @@ export const upsertCustomer = async (customer: Partial<KhachHang>): Promise<Khac
       .single();
 
   if (error) {
+    // Tạo khách mới nhưng SĐT+biển số đã có → dùng bản ghi cũ, không chặn lập phiếu.
+    if (!hasValidId) {
+      const existing = await resolveExistingCustomerOnDuplicate(error);
+      if (existing) return existing;
+    }
     console.error('Error upserting customer:', {
       message: error.message,
       code: error.code,
