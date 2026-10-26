@@ -33,7 +33,7 @@ import Pagination from '../components/Pagination';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/toast';
 import type { KhachHang } from '../data/customerData';
-import { upsertCustomer } from '../data/customerData';
+import { isDuplicateCustomerError, upsertCustomer } from '../data/customerData';
 import type { ThuChi } from '../data/financialData';
 import { getTransactionByOrderId, upsertTransaction } from '../data/financialData';
 import type { NhanSu } from '../data/personnelData';
@@ -145,13 +145,21 @@ function toLocalIsoDate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-/** Tuần hiện tại (T2 → CN, local) — phạm vi tải mặc định để tránh timeout. */
+/** Tuần hiện tại (T2 → CN, local). */
 function currentWeekBounds(now = new Date()): { start: string; end: string } {
   const day = now.getDay(); // 0=CN … 6=T7
   const mondayOffset = day === 0 ? -6 : 1 - day;
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() + mondayOffset);
   const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
   return { start: toLocalIsoDate(start), end: toLocalIsoDate(end) };
+}
+
+/** Tháng hiện tại — phạm vi tải mặc định (vẫn giới hạn để tránh timeout quét toàn DB). */
+function currentMonthBounds(now = new Date()): { start: string; end: string; monthValue: string } {
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const monthValue = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  return { start: toLocalIsoDate(start), end: toLocalIsoDate(end), monthValue };
 }
 
 const SalesCardManagementPage: React.FC = () => {
@@ -193,10 +201,10 @@ const SalesCardManagementPage: React.FC = () => {
   const [editingCard, setEditingCard] = useState<SalesCard | null>(null);
   const [formData, setFormData] = useState<SalesCardFormData>({});
 
-  // Date filtering — mặc định tuần hiện tại để tránh quét toàn DB (timeout 57014)
-  const [startDate, setStartDate] = useState(() => currentWeekBounds().start);
-  const [endDate, setEndDate] = useState(() => currentWeekBounds().end);
-  const [selectedMonth, setSelectedMonth] = useState('');
+  // Date filtering — mặc định tháng hiện tại để tránh quét toàn DB (timeout 57014)
+  const [startDate, setStartDate] = useState(() => currentMonthBounds().start);
+  const [endDate, setEndDate] = useState(() => currentMonthBounds().end);
+  const [selectedMonth, setSelectedMonth] = useState(() => currentMonthBounds().monthValue);
   const [selectedStaff, setSelectedStaff] = useState('');
   const [selectedBranch, setSelectedBranch] = useState('');
   const [exportingExcel, setExportingExcel] = useState(false);
@@ -955,10 +963,11 @@ const SalesCardManagementPage: React.FC = () => {
           setCustomers(prev => prev.map(c => c.ma_khach_hang === pendingNewCustomer.ma_khach_hang ? { ...savedCustomer } : c));
         } catch (cause) {
           const err = getErrorDetails(cause);
-          if (err?.code === '42501') {
-            // RLS không cho ghi bảng khách hàng: vẫn cho phép lưu phiếu bán hàng để không chặn thao tác.
+          if (err?.code === '42501' || isDuplicateCustomerError(cause) || isDuplicateCustomerError(err)) {
+            // RLS chặn ghi KH, hoặc trùng SĐT+biển số nhưng không resolve được: vẫn cho lưu phiếu.
             cleanData.khach_hang_id = pendingNewCustomer.ma_khach_hang || pendingNewCustomer.id || '';
             cleanData.ten_khach_hang = pendingNewCustomer.ho_va_ten || cleanData.ten_khach_hang;
+            if (!cleanData.so_dien_thoai) cleanData.so_dien_thoai = pendingNewCustomer.so_dien_thoai;
           } else {
             throw err;
           }
@@ -1124,10 +1133,16 @@ const SalesCardManagementPage: React.FC = () => {
         hint: error?.hint,
         raw: cause,
       });
-      const rawMsg = error?.message || '';
-      const friendlyMsg = /Khách hàng\/xe đã tồn tại/i.test(rawMsg)
+      const rawMsg = [error?.message, error?.details, error?.hint].filter(Boolean).join(' ') || '';
+      const friendlyMsg = /Khách hàng\/xe đã tồn tại|23505/i.test(rawMsg)
         ? 'Khách hàng/xe này đã có trên hệ thống (trùng SĐT và biển số). Hãy chọn khách đã tồn tại rồi lưu lại.'
-        : rawMsg || 'Không thể lưu phiếu bán hàng.';
+        : /Chỉ quản trị viên hoặc quản lý được lập/i.test(rawMsg)
+          ? 'Tài khoản hiện tại không có quyền lập phiếu. Vui lòng đăng nhập lại hoặc nhờ quản lý.'
+          : /Máy chủ chưa cập nhật chức năng lưu đơn|PGRST202/i.test(rawMsg)
+            ? 'Máy chủ chưa cập nhật chức năng lưu đơn. Vui lòng liên hệ quản lý.'
+            : /Vui lòng chọn ít nhất một dịch vụ/i.test(rawMsg)
+              ? 'Vui lòng chọn ít nhất một dịch vụ trước khi lưu phiếu.'
+              : (error?.message || '').trim() || 'Không thể lưu phiếu bán hàng.';
       showToast(`Lỗi lưu phiếu: ${friendlyMsg}`, 'error');
     }
   };
@@ -1449,11 +1464,11 @@ const SalesCardManagementPage: React.FC = () => {
   };
 
   const handleClearFilters = () => {
-    const week = currentWeekBounds();
+    const month = currentMonthBounds();
     setSearchQuery('');
-    setStartDate(week.start);
-    setEndDate(week.end);
-    setSelectedMonth('');
+    setStartDate(month.start);
+    setEndDate(month.end);
+    setSelectedMonth(month.monthValue);
     setSelectedStaff('');
     setSelectedBranch('');
     setCurrentPage(1);
@@ -1713,11 +1728,11 @@ const SalesCardManagementPage: React.FC = () => {
               />
             </div>
 
-            {(searchQuery || selectedStaff || selectedBranch || selectedMonth || startDate !== currentWeekBounds().start || endDate !== currentWeekBounds().end) && (
+            {(searchQuery || selectedStaff || selectedBranch || selectedMonth !== currentMonthBounds().monthValue || startDate !== currentMonthBounds().start || endDate !== currentMonthBounds().end) && (
               <button
                 onClick={handleClearFilters}
                 className="p-1.5 sm:p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-all border border-transparent hover:border-rose-100 shrink-0"
-                title="Về tuần hiện tại"
+                title="Về tháng hiện tại"
               >
                 <X size={18} className="sm:hidden" />
                 <X size={20} className="hidden sm:block" />
@@ -1911,8 +1926,9 @@ const SalesCardManagementPage: React.FC = () => {
               </div>
             ))
           ) : (
-            <div className="bg-card p-12 text-center text-muted-foreground border border-border border-dashed rounded-xl">
-              Chưa có phiếu bán hàng nào được lập.
+            <div className="bg-card p-12 text-center text-muted-foreground border border-border border-dashed rounded-xl space-y-2">
+              <p>Không có phiếu trong khoảng ngày đang chọn.</p>
+              <p className="text-sm">Thử chọn tháng khác hoặc mở rộng Từ ngày – Đến ngày phía trên.</p>
             </div>
           )}
 
@@ -2110,8 +2126,11 @@ const SalesCardManagementPage: React.FC = () => {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={salesTableColCount} className="px-4 py-12 text-center text-muted-foreground italic border-b border-dashed border-border">
-                      Chưa có phiếu bán hàng nào được lập.
+                    <td colSpan={salesTableColCount} className="px-4 py-12 text-center text-muted-foreground border-b border-dashed border-border">
+                      <div className="space-y-1">
+                        <p>Không có phiếu trong khoảng ngày đang chọn.</p>
+                        <p className="text-sm not-italic">Thử chọn tháng khác hoặc mở rộng Từ ngày – Đến ngày.</p>
+                      </div>
                     </td>
                   </tr>
                 )}
