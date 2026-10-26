@@ -92,6 +92,11 @@ export function parseDuplicateCustomerId(error: unknown): string | null {
   return match?.[1] ?? null;
 }
 
+/** True when upsert failed because SĐT+biển số already exists (message from DB trigger/RPC). */
+export function isDuplicateCustomerError(error: unknown): boolean {
+  return parseDuplicateCustomerId(error) != null;
+}
+
 export async function getCustomerById(id: string): Promise<KhachHang | null> {
   const { data, error } = await supabase.from('khach_hang').select('*').eq('id', id).maybeSingle();
   if (error) throw error;
