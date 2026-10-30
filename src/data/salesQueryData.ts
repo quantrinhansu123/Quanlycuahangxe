@@ -1,7 +1,7 @@
 import { readRequest } from '../lib/readRequest';
 import { supabase } from '../lib/supabase';
 import { isTargetedVehicleSearch } from '../lib/shortNumericSearch';
-import { queryShortNumericCustomers, queryShortNumericSales } from './shortNumericSearchData';
+import { queryShortNumericSales } from './shortNumericSearchData';
 import type { SalesCard } from './salesCardData';
 import type { KhachHang } from './customerData';
 
@@ -64,13 +64,10 @@ export type CustomerQueryFilters = {
   p_phone?: string | null;
 };
 export async function queryCustomers(filters: CustomerQueryFilters, page = 1, limit = 50, signal?: AbortSignal): Promise<{ data: KhachHang[]; totalCount: number }> {
-  if (isTargetedVehicleSearch(filters.p_search) && !filters.p_plate && !filters.p_phone) {
-    return readRequest(
-      'customers_query_short_numeric',
-      requestSignal => queryShortNumericCustomers(filters, page, limit, requestSignal),
-      signal,
-    );
-  }
+  // Short numeric (e.g. "32821") must not use PostgREST `ILIKE '%digits%'` on
+  // khach_hang: that path cannot use reverse(app_plate) indexes and timed out
+  // as "Máy chủ phản hồi chậm" on the customer list. customers_query RPC is
+  // SECURITY DEFINER and uses the plate-suffix index + code match.
   const { data, error } = await readRequest('customers_query', s => supabase.rpc('customers_query', { ...filters, p_page: page, p_limit: limit }).abortSignal(s), signal);
   if (error) throw error;
   return data;
