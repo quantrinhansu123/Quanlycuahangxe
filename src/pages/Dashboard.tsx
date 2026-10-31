@@ -6,6 +6,7 @@ import type { ActionCardProps } from '../components/ui/ActionCard';
 import { ActionCard } from '../components/ui/ActionCard';
 import { ModuleCard } from '../components/ui/ModuleCard';
 import { useAuth } from '../context/AuthContext';
+import { HIDE_KHO_VAN, HIDE_SO_QUY } from '../data/featureFlags';
 import { moduleData } from '../data/moduleData';
 import { resolveViewKeyByPath } from '../data/viewPermissions';
 import { removeVietnameseTones } from '../lib/utils';
@@ -18,13 +19,15 @@ const dashboardModules: ActionCardProps[] = [
     href: '/ban-hang',
     colorScheme: 'orange'
   },
-  {
-    icon: Truck,
-    title: 'Nhập hàng',
-    description: 'Lập phiếu nhập hàng và tự động cập nhật nhập — xuất — tồn.',
-    href: '/kho-van/nhap-hang',
-    colorScheme: 'emerald'
-  },
+  ...(!HIDE_KHO_VAN
+    ? [{
+        icon: Truck,
+        title: 'Nhập hàng',
+        description: 'Lập phiếu nhập hàng và tự động cập nhật nhập — xuất — tồn.',
+        href: '/kho-van/nhap-hang',
+        colorScheme: 'emerald' as const,
+      }]
+    : []),
   {
     icon: Wallet,
     title: 'Thu chi',
@@ -32,13 +35,15 @@ const dashboardModules: ActionCardProps[] = [
     href: '/thu-chi',
     colorScheme: 'blue'
   },
-  {
-    icon: BookOpen,
-    title: 'Sổ quỹ',
-    description: 'Sổ kế toán chi tiết quỹ tiền mặt — thu, chi, số tồn.',
-    href: '/so-quy',
-    colorScheme: 'purple'
-  },
+  ...(!HIDE_SO_QUY
+    ? [{
+        icon: BookOpen,
+        title: 'Sổ quỹ',
+        description: 'Sổ kế toán chi tiết quỹ tiền mặt — thu, chi, số tồn.',
+        href: '/so-quy',
+        colorScheme: 'purple' as const,
+      }]
+    : []),
   {
     icon: Wrench,
     title: 'Dịch vụ',
@@ -67,13 +72,15 @@ const dashboardModules: ActionCardProps[] = [
     href: '/tien-luong',
     colorScheme: 'amber'
   },
-  {
-    icon: Box,
-    title: 'Kho vận',
-    description: 'Tồn kho, xuất nhập kho, vận chuyển.',
-    href: '/kho-van',
-    colorScheme: 'cyan'
-  },
+  ...(!HIDE_KHO_VAN
+    ? [{
+        icon: Box,
+        title: 'Kho vận',
+        description: 'Tồn kho, xuất nhập kho, vận chuyển.',
+        href: '/kho-van',
+        colorScheme: 'cyan' as const,
+      }]
+    : []),
   {
     icon: Send,
     title: 'Gửi ZNS hàng loạt',

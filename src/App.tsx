@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import TopProgressBar from './components/ui/TopProgressBar';
 import ProtectedRoute from './components/layout/ProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { HIDE_KHO_VAN, HIDE_SO_QUY } from './data/featureFlags';
 
 // Lazy load all pages for optimal performance
 const MainLayout = lazy(() => import('./components/layout/MainLayout'));
@@ -63,9 +64,16 @@ function AppRoutes() {
               <Route path="phieu-ban-hang-ct" element={<ProtectedRoute viewKey="don-hang"><SalesCardCTManagementPage /></ProtectedRoute>} />
             </Route>
 
-            {/* Thu chi / Sổ quỹ */}
+            {/* Thu chi / Sổ quỹ — HIDE_SO_QUY redirects /so-quy until re-enabled */}
             <Route path="/thu-chi" element={<ProtectedRoute viewKey="thu-chi"><FinancialManagementPage /></ProtectedRoute>} />
-            <Route path="/so-quy" element={<ProtectedRoute viewKey="so-quy"><FinancialManagementPage /></ProtectedRoute>} />
+            <Route
+              path="/so-quy"
+              element={
+                HIDE_SO_QUY
+                  ? <Navigate to="/thu-chi" replace />
+                  : <ProtectedRoute viewKey="so-quy"><FinancialManagementPage /></ProtectedRoute>
+              }
+            />
 
             <Route path="/dich-vu" element={<ProtectedRoute viewKey="dich-vu"><ServiceManagementPage /></ProtectedRoute>} />
 
@@ -86,13 +94,17 @@ function AppRoutes() {
 
             <Route path="/cham-cong" element={<ProtectedRoute viewKey="cham-cong"><CheckInPage /></ProtectedRoute>} />
 
-            {/* Kho vận — chỉ admin */}
-            <Route path="/kho-van" element={<ProtectedRoute viewKey="kho-van"><ModulePage /></ProtectedRoute>}>
-              <Route path="nhap-hang" element={<ProtectedRoute viewKey="kho-van"><PurchaseReceiptManagementPage /></ProtectedRoute>} />
-              <Route path="xuat-nhap-kho" element={<ProtectedRoute viewKey="kho-van"><InventoryManagementPage /></ProtectedRoute>} />
-              <Route path="danh-sach-phu-tung" element={<ProtectedRoute viewKey="kho-van"><SparePartsListPage /></ProtectedRoute>} />
-              <Route path="danh-sach-kho" element={<ProtectedRoute viewKey="kho-van"><WarehouseStockListPage /></ProtectedRoute>} />
-            </Route>
+            {/* Kho vận — HIDE_KHO_VAN redirects until re-enabled */}
+            {HIDE_KHO_VAN ? (
+              <Route path="/kho-van/*" element={<Navigate to="/" replace />} />
+            ) : (
+              <Route path="/kho-van" element={<ProtectedRoute viewKey="kho-van"><ModulePage /></ProtectedRoute>}>
+                <Route path="nhap-hang" element={<ProtectedRoute viewKey="kho-van"><PurchaseReceiptManagementPage /></ProtectedRoute>} />
+                <Route path="xuat-nhap-kho" element={<ProtectedRoute viewKey="kho-van"><InventoryManagementPage /></ProtectedRoute>} />
+                <Route path="danh-sach-phu-tung" element={<ProtectedRoute viewKey="kho-van"><SparePartsListPage /></ProtectedRoute>} />
+                <Route path="danh-sach-kho" element={<ProtectedRoute viewKey="kho-van"><WarehouseStockListPage /></ProtectedRoute>} />
+              </Route>
+            )}
 
             {/* Tiá»n lÆ°Æ¡ng */}
             <Route path="/tien-luong" element={<ProtectedRoute viewKey="tien-luong"><ModulePage /></ProtectedRoute>}>

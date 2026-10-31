@@ -36,6 +36,7 @@ test('phone login resolves one identity; password changes invalidate old credent
   const migration = fs.readFileSync('supabase/migrations/202610210001_phone_login_integrity.sql', 'utf8');
   await db.exec(migration);
   await db.exec(migration);
+  await db.exec(fs.readFileSync('supabase/migrations/202610310005_login_with_phone_no_lock_wait.sql', 'utf8'));
   const initialPersonnel = (await db.query('SELECT * FROM nhan_su ORDER BY id')).rows;
 
   await t.test('reproduces both legacy passwords, then blocks ambiguous login for every format', async () => {

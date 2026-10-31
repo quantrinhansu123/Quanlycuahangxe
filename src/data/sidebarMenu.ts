@@ -13,6 +13,7 @@ import {
   CalendarClock
 } from 'lucide-react';
 import React from 'react';
+import { HIDE_KHO_VAN, HIDE_SO_QUY } from './featureFlags';
 import type { ViewPermissionKey } from './viewPermissions';
 
 export type SidebarSubItem = {
@@ -45,7 +46,9 @@ export const sidebarMenu: SidebarItem[] = [
     ],
   },
   { icon: Wallet, label: 'Thu chi', path: '/thu-chi', viewKey: 'thu-chi' },
-  { icon: BookOpen, label: 'Sổ quỹ', path: '/so-quy', viewKey: 'so-quy' },
+  ...(!HIDE_SO_QUY
+    ? [{ icon: BookOpen, label: 'Sổ quỹ', path: '/so-quy', viewKey: 'so-quy' as const }]
+    : []),
   { icon: Wrench, label: 'Dịch vụ', path: '/dich-vu', viewKey: 'dich-vu' },
   {
     icon: BarChart2,
@@ -69,7 +72,9 @@ export const sidebarMenu: SidebarItem[] = [
     ]
   },
   { icon: Wallet, label: 'Tiền lương', path: '/tien-luong', viewKey: 'tien-luong' }, // NV xem lương của mình, admin xem tất cả
-  { icon: Box, label: 'Kho vận', path: '/kho-van', viewKey: 'kho-van' },
+  ...(!HIDE_KHO_VAN
+    ? [{ icon: Box, label: 'Kho vận', path: '/kho-van', viewKey: 'kho-van' as const }]
+    : []),
   { icon: Send, label: 'Gửi ZNS hàng loạt', path: '/zns/gui-hang-loat', adminOnly: true, viewKey: 'zns-gui-hang-loat' },
   { icon: ShieldCheck, label: 'Cài đặt phân quyền', path: '/cai-dat/phan-quyen', adminOnly: true, viewKey: 'cai-dat-phan-quyen' },
   { icon: Box, label: 'Quản lý cơ sở', path: '/cai-dat/co-so', adminOnly: true },

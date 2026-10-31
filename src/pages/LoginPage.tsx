@@ -18,22 +18,21 @@ interface PhoneLoginResult {
   session_expires_at?: string;
 }
 
-const normalizePhone = (value: string) => value.replace(/\D/g, '');
-
-const getPhoneCandidates = (value: string): string[] => {
-  const digits = normalizePhone(value);
-  if (!digits) return [];
-
-  const candidates = new Set<string>([digits]);
-  if (digits.startsWith('0')) {
-    candidates.add(digits.slice(1));
-  } else {
-    candidates.add(`0${digits}`);
-  }
-  return Array.from(candidates).filter(Boolean);
+/** Same canonical VN phone form as public.app_login_phone — one RPC, no signature probing. */
+const toLoginPhone = (value: string): string => {
+  const digits = value.replace(/\D/g, '');
+  if (!digits) return '';
+  if (/^0084[0-9]{9}$/.test(digits)) return `0${digits.slice(4)}`;
+  if (/^84[0-9]{9}$/.test(digits)) return `0${digits.slice(2)}`;
+  if (/^[0-9]{9}$/.test(digits)) return `0${digits}`;
+  return digits;
 };
 
-const callPhoneLoginRpc = async (phone: string, password: string, signal: AbortSignal): Promise<{
+const callPhoneLoginRpc = async (
+  phone: string,
+  password: string,
+  signal: AbortSignal,
+): Promise<{
   data: PhoneLoginResult[] | null;
   error: {
     code?: string;
@@ -42,46 +41,34 @@ const callPhoneLoginRpc = async (phone: string, password: string, signal: AbortS
     hint?: string;
   } | null;
 }> => {
-  const phoneCandidates = getPhoneCandidates(phone);
-  const attempts: Array<Record<string, string>> = [];
-
-  for (const phoneCandidate of phoneCandidates) {
-    attempts.push(
-      { p_sdt: phoneCandidate, p_password: password },
-      { p_password: password, p_sdt: phoneCandidate },
-      { sdt: phoneCandidate, password },
-      { phone: phoneCandidate, password },
-    );
+  const p_sdt = toLoginPhone(phone);
+  if (!p_sdt || !password) {
+    return { data: null, error: null };
   }
 
-  let lastError: {
-    code?: string;
-    message: string;
-    details?: string;
-    hint?: string;
-  } | null = null;
+  const { data, error } = await supabase
+    .rpc('login_with_phone', { p_sdt, p_password: password })
+    .abortSignal(signal);
 
-  for (const args of attempts) {
-    const { data, error } = await supabase.rpc('login_with_phone', args).abortSignal(signal);
-    if (signal.aborted) throw new DOMException('Login request aborted', 'AbortError');
-    if (!error) {
-      return { data: data as PhoneLoginResult[] | null, error: null };
-    }
+  // A finished RPC wins over an abort that raced after the response arrived.
+  // Discarding success here was turning a completed login into "Login request aborted".
+  if (!error) {
+    return { data: data as PhoneLoginResult[] | null, error: null };
+  }
 
-    lastError = {
+  if (signal.aborted || isAbortError(error)) {
+    throw new DOMException('Login request aborted', 'AbortError');
+  }
+
+  return {
+    data: null,
+    error: {
       code: error.code,
       message: error.message,
       details: error.details,
       hint: error.hint,
-    };
-
-    // Nếu function tồn tại nhưng sai credentials thì không cần thử signature khác.
-    if (error.code !== 'PGRST202') {
-      break;
-    }
-  }
-
-  return { data: null, error: lastError };
+    },
+  };
 };
 
 const LoginPage: React.FC = () => {
@@ -93,8 +80,13 @@ const LoginPage: React.FC = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const loginRequest = useRef<AbortController | null>(null);
+  const loginGeneration = useRef(0);
 
-  useEffect(() => () => loginRequest.current?.abort(), []);
+  useEffect(() => () => {
+    loginGeneration.current += 1;
+    loginRequest.current?.abort();
+    loginRequest.current = null;
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -107,7 +99,17 @@ const LoginPage: React.FC = () => {
     }
   }, []);
 
-  if (!isLoading && session) {
+  // Wait for auth bootstrap so we never race login_with_phone against
+  // current_app_nhan_su_uuid / nhan_su reads on a stale stored session.
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <p className="text-sm text-muted-foreground">Đang kiểm tra phiên đăng nhập...</p>
+      </div>
+    );
+  }
+
+  if (session) {
     const fromPath = (routeLocation.state as { from?: { pathname?: string } } | null)?.from?.pathname;
     const redirectTo =
       fromPath ?? getLoginRedirectPath(nhanVien?.vi_tri, isAdmin, nhanVien?.co_so);
@@ -118,6 +120,7 @@ const LoginPage: React.FC = () => {
     e.preventDefault();
     if (loginRequest.current) return;
     const controller = new AbortController();
+    const generation = ++loginGeneration.current;
     loginRequest.current = controller;
     let timedOut = false;
     const timer = window.setTimeout(() => { timedOut = true; controller.abort(); }, 20_000);
@@ -126,6 +129,8 @@ const LoginPage: React.FC = () => {
 
     try {
       const { data: rpcData, error: rpcError } = await callPhoneLoginRpc(phone, password, controller.signal);
+
+      if (generation !== loginGeneration.current) return;
 
       if (rpcError) {
         console.error('Phone login rpc error detail:', {
@@ -157,15 +162,19 @@ const LoginPage: React.FC = () => {
       );
       navigate(homePath, { replace: true });
     } catch (err) {
+      if (generation !== loginGeneration.current) return;
       if (isAbortError(err) && !timedOut) return;
+      if (timedOut) {
+        console.warn('Login deadline reached:', err);
+        setError('Máy chủ phản hồi chậm. Vui lòng thử lại.');
+        return;
+      }
       console.error('Unexpected login error:', err);
-      setError(timedOut
-        ? 'Máy chủ phản hồi chậm. Vui lòng thử lại.'
-        : getReadErrorMessage(err, 'Không thể kết nối tới server. Vui lòng kiểm tra kết nối mạng.'));
+      setError(getReadErrorMessage(err, 'Không thể kết nối tới server. Vui lòng kiểm tra kết nối mạng.'));
     } finally {
       window.clearTimeout(timer);
       if (loginRequest.current === controller) loginRequest.current = null;
-      setLoading(false);
+      if (generation === loginGeneration.current) setLoading(false);
     }
   };
 
