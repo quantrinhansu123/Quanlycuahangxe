@@ -45,20 +45,19 @@ function registerCustomer(map: Map<string, KhachHang>, customer: KhachHang) {
 }
 
 async function fetchTargetedCustomers(term: string, signal: AbortSignal): Promise<KhachHang[]> {
-  const conditions = buildTargetedCustomerSearchOrConditions(term);
-  if (!conditions.length) return [];
-  const { data, error } = await supabase
-    .from('khach_hang')
-    .select(CUSTOMER_LIST_SELECT)
-    .or(conditions.join(','))
-    .order('last_order_at', { ascending: false, nullsFirst: false })
-    .order('id', { ascending: false })
-    .range(0, MAX_TARGETED_CUSTOMERS)
-    .abortSignal(signal);
+  // Use customers_query RPC (plate-suffix index / SECURITY DEFINER) instead of
+  // PostgREST ILIKE '%digits%', which timed out and made plate search return
+  // zero orders even when the customer existed.
+  const { data, error } = await supabase.rpc('customers_query', {
+    p_search: term,
+    p_page: 1,
+    p_limit: MAX_TARGETED_CUSTOMERS,
+  }).abortSignal(signal);
   if (error) throw error;
   throwIfAborted(signal);
-  const fetched = (data || []) as KhachHang[];
-  if (fetched.length > MAX_TARGETED_CUSTOMERS) {
+  const payload = data as { data?: KhachHang[]; totalCount?: number } | null;
+  const fetched = payload?.data || [];
+  if ((payload?.totalCount || fetched.length) > MAX_TARGETED_CUSTOMERS) {
     throw new Error('Từ khóa khớp quá nhiều khách hàng. Hãy nhập thêm ký tự biển số hoặc mã khách hàng.');
   }
   return fetched.filter((row) => targetedCustomerRowMatches(row, term));

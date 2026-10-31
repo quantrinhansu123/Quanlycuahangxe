@@ -64,6 +64,7 @@ import { queueOrderMessage } from '../data/znsOrderMessageData';
 import type { DichVu } from '../data/serviceData';
 import { supabase } from '../lib/supabase';
 import { preferCustomerLinkKey } from '../lib/customerOrderLink';
+import { isTargetedVehicleSearch } from '../lib/shortNumericSearch';
 import { resolveCustomerBranch, resolveOrderBranchFromCard } from '../constants/customerBranches';
 import { formatLocalIsoDate, formatTime24h, parseExcelDateValue } from '../utils/datetimeFormat';
 import { getSalesOrderBranchError } from '../utils/salesOrderBranch';
@@ -261,10 +262,16 @@ const SalesCardManagementPage: React.FC = () => {
       setLoading(true);
       const staffFilter = isAdmin && selectedStaff ? selectedStaff : undefined;
       const branchFilter = isAdmin && selectedBranch ? selectedBranch : undefined;
-      // Luôn gửi khoảng ngày (kể cả kỹ thuật viên) để sales_query không quét toàn bộ lịch sử.
-      const dateStart = startDate || undefined;
-      const dateEnd = endDate || undefined;
-      const search = canUseDataFilters ? debouncedSearch : '';
+      const rawSearch = debouncedSearch.trim();
+      // Technicians normally cannot use free-text filters, but short plate/code
+      // suffixes use a bounded fast path and must still be searchable.
+      const search = canUseDataFilters || isTargetedVehicleSearch(rawSearch) ? rawSearch : '';
+      // Plate/code suffixes (e.g. "37435") use a bounded fast path. Keep the
+      // default month window for browsing, but do not hide matching orders
+      // outside that window when the user is looking up a vehicle identifier.
+      const ignoreDateRange = isTargetedVehicleSearch(search);
+      const dateStart = ignoreDateRange ? undefined : (startDate || undefined);
+      const dateEnd = ignoreDateRange ? undefined : (endDate || undefined);
 
       const cardsResult = await getSalesCardsPaginated(
         currentPage,
@@ -1927,8 +1934,17 @@ const SalesCardManagementPage: React.FC = () => {
             ))
           ) : (
             <div className="bg-card p-12 text-center text-muted-foreground border border-border border-dashed rounded-xl space-y-2">
-              <p>Không có phiếu trong khoảng ngày đang chọn.</p>
-              <p className="text-sm">Thử chọn tháng khác hoặc mở rộng Từ ngày – Đến ngày phía trên.</p>
+              {debouncedSearch.trim() ? (
+                <>
+                  <p>Không tìm thấy phiếu khớp “{debouncedSearch.trim()}”.</p>
+                  <p className="text-sm">Thử kiểm tra lại biển số/mã, hoặc bỏ lọc cơ sở/nhân sự.</p>
+                </>
+              ) : (
+                <>
+                  <p>Không có phiếu trong khoảng ngày đang chọn.</p>
+                  <p className="text-sm">Thử chọn tháng khác hoặc mở rộng Từ ngày – Đến ngày phía trên.</p>
+                </>
+              )}
             </div>
           )}
 
@@ -2128,8 +2144,17 @@ const SalesCardManagementPage: React.FC = () => {
                   <tr>
                     <td colSpan={salesTableColCount} className="px-4 py-12 text-center text-muted-foreground border-b border-dashed border-border">
                       <div className="space-y-1">
-                        <p>Không có phiếu trong khoảng ngày đang chọn.</p>
-                        <p className="text-sm not-italic">Thử chọn tháng khác hoặc mở rộng Từ ngày – Đến ngày.</p>
+                        {debouncedSearch.trim() ? (
+                          <>
+                            <p>Không tìm thấy phiếu khớp “{debouncedSearch.trim()}”.</p>
+                            <p className="text-sm not-italic">Thử kiểm tra lại biển số/mã, hoặc bỏ lọc cơ sở/nhân sự.</p>
+                          </>
+                        ) : (
+                          <>
+                            <p>Không có phiếu trong khoảng ngày đang chọn.</p>
+                            <p className="text-sm not-italic">Thử chọn tháng khác hoặc mở rộng Từ ngày – Đến ngày.</p>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
