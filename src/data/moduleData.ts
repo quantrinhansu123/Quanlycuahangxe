@@ -16,6 +16,7 @@ import {
   Truck
 } from 'lucide-react';
 import type { ModuleCardProps } from '../components/ui/ModuleCard';
+import { HIDE_KHO_VAN } from './featureFlags';
 
 export const moduleData: Record<string, { section: string; items: ModuleCardProps[] }[]> = {
   '/ban-hang': [
@@ -73,15 +74,19 @@ export const moduleData: Record<string, { section: string; items: ModuleCardProp
       ]
     }
   ],
-  '/kho-van': [
-    {
-      section: 'Quản lý kho',
-      items: [
-        { icon: Truck, title: 'Nhập hàng', description: 'Lập và quản lý phiếu nhập hàng vào kho.', colorScheme: 'emerald', path: '/kho-van/nhap-hang' },
-        { icon: ArrowLeftRight, title: 'Xuất nhập kho', description: 'Quản lý các hoạt động nhập hàng vào kho và xuất hàng ra khỏi kho.', colorScheme: 'teal', path: '/kho-van/xuat-nhap-kho' },
-        { icon: Package, title: 'Danh sách phụ tùng', description: 'Quản lý danh mục phụ tùng, mã hàng và tồn đầu kỳ.', colorScheme: 'orange', path: '/kho-van/danh-sach-phu-tung' },
-        { icon: Boxes, title: 'Danh sách kho', description: 'Xem danh sách tồn kho và DS sản phẩm trong kho.', colorScheme: 'blue', path: '/kho-van/danh-sach-kho' }
-      ]
-    }
-  ],
+  ...(HIDE_KHO_VAN
+    ? {}
+    : {
+        '/kho-van': [
+          {
+            section: 'Quản lý kho',
+            items: [
+              { icon: Truck, title: 'Nhập hàng', description: 'Lập và quản lý phiếu nhập hàng vào kho.', colorScheme: 'emerald', path: '/kho-van/nhap-hang' },
+              { icon: ArrowLeftRight, title: 'Xuất nhập kho', description: 'Quản lý các hoạt động nhập hàng vào kho và xuất hàng ra khỏi kho.', colorScheme: 'teal', path: '/kho-van/xuat-nhap-kho' },
+              { icon: Package, title: 'Danh sách phụ tùng', description: 'Quản lý danh mục phụ tùng, mã hàng và tồn đầu kỳ.', colorScheme: 'orange', path: '/kho-van/danh-sach-phu-tung' },
+              { icon: Boxes, title: 'Danh sách kho', description: 'Xem danh sách tồn kho và DS sản phẩm trong kho.', colorScheme: 'blue', path: '/kho-van/danh-sach-kho' }
+            ]
+          }
+        ],
+      }),
 };

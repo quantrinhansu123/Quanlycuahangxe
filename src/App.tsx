@@ -94,9 +94,16 @@ function AppRoutes() {
 
             <Route path="/cham-cong" element={<ProtectedRoute viewKey="cham-cong"><CheckInPage /></ProtectedRoute>} />
 
-            {/* Kho vận — HIDE_KHO_VAN redirects until re-enabled */}
+            {/* Kho vận + Nhập hàng — HIDE_KHO_VAN redirects every subpath until re-enabled */}
             {HIDE_KHO_VAN ? (
-              <Route path="/kho-van/*" element={<Navigate to="/" replace />} />
+              <>
+                <Route path="/kho-van" element={<Navigate to="/" replace />} />
+                <Route path="/kho-van/nhap-hang" element={<Navigate to="/" replace />} />
+                <Route path="/kho-van/xuat-nhap-kho" element={<Navigate to="/" replace />} />
+                <Route path="/kho-van/danh-sach-phu-tung" element={<Navigate to="/" replace />} />
+                <Route path="/kho-van/danh-sach-kho" element={<Navigate to="/" replace />} />
+                <Route path="/kho-van/*" element={<Navigate to="/" replace />} />
+              </>
             ) : (
               <Route path="/kho-van" element={<ProtectedRoute viewKey="kho-van"><ModulePage /></ProtectedRoute>}>
                 <Route path="nhap-hang" element={<ProtectedRoute viewKey="kho-van"><PurchaseReceiptManagementPage /></ProtectedRoute>} />
