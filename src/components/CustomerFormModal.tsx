@@ -289,7 +289,12 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
         onClose();
       }
     } catch (error) {
-      alert(`Lỗi: ${getErrorDetails(error).message || 'Không thể lưu.'}`);
+      const details = getErrorDetails(error);
+      const raw = [details.message, details.details, details.hint].filter(Boolean).join(' ');
+      const message = details.code === '57014' || /statement timeout|canceling statement/i.test(raw)
+        ? 'Máy chủ phản hồi chậm khi lưu khách hàng. Thay đổi có thể chưa được lưu. Vui lòng thử lại.'
+        : (details.message || 'Không thể lưu.');
+      alert(`Lỗi: ${message}`);
     } finally {
       setIsSubmitting(false);
     }

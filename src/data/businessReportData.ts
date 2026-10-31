@@ -7,12 +7,38 @@ import {
 } from '../lib/businessReportMetrics';
 import { buildDebtLedgers, invoicePaymentLines, type DebtLedger } from '../lib/businessAccountingDetails';
 import { belongsToReportBranch, scopeBusinessOrders } from '../lib/businessReportScope';
+import { getErrorDetails } from '../lib/errorDetails';
 import { supabase } from '../lib/supabase';
 import { calculateInventoryStockSummary, type ProductRecord, type InventoryRecord, type InventoryStockSummaryRow } from './inventoryData';
 import { fetchAllCTRecords, type ReportCTRecords, type ReportSummary } from './reportData';
 import { readRequest } from '../lib/readRequest';
 
 const isDemo = () => typeof window !== 'undefined' && !!getStoredDemoRole();
+const HISTORY_PAGE = 1000;
+
+function isStatementTimeout(error: unknown): boolean {
+  const details = getErrorDetails(error);
+  const text = [details.message, details.details, details.hint, error instanceof Error ? error.message : '']
+    .filter(Boolean)
+    .join(' ');
+  return details.code === '57014' || /statement timeout|canceling statement/i.test(text);
+}
+
+async function fetchPagedRows<T>(
+  name: string,
+  build: (signal: AbortSignal, from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
+  signal?: AbortSignal,
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (let from = 0; ; from += HISTORY_PAGE) {
+    signal?.throwIfAborted();
+    const { data, error } = await readRequest(name, requestSignal => build(requestSignal, from, from + HISTORY_PAGE - 1), signal);
+    if (error) throw error;
+    const chunk = data || [];
+    rows.push(...chunk);
+    if (chunk.length < HISTORY_PAGE) return rows;
+  }
+}
 
 export type BusinessTransactionRow = {
   id: string; loai_phieu: string; id_don: string | null; danh_muc: string | null;
@@ -43,10 +69,69 @@ export function decodeFinancialSnapshot(payload: unknown): HistoricalSources {
   }
   return result as unknown as HistoricalSources;
 }
-async function fetchHistoricalSources(start: string,end: string,signal?: AbortSignal): Promise<HistoricalSources> {
-  const { data,error } = await readRequest('report_financial_snapshot', s => supabase.rpc('business_report_snapshot', { p_start:start,p_end:end }).abortSignal(s),signal);
-  if (error) throw error;
-  return decodeFinancialSnapshot(data);
+async function fetchHistoricalSourcesPaged(start: string, end: string, signal?: AbortSignal): Promise<HistoricalSources> {
+  // Bound pages stay under role statement_timeout when the single snapshot RPC
+  // still times out (migration pending or cold cache). Keep prepaid vouchers
+  // whose allocation window overlaps the selected period.
+  const [cashThroughEnd, prepaidOverlapping, orders, purchases, products, services, movements] = await Promise.all([
+    fetchPagedRows<BusinessTransactionRow>('report_financial_tx_page', (s, from, to) =>
+      supabase.from('thu_chi').select('id,loai_phieu,id_don,danh_muc,so_tien,nguoi_nhan,trang_thai,ngay,gio,phuong_thuc,co_so,source_type,source_id,ghi_chu,payment_allocations,expense_start_month,expense_months,payroll_employee_id,payroll_month,payroll_year,payroll_payment_kind')
+        .lte('ngay', end).order('ngay').order('id').range(from, to).abortSignal(s), signal),
+    fetchPagedRows<BusinessTransactionRow>('report_financial_prepaid_page', (s, from, to) =>
+      supabase.from('thu_chi').select('id,loai_phieu,id_don,danh_muc,so_tien,nguoi_nhan,trang_thai,ngay,gio,phuong_thuc,co_so,source_type,source_id,ghi_chu,payment_allocations,expense_start_month,expense_months,payroll_employee_id,payroll_month,payroll_year,payroll_payment_kind')
+        .not('expense_start_month', 'is', null).lte('expense_start_month', end).gt('ngay', end)
+        .order('ngay').order('id').range(from, to).abortSignal(s), signal),
+    fetchPagedRows<OrderRow>('report_financial_orders_page', (s, from, to) =>
+      supabase.from('the_ban_hang').select('id,id_bh,ngay,co_so,khach_hang_id,ten_khach_hang,tong_tien')
+        .lte('ngay', end).order('ngay').order('id').range(from, to).abortSignal(s), signal),
+    fetchPagedRows<BusinessPurchaseInput>('report_financial_purchases_page', (s, from, to) =>
+      supabase.from('phieu_nhap_hang').select('id,ma_phieu,nha_cung_cap,ma_nha_cung_cap,co_so,tong_tien,ngay')
+        .lte('ngay', end).order('ngay').order('id').range(from, to).abortSignal(s), signal),
+    fetchPagedRows<ProductRecord>('report_financial_products_page', (s, from, to) =>
+      supabase.from('ds_san_pham').select('id,ma_san_pham,ten_san_pham,don_vi_tinh,gia,ton_dau_ky,canh_bao_ton')
+        .order('ten_san_pham').order('id').range(from, to).abortSignal(s), signal),
+    fetchPagedRows<ServiceCodeRow & { id: string }>('report_financial_services_page', (s, from, to) =>
+      supabase.from('dich_vu').select('id,id_dich_vu,ten_dich_vu').order('id').range(from, to).abortSignal(s), signal),
+    fetchPagedRows<InventoryRecord>('report_financial_movements_page', (s, from, to) =>
+      supabase.from('nhap_xuat_kho').select('id,id_xuat_nhap_kho,loai_phieu,id_don_hang,co_so,ten_mat_hang,ton_dau_ky,so_luong,gia,tong_tien,ngay,gio,nguoi_thuc_hien')
+        .lte('ngay', end).order('ngay').order('id').range(from, to).abortSignal(s), signal),
+  ]);
+
+  const transactionMap = new Map<string, BusinessTransactionRow>();
+  for (const row of cashThroughEnd) transactionMap.set(row.id, row);
+  for (const row of prepaidOverlapping) {
+    if (!row.expense_start_month || transactionMap.has(row.id)) continue;
+    const months = Math.max(1, Number(row.expense_months) || 1);
+    const allocEnd = new Date(`${String(row.expense_start_month).slice(0, 10)}T00:00:00Z`);
+    if (Number.isNaN(allocEnd.getTime())) continue;
+    allocEnd.setUTCMonth(allocEnd.getUTCMonth() + months);
+    if (allocEnd.toISOString().slice(0, 10) > start) transactionMap.set(row.id, row);
+  }
+
+  return {
+    transactions: [...transactionMap.values()],
+    orders: orders.map(row => ({ ...row, ma_khach_hang: row.ma_khach_hang || row.khach_hang_id })),
+    purchases,
+    products,
+    services,
+    movements,
+  };
+}
+
+async function fetchHistoricalSources(start: string, end: string, signal?: AbortSignal): Promise<HistoricalSources> {
+  try {
+    const { data, error } = await readRequest(
+      'report_financial_snapshot',
+      s => supabase.rpc('business_report_snapshot', { p_start: start, p_end: end }).abortSignal(s),
+      signal,
+    );
+    if (error) throw error;
+    return decodeFinancialSnapshot(data);
+  } catch (error) {
+    if (signal?.aborted || !isStatementTimeout(error)) throw error;
+    console.warn('[business-report] snapshot timed out; loading history in pages');
+    return fetchHistoricalSourcesPaged(start, end, signal);
+  }
 }
 export interface BusinessReportSources {
   startDate: string; endDate: string;

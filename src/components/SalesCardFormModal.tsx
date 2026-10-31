@@ -180,37 +180,42 @@ const SalesCardFormModal: React.FC<{
     return catalogServices.filter((s) => matchesServiceBranch(s.co_so, formBranchForServices));
   }, [catalogServices, formBranchForServices]);
 
-  // Sync service information based on dich_vu_ids (Multi-select support)
+  // Sync service information based on dich_vu_ids (Multi-select support).
+  // Resolve id/name aliases to one catalog id so the same service cannot appear twice.
   React.useEffect(() => {
     if (formData.dich_vu_ids && formData.dich_vu_ids.length > 0) {
       const currentItems = formData.service_items || [];
-      const newItems = formData.dich_vu_ids.map(id => {
+      const merged = new Map<string, NonNullable<typeof currentItems>[number]>();
+      for (const id of formData.dich_vu_ids) {
         const s =
           catalogServices.find(serv => serv.id === id || serv.ten_dich_vu === id) ||
           servicesForBranch.find(serv => serv.id === id || serv.ten_dich_vu === id);
-        const existing = currentItems.find(it => it.id === id || (s && it.id === s.id));
+        const key = s?.id || id;
+        const existing = merged.get(key) || currentItems.find(it => it.id === id || it.id === key);
         if (s) {
-          return {
+          merged.set(key, {
             id: s.id,
             ten_dich_vu: s.ten_dich_vu,
             gia_ban: existing?.gia_ban ?? s.gia_ban ?? 0,
             gia_von: existing?.gia_von ?? s.gia_nhap ?? 0,
             so_luong: existing?.so_luong ?? 1,
             chi_phi: existing?.chi_phi ?? 0,
-          };
+          });
+          continue;
         }
-        if (existing) return existing;
-        return {
-          id,
-          ten_dich_vu: id,
-          gia_ban: 0,
-          so_luong: 1,
-        };
-      });
-
-      // Update if changed
-      if (JSON.stringify(newItems) !== JSON.stringify(currentItems)) {
-        setFormData(prev => ({ ...prev, service_items: newItems }));
+        if (existing) merged.set(key, existing);
+        else merged.set(key, { id, ten_dich_vu: id, gia_ban: 0, so_luong: 1 });
+      }
+      const newItems = Array.from(merged.values());
+      const newIds = newItems.map((item) => item.id);
+      const idsChanged = JSON.stringify(newIds) !== JSON.stringify(formData.dich_vu_ids);
+      const itemsChanged = JSON.stringify(newItems) !== JSON.stringify(currentItems);
+      if (idsChanged || itemsChanged) {
+        setFormData(prev => ({
+          ...prev,
+          dich_vu_ids: newIds,
+          service_items: newItems,
+        }));
       }
     } else if (!formData.dich_vu_id && (!formData.service_items || formData.service_items.length === 0)) {
       // Clear if nothing

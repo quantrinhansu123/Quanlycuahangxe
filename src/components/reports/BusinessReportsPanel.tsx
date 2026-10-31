@@ -1,6 +1,7 @@
 import { AlertCircle, Banknote, Boxes, Download, Landmark, Loader2, ReceiptText, Scale } from 'lucide-react';
 import React, { useEffect, useRef, useState, type ReactNode } from 'react';
 import { getBusinessReportData, type BusinessReportData, type BusinessTransactionRow } from '../../data/businessReportData';
+import { getReadErrorMessage } from '../../lib/errorDetails';
 import { normalizeBusinessText, normalizeCashFlowMethod, isIncomeTransaction, expenseRecognitionLines } from '../../lib/businessReportMetrics';
 import type { DebtLedger } from '../../lib/businessAccountingDetails';
 import { useAuth } from '../../context/AuthContext';
@@ -56,7 +57,7 @@ export default function BusinessReportsPanel({ startDate, endDate, branch = '', 
     const controller = new AbortController();
     getBusinessReportData(startDate, endDate, undefined, controller.signal, branch)
       .then(data => { if (!controller.signal.aborted) setResult({ key: requestKey, data, error: '' }); })
-      .catch(reason => { if (!controller.signal.aborted) setResult({ key: requestKey, data: null, error: reason instanceof Error ? reason.message : String(reason) }); });
+      .catch(reason => { if (!controller.signal.aborted) setResult({ key: requestKey, data: null, error: getReadErrorMessage(reason, 'Không tải được báo cáo tài chính.') }); });
     return () => controller.abort();
   }, [startDate, endDate, branch, requestKey, sharedResult, retry]);
   useEffect(() => { setDetail(null); setCostProduct(null); }, [requestKey]);

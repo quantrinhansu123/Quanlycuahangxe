@@ -1,6 +1,6 @@
 import { queryCustomers } from '../data/salesQueryData';
 import type { DailySalesSummary } from '../data/salesQueryData';
-import { getErrorDetails, getReadErrorMessage, isAbortError } from '../lib/errorDetails';
+import { getErrorDetails, getReadErrorMessage, getSalesWriteErrorMessage, isAbortError } from '../lib/errorDetails';
 import { useBranches } from '../hooks/useBranches';
 import { salesAmount } from '../lib/salesAmount';
 import { mergeSalesLineAmounts } from '../lib/salesLineSnapshot';
@@ -986,15 +986,39 @@ const SalesCardManagementPage: React.FC = () => {
         cleanData.dich_vu_id = dich_vu_ids[0];
       }
 
+      // Prefer service_items (already merged by service id) and drop duplicate
+      // dich_vu_ids so one selected service cannot insert two identical CT rows.
+      const lineItems = Array.from(
+        new Map(
+          (formDataHeader.service_items?.length
+            ? formDataHeader.service_items
+            : (dich_vu_ids || []).map((sId) => {
+                const service = services.find((s) => s.id === sId);
+                return {
+                  id: sId,
+                  ten_dich_vu: service?.ten_dich_vu || 'Dịch vụ',
+                  gia_ban: service?.gia_ban ?? 0,
+                  gia_von: service?.gia_nhap ?? 0,
+                  so_luong: 1,
+                  chi_phi: 0,
+                };
+              })
+          ).map((item) => [item.id, item])
+        ).values()
+      );
+      if (lineItems.length === 0) {
+        showToast('Vui lòng chọn ít nhất một dịch vụ trước khi lưu phiếu.', 'error');
+        return;
+      }
+
       if (isTechnician) {
-        const details = (dich_vu_ids || []).map(sId => {
-          const service = services.find(s => s.id === sId);
-          const override = (formDataHeader.service_items || []).find(it => it.id === sId);
-          return { san_pham: service?.ten_dich_vu || override?.ten_dich_vu || 'Dịch vụ',
-            gia_ban: override?.gia_ban ?? service?.gia_ban ?? 0,
-            gia_von: override?.gia_von ?? service?.gia_nhap ?? 0,
-            so_luong: override?.so_luong ?? 1, chi_phi: override?.chi_phi ?? 0 };
-        });
+        const details = lineItems.map((item) => ({
+          san_pham: item.ten_dich_vu || 'Dịch vụ',
+          gia_ban: item.gia_ban ?? 0,
+          gia_von: item.gia_von ?? 0,
+          so_luong: item.so_luong ?? 1,
+          chi_phi: item.chi_phi ?? 0,
+        }));
         // One server transaction seals the header, details and payment together.
         const { data, error } = await supabase.rpc('create_technician_sales_order', { p_header: cleanData, p_details: details });
         if (error) throw error;
@@ -1015,24 +1039,18 @@ const SalesCardManagementPage: React.FC = () => {
       }
 
       // Keep saved order prices/costs when editing; catalog changes apply to new items.
-      const detailRecords: Partial<SalesCardCT>[] = (dich_vu_ids || []).map((sId: string) => {
-        const service = services.find(s => s.id === sId);
-        // Look for a manual price override from the modal's state
-        const override = (formDataHeader.service_items || []).find(it => it.id === sId);
-        const orderRef = cleanData.id_bh || cleanData.id || null;
-
-        return {
-          id_don_hang: orderRef,
-          ten_don_hang: cleanData.id_bh || null,
-          san_pham: service?.ten_dich_vu || override?.ten_dich_vu || 'Dịch vụ',
-          co_so: orderBranch,
-          gia_ban: override?.gia_ban ?? (service?.gia_ban || 0),
-          gia_von: override?.gia_von ?? service?.gia_nhap ?? 0,
-          so_luong: override?.so_luong ?? 1,
-          chi_phi: override?.chi_phi ?? 0,
-          ngay: cleanData.ngay
-        };
-      });
+      const orderRef = cleanData.id_bh || cleanData.id || null;
+      const detailRecords: Partial<SalesCardCT>[] = lineItems.map((item) => ({
+        id_don_hang: orderRef,
+        ten_don_hang: cleanData.id_bh || null,
+        san_pham: item.ten_dich_vu || 'Dịch vụ',
+        co_so: orderBranch,
+        gia_ban: item.gia_ban ?? 0,
+        gia_von: item.gia_von ?? 0,
+        so_luong: item.so_luong ?? 1,
+        chi_phi: item.chi_phi ?? 0,
+        ngay: cleanData.ngay,
+      }));
 
       // The server calculates the invoice total and commits services and receipt atomically.
       const savedCard = await saveSalesOrder(cleanData, detailRecords, !editingCard);
@@ -1149,7 +1167,9 @@ const SalesCardManagementPage: React.FC = () => {
             ? 'Máy chủ chưa cập nhật chức năng lưu đơn. Vui lòng liên hệ quản lý.'
             : /Vui lòng chọn ít nhất một dịch vụ/i.test(rawMsg)
               ? 'Vui lòng chọn ít nhất một dịch vụ trước khi lưu phiếu.'
-              : (error?.message || '').trim() || 'Không thể lưu phiếu bán hàng.';
+              : /statement timeout|canceling statement|57014/i.test(rawMsg)
+                ? getSalesWriteErrorMessage(cause, 'save')
+                : (error?.message || '').trim() || 'Không thể lưu phiếu bán hàng.';
       showToast(`Lỗi lưu phiếu: ${friendlyMsg}`, 'error');
     }
   };

@@ -41,7 +41,7 @@ import {
 import BusinessReportsPanel from '../components/reports/BusinessReportsPanel';
 import { getBusinessReportData, type BusinessReportData, type BusinessReportSources } from '../data/businessReportData';
 import { useAuth } from '../context/AuthContext';
-import { getErrorDetails } from '../lib/errorDetails';
+import { getErrorDetails, getReadErrorMessage } from '../lib/errorDetails';
 import { getPersonnel, type NhanSu } from '../data/personnelData';
 import { SearchableSelect } from '../components/ui/SearchableSelect';
 import { branchKey, branchLabel } from '../lib/branchCatalog';
@@ -1384,7 +1384,7 @@ const RevenueReportPage: React.FC = () => {
     setFinancialResult({ key: '', data: null, error: '' });
     void getBusinessReportData(startDate, endDate, snapshot.records, controller.signal, selectedBranch, financialSources.current)
       .then(data => { if (!controller.signal.aborted) { financialSources.current = data.sources; financialCache.current.set(key, data); setFinancialResult({ key, data, error: '' }); } })
-      .catch(error => { if (!controller.signal.aborted) setFinancialResult({ key, data: null, error: getErrorDetails(error).message || 'Không tải được báo cáo tài chính.' }); });
+      .catch(error => { if (!controller.signal.aborted) setFinancialResult({ key, data: null, error: getReadErrorMessage(error, 'Không tải được báo cáo tài chính.') }); });
     return () => controller.abort();
   }, [needsFinancial, snapshot, startDate, endDate, selectedBranch, lazyRetry]);
 
