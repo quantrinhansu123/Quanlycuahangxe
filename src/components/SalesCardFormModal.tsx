@@ -17,6 +17,7 @@ import { useAuth } from '../context/AuthContext';
 import { assertSalesDateNotFuture, formatDateTime24h, formatLocalIsoDate } from '../utils/datetimeFormat';
 import { getSalesOrderBranchError } from '../utils/salesOrderBranch';
 import { branchKey } from '../lib/branchCatalog';
+import { preferCustomerLinkKey } from '../lib/customerOrderLink';
 
 // Helper for dynamic classes
 const clsx = (...classes: (string | boolean | undefined)[]) => classes.filter(Boolean).join(' ');
@@ -356,9 +357,12 @@ const SalesCardFormModal: React.FC<{
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Lock immediately to avoid double toast from rapid double-click.
     if (submittingRef.current || isCollecting) return;
+    submittingRef.current = true;
 
     if (!isAdmin && branchAccessError) {
+      submittingRef.current = false;
       alert(branchAccessError);
       return;
     }
@@ -366,12 +370,14 @@ const SalesCardFormModal: React.FC<{
     try {
       assertSalesDateNotFuture(formData.ngay);
     } catch (error) {
+      submittingRef.current = false;
       alert((error as Error).message);
       return;
     }
 
     const hasServices = (formData.dich_vu_ids || []).some(id => id.trim() !== '');
     if (!hasServices) {
+      submittingRef.current = false;
       setShowServiceWarning(true);
       alert('Vui lòng chọn ít nhất một dịch vụ trước khi lập phiếu.');
       return;
@@ -380,11 +386,13 @@ const SalesCardFormModal: React.FC<{
     setShowServiceWarning(false);
 
     if (!editingCard && (!formData.so_km || formData.so_km <= 0)) {
+      submittingRef.current = false;
       alert('Vui lòng nhập Số Km trước khi lập phiếu.');
       return;
     }
 
     if (!formData.phuong_thuc_thanh_toan && !formData.thu_chi?.phuong_thuc) {
+      submittingRef.current = false;
       alert('Vui lòng chọn Hình thức thanh toán trước khi lưu phiếu.');
       return;
     }
@@ -393,6 +401,7 @@ const SalesCardFormModal: React.FC<{
       resolveCustomerBranch(formData.co_so_khach) ||
       customerBranchFromProfile;
     if (!coSo) {
+      submittingRef.current = false;
       setShowBranchWarning(true);
       alert('Vui lòng chọn cơ sở trước khi lập phiếu.');
       return;
@@ -404,11 +413,11 @@ const SalesCardFormModal: React.FC<{
       employeeBranch, isAdmin, coSo, customerBranchFromProfile, formData.nhan_vien_id, personnel,
     );
     if (accessError) {
+      submittingRef.current = false;
       alert(accessError);
       return;
     }
 
-    submittingRef.current = true;
     setIsSubmitting(true);
     try {
       await onSubmit({ ...formData, co_so_khach: coSo });
@@ -824,8 +833,8 @@ const SalesCardFormModal: React.FC<{
       </div>
 
       {creatingCustomer && <CustomerFormModal isOpen inline customer={null} currentStaffId={nhanVien?.id} onClose={() => setCreatingCustomer(false)} onSuccess={customer => {
-        setCreatedCustomers(prev => [...prev, customer]); onCustomerCreated?.(customer);
-        setFormData(prev => ({ ...prev, khach_hang_id: customer.ma_khach_hang || customer.id, khach_hang: customer, ten_khach_hang: customer.ho_va_ten }));
+        setCreatedCustomers(prev => [...prev.filter(c => c.id !== customer.id), customer]); onCustomerCreated?.(customer);
+        setFormData(prev => ({ ...prev, khach_hang_id: preferCustomerLinkKey(customer), khach_hang: customer, ten_khach_hang: customer.ho_va_ten }));
         setCreatingCustomer(false);
       }} />}
       {creatingService && <div className="fixed inset-0" style={{ zIndex: 10000001 }}><ServiceFormModal isOpen editingService={null} initialData={newServiceData} branchOptions={['Cơ sở chính', ...CUSTOMER_BRANCH_OPTIONS]} showHoaHong={isAdmin} onClose={() => setCreatingService(false)} onSubmit={async data => {

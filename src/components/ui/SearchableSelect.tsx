@@ -116,13 +116,41 @@ export const SearchableSelect = React.memo(function SearchableSelect({
   }, []);
 
   const filteredOptions = React.useMemo(() => {
-    if (loadOptions) return remoteOptions;
+    if (loadOptions) {
+      // Remote search replaces the list; keep selected/local options so a just-created
+      // customer (PENDING or seeded) stays visible even if RPC has not returned them yet.
+      const seen = new Set<string>();
+      const merged: Option[] = [];
+      const push = (option: Option) => {
+        if (!option.value || seen.has(option.value)) return;
+        seen.add(option.value);
+        merged.push(option);
+      };
+      if (!multiple && value) {
+        const selected = uniqueOptions.find((option) => option.value === value);
+        if (selected) push(selected);
+      }
+      if (multiple) {
+        for (const selectedValue of values) {
+          const selected = uniqueOptions.find((option) => option.value === selectedValue);
+          if (selected) push(selected);
+        }
+      }
+      for (const option of remoteOptions) push(option);
+      const q = normalizeForCompare(search);
+      if (q) {
+        for (const option of uniqueOptions) {
+          if (matchOption(option, q)) push(option);
+        }
+      }
+      return merged.slice(0, MAX_VISIBLE_ITEMS);
+    }
     if (!search) return uniqueOptions.slice(0, MAX_VISIBLE_ITEMS);
     const q = normalizeForCompare(search);
     if (!q) return uniqueOptions.slice(0, MAX_VISIBLE_ITEMS);
     const matched = uniqueOptions.filter((o) => matchOption(o, q));
     return matched.slice(0, MAX_VISIBLE_ITEMS);
-  }, [uniqueOptions, search, matchOption, loadOptions, remoteOptions]);
+  }, [uniqueOptions, search, matchOption, loadOptions, remoteOptions, multiple, value, values]);
 
   const remainingCount = React.useMemo(() => {
     if (loadOptions) return 0;

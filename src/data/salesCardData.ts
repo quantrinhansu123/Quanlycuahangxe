@@ -535,12 +535,34 @@ export const getSalesCardByReference = async (reference: string, signal?: AbortS
   return card;
 };
 
-function salesFilters(searchQuery?: string, startDate?: string, endDate?: string, staffId?: string, branch?: string): SalesQueryFilters {
-  return { p_search: searchQuery?.trim() || null, p_start: startDate || null, p_end: endDate || null, p_staff: staffId || null, p_branch: branch || null };
+function salesFilters(
+  searchQuery?: string,
+  startDate?: string,
+  endDate?: string,
+  staffId?: string,
+  branch?: string,
+  service?: string,
+): SalesQueryFilters {
+  return {
+    p_search: searchQuery?.trim() || null,
+    p_start: startDate || null,
+    p_end: endDate || null,
+    p_staff: staffId || null,
+    p_branch: branch || null,
+    p_service: service?.trim() || null,
+  };
 }
 
-export const getSalesCardsForExport = async (searchQuery?: string, startDate?: string, endDate?: string, staffId?: string, branch?: string, signal?: AbortSignal): Promise<SalesCard[]> => {
-  const cards = await queryAllSales(salesFilters(searchQuery, startDate, endDate, staffId, branch), signal);
+export const getSalesCardsForExport = async (
+  searchQuery?: string,
+  startDate?: string,
+  endDate?: string,
+  staffId?: string,
+  branch?: string,
+  service?: string,
+  signal?: AbortSignal,
+): Promise<SalesCard[]> => {
+  const cards = await queryAllSales(salesFilters(searchQuery, startDate, endDate, staffId, branch, service), signal);
   await readRequest(
     'sales_cards_enrich_export',
     requestSignal => enrichSalesCards(cards, requestSignal),
@@ -549,8 +571,18 @@ export const getSalesCardsForExport = async (searchQuery?: string, startDate?: s
   return cards;
 };
 
-export const getSalesCardsPaginated = async (page: number, pageSize: number, searchQuery?: string, startDate?: string, endDate?: string, staffId?: string, branch?: string, signal?: AbortSignal) => {
-  const result = await querySales(salesFilters(searchQuery, startDate, endDate, staffId, branch), page, pageSize, signal);
+export const getSalesCardsPaginated = async (
+  page: number,
+  pageSize: number,
+  searchQuery?: string,
+  startDate?: string,
+  endDate?: string,
+  staffId?: string,
+  branch?: string,
+  service?: string,
+  signal?: AbortSignal,
+) => {
+  const result = await querySales(salesFilters(searchQuery, startDate, endDate, staffId, branch, service), page, pageSize, signal);
   await readRequest(
     'sales_cards_enrich_page',
     requestSignal => enrichSalesCards(result.data, requestSignal),
@@ -561,8 +593,15 @@ export const getSalesCardsPaginated = async (page: number, pageSize: number, sea
 };
 
 export type SalesSummaryTotals = SalesSummary;
-export async function getSalesCardsSummaryTotals(searchQuery?: string, startDate?: string, endDate?: string, staffId?: string, branch?: string) {
-  const result = await querySales(salesFilters(searchQuery, startDate, endDate, staffId, branch), 1, 0);
+export async function getSalesCardsSummaryTotals(
+  searchQuery?: string,
+  startDate?: string,
+  endDate?: string,
+  staffId?: string,
+  branch?: string,
+  service?: string,
+) {
+  const result = await querySales(salesFilters(searchQuery, startDate, endDate, staffId, branch, service), 1, 0);
   return { ...result.summary, groupedSummary: result.groupedSummary };
 }
 

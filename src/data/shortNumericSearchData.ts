@@ -262,6 +262,19 @@ function cardMatchesBranch(card: SalesCard, branch: string | null | undefined): 
   return branches.some((value) => branchKey(value) === expected);
 }
 
+function cardMatchesService(card: SalesCard, service: string | null | undefined): boolean {
+  if (!service?.trim()) return true;
+  const expected = foldVietnamese(service.trim());
+  const candidates = [
+    card.dich_vu_id,
+    card.dich_vu?.ten_dich_vu,
+    card.dich_vu?.id,
+    card.dich_vu?.id_dich_vu,
+    ...(card.the_ban_hang_ct || []).flatMap((detail) => [detail.san_pham, detail.ten_dich_vu]),
+  ];
+  return candidates.some((value) => foldVietnamese(value || '') === expected);
+}
+
 function cardMatchesTarget(card: SalesCard, term: string): boolean {
   if (targetedCustomerRowMatches(card.khach_hang || {}, term)) return true;
   const needle = normalizeVehicleSearch(term);
@@ -422,6 +435,7 @@ export async function queryShortNumericSales(
     .filter((card) => cardMatchesTarget(card, term))
     .filter((card) => cardMatchesStaff(card, filters.p_staff))
     .filter((card) => cardMatchesBranch(card, filters.p_branch))
+    .filter((card) => cardMatchesService(card, filters.p_service))
     .sort((a, b) => b.ngay.localeCompare(a.ngay) || b.gio.localeCompare(a.gio) || b.id.localeCompare(a.id));
 
   const firstDates = await fetchFirstDates(cards, signal);

@@ -27,6 +27,7 @@ export type SalesQueryFilters = {
   p_branch?: string | null;
   p_customer?: string | null;
   p_reference?: string | null;
+  p_service?: string | null;
 };
 
 export async function querySales(filters: SalesQueryFilters, page = 1, limit = 20, signal?: AbortSignal): Promise<SalesQueryResult> {

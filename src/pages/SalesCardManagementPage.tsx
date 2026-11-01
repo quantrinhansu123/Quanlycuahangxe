@@ -24,6 +24,7 @@ import {
   Upload,
   User,
   Users,
+  Wrench,
   X
 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -33,7 +34,7 @@ import Pagination from '../components/Pagination';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/toast';
 import type { KhachHang } from '../data/customerData';
-import { isDuplicateCustomerError, upsertCustomer } from '../data/customerData';
+import { isDuplicateCustomerError, parseDuplicateCustomerId, upsertCustomer } from '../data/customerData';
 import type { ThuChi } from '../data/financialData';
 import { getTransactionByOrderId, upsertTransaction } from '../data/financialData';
 import type { NhanSu } from '../data/personnelData';
@@ -208,6 +209,7 @@ const SalesCardManagementPage: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState(() => currentMonthBounds().monthValue);
   const [selectedStaff, setSelectedStaff] = useState('');
   const [selectedBranch, setSelectedBranch] = useState('');
+  const [selectedService, setSelectedService] = useState('');
   const [exportingExcel, setExportingExcel] = useState(false);
 
   // Debounce search
@@ -246,8 +248,21 @@ const SalesCardManagementPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (isModalOpen && services.length === 0) void reloadServices();
-  }, [isModalOpen, services.length, reloadServices]);
+    if ((isModalOpen || canUseDataFilters) && services.length === 0) void reloadServices();
+  }, [isModalOpen, canUseDataFilters, services.length, reloadServices]);
+
+  const serviceFilterOptions = useMemo(() => {
+    const byName = new Map<string, DichVu>();
+    for (const service of services) {
+      const name = service.ten_dich_vu?.trim();
+      if (!name) continue;
+      const key = name.toLowerCase();
+      if (!byName.has(key)) byName.set(key, service);
+    }
+    return [...byName.values()].sort((a, b) =>
+      a.ten_dich_vu.localeCompare(b.ten_dich_vu, 'vi', { sensitivity: 'base' }),
+    );
+  }, [services]);
 
   const salesRequest = useRef(0);
   const salesAbort = useRef<AbortController | null>(null);
@@ -262,6 +277,7 @@ const SalesCardManagementPage: React.FC = () => {
       setLoading(true);
       const staffFilter = isAdmin && selectedStaff ? selectedStaff : undefined;
       const branchFilter = isAdmin && selectedBranch ? selectedBranch : undefined;
+      const serviceFilter = canUseDataFilters && selectedService ? selectedService : undefined;
       const rawSearch = debouncedSearch.trim();
       // Technicians normally cannot use free-text filters, but short plate/code
       // suffixes use a bounded fast path and must still be searchable.
@@ -281,6 +297,7 @@ const SalesCardManagementPage: React.FC = () => {
         dateEnd,
         staffFilter,
         branchFilter,
+        serviceFilter,
         controller.signal
       );
 
@@ -313,7 +330,7 @@ const SalesCardManagementPage: React.FC = () => {
     } finally {
       if (request === salesRequest.current) setLoading(false);
     }
-  }, [currentPage, pageSize, debouncedSearch, startDate, endDate, selectedStaff, selectedBranch, isAdmin, canUseDataFilters, showToast]);
+  }, [currentPage, pageSize, debouncedSearch, startDate, endDate, selectedStaff, selectedBranch, selectedService, isAdmin, canUseDataFilters, showToast]);
 
   /** Tải lại danh sách + tính lại thẻ tổng hợp sau khi dữ liệu bị thay đổi. */
   const reloadAfterMutation = useCallback(async () => {
@@ -547,7 +564,13 @@ const SalesCardManagementPage: React.FC = () => {
   const customerOptions = useMemo(() => {
     let list = customers;
     // Đảm bảo pendingNewCustomer không bị xoá mất khi loadReferenceData fetched xong từ DB
-    if (pendingNewCustomer && !list.some(c => c.ma_khach_hang === pendingNewCustomer.ma_khach_hang)) {
+    if (
+      pendingNewCustomer
+      && !list.some(c =>
+        (pendingNewCustomer.id && c.id === pendingNewCustomer.id)
+        || (pendingNewCustomer.ma_khach_hang && c.ma_khach_hang === pendingNewCustomer.ma_khach_hang)
+      )
+    ) {
       list = [{ ...pendingNewCustomer, ho_va_ten: `${pendingNewCustomer.ho_va_ten}` } as KhachHang, ...list];
     }
     const rawOptions = list.map(c => {
@@ -887,11 +910,15 @@ const SalesCardManagementPage: React.FC = () => {
         delete cleanData[key];
       }
 
-      const foundForBranch = cleanData.khach_hang_id
-        ? customers.find(
-            (c) => c.id === cleanData.khach_hang_id || c.ma_khach_hang === cleanData.khach_hang_id
-          )
-        : undefined;
+      const selectedRef = String(cleanData.khach_hang_id || '').trim();
+      const embeddedCustomer = formDataHeader.khach_hang;
+      const findCustomer = (ref: string) => customers.find(
+        (c) => c.id === ref || c.ma_khach_hang === ref
+      ) || (embeddedCustomer && (embeddedCustomer.id === ref || embeddedCustomer.ma_khach_hang === ref)
+        ? embeddedCustomer
+        : undefined);
+
+      const foundForBranch = selectedRef ? findCustomer(selectedRef) : undefined;
       const orderBranch =
         resolveCustomerBranch(co_so_khach) ||
         resolveCustomerBranch(foundForBranch?.dia_chi_hien_tai);
@@ -908,28 +935,30 @@ const SalesCardManagementPage: React.FC = () => {
         showToast(accessError, 'error');
         return;
       }
-      // Validate against the current server session before any customer/order writes.
-      await validateSalesOrderBranch(orderBranch, cleanData.nhan_vien_id, cleanData.khach_hang_id);
       cleanData.co_so = orderBranch;
 
       // Extract the name from the existing customers if ten_khach_hang is implicitly null
-      if (!cleanData.ten_khach_hang && cleanData.khach_hang_id) {
-        const foundCustomer = customers.find(c => c.id === cleanData.khach_hang_id || c.ma_khach_hang === cleanData.khach_hang_id);
+      if (!cleanData.ten_khach_hang && selectedRef) {
+        const foundCustomer = findCustomer(selectedRef);
         if (foundCustomer && foundCustomer.ho_va_ten) {
           cleanData.ten_khach_hang = foundCustomer.ho_va_ten;
         }
       }
 
-      // Luôn lưu mã KH (legacy) thay vì UUID để khớp phiếu cũ + trang Khách hàng
-      if (cleanData.khach_hang_id) {
-        const found = customers.find(
-          (c) => c.id === cleanData.khach_hang_id || c.ma_khach_hang === cleanData.khach_hang_id
-        );
+      // Resolve link key. Technician RPC looks up by id OR ma — prefer real UUID when present.
+      const linkCustomerKey = (customer: KhachHang) => {
+        const id = String(customer.id || '').trim();
+        if (isTechnician && UUID_PATTERN.test(id)) return id;
+        return preferCustomerLinkKey(customer);
+      };
+
+      if (selectedRef) {
+        const found = findCustomer(selectedRef);
         if (found) {
-          cleanData.khach_hang_id = preferCustomerLinkKey(found);
+          cleanData.khach_hang_id = linkCustomerKey(found);
           if (!cleanData.ten_khach_hang) cleanData.ten_khach_hang = found.ho_va_ten;
           if (!cleanData.so_dien_thoai) cleanData.so_dien_thoai = found.so_dien_thoai;
-          if (!isTechnician && !(found.dia_chi_hien_tai || '').trim() && found.id) {
+          if (!isTechnician && !(found.dia_chi_hien_tai || '').trim() && found.id && UUID_PATTERN.test(found.id)) {
             void upsertCustomer({ id: found.id, dia_chi_hien_tai: orderBranch }).catch((err) => {
               console.error('Lỗi khi lưu cơ sở khách hàng:', err);
             });
@@ -947,39 +976,81 @@ const SalesCardManagementPage: React.FC = () => {
       // Sanitize date fields to avoid "invalid input syntax for type date" error in Supabase
       if (cleanData.ngay_nhac_thay_dau === '') cleanData.ngay_nhac_thay_dau = null;
 
-      // Deferred Save execution: if there is a pending new customer and it's the one selected
-      if (pendingNewCustomer && (cleanData.khach_hang_id === pendingNewCustomer.ma_khach_hang || cleanData.khach_hang_id === pendingNewCustomer.id)) {
+      // Deferred / recovered pending customer: must exist in DB before technician order RPC.
+      const pendingCandidate =
+        (pendingNewCustomer
+          && (cleanData.khach_hang_id === pendingNewCustomer.ma_khach_hang
+            || cleanData.khach_hang_id === pendingNewCustomer.id
+            || selectedRef === pendingNewCustomer.ma_khach_hang
+            || selectedRef === pendingNewCustomer.id)
+          ? pendingNewCustomer
+          : null)
+        || (embeddedCustomer?.id?.startsWith('PENDING-') ? embeddedCustomer : null)
+        || customers.find((c) =>
+          c.id?.startsWith('PENDING-')
+          && (c.id === cleanData.khach_hang_id || c.ma_khach_hang === cleanData.khach_hang_id || c.id === selectedRef || c.ma_khach_hang === selectedRef)
+        )
+        || (String(cleanData.khach_hang_id || '').startsWith('PENDING-')
+          ? { id: cleanData.khach_hang_id, ho_va_ten: cleanData.ten_khach_hang, so_dien_thoai: cleanData.so_dien_thoai } as KhachHang
+          : null);
+
+      if (pendingCandidate) {
         const dataToSave: Partial<KhachHang> = {
-          ...pendingNewCustomer,
+          ...pendingCandidate,
           ...(orderBranch ? { dia_chi_hien_tai: orderBranch } : {}),
         };
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        if (!dataToSave.id || !uuidRegex.test(dataToSave.id)) {
+        if (!dataToSave.id || !UUID_PATTERN.test(dataToSave.id)) {
           delete dataToSave.id;
         }
         if (!dataToSave.nhan_vien_id) {
           dataToSave.nhan_vien_id = cleanData.nhan_vien_id || nhanVien?.ho_ten || '';
         }
+        if (!dataToSave.ho_va_ten?.trim()) {
+          showToast('Thiếu tên khách hàng. Vui lòng chọn lại khách hoặc lưu khách trước.', 'error');
+          return;
+        }
         try {
           const savedCustomer = await upsertCustomer(dataToSave);
-          cleanData.khach_hang_id = preferCustomerLinkKey(savedCustomer);
-
-          // Remove from pending so subsequent saves (if editing without closing) use the new real ID
+          cleanData.khach_hang_id = linkCustomerKey(savedCustomer);
+          cleanData.ten_khach_hang = savedCustomer.ho_va_ten || cleanData.ten_khach_hang;
+          if (!cleanData.so_dien_thoai) cleanData.so_dien_thoai = savedCustomer.so_dien_thoai;
           setPendingNewCustomer(null);
-          // Also update local list to remove the "[MỚI]" prefix and update IDs
-          setCustomers(prev => prev.map(c => c.ma_khach_hang === pendingNewCustomer.ma_khach_hang ? { ...savedCustomer } : c));
+          setCustomers(prev => upsertCustomerInList(
+            prev.map(c =>
+              (pendingCandidate.id && c.id === pendingCandidate.id)
+              || (pendingCandidate.ma_khach_hang && c.ma_khach_hang === pendingCandidate.ma_khach_hang)
+                ? { ...savedCustomer }
+                : c
+            ),
+            savedCustomer,
+          ));
         } catch (cause) {
           const err = getErrorDetails(cause);
-          if (err?.code === '42501' || isDuplicateCustomerError(cause) || isDuplicateCustomerError(err)) {
-            // RLS chặn ghi KH, hoặc trùng SĐT+biển số nhưng không resolve được: vẫn cho lưu phiếu.
-            cleanData.khach_hang_id = pendingNewCustomer.ma_khach_hang || pendingNewCustomer.id || '';
-            cleanData.ten_khach_hang = pendingNewCustomer.ho_va_ten || cleanData.ten_khach_hang;
-            if (!cleanData.so_dien_thoai) cleanData.so_dien_thoai = pendingNewCustomer.so_dien_thoai;
+          // Trùng SĐT+biển: RPC save đơn tìm được theo UUID (SECURITY DEFINER),
+          // kể cả khi KTV không đọc được hồ sơ qua RLS.
+          const existingId = parseDuplicateCustomerId(cause) || parseDuplicateCustomerId(err);
+          if (existingId) {
+            cleanData.khach_hang_id = existingId;
+            cleanData.ten_khach_hang = pendingCandidate.ho_va_ten || cleanData.ten_khach_hang;
+            if (!cleanData.so_dien_thoai) cleanData.so_dien_thoai = pendingCandidate.so_dien_thoai;
+            setPendingNewCustomer(null);
+          } else if (err?.code === '42501' || isDuplicateCustomerError(cause) || isDuplicateCustomerError(err)) {
+            // Không gửi PENDING-/KH- chưa tồn tại: create_technician_sales_order sẽ báo "Không tìm thấy khách".
+            showToast('Không lưu được khách hàng mới. Chọn lại khách đã có hoặc thử lưu khách trước.', 'error');
+            return;
           } else {
             throw err;
           }
         }
       }
+
+      if (!String(cleanData.khach_hang_id || '').trim() || String(cleanData.khach_hang_id).startsWith('PENDING-')) {
+        showToast('Không tìm thấy khách hàng. Vui lòng chọn lại khách.', 'error');
+        return;
+      }
+
+      // Validate against the current server session after customer id is real.
+      await validateSalesOrderBranch(orderBranch, cleanData.nhan_vien_id, cleanData.khach_hang_id);
 
       // Set the first service as the primary ID for the master record
       if (dich_vu_ids && dich_vu_ids.length > 0) {
@@ -1498,6 +1569,7 @@ const SalesCardManagementPage: React.FC = () => {
     setSelectedMonth(month.monthValue);
     setSelectedStaff('');
     setSelectedBranch('');
+    setSelectedService('');
     setCurrentPage(1);
   };
 
@@ -1510,7 +1582,8 @@ const SalesCardManagementPage: React.FC = () => {
         startDate || undefined,
         endDate || undefined,
         isAdmin && selectedStaff ? selectedStaff : undefined,
-        isAdmin && selectedBranch ? selectedBranch : undefined
+        isAdmin && selectedBranch ? selectedBranch : undefined,
+        selectedService || undefined,
       );
 
       if (cards.length === 0) {
@@ -1710,6 +1783,29 @@ const SalesCardManagementPage: React.FC = () => {
             )}
 
             <div className="flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold text-muted-foreground shrink-0">
+              <Wrench size={14} className="shrink-0" />
+              <div className="relative">
+                <select
+                  value={selectedService}
+                  onChange={(e) => {
+                    setSelectedService(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="appearance-none min-w-[8.5rem] sm:min-w-[11rem] max-w-[14rem] pl-2 pr-7 sm:pl-3 sm:pr-8 py-1.5 bg-muted/50 border border-border rounded-lg focus:ring-1 focus:ring-primary focus:border-primary outline-none cursor-pointer transition-all text-[11px] sm:text-[13px]"
+                  title="Lọc theo dịch vụ"
+                >
+                  <option value="">Dịch vụ...</option>
+                  {serviceFilterOptions.map((service) => (
+                    <option key={service.id} value={service.ten_dich_vu}>
+                      {service.ten_dich_vu}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 size-3.5 pointer-events-none text-muted-foreground" />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold text-muted-foreground shrink-0">
               <Calendar size={14} className="shrink-0" />
               <span className="hidden sm:inline">Tháng:</span>
               <div className="relative">
@@ -1755,7 +1851,7 @@ const SalesCardManagementPage: React.FC = () => {
               />
             </div>
 
-            {(searchQuery || selectedStaff || selectedBranch || selectedMonth !== currentMonthBounds().monthValue || startDate !== currentMonthBounds().start || endDate !== currentMonthBounds().end) && (
+            {(searchQuery || selectedStaff || selectedBranch || selectedService || selectedMonth !== currentMonthBounds().monthValue || startDate !== currentMonthBounds().start || endDate !== currentMonthBounds().end) && (
               <button
                 onClick={handleClearFilters}
                 className="p-1.5 sm:p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-all border border-transparent hover:border-rose-100 shrink-0"
