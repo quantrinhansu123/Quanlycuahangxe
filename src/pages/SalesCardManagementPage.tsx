@@ -896,7 +896,10 @@ const SalesCardManagementPage: React.FC = () => {
     }
   };
 
+  const submitLock = useRef(false);
   const handleSubmit = async (formDataHeader: SalesCardFormData) => {
+    if (submitLock.current) return;
+    submitLock.current = true;
     try {
       if (isTechnician && editingCard) throw new Error('Thợ không được sửa đơn đã lưu. Vui lòng báo admin sửa lại.');
       if (!canManageOrders) {
@@ -1230,7 +1233,9 @@ const SalesCardManagementPage: React.FC = () => {
         raw: cause,
       });
       const rawMsg = [error?.message, error?.details, error?.hint].filter(Boolean).join(' ') || '';
-      const friendlyMsg = /Khách hàng\/xe đã tồn tại|23505/i.test(rawMsg)
+      const friendlyMsg = /the_ban_hang_id_bh_key|duplicate key.*id_bh/i.test(rawMsg)
+        ? 'Mã phiếu bị trùng. Đóng form, mở lập phiếu mới rồi lưu lại (máy chủ sẽ cấp mã mới).'
+        : /Khách hàng\/xe đã tồn tại|23505/i.test(rawMsg)
         ? 'Khách hàng/xe này đã có trên hệ thống (trùng SĐT và biển số). Hãy chọn khách đã tồn tại rồi lưu lại.'
         : /Chỉ quản trị viên hoặc quản lý được lập/i.test(rawMsg)
           ? 'Tài khoản hiện tại không có quyền lập phiếu. Vui lòng đăng nhập lại hoặc nhờ quản lý.'
@@ -1242,6 +1247,8 @@ const SalesCardManagementPage: React.FC = () => {
                 ? getSalesWriteErrorMessage(cause, 'save')
                 : (error?.message || '').trim() || 'Không thể lưu phiếu bán hàng.';
       showToast(`Lỗi lưu phiếu: ${friendlyMsg}`, 'error');
+    } finally {
+      submitLock.current = false;
     }
   };
 

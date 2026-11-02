@@ -1060,47 +1060,15 @@ export const deleteAllSalesCards = async (): Promise<void> => {
 };
 
 export const getNextSalesCardCode = async (): Promise<string> => {
-  // Fetch newest 1000 records to ensure we find the latest numeric maximum
-  // sorted by created_at so we don't just fetch old alphanumeric IDs
-  const { data, error } = await supabase
-    .from('the_ban_hang')
-    .select('id_bh')
-    .order('created_at', { ascending: false })
-    .limit(1000);
-
-  if (error) {
-    console.error('Error fetching sales card codes:', error);
-    return `BH-${Date.now().toString().slice(-6)}`; // Fallback to timestamp to avoid collision
+  // Preview only — the real code is allocated under a DB advisory lock in
+  // save_sales_order / create_technician_sales_order. Never scan the newest
+  // 1000 RLS-visible rows: that misses older higher BH-n and collides.
+  const { data, error } = await supabase.rpc('get_next_sales_card_code');
+  if (!error && data) return String(data);
+  if (error?.code !== 'PGRST202') {
+    console.error('Error fetching sales card code:', error);
   }
-
-  if (!data || data.length === 0) {
-    return 'BH-000001';
-  }
-
-  // Find the highest numeric value from valid BH-xxxxxx patterns
-  let maxNum = 0;
-  let hasValidCode = false;
-
-  data.forEach(item => {
-    if (item.id_bh) {
-      const match = item.id_bh.match(/^BH-(\d+)$/);
-      if (match) {
-        const num = parseInt(match[1], 10);
-        if (num > maxNum) {
-          maxNum = num;
-          hasValidCode = true;
-        }
-      }
-    }
-  });
-
-  if (!hasValidCode) {
-    // If no records match the pattern, it's the first one
-    return 'BH-000001';
-  }
-
-  const nextNumber = maxNum + 1;
-  return `BH-${nextNumber.toString().padStart(6, '0')}`;
+  return `BH-${Date.now().toString().slice(-8)}`;
 };
 
 /**
