@@ -1,6 +1,7 @@
 import { clsx } from 'clsx';
 import {
   AlertTriangle,
+  ArrowLeft,
   BarChart2,
   Bell,
   Calendar, CheckCheck,
@@ -16,8 +17,11 @@ import {
   Settings,
   Trash2,
   User,
-  Search
-  ,Sun, Moon
+  Search,
+  X,
+  Sun,
+  Moon,
+  RefreshCw
 } from 'lucide-react';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -26,6 +30,7 @@ import { useAuth } from '../../context/AuthContext';
 import { moduleData } from '../../data/moduleData';
 import { extraMenuItems, sidebarMenu } from '../../data/sidebarMenu';
 import { formatTime24h } from '../../utils/datetimeFormat';
+import { usePageRefreshActions } from '../../context/PageRefreshContext';
 import { SubModuleSwitcher } from '../ui/SubModuleSwitcher';
 import type { ModuleCardProps } from '../ui/ModuleCard';
 import {
@@ -34,6 +39,7 @@ import {
   markAllAppNotificationsRead,
   markAppNotificationRead,
 } from '../../data/notificationData';
+import './Topbar.css';
 
 interface Notification {
   id: string;
@@ -71,17 +77,20 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
   setGlobalSearch,
   subModules
 }) => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [time, setTime] = useState(new Date());
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [mobileSearch, setMobileSearch] = useState({ locationKey: location.key, open: false });
+  const showMobileSearch = mobileSearch.locationKey === location.key && mobileSearch.open;
   const notificationDropdownRef = useRef<HTMLDivElement>(null);
   const userDropdownRef = useRef<HTMLDivElement>(null);
-  const location = useLocation();
-  const navigate = useNavigate();
   const { avatar, theme, setTheme } = useTheme();
   const { nhanVien, signOut, hasViewAccess } = useAuth();
+  const { canRefresh, isRefreshing, refreshCurrentPage } = usePageRefreshActions();
   const canOpenPermissionSettings = hasViewAccess('cai-dat-phan-quyen');
 
   const notificationUserId = nhanVien?.id;
@@ -171,6 +180,19 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
     };
   });
 
+  const currentTitle = breadcrumbs[breadcrumbs.length - 1]?.label || 'Trang chủ';
+  const isDashboard = location.pathname === '/';
+  const handleBack = () => {
+    const historyIndex = window.history.state?.idx;
+    if (typeof historyIndex === 'number' && historyIndex > 0) {
+      navigate(-1);
+      return;
+    }
+
+    const moduleParent = location.pathname.match(/^\/(ban-hang|nhan-su|tien-luong|kho-van)\//)?.[1];
+    navigate(moduleParent ? `/${moduleParent}` : '/', { replace: true });
+  };
+
 
 
 
@@ -257,81 +279,117 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
   };
 
   return (
-    <header className="h-[55px] w-full min-w-0 bg-card border-b border-border flex items-center gap-2 px-3 sm:px-4 lg:px-6 z-30 sticky top-0">
-      {/* Left side: Hamburger, Title & Tabs */}
-      <div className="flex items-center gap-1 flex-1 min-w-0 overflow-hidden">
-        <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="p-2.5 text-muted-foreground hover:bg-muted border border-border/50 rounded-lg bg-card shadow-sm transition-colors shrink-0"
-        >
-          {sidebarOpen ? <PanelLeftClose size={16} /> : <PanelLeft size={16} />}
-        </button>
+    <header className="sticky top-0 z-30 w-full min-w-0 shrink-0 border-b border-border bg-card">
+      <div className="topbar-main-row flex h-14 items-center gap-1 px-2.5 sm:h-[55px] sm:gap-2 sm:px-4 lg:px-6">
+        <div className="topbar-primary flex min-w-0 flex-1 items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            aria-label={sidebarOpen ? 'Đóng menu điều hướng' : 'Mở menu điều hướng'}
+            aria-expanded={sidebarOpen}
+            className="topbar-menu-button topbar-compact-control flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {sidebarOpen ? <PanelLeftClose size={19} /> : <PanelLeft size={19} />}
+          </button>
 
-        {/* Unified Title & Switcher Container */}
-        <div className="flex items-center gap-1.5 min-w-0 overflow-x-auto no-scrollbar py-1">
-          {/* Breadcrumbs for PC (Home > Module > Page) */}
-          <div className={clsx(
-            "items-center gap-1.5 shrink-0 text-[11px] sm:text-[13px] font-medium text-muted-foreground",
-            subModules.length > 1 ? "hidden lg:flex" : "flex"
-          )}>
-            <div className="flex items-center gap-1.5">
-              <span className="flex items-center gap-1 hover:text-primary transition-colors cursor-pointer" onClick={() => navigate('/')}>
-                <Home size={13} />
-                <span className="hidden sm:inline">Trang chủ</span>
-              </span>
-              
+          {!isDashboard && (
+            <button
+              type="button"
+              onClick={handleBack}
+              aria-label="Quay lại"
+              title="Quay lại"
+              className="topbar-back-button topbar-compact-control flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:hidden"
+            >
+              <ArrowLeft size={19} aria-hidden="true" />
+            </button>
+          )}
+
+          <div className="topbar-title min-w-0 flex-1">
+            <div className="hidden min-w-0 items-center gap-1.5 text-[13px] font-medium text-muted-foreground lg:flex">
+              <button
+                type="button"
+                className="flex shrink-0 items-center gap-1 transition-colors hover:text-primary"
+                onClick={() => navigate('/')}
+              >
+                <Home size={14} aria-hidden="true" />
+                <span>Trang chủ</span>
+              </button>
               {breadcrumbs.map((crumb, idx) => (
                 <React.Fragment key={crumb.path}>
-                  <ChevronRight size={10} className="opacity-40" />
-                  <span 
-                    className={clsx(
-                      "transition-colors",
-                      idx === breadcrumbs.length - 1 ? "font-bold text-foreground" : "hover:text-primary cursor-pointer"
-                    )}
-                    onClick={() => idx < breadcrumbs.length - 1 && navigate(crumb.path)}
-                  >
-                    {crumb.label}
-                  </span>
+                  <ChevronRight size={12} className="shrink-0 opacity-40" aria-hidden="true" />
+                  {idx === breadcrumbs.length - 1 ? (
+                    <span className="truncate font-semibold text-foreground">{crumb.label}</span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="shrink-0 transition-colors hover:text-primary"
+                      onClick={() => navigate(crumb.path)}
+                    >
+                      {crumb.label}
+                    </button>
+                  )}
                 </React.Fragment>
               ))}
             </div>
+            <span className="topbar-title-text block truncate text-[15px] font-semibold tracking-tight text-foreground lg:hidden">
+              {currentTitle}
+            </span>
           </div>
 
-          {/* Inline Tabs (Mobile only) */}
-          {subModules.length > 1 && (
-            <div className="flex lg:hidden items-center h-7">
-              <SubModuleSwitcher items={subModules} variant="tabs" />
-            </div>
+          {canRefresh && (
+            <button
+              type="button"
+              onClick={() => {
+                void refreshCurrentPage().catch((error) => console.error('Không thể làm mới dữ liệu trang:', error));
+              }}
+              disabled={isRefreshing}
+              aria-label={isRefreshing ? 'Đang làm mới dữ liệu' : 'Làm mới dữ liệu'}
+              aria-busy={isRefreshing}
+              title={isRefreshing ? 'Đang làm mới' : 'Làm mới dữ liệu'}
+              className="topbar-refresh-button topbar-compact-control flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-wait disabled:opacity-60"
+            >
+              <RefreshCw size={18} className={clsx(isRefreshing && 'animate-spin')} aria-hidden="true" />
+            </button>
           )}
         </div>
-      </div>
 
-      {/* Global Search Bar (From user's markup) */}
-      <div className="flex-1 max-w-xs px-2 mx-auto justify-center hidden sm:flex lg:ml-8 lg:mr-8 transition-all duration-300 relative z-10 w-full animate-in slide-in-from-top-2">
-        <div className="relative w-full">
-          <div className="absolute inset-y-0 left-2.5 flex items-center pointer-events-none text-muted-foreground">
-            <Search size={14} />
+        <div className="topbar-desktop-search hidden w-full max-w-xs flex-1 justify-center px-2 sm:flex lg:mx-6">
+          <div className="relative w-full">
+            <div className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-muted-foreground">
+              <Search size={15} aria-hidden="true" />
+            </div>
+            <input
+              type="search"
+              aria-label="Tìm chức năng"
+              className="w-full rounded-full border border-transparent bg-muted/70 py-2 pl-9 pr-3 text-[13px] transition-colors placeholder:text-muted-foreground/80 hover:border-border focus:border-primary focus:bg-background focus:outline-none focus:ring-2 focus:ring-ring/20"
+              placeholder="Tìm chức năng..."
+              value={globalSearch}
+              onChange={(e) => setGlobalSearch(e.target.value)}
+            />
           </div>
-          <input
-            type="text"
-            className="w-full text-[13px] bg-muted/30 hover:bg-muted/50 border border-transparent hover:border-border/50 rounded-full pl-8 pr-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-background transition-all placeholder:text-muted-foreground/60"
-            placeholder="Tìm theo tên/mô tả..."
-            value={globalSearch}
-            onChange={(e) => setGlobalSearch(e.target.value)}
-          />
         </div>
-      </div>
 
-      {/* Right side: Báo cáo, Clock, Notifications, User — shrink-0 + nền để luôn còn chỗ trên màn hẹp */}
-      <div className="flex items-center gap-1.5 sm:gap-3 shrink-0 bg-card pl-1">
+        <div className="topbar-actions flex shrink-0 items-center gap-0.5 sm:gap-1.5">
+          {isDashboard && (
+            <button
+              type="button"
+              onClick={() => setMobileSearch({ locationKey: location.key, open: !showMobileSearch })}
+              aria-label={showMobileSearch ? 'Đóng tìm kiếm' : 'Tìm chức năng'}
+              aria-expanded={showMobileSearch}
+              className="topbar-search-button topbar-compact-control flex h-11 w-11 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:hidden"
+            >
+              <Search size={20} aria-hidden="true" />
+            </button>
+          )}
+
+        {/* Right side: reports, clock, notifications and profile */}
         {/* Báo cáo — ẩn với kỹ thuật viên / không có quyền */}
         {hasViewAccess('bao-cao') && (
         <button
           type="button"
           onClick={() => navigate('/bao-cao/san-pham')}
           className={clsx(
-            'shrink-0 flex items-center gap-1 rounded-lg px-1.5 py-1.5 sm:px-2.5 sm:py-2 transition-colors',
-            'border border-primary/35 bg-primary/10 text-primary shadow-sm',
+            'hidden shrink-0 items-center gap-1 rounded-lg border border-primary/35 bg-primary/10 px-2.5 py-2 text-primary transition-colors lg:flex',
             'hover:bg-primary/20 active:scale-[0.98]',
             location.pathname.startsWith('/bao-cao') && 'ring-2 ring-primary/40'
           )}
@@ -344,7 +402,7 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
         )}
 
         {/* Clock & Date (Hidden on mobile) */}
-        <div className="hidden md:flex items-center bg-card border border-border shadow-sm px-3 sm:px-4 py-1.5 rounded-full gap-2 sm:gap-3 text-[13px]">
+        <div className="hidden xl:flex items-center bg-card border border-border shadow-sm px-3 sm:px-4 py-1.5 rounded-full gap-2 sm:gap-3 text-[13px]">
           <div className="flex items-center gap-2">
             <Clock size={16} className="text-primary" />
             <span className="font-bold text-foreground tabular-nums">{formatTime(time)}</span>
@@ -360,20 +418,23 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
         <button
           type="button"
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          className="p-2 text-muted-foreground hover:bg-accent rounded-full transition-colors"
+          className="topbar-theme-button topbar-compact-control flex h-11 w-11 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           title={theme === 'dark' ? 'Chuyển sang ban ngày' : 'Chuyển sang ban đêm'}
           aria-label="Chuyển chế độ sáng tối"
         >
           {theme === 'dark' ? <Sun size={19} /> : <Moon size={19} />}
         </button>
-        <div className="relative" ref={notificationDropdownRef}>
+        <div className="topbar-notifications relative" ref={notificationDropdownRef}>
           <button
+            type="button"
             onClick={() => {
               setShowNotifications(!showNotifications);
               setShowUserDropdown(false);
             }}
+            aria-label={unreadCount > 0 ? `Thông báo, ${unreadCount} chưa đọc` : 'Thông báo'}
+            aria-expanded={showNotifications}
             className={clsx(
-              "relative p-2 text-muted-foreground hover:bg-accent rounded-full transition-colors",
+              "topbar-compact-control relative flex h-11 w-11 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               showNotifications && "bg-accent text-primary"
             )}
           >
@@ -486,35 +547,38 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
         </div>
 
         {/* User Profile */}
-        <div className="relative" ref={userDropdownRef}>
-          <div
+        <div className="topbar-profile relative" ref={userDropdownRef}>
+          <button
+            type="button"
             onClick={() => {
               setShowUserDropdown(!showUserDropdown);
               setShowNotifications(false);
             }}
+            aria-label={`Menu tài khoản${nhanVien?.ho_ten ? ` của ${nhanVien.ho_ten}` : ''}`}
+            aria-expanded={showUserDropdown}
             className={clsx(
-              "flex items-center gap-3 pl-2 sm:pl-4 sm:border-l border-border cursor-pointer group transition-all duration-200",
+              "topbar-compact-control topbar-profile-button flex h-11 items-center justify-center gap-2 rounded-xl px-1.5 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:gap-3 sm:rounded-none sm:border-l sm:border-border sm:pl-3 sm:pr-0",
               showUserDropdown && "opacity-80"
             )}
           >
             <div className="relative">
-              <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden shadow-sm shadow-primary/5">
+              <div className="topbar-avatar w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden shadow-sm shadow-primary/5">
                 <img
                   src={userAvatar}
-                  alt="Avatar"
+                  alt=""
                   className="w-full h-full object-cover"
                 />
               </div>
               <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 rounded-full border-2 border-card shadow-sm shadow-emerald-500/50"></div>
             </div>
-            <div className="hidden sm:flex flex-col">
+            <div className="hidden xl:flex flex-col">
               <div className="flex items-center gap-1">
                 <span className="text-[13px] font-bold leading-tight text-foreground group-hover:text-primary transition-colors">{nhanVien?.ho_ten || 'Tài khoản'}</span>
                 <ChevronDown size={12} className={clsx("text-muted-foreground transition-transform duration-200", showUserDropdown && "rotate-180")} />
               </div>
               <span className="text-[10px] text-muted-foreground leading-tight font-medium">{nhanVien?.vi_tri || 'Nhân viên'}</span>
             </div>
-          </div>
+          </button>
 
           {/* User Dropdown Menu */}
           {showUserDropdown && (
@@ -567,6 +631,40 @@ export const Topbar: React.FC<TopbarProps> = React.memo(({
           )}
         </div>
       </div>
+      </div>
+
+      {showMobileSearch && isDashboard && (
+        <div className="border-t border-border px-3 py-2 sm:hidden">
+          <div className="flex items-center gap-2">
+            <div className="relative min-w-0 flex-1">
+              <Search size={17} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+              <input
+                autoFocus
+                type="search"
+                aria-label="Tìm chức năng"
+                className="h-11 w-full rounded-xl border border-border bg-muted/70 pl-10 pr-3 text-base text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:bg-background focus:ring-2 focus:ring-ring/20"
+                placeholder="Tìm chức năng..."
+                value={globalSearch}
+                onChange={(e) => setGlobalSearch(e.target.value)}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setMobileSearch({ locationKey: location.key, open: false })}
+              aria-label="Đóng tìm kiếm"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <X size={18} aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {subModules.length > 1 && (
+        <div className="overflow-x-auto border-t border-border/70 px-3 py-2 lg:hidden">
+          <SubModuleSwitcher items={subModules} variant="tabs" />
+        </div>
+      )}
     </header>
   );
 });

@@ -10,6 +10,7 @@ import { useAuth } from '../../context/AuthContext';
 import { resolveViewKeyByPath } from '../../data/viewPermissions';
 import { ErrorBoundary } from '../ErrorBoundary';
 import TopProgressBar from '../ui/TopProgressBar';
+import { PageRefreshProvider } from '../../context/PageRefreshContext';
 
 const MainLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -54,14 +55,15 @@ const MainLayout: React.FC = () => {
   }, [location.pathname, sidebarOpen]);
 
   return (
-    <div className="flex h-screen bg-background text-foreground overflow-hidden">
+    <PageRefreshProvider>
+    <div className="flex h-dvh min-h-0 overflow-hidden bg-background text-foreground">
       {/* Sidebar - Hidden on focused data views */}
       <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
 
       {/* Main Content Area */}
       <div 
         className={clsx(
-          "flex-1 flex flex-col w-full min-w-0 transition-all duration-300",
+          "flex min-h-0 w-full min-w-0 flex-1 flex-col transition-all duration-300",
           sidebarOpen ? "lg:ml-64" : "lg:ml-[72px]"
         )}
       >
@@ -75,7 +77,7 @@ const MainLayout: React.FC = () => {
 
         {/* Scrollable Content */}
         <main ref={mainRef} className={clsx(
-          "flex-1 overflow-y-auto custom-scrollbar relative pb-24 lg:pb-6",
+          "mobile-safe-bottom relative min-h-0 flex-1 overflow-y-auto custom-scrollbar",
           isDataView ? "p-0" : "p-4 lg:p-6"
         )}>
           <div key={pageKey} className="w-full h-full flex flex-col animate-in fade-in duration-150 motion-reduce:animate-none">
@@ -88,11 +90,12 @@ const MainLayout: React.FC = () => {
         </main>
 
         {/* Mobile Bottom Navigation - Always show on mobile */}
-        <MobileBottomNav />
+        <MobileBottomNav isDrawerOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
       </div>
 
       <ToastContainer />
     </div>
+    </PageRefreshProvider>
   );
 };
 

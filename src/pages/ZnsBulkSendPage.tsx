@@ -1,5 +1,6 @@
 import { useBranches } from '../hooks/useBranches';
 import React, { useEffect, useMemo, useState } from 'react';
+import { useRegisterPageRefresh } from '../context/PageRefreshContext';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -400,6 +401,10 @@ const ZnsBulkSendPage: React.FC = () => {
       setLoadingCampaigns(false);
     }
   };
+
+  useRegisterPageRefresh(async () => {
+    await Promise.all([refreshOaStatus(), refreshCampaigns()]);
+  });
 
   useEffect(() => {
     void refreshOaStatus();

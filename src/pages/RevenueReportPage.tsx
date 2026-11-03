@@ -20,6 +20,7 @@ import {
   Banknote,
 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRegisterPageRefresh } from '../context/PageRefreshContext';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   loadReportSnapshot,
@@ -1350,6 +1351,8 @@ const RevenueReportPage: React.FC = () => {
       if (version === loadVersion.current) setLoading(false);
     }
   }, [startDate, endDate, nhanVien?.id, nhanVien?.co_so, nhanVien?.vi_tri, session?.access_token]);
+
+  useRegisterPageRefresh(loadAll);
 
   useEffect(() => {
     void loadAll();

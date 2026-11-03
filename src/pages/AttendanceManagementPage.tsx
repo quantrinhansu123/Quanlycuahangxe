@@ -21,6 +21,7 @@ import {
   X
 } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
+import { useRegisterPageRefresh } from '../context/PageRefreshContext';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 
@@ -388,6 +389,8 @@ const AttendanceManagementPage: React.FC = () => {
     attendanceSettings,
     attendanceSettingsLoading,
   ]);
+
+  useRegisterPageRefresh(loadRecords);
 
   useEffect(() => {
     // A detail requested from the previous filter must not open over a new list.

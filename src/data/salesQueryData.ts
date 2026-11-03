@@ -38,9 +38,23 @@ export async function querySales(filters: SalesQueryFilters, page = 1, limit = 2
       signal,
     );
   }
-  const { data, error } = await readRequest('sales_query', s => supabase.rpc('sales_query', {
-    ...filters, p_start: filters.p_start || null, p_end: filters.p_end || null, p_page: page, p_limit: limit,
-  }).abortSignal(s), signal);
+  const rpcFilters = {
+    ...filters,
+    p_start: filters.p_start || null,
+    p_end: filters.p_end || null,
+    p_page: page,
+    p_limit: limit,
+  };
+  // p_service was added by a later migration. Leave the optional argument out
+  // when no service filter is selected so older deployed 9-argument RPCs still
+  // resolve; PostgREST rejects an unknown argument even when its value is null.
+  if (!rpcFilters.p_service?.trim()) delete rpcFilters.p_service;
+
+  const { data, error } = await readRequest(
+    'sales_query',
+    s => supabase.rpc('sales_query', rpcFilters).abortSignal(s),
+    signal,
+  );
   // Do not silently replace a failed server summary with totals from a page.
   if (error) throw error;
   return data as SalesQueryResult;

@@ -45,7 +45,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({ isOpen, setIsOpen }) => {
       {/* Overlay - visible whenever sidebar is open ON MOBILE */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+          className="fixed inset-0 z-[35] bg-black/50 lg:hidden"
           onClick={() => setIsOpen(false)}
         />
       )}

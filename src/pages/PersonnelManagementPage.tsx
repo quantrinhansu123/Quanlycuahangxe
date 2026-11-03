@@ -17,6 +17,7 @@ import {
   User
 } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
+import { useRegisterPageRefresh } from '../context/PageRefreshContext';
 import { useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../context/AuthContext';
@@ -133,6 +134,8 @@ const PersonnelManagementPage: React.FC = () => {
       setLoading(false);
     }
   }, [pageByBranch, pageSize, debouncedSearch, selectedPositions, BRANCH_OPTIONS]);
+
+  useRegisterPageRefresh(loadData);
 
   useEffect(() => {
     loadData();

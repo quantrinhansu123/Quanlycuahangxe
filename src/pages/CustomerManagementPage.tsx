@@ -1,4 +1,5 @@
 import { useBranches } from '../hooks/useBranches';
+import { useRegisterPageRefresh } from '../context/PageRefreshContext';
 import { findExistingCustomer } from '../lib/customerIdentity';
 import { clsx } from 'clsx';
 import {
@@ -238,6 +239,8 @@ const CustomerManagementPage: React.FC = () => {
       if (request === listRequest.current) setLoading(false);
     }
   }, [currentPage, pageSize, debouncedSearch, canUseDataFilters, selectedDepts, loadCustomerStats, showToast]);
+
+  useRegisterPageRefresh(loadCustomers);
 
   useEffect(() => {
     const timer = setTimeout(() => {
