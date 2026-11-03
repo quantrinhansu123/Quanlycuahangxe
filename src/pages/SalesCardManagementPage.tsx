@@ -949,7 +949,7 @@ const SalesCardManagementPage: React.FC = () => {
       }
 
       // Resolve link key. Technician RPC looks up by id OR ma — prefer real UUID when present.
-      const linkCustomerKey = (customer: KhachHang) => {
+      const linkCustomerKey = (customer: Pick<Partial<KhachHang>, 'id' | 'ma_khach_hang'>) => {
         const id = String(customer.id || '').trim();
         if (isTechnician && UUID_PATTERN.test(id)) return id;
         return preferCustomerLinkKey(customer);
