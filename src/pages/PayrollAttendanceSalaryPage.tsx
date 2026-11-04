@@ -1,5 +1,5 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BadgeDollarSign, Building2, Calculator, Calendar, CheckCircle2, Clock3, GitCompareArrows, Loader2, Plus, Save, Table2, Trash2, TrendingUp, UserPlus, Utensils, X } from 'lucide-react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { BadgeDollarSign, Building2, Calculator, Calendar, CheckCircle2, Clock3, GitCompareArrows, Loader2, Pencil, Plus, Save, Table2, Trash2, TrendingUp, UserPlus, Utensils, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { clsx } from 'clsx';
 import { getChamCongTrongKhoang } from '../data/attendanceData';
@@ -70,6 +70,142 @@ function bonusAmountFromNote(raw: string): number | null {
     .map((candidate) => parseTienNhap(candidate))
     .filter((amount) => amount > 0);
   return amounts.length > 0 ? Math.max(...amounts) : null;
+}
+
+function MoneyValue({ value, strong = false }: { value: number; strong?: boolean }) {
+  return (
+    <span className={clsx('tabular-nums', strong && 'font-semibold text-foreground')}>
+      {formatTienNhap(value)}
+      <span className="ml-1 text-xs font-medium text-muted-foreground">đ</span>
+    </span>
+  );
+}
+
+function EditableTableValue({
+  value,
+  display,
+  onChange,
+  ariaLabel,
+  title,
+  disabled = false,
+  inputMode = 'numeric',
+  placeholder,
+  align = 'right',
+  className,
+}: {
+  value: string;
+  display: ReactNode;
+  onChange: (value: string) => void;
+  ariaLabel: string;
+  title?: string;
+  disabled?: boolean;
+  inputMode?: 'numeric' | 'decimal' | 'text';
+  placeholder?: string;
+  align?: 'left' | 'right';
+  className?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const alignment = align === 'right' ? 'justify-end text-right' : 'justify-start text-left';
+
+  useEffect(() => {
+    if (editing) inputRef.current?.focus();
+  }, [editing]);
+
+  if (editing && !disabled) {
+    return (
+      <input
+        ref={inputRef}
+        type="text"
+        inputMode={inputMode}
+        className={clsx(
+          'min-h-10 w-full rounded-md border border-primary/40 bg-background px-2.5 py-2 text-sm text-foreground shadow-sm outline-none ring-2 ring-primary/15 focus:border-primary focus:ring-primary/25',
+          alignment,
+          className,
+        )}
+        value={value}
+        placeholder={placeholder}
+        aria-label={ariaLabel}
+        onChange={(event) => onChange(event.target.value)}
+        onBlur={() => setEditing(false)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === 'Escape') {
+            event.preventDefault();
+            setEditing(false);
+          }
+        }}
+      />
+    );
+  }
+
+  if (disabled) {
+    return (
+      <div className={clsx('flex min-h-10 w-full items-center px-2.5 py-2', alignment, className)} title={title}>
+        {display}
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      className={clsx(
+        'group/edit inline-flex min-h-10 w-full items-center gap-2 rounded-md px-2.5 py-2 text-sm text-foreground transition-colors hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50',
+        alignment,
+        className,
+      )}
+      title={title || `Bấm để sửa: ${ariaLabel}`}
+      aria-label={`Sửa ${ariaLabel}`}
+      onClick={() => setEditing(true)}
+    >
+      <span className={clsx('min-w-0', align === 'right' && 'text-right')}>{display}</span>
+      <Pencil className="h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/edit:opacity-100 group-focus-visible/edit:opacity-100" aria-hidden="true" />
+    </button>
+  );
+}
+
+function EditableTypeValue({
+  value,
+  onChange,
+  disabled,
+  name,
+}: {
+  value: LoaiNhanVien;
+  onChange: (value: LoaiNhanVien) => void;
+  disabled: boolean;
+  name: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  if (editing && !disabled) {
+    return (
+      <select
+        autoFocus
+        className="min-h-10 w-full rounded-md border border-primary/40 bg-background px-2.5 py-2 text-sm text-foreground outline-none ring-2 ring-primary/15 focus:border-primary"
+        value={value}
+        aria-label={`Loại nhân viên của ${name}`}
+        onChange={(event) => onChange(event.target.value as LoaiNhanVien)}
+        onBlur={() => setEditing(false)}
+      >
+        <option value="chinh_thuc">Chính thức</option>
+        <option value="thoi_vu">Thời vụ</option>
+      </select>
+    );
+  }
+  const label = value === 'thoi_vu' ? 'Thời vụ' : 'Chính thức';
+  const badge = <span className="inline-flex rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">{label}</span>;
+  if (disabled) return <div className="flex min-h-10 items-center px-2.5 py-2">{badge}</div>;
+  return (
+    <button
+      type="button"
+      className="group/type inline-flex min-h-10 w-full items-center justify-start gap-2 rounded-md px-2.5 py-2 text-left hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+      title="Bấm để sửa loại nhân viên"
+      aria-label={`Sửa loại nhân viên của ${name}`}
+      onClick={() => setEditing(true)}
+    >
+      {badge}
+      <Pencil className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity group-hover/type:opacity-100 group-focus-visible/type:opacity-100" aria-hidden="true" />
+    </button>
+  );
 }
 
 function khoangNgayCuaThang(nam: number, thang: number): { start: string; end: string } {
@@ -1097,13 +1233,16 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
     [revenueCache, nam, thang, nhanTheoChuanTen, setOrdersModal]
   );
 
-  const thCell = (short: string, full: string, onClick?: () => void) => (
+  const thCell = (short: string, full: string, onClick?: () => void, align: 'left' | 'right' = 'left') => (
     <th
-      className="sticky top-0 z-[1] bg-muted/80 backdrop-blur border-b border-border px-2.5 py-3 text-left text-xs sm:text-sm font-semibold text-muted-foreground whitespace-nowrap"
+      className={clsx(
+        'sticky top-0 z-[1] min-w-24 bg-muted/95 backdrop-blur border-b border-border px-3 py-3.5 text-xs sm:text-sm font-semibold text-muted-foreground whitespace-normal',
+        align === 'right' ? 'text-right' : 'text-left',
+      )}
       title={full}
     >
       {onClick ? (
-        <button type="button" onClick={onClick} className="font-semibold text-primary underline-offset-4 hover:underline">
+        <button type="button" onClick={onClick} className={clsx('font-semibold text-primary underline-offset-4 hover:underline', align === 'right' && 'text-right')}>
           {short}
         </button>
       ) : short}
@@ -1336,37 +1475,45 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                 {thCell('Họ tên', 'Tên nhân viên')}
                 {thCell(
                   'Doanh số tháng',
-                  'Toàn bộ giá trị các đơn nhân viên phụ trách, khớp trang Phiếu bán hàng — bấm để rà soát',
-                  () => navigate(`/tien-luong/doi-soat-doanh-so?thang=${thang}&nam=${nam}`)
+                  'Doanh số phiếu được phân bổ cho nhân viên. Bấm tiêu đề để rà soát.',
+                  () => navigate(`/tien-luong/doi-soat-doanh-so?thang=${thang}&nam=${nam}`),
+                  'right'
                 )}
                 {thCell('Loại', 'Chính thức / thời vụ')}
-                {thCell('Lương', 'Lương cơ bản riêng của kỳ; admin có thể nhập và sửa trực tiếp')}
+                {thCell('Lương cơ bản', 'Lương cơ bản riêng của kỳ; bấm số tiền để sửa.', undefined, 'right')}
                 {thCell(
                   'Ngày công',
-                  '28 ngày = 1 tháng lương. Số công từ chấm công + ô « + » nhập thêm ngày làm thêm. Bấm để rà soát.',
-                  () => navigate(`/tien-luong/doi-soat-cham-cong?thang=${thang}&nam=${nam}`)
+                  'Ngày công từ chấm công và số ngày điều chỉnh thêm. Bấm tiêu đề để rà soát.',
+                  () => navigate(`/tien-luong/doi-soat-cham-cong?thang=${thang}&nam=${nam}`),
+                  'right'
                 )}
-                {thCell('Chuyên cần', 'Đủ 28 công trong kỳ được hưởng 200.000đ')}
+                {thCell('Chuyên cần', 'Đủ 28 công trong kỳ được hưởng 200.000đ; bấm số tiền để điều chỉnh.', undefined, 'right')}
                 {thCell(
-                  'Tăng ca',
-                  `Tiền tăng ca = giờ tăng ca × lương giờ × ${1.5} (tối đa 25h/tháng, chỉ nhân viên chính thức)`
+                  'Tiền tăng ca',
+                  `Giờ tăng ca × lương giờ × ${1.5}; tối đa 25 giờ/tháng. Chi tiết nằm trong gợi ý của ô.`,
+                  undefined,
+                  'right'
                 )}
-                {thCell('Xăng xe điện thoại', 'Điện thoại 200.000đ + xăng xe/đi lại 300.000đ')}
-                {thCell('Thâm niên', '50.000đ × số tháng làm việc, tối đa 600.000đ')}
-                {thCell('Trọ ngoài', 'Phụ cấp trọ ngoài (nhập theo từng nhân viên)')}
+                {thCell('Xăng xe & điện thoại', 'Điện thoại 200.000đ + xăng xe/đi lại 300.000đ; bấm để điều chỉnh.', undefined, 'right')}
+                {thCell('Thâm niên', '50.000đ × số tháng làm việc, tối đa 600.000đ; bấm để điều chỉnh.', undefined, 'right')}
+                {thCell('Trọ ngoài', 'Phụ cấp trọ ngoài; bấm số tiền để nhập.', undefined, 'right')}
                 {thCell(
                   'Tiền ăn',
-                  `Nhập số bữa ăn thường; tiền ăn = số bữa × ${formatVnd(donGiaTienAnKy)}`
+                  `Tiền ăn thường theo số bữa và đơn giá ${formatVnd(donGiaTienAnKy)}; bấm để sửa số bữa.`,
+                  undefined,
+                  'right'
                 )}
                 {thCell(
                   'Tiền ăn tăng ca',
-                  `Nhập số bữa ăn tăng ca; tiền ăn = số bữa × ${formatVnd(donGiaTienAnTangCaKy)}`
+                  `Tiền ăn tăng ca theo số bữa và đơn giá ${formatVnd(donGiaTienAnTangCaKy)}; bấm để sửa số bữa.`,
+                  undefined,
+                  'right'
                 )}
-                {thCell('Thưởng tháng', 'Khoản thưởng tùy ý của từng nhân viên trong kỳ')}
+                {thCell('Thưởng tháng', 'Khoản thưởng tùy ý; bấm số tiền để nhập.', undefined, 'right')}
                 {thCell('Ghi chú thưởng', 'Nhập nội dung; nếu có số tiền, số đó được cộng ngay vào Thưởng tháng')}
-                {thCell('% HH', 'Tỷ lệ hoa hồng riêng của từng nhân viên; chỉ admin được sửa')}
-                {thCell('Tiền hoa hồng', 'Doanh số đã phân bổ cho nhân viên × tỷ lệ hoa hồng riêng')}
-                {thCell('Tổng lương', 'Tổng các khoản thu nhập')}
+                {thCell('Tỷ lệ HH', 'Tỷ lệ hoa hồng riêng; bấm để sửa.', undefined, 'right')}
+                {thCell('Tiền hoa hồng', 'Doanh số đã phân bổ nhân viên × tỷ lệ hoa hồng; chi tiết trong gợi ý.', undefined, 'right')}
+                {thCell('Tổng thu nhập', 'Tổng các khoản thu nhập trong kỳ.', undefined, 'right')}
                 {thCell('Ghi chú', 'Cảnh báo')}
                 {isAdmin && (
                   <th className="sticky top-0 right-0 z-[2] bg-muted/80 backdrop-blur border-b border-l border-border px-2 py-3 text-center text-xs sm:text-sm font-semibold text-muted-foreground whitespace-nowrap w-14">
@@ -1395,101 +1542,93 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                     return (
                       <tr
                         key={input.id}
-                        className={clsx('border-b border-border/60 hover:bg-muted/20', i % 2 === 0 && 'bg-muted/5')}
+                        className={clsx('group border-b border-border/60 transition-colors hover:bg-muted/40', i % 2 === 0 && 'bg-muted/5')}
                       >
                     <td className="sticky left-0 z-[1] bg-card/90 border-r border-border px-2.5 py-2.5 text-muted-foreground tabular-nums">
                       {i + 1}
                     </td>
-                    <td className="px-2 py-1.5 min-w-[16rem]">
-                      <input
-                        className={clsx(
-                          'w-full min-w-0 min-h-10 text-sm bg-transparent border border-border/60 rounded-md px-2.5 py-2',
-                          !isEditingName &&
-                            input.hoTen.trim() &&
-                            'cursor-pointer text-primary font-medium hover:bg-primary/5 hover:border-primary/30'
-                        )}
-                        readOnly={!isAdmin || !isEditingName}
-                        title={
-                          isEditingName
-                            ? 'Nhập họ tên'
-                            : input.hoTen.trim()
-                              ? 'Click để xem đơn hàng tính doanh số. Double-click để sửa tên.'
-                              : 'Double-click để nhập họ tên'
-                        }
-                        value={input.hoTen}
-                        onChange={(e) => setEmployeeName(input.id, e.target.value)}
-                        onClick={() => {
-                          if (isEditingName) return;
-                          if (!input.hoTen.trim()) {
-                            if (isAdmin) setEditingNameId(input.id);
-                            return;
-                          }
-                          void moChiTietDon(input.hoTen);
-                        }}
-                        onDoubleClick={() => {
-                          if (isAdmin) setEditingNameId(input.id);
-                        }}
-                        onBlur={() => setEditingNameId(null)}
-                      />
+                    <td className="min-w-[16rem] px-3 py-3">
+                      {isEditingName ? (
+                        <input
+                          autoFocus
+                          className="min-h-10 w-full rounded-md border border-primary/40 bg-background px-2.5 py-2 text-sm outline-none ring-2 ring-primary/15 focus:border-primary"
+                          aria-label={`Tên nhân viên dòng ${i + 1}`}
+                          value={input.hoTen}
+                          onChange={(event) => setEmployeeName(input.id, event.target.value)}
+                          onBlur={() => setEditingNameId(null)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === 'Escape') setEditingNameId(null);
+                          }}
+                        />
+                      ) : (
+                        <div className="group/name flex min-h-10 items-center gap-2">
+                          <button
+                            type="button"
+                            className="min-w-0 flex-1 rounded-md px-2.5 py-2 text-left font-semibold text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                            title={input.hoTen.trim() ? 'Bấm tên để xem các phiếu đã tính doanh số.' : 'Chưa nhập tên nhân viên.'}
+                            onClick={() => {
+                              if (!input.hoTen.trim()) {
+                                if (isAdmin) setEditingNameId(input.id);
+                                return;
+                              }
+                              void moChiTietDon(input.hoTen);
+                            }}
+                          >
+                            <span className="block truncate">{input.hoTen || 'Chưa có tên'}</span>
+                          </button>
+                          {isAdmin && (
+                            <button
+                              type="button"
+                              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 group-hover/name:opacity-100 [@media(hover:none)]:opacity-100"
+                              aria-label={`Sửa tên ${input.hoTen || `nhân viên dòng ${i + 1}`}`}
+                              title="Sửa tên nhân viên"
+                              onClick={() => setEditingNameId(input.id)}
+                            >
+                              <Pencil className="h-4 w-4" aria-hidden="true" />
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </td>
-                    <td className="px-2 py-1.5 bg-primary/5">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        className="w-32 min-w-0 min-h-10 text-sm bg-transparent border border-primary/30 rounded-md px-2 py-1.5 text-right font-mono"
-                        title="Doanh số phiếu được phân bổ theo nhân viên. Nhân sự trùng tên chia chung một tổng. Bấm « Doanh số » để lấy lại từ hệ thống."
-                        readOnly={!isAdmin}
+                    <td className="bg-primary/[0.03] px-2 py-2 text-right">
+                      <EditableTableValue
                         value={formatTienNhap(input.tongDoanhThu)}
-                        onChange={(e) => setTien(input.id, 'tongDoanhThu', e.target.value)}
+                        display={<MoneyValue value={input.tongDoanhThu} strong />}
+                        onChange={(value) => setTien(input.id, 'tongDoanhThu', value)}
+                        disabled={!isAdmin}
+                        ariaLabel={`doanh số tháng của ${input.hoTen}`}
+                        title="Doanh số phiếu đã phân bổ. Nhân sự trùng tên chia chung một tổng; bấm để điều chỉnh."
                       />
                     </td>
-                    <td className="px-2 py-1.5">
-                      <select
-                        className="w-[7.5rem] min-h-10 text-sm bg-background border border-border/60 rounded-md px-1.5 py-1.5"
+                    <td className="px-2 py-2">
+                      <EditableTypeValue
                         value={input.loai}
                         disabled={!isAdmin}
-                        onChange={(e) => updateRow(input.id, { loai: e.target.value as LoaiNhanVien })}
-                      >
-                        <option value="chinh_thuc">Chính thức</option>
-                        <option value="thoi_vu">Thời vụ</option>
-                      </select>
-                    </td>
-                    <td className="px-2 py-1.5">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        className="w-32 min-w-0 min-h-10 text-sm bg-transparent border border-primary/30 rounded-md px-2 py-1.5 text-right font-mono"
-                        title="Lương cơ bản riêng của kỳ đang chọn; bấm “Lưu & mở bảng lương” để lưu"
-                        readOnly={!isAdmin}
-                        value={formatTienNhap(input.luongCoBan)}
-                        onChange={(e) => setTien(input.id, 'luongCoBan', e.target.value)}
+                        name={input.hoTen || `dòng ${i + 1}`}
+                        onChange={(value) => updateRow(input.id, { loai: value })}
                       />
                     </td>
-                    <td className="px-2 py-1.5 min-w-[9rem]">
-                      <div className="flex items-center justify-center gap-1">
-                        <span
-                          className="tabular-nums font-medium text-sm"
-                          title="Ngày công từ chấm công"
-                        >
-                          {kq.soNgayCongTuCham}
-                        </span>
-                        <span className="text-muted-foreground text-xs">+</span>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          className="w-10 min-h-8 text-sm bg-transparent border border-border/60 rounded-md px-1 py-1 text-center font-mono"
-                          title="Thêm số ngày làm thêm (cộng vào ngày công)"
-                          readOnly={!isAdmin}
-                          value={String(input.soNgayCongThem ?? 0)}
-                          onChange={(e) => setNum(input.id, 'soNgayCongThem', e.target.value)}
-                        />
-                      </div>
-                      <div
-                        className="text-right font-mono text-sm mt-1 whitespace-nowrap"
-                        title={`(${formatVnd(kq.lcbHieuLuc)} ÷ 28) × ${kq.soNgayCongDung} ngày`}
-                      >
-                        {formatVnd(kq.tienTheoCong)}
-                      </div>
+                    <td className="px-2 py-2 text-right">
+                      <EditableTableValue
+                        value={formatTienNhap(input.luongCoBan)}
+                        display={<MoneyValue value={input.luongCoBan} />}
+                        onChange={(value) => setTien(input.id, 'luongCoBan', value)}
+                        disabled={!isAdmin}
+                        ariaLabel={`lương cơ bản của ${input.hoTen}`}
+                        title="Lương cơ bản riêng của kỳ đang chọn; bấm để sửa."
+                      />
+                    </td>
+                    <td className="min-w-[9rem] px-2 py-2 text-right">
+                      <EditableTableValue
+                        value={String(input.soNgayCongThem ?? 0)}
+                        display={<span className="font-semibold">{kq.soNgayCongDung} công</span>}
+                        onChange={(value) => setNum(input.id, 'soNgayCongThem', value)}
+                        disabled={!isAdmin}
+                        ariaLabel={`ngày công điều chỉnh thêm của ${input.hoTen}`}
+                        title={`Chấm công ${kq.soNgayCongTuCham} ngày; điều chỉnh thêm ${input.soNgayCongThem ?? 0} ngày. Tiền theo công: (${formatVnd(kq.lcbHieuLuc)} ÷ 28) × ${kq.soNgayCongDung}.`}
+                      />
+                      <div className="pr-2.5 pt-0.5 text-right text-xs text-muted-foreground">Từ chấm công {kq.soNgayCongTuCham} · thêm {input.soNgayCongThem ?? 0}</div>
+                      <div className="px-2.5 pt-1 text-right"><MoneyValue value={kq.tienTheoCong} /></div>
                     </td>
                     <td className="px-2.5 py-2.5 text-right font-mono whitespace-nowrap text-sm">
                       {isAdmin ? (
@@ -1505,182 +1644,115 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                         formatVnd(kq.phuCapChuyenCan)
                       )}
                     </td>
-                    <td
-                      className="px-2.5 py-2.5 text-right font-mono whitespace-nowrap text-sm"
-                      title={
-                        gTcTuCham !== undefined
-                          ? `${kq.gioTangCaApDung}h tăng ca (từ chấm công, sau ${attendanceSettings.overtimeStart})`
-                          : `${input.soGioTangCa}h tăng ca (nhập tay)`
-                      }
-                    >
-                      <div className="font-semibold">{formatVnd(kq.luongTangCa)}</div>
-                      <div className="mt-0.5 text-[11px] text-muted-foreground">
-                        {kq.gioTangCaApDung}h × {formatVnd(kq.luongGio)} × {ATTENDANCE_SALARY.HE_SO_TANG_CA}
-                      </div>
+                    <td className="px-2 py-2 text-right" title={`${gTcTuCham !== undefined ? 'Theo chấm công' : 'Nhập tay'}: ${kq.gioTangCaApDung} giờ × ${formatVnd(kq.luongGio)} × ${ATTENDANCE_SALARY.HE_SO_TANG_CA}`}>
+                      <div className="px-2.5"><MoneyValue value={kq.luongTangCa} strong /></div>
+                      <div className="px-2.5 pt-0.5 text-xs text-muted-foreground">{kq.gioTangCaApDung} giờ tăng ca</div>
                     </td>
-                    <td className="px-2.5 py-2.5 text-right font-mono whitespace-nowrap text-sm">
-                      {isAdmin ? (
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          className="w-28 min-h-9 bg-transparent border border-border/60 rounded-md px-2 py-1.5 text-right font-mono"
-                          title="Admin có thể sửa; xóa hết giá trị để quay về 500.000đ mặc định"
-                          value={formatTienNhap(input.phuCapXangDienThoai ?? kq.phuCapXangDienThoai)}
-                          onChange={(e) => setOptionalTien(input.id, 'phuCapXangDienThoai', e.target.value)}
-                        />
-                      ) : (
-                        formatVnd(kq.phuCapXangDienThoai)
-                      )}
+                    <td className="px-2 py-2 text-right">
+                      <EditableTableValue
+                        value={formatTienNhap(input.phuCapXangDienThoai ?? kq.phuCapXangDienThoai)}
+                        display={<MoneyValue value={kq.phuCapXangDienThoai} />}
+                        onChange={(value) => setOptionalTien(input.id, 'phuCapXangDienThoai', value)}
+                        disabled={!isAdmin}
+                        ariaLabel={`phụ cấp xăng xe và điện thoại của ${input.hoTen}`}
+                        title="Bấm để sửa phụ cấp. Xóa giá trị trong ô sửa để trở về mức mặc định."
+                      />
                     </td>
-                    <td
-                      className="px-2.5 py-2.5 text-right font-mono whitespace-nowrap text-sm"
-                      title={
-                        input.ngayBatDauLam
-                          ? `${kq.thangLamViec} tháng làm việc đến hết ${String(thang).padStart(2, '0')}/${nam}`
-                          : 'Chưa có ngày vào làm'
-                      }
-                    >
-                      {isAdmin ? (
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          className="w-28 min-h-9 bg-transparent border border-border/60 rounded-md px-2 py-1.5 text-right font-mono"
-                          title="Admin có thể sửa; xóa hết giá trị để tính lại theo ngày vào làm"
-                          value={formatTienNhap(input.phuCapThamNien ?? kq.phuCapThamNien)}
-                          onChange={(e) => setOptionalTien(input.id, 'phuCapThamNien', e.target.value)}
-                        />
-                      ) : (
-                        formatVnd(kq.phuCapThamNien)
-                      )}
+                    <td className="px-2 py-2 text-right" title={input.ngayBatDauLam ? `${kq.thangLamViec} tháng làm việc đến hết ${String(thang).padStart(2, '0')}/${nam}` : 'Chưa có ngày vào làm'}>
+                      <EditableTableValue
+                        value={formatTienNhap(input.phuCapThamNien ?? kq.phuCapThamNien)}
+                        display={<MoneyValue value={kq.phuCapThamNien} />}
+                        onChange={(value) => setOptionalTien(input.id, 'phuCapThamNien', value)}
+                        disabled={!isAdmin}
+                        ariaLabel={`phụ cấp thâm niên của ${input.hoTen}`}
+                        title="Bấm để sửa; xóa giá trị trong ô sửa để tính lại theo ngày vào làm."
+                      />
                     </td>
-                    <td className="px-2 py-1.5">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        className="w-28 min-w-0 min-h-10 text-sm bg-transparent border border-border/60 rounded-md px-2 py-1.5 text-right font-mono"
-                        title="Phụ cấp trọ ngoài"
-                        readOnly={!isAdmin}
+                    <td className="px-2 py-2 text-right">
+                      <EditableTableValue
                         value={formatTienNhap(input.phuCapTroNgoai ?? 0)}
-                        onChange={(e) => setTien(input.id, 'phuCapTroNgoai', e.target.value)}
+                        display={<MoneyValue value={input.phuCapTroNgoai ?? 0} />}
+                        onChange={(value) => setTien(input.id, 'phuCapTroNgoai', value)}
+                        disabled={!isAdmin}
+                        ariaLabel={`phụ cấp trọ ngoài của ${input.hoTen}`}
                       />
                     </td>
-                    <td
-                      className="px-2 py-1.5 text-right font-mono whitespace-nowrap text-sm"
-                      title={`${kq.soBuaAnThuong} bữa × ${formatVnd(kq.donGiaTienAn)}`}
-                    >
-                      {isAdmin ? (
-                        <div className="flex min-w-[9rem] flex-col items-end gap-1">
-                          <label className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              className="w-14 min-h-8 bg-transparent border border-border/60 rounded-md px-1.5 py-1 text-right font-mono text-foreground"
-                              title="Nhập số bữa; xóa giá trị để lấy lại số bữa từ chấm công"
-                              value={String(input.soBuaAnThuong ?? kq.soBuaAnThuong)}
-                              onChange={(e) => setMealCount(input.id, 'soBuaAnThuong', e.target.value)}
-                            />
-                            bữa
-                          </label>
-                          <span className="font-semibold">{formatVnd(kq.tienAn)}</span>
-                        </div>
-                      ) : (
-                        <div>
-                          <div className="text-xs text-muted-foreground">{kq.soBuaAnThuong} bữa</div>
-                          {formatVnd(kq.tienAn)}
-                        </div>
-                      )}
+                    <td className="px-2 py-2 text-right" title={`${kq.soBuaAnThuong} bữa × ${formatVnd(kq.donGiaTienAn)}`}>
+                      <EditableTableValue
+                        value={String(input.soBuaAnThuong ?? kq.soBuaAnThuong)}
+                        display={<span className="flex flex-col items-end"><MoneyValue value={kq.tienAn} strong /><span className="pt-0.5 text-xs text-muted-foreground">{kq.soBuaAnThuong} bữa</span></span>}
+                        onChange={(value) => setMealCount(input.id, 'soBuaAnThuong', value)}
+                        disabled={!isAdmin}
+                        ariaLabel={`số bữa ăn thường của ${input.hoTen}`}
+                        title="Bấm để sửa số bữa; xóa giá trị để lấy lại từ chấm công. Đơn giá trong gợi ý."
+                      />
                     </td>
-                    <td
-                      className="px-2 py-1.5 text-right font-mono whitespace-nowrap text-sm"
-                      title={`${kq.soBuaAnTangCa} bữa tăng ca × ${formatVnd(kq.donGiaTienAnTangCa)}`}
-                    >
-                      {isAdmin ? (
-                        <div className="flex min-w-[9rem] flex-col items-end gap-1">
-                          <label className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              className="w-14 min-h-8 bg-transparent border border-border/60 rounded-md px-1.5 py-1 text-right font-mono text-foreground"
-                              title="Nhập số bữa tăng ca; xóa giá trị để lấy lại từ chấm công"
-                              value={String(input.soBuaAnTangCa ?? kq.soBuaAnTangCa)}
-                              onChange={(e) => setMealCount(input.id, 'soBuaAnTangCa', e.target.value)}
-                            />
-                            bữa
-                          </label>
-                          <span className="font-semibold">{formatVnd(kq.tienAnTangCa)}</span>
-                        </div>
-                      ) : (
-                        <div>
-                          <div className="text-xs text-muted-foreground">{kq.soBuaAnTangCa} bữa</div>
-                          {formatVnd(kq.tienAnTangCa)}
-                        </div>
-                      )}
+                    <td className="px-2 py-2 text-right" title={`${kq.soBuaAnTangCa} bữa tăng ca × ${formatVnd(kq.donGiaTienAnTangCa)}`}>
+                      <EditableTableValue
+                        value={String(input.soBuaAnTangCa ?? kq.soBuaAnTangCa)}
+                        display={<span className="flex flex-col items-end"><MoneyValue value={kq.tienAnTangCa} strong /><span className="pt-0.5 text-xs text-muted-foreground">{kq.soBuaAnTangCa} bữa</span></span>}
+                        onChange={(value) => setMealCount(input.id, 'soBuaAnTangCa', value)}
+                        disabled={!isAdmin}
+                        ariaLabel={`số bữa ăn tăng ca của ${input.hoTen}`}
+                        title="Bấm để sửa số bữa; xóa giá trị để lấy lại từ chấm công. Đơn giá trong gợi ý."
+                      />
                     </td>
-                    <td className="px-2 py-1.5">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        className="w-28 min-w-0 min-h-10 text-sm bg-transparent border border-border/60 rounded-md px-2 py-1.5 text-right font-mono"
-                        title="Thưởng tháng của nhân viên"
-                        readOnly={!isAdmin}
+                    <td className="px-2 py-2 text-right">
+                      <EditableTableValue
                         value={formatTienNhap(input.thuongKhac ?? 0)}
-                        onChange={(e) => setTien(input.id, 'thuongKhac', e.target.value)}
+                        display={<MoneyValue value={input.thuongKhac ?? 0} />}
+                        onChange={(value) => setTien(input.id, 'thuongKhac', value)}
+                        disabled={!isAdmin}
+                        ariaLabel={`thưởng tháng của ${input.hoTen}`}
                       />
                     </td>
-                    <td className="px-2 py-1.5">
-                      <input
-                        type="text"
-                        className="w-48 min-w-0 min-h-10 text-sm bg-transparent border border-border/60 rounded-md px-2 py-1.5"
-                        title="Nhập số tiền hoặc ghi chú có số tiền để tự cộng vào Thưởng tháng"
-                        placeholder="VD: Đạt chỉ tiêu 500.000"
-                        readOnly={!isAdmin}
+                    <td className="min-w-[12rem] px-2 py-2">
+                      <EditableTableValue
                         value={input.ghiChuThuongThang ?? ''}
-                        onChange={(e) => setBonusNote(input.id, e.target.value)}
+                        display={input.ghiChuThuongThang?.trim() || <span className="text-muted-foreground">Thêm ghi chú</span>}
+                        onChange={(value) => setBonusNote(input.id, value)}
+                        disabled={!isAdmin}
+                        inputMode="text"
+                        align="left"
+                        className="text-left"
+                        ariaLabel={`ghi chú thưởng của ${input.hoTen}`}
+                        placeholder="VD: Đạt chỉ tiêu 500.000"
+                        title="Bấm để thêm ghi chú; số tiền trong ghi chú sẽ được cộng vào thưởng tháng."
+                      />
+                    </td>
+                    <td className="px-2 py-2 text-right">
+                      <EditableTableValue
+                        value={String(input.phanTramHoaHong)}
+                        display={<span>{kq.phanTramHoaHongApDung}<span className="ml-1 text-xs text-muted-foreground">%</span></span>}
+                        onChange={(value) => setCommissionPercent(input.id, value)}
+                        disabled={!isAdmin}
+                        inputMode="decimal"
+                        ariaLabel={`tỷ lệ hoa hồng của ${input.hoTen || `dòng ${i + 1}`}`}
+                        title="Bấm để sửa tỷ lệ hoa hồng riêng."
                       />
                     </td>
                     <td
-                      className="px-2.5 py-2.5 text-right font-mono whitespace-nowrap text-sm"
-                      title="Tỷ lệ hoa hồng riêng của nhân viên"
-                    >
-                      {isAdmin ? (
-                        <div className="flex items-center justify-end gap-1">
-                          <input
-                            type="text"
-                            inputMode="decimal"
-                            className="w-16 min-h-9 bg-transparent border border-primary/30 rounded-md px-2 py-1.5 text-right font-mono"
-                            value={String(input.phanTramHoaHong)}
-                            onChange={(e) => setCommissionPercent(input.id, e.target.value)}
-                            aria-label={`% hoa hồng của ${input.hoTen || `dòng ${i + 1}`}`}
-                          />
-                          <span>%</span>
-                        </div>
-                      ) : (
-                        `${kq.phanTramHoaHongApDung}%`
-                      )}
-                    </td>
-                    <td
-                      className="px-2.5 py-2.5 text-right font-mono whitespace-nowrap text-sm"
+                      className="px-2 py-2 text-right"
                       title={`${kq.phanTramHoaHongApDung}% × ${formatVnd(input.tongDoanhThu)}`}
                     >
-                      {formatVnd(kq.hoaHong)}
+                      <div className="px-2.5"><MoneyValue value={kq.hoaHong} /></div>
                     </td>
-                    <td className="px-2.5 py-2.5 text-right font-bold text-primary whitespace-nowrap text-sm">
-                      {formatVnd(kq.tongCong)}
+                    <td className="px-2 py-2 text-right">
+                      <div className="px-2.5 text-base font-bold text-primary"><MoneyValue value={kq.tongCong} strong /></div>
                     </td>
-                    <td className="px-2.5 py-2.5 text-xs sm:text-sm text-amber-600 dark:text-amber-500 max-w-[200px]">
+                    <td className="max-w-[220px] px-3 py-3 text-left text-xs leading-5 text-amber-700 dark:text-amber-400">
                       {kq.ghiChu}
                     </td>
                     {isAdmin && (
-                      <td className="sticky right-0 z-[1] bg-card/95 border-l border-border px-1 py-1.5 text-center">
+                      <td className="sticky right-0 z-[1] border-l border-border bg-card/95 px-1.5 py-2 text-center">
                         <button
                           type="button"
                           onClick={() => removeRow(input.id)}
-                          className="inline-flex items-center justify-center gap-1 p-2 rounded-md text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/20"
+                          className="inline-flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-colors transition-opacity hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/50 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:none)]:opacity-100"
                           title="Xóa dòng"
-                          aria-label="Xóa dòng"
+                          aria-label={`Xóa dòng của ${input.hoTen || `nhân viên dòng ${i + 1}`}`}
                         >
-                          <Trash2 className="w-4 h-4 shrink-0" />
-                          <span className="sr-only sm:not-sr-only sm:text-xs sm:font-semibold">Xóa</span>
+                          <Trash2 className="h-4 w-4 shrink-0" aria-hidden="true" />
                         </button>
                       </td>
                     )}
