@@ -42,6 +42,8 @@ export default function BusinessReportsPanel({ startDate, endDate, branch = '', 
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState('');
   const [selectedReport, setSelectedReport] = useState('revenue');
+  const [revenueFromDate, setRevenueFromDate] = useState(startDate);
+  const [revenueToDate, setRevenueToDate] = useState(endDate);
   const exporter = useRef<FinancialReportExporter | null>(null);
   const exportController = useRef<AbortController | null>(null);
   const exportReady=(sharedResult ?? result).key===requestKey && !!(sharedResult ?? result).data;
@@ -61,11 +63,19 @@ export default function BusinessReportsPanel({ startDate, endDate, branch = '', 
     return () => controller.abort();
   }, [startDate, endDate, branch, requestKey, sharedResult, retry]);
   useEffect(() => { setDetail(null); setCostProduct(null); }, [requestKey]);
+  useEffect(() => {
+    setRevenueFromDate(startDate);
+    setRevenueToDate(endDate);
+  }, [startDate, endDate]);
   const refresh = () => { if (sharedResult) sharedResult.retry(); else { setResult({ key: '', data: null, error: '' }); setRetry(value => value + 1); } };
   const shown = sharedResult ?? result;
   if (shown.key !== requestKey) return <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground"><Loader2 size={17} className="animate-spin" /> Đang tổng hợp báo cáo tài chính...</div>;
   if (shown.error || !shown.data) return <div role="alert" className="flex items-start gap-2 rounded-xl border border-border p-4 text-sm"><AlertCircle size={18} /><div><strong>Không tải được báo cáo.</strong><p>{shown.error}</p><button type="button" onClick={refresh} className="mt-2 underline">Thử lại</button></div></div>;
   const data = shown.data;
+  const filteredRevenueLines = data.costLines.filter((line) => {
+    const day = String(line.ngay || '').slice(0, 10);
+    return (!revenueFromDate || day >= revenueFromDate) && (!revenueToDate || day <= revenueToDate);
+  });
   const expenseLines = expenseRecognitionLines(data.expenseTransactions || data.transactions, startDate, endDate);
   const openDebt = (account: DebtLedger) => setDetail({ title: `${account.code} · ${account.doi_tuong} · Dư đầu kỳ ${money(account.opening)} · Dư cuối kỳ ${money(account.con_no)}`, headers: ['Ngày', 'Chứng từ', 'Hóa đơn', 'Nội dung', 'Phát sinh nợ', 'Thanh toán', 'Số dư'], rows: account.movements.map(m => [dateVi(m.date), m.voucherId ? <button type="button" className="min-h-10 underline" onClick={() => { const voucher = data.expenseTransactions?.find(t => t.id === m.voucherId) || data.transactions.find(t => t.id === m.voucherId); if (voucher) openVoucher(voucher); }}>{m.code}</button> : m.code, m.invoiceCode, m.description, money(m.incurred), money(m.paid), money(m.balance)]) });
   const sourceCode = (row: BusinessTransactionRow) => data.purchases.find(p => p.id === row.source_id || p.id === row.id_don || p.ma_phieu === row.id_don)?.ma_phieu || data.orders.find(order => order.id === row.id_don || order.id_bh === row.id_don)?.id_bh || row.id_don || '—';
@@ -110,7 +120,54 @@ export default function BusinessReportsPanel({ startDate, endDate, branch = '', 
       <Kpi label="Lợi nhuận trước thuế" value={money(data.profitBeforeTax)} note={`Biên trước thuế ${percent(data.preTaxMargin)}`} icon={Landmark} selected={selectedReport==='pretax'} onClick={() => setSelectedReport('pretax')} />
       <Kpi label="Dòng tiền" value={money(data.totalCashIn-data.totalCashOut)} note="Tiền mặt / ngân hàng · Chờ thu / chi" icon={Banknote} selected={selectedReport==='cash'} onClick={() => setSelectedReport('cash')} />
     </div>
-    {selectedReport==='revenue' && <section className="min-w-0 space-y-2"><h3 className="font-semibold">Chi tiết doanh thu trong kỳ</h3><div className="flex flex-wrap gap-4 text-sm"><span>Số xe đã phục vụ: {number(data.summary.total_vehicles)} · <Delta current={data.summary.total_vehicles} previous={data.previousSummary.total_vehicles} /></span><span>Đã thu từ đơn: {money(data.summary.total_collected)} · <Delta current={data.summary.total_collected} previous={data.previousSummary.total_collected} /></span></div><Table headers={['Mã đơn', 'Ngày', 'Mặt hàng', 'SL', 'Doanh thu']} rows={data.costLines.map(line => [data.orders.find(o => [o.id,o.id_bh].includes(line.id_don_hang))?.id_bh || line.id_don_hang, dateVi(line.ngay), line.san_pham, number(Number(line.so_luong)), money(Number(line.thanh_tien ?? Number(line.gia_ban)*Number(line.so_luong)))])} /></section>}
+    {selectedReport==='revenue' && <section className="min-w-0 space-y-3">
+      <div>
+        <h3 className="font-semibold">Chi tiết doanh thu trong kỳ</h3>
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+          <span>Số xe đã phục vụ: {number(data.summary.total_vehicles)} · <Delta current={data.summary.total_vehicles} previous={data.previousSummary.total_vehicles} /></span>
+          <span>Đã thu từ đơn: {money(data.summary.total_collected)} · <Delta current={data.summary.total_collected} previous={data.previousSummary.total_collected} /></span>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-muted/20 p-3">
+        <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+          Từ ngày
+          <input
+            type="date"
+            value={revenueFromDate}
+            min={startDate}
+            max={revenueToDate || endDate}
+            onChange={(event) => setRevenueFromDate(event.target.value)}
+            className="h-10 rounded-lg border border-border bg-background px-3 text-sm font-normal text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            aria-label="Lọc doanh thu từ ngày"
+          />
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+          Đến ngày
+          <input
+            type="date"
+            value={revenueToDate}
+            min={revenueFromDate || startDate}
+            max={endDate}
+            onChange={(event) => setRevenueToDate(event.target.value)}
+            className="h-10 rounded-lg border border-border bg-background px-3 text-sm font-normal text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            aria-label="Lọc doanh thu đến ngày"
+          />
+        </label>
+        <button
+          type="button"
+          onClick={() => { setRevenueFromDate(startDate); setRevenueToDate(endDate); }}
+          disabled={revenueFromDate === startDate && revenueToDate === endDate}
+          className="h-10 rounded-lg px-3 text-sm font-medium text-primary hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-default disabled:text-muted-foreground disabled:hover:bg-transparent"
+        >
+          Xóa lọc ngày
+        </button>
+        <span className="ml-auto pb-2 text-xs text-muted-foreground" aria-live="polite">
+          Hiển thị {number(filteredRevenueLines.length)}/{number(data.costLines.length)} dòng
+        </span>
+      </div>
+      <p className="text-xs text-muted-foreground">Các chỉ số tổng phía trên vẫn tính cho toàn kỳ; bộ lọc ngày chỉ áp dụng cho bảng chi tiết.</p>
+      <Table headers={['Mã đơn', 'Ngày', 'Mặt hàng', 'SL', 'Doanh thu']} rows={filteredRevenueLines.map(line => [data.orders.find(o => [o.id,o.id_bh].includes(line.id_don_hang))?.id_bh || line.id_don_hang, dateVi(line.ngay), line.san_pham, number(Number(line.so_luong)), money(Number(line.thanh_tien ?? Number(line.gia_ban)*Number(line.so_luong)))])} />
+    </section>}
     {selectedReport==='pretax' && <section className="space-y-2"><h3 className="font-semibold">Chi tiết lợi nhuận trước thuế</h3><Table headers={['Khoản mục', 'Số tiền']} rows={[[ 'Doanh thu', money(data.summary.total_revenue)],['Giá vốn',money(data.summary.total_cost)],['Lợi nhuận gộp',money(data.summary.total_profit)],...data.expenses.map(row => [row.danh_muc,money(row.so_tien)]),['Lợi nhuận trước thuế',money(data.profitBeforeTax)],['Biên lợi nhuận trước thuế',percent(data.preTaxMargin)]]} /></section>}
     {(selectedReport==='cost' || selectedReport==='gross') && <>
     <section className="min-w-0 space-y-2"><h3 className="font-semibold">Giá vốn và lợi nhuận gộp theo mã sản phẩm</h3><p className="text-xs text-muted-foreground">Bấm tên sản phẩm để xem giá vốn từng đơn{isAdmin ? ' và cập nhật.' : '.'}</p>
