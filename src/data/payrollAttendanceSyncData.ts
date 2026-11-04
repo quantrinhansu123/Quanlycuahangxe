@@ -120,7 +120,8 @@ export async function syncPayrollFromAttendance(
     normalizePersonnelToken,
   );
   const revenueByPersonnelId = new Map(
-    personnelRows.map((person, index) => [person.id, revenueShares[index]])
+    personnelRows.map((person, index) => [person.id,
+      revenueData.personnel.length ? revenueData.personnelTotals.get(person.id) ?? 0 : revenueShares[index]])
   );
 
   const personnel = branchFilter
@@ -162,9 +163,9 @@ export async function syncPayrollFromAttendance(
     }
 
     const existingBreakdown = getPayrollBreakdown(existing ?? {});
-    const override =
-      overridesByPersonnelId.get(person.id) ??
-      overridesByName.get(normalizePersonnelToken(person.ho_ten));
+    const uniqueName = personnelRows.filter(candidate => normalizePersonnelToken(candidate.ho_ten) === normalizePersonnelToken(person.ho_ten)).length === 1;
+    const override = overridesByPersonnelId.get(person.id)
+      ?? (uniqueName ? overridesByName.get(normalizePersonnelToken(person.ho_ten)) : undefined);
     // Lương nhập ngay trên bảng là mức riêng của kỳ đang chọn. Nếu chưa nhập,
     // giữ snapshot kỳ đã lưu; kỳ mới mới lấy mặc định từ hồ sơ nhân sự.
     const baseSalary = Math.max(

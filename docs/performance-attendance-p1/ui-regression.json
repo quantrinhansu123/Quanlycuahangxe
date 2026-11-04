@@ -1,5 +1,5 @@
 {
-  "at": "2026-10-04T10:21:32.801Z",
+  "at": "2026-11-03T09:40:40.553Z",
   "passed": true,
   "checks": [
     "compact list, no photo/history reads, independent settings/personnel, UI pagination reuses full data",

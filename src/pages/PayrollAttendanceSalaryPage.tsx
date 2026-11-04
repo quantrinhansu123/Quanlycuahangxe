@@ -37,6 +37,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useAttendanceSettings } from '../hooks/useAttendanceSettings';
 import { allocatePayrollRevenueByName } from '../lib/payrollRevenueAllocation';
+import { branchKey } from '../lib/branchCatalog';
 
 const LS_PREFIX = 'payrollChamCongLuongV2:';
 const LS_PREFIX_LEGACY = 'payrollChamCongLuongV1:';
@@ -238,31 +239,25 @@ async function gopDoanhSoTheoBaoCao(
   payrollData?: PayrollRevenueData
 ): Promise<{ rows: BangLuongChamCongInput[]; payrollData: PayrollRevenueData }> {
   const data = payrollData ?? (await loadPayrollRevenueData(nam, thang));
-  const map = data.totals;
-  let nhanList: { id: string; ho_ten: string }[] = [];
-  try {
-    const list = await getPersonnel();
-    nhanList = list
-      .filter((n) => n.id)
-      .map((n) => ({ id: n.id, ho_ten: n.ho_ten || '' }));
-  } catch {
-    // bỏ qua — vẫn map theo tên từ báo cáo
+  if (!data.personnel.length) {
+    const shares = allocatePayrollRevenueByName(rows, row => row.hoTen, data.totals, chuanHoaTenSoSanh);
+    return { rows: rows.map((row, index) => ({ ...row, tongDoanhThu: shares[index] })), payrollData: data };
   }
-  const revenueByName = new Map<string, number>();
-  rows.forEach((r) => {
-    const ten = (r.hoTen || '').trim();
-    if (!ten) return;
-
-    const kTen = chuanHoaTenSoSanh(ten);
-    let rev = map.get(kTen) ?? 0;
-    if (rev === 0 && nhanList.length > 0) {
-      const matches = nhanList.filter((x) => chuanHoaTenSoSanh(x.ho_ten) === kTen);
-      if (matches.length === 1) rev = map.get(chuanHoaTenSoSanh(matches[0].id)) ?? 0;
-    }
-    revenueByName.set(kTen, rev);
+  const mapped: BangLuongChamCongInput[] = rows.map(row => {
+    const matches = data.personnel.filter(person => chuanHoaTenSoSanh(person.ho_ten) === chuanHoaTenSoSanh(row.hoTen)
+      && (!row.coSo || branchKey(person.co_so || '') === branchKey(row.coSo)));
+    const person = data.personnel.find(person => person.id === row.nhanSuId || person.id === row.id)
+      ?? (matches.length === 1 ? matches[0] : undefined);
+    return { ...row, nhanSuId: person?.id, coSo: person?.co_so || row.coSo,
+      tongDoanhThu: person ? data.personnelTotals.get(person.id) ?? 0 : 0 };
   });
-  const shares = allocatePayrollRevenueByName(rows, (row) => row.hoTen, revenueByName, chuanHoaTenSoSanh);
-  const mapped = rows.map((row, index) => ({ ...row, tongDoanhThu: shares[index] }));
+  const represented = new Set(mapped.map(row => row.nhanSuId).filter(Boolean));
+  for (const person of data.personnel) {
+    if (represented.has(person.id) || !data.personnelTotals.get(person.id)) continue;
+    mapped.push({ ...emptyRow(), id: person.id, nhanSuId: person.id, hoTen: person.ho_ten,
+      coSo: person.co_so || undefined, luongCoBan: Number(person.luong_co_ban) || 0,
+      ngayBatDauLam: ngayIsoTuNhanSu(person) || '', tongDoanhThu: data.personnelTotals.get(person.id)! });
+  }
   return { rows: mapped, payrollData: data };
 }
 
@@ -558,6 +553,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
   const [revenueCache, setRevenueCache] = useState<PayrollRevenueData | null>(null);
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
   const [ordersModal, setOrdersModal] = useState<{
+    issueMode?: boolean;
     hoTen: string;
     orders: PayrollRevenueOrderRow[];
     loading: boolean;
@@ -592,7 +588,6 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
       setRevenueLoading(true);
       const { start, end } = khoangNgayCuaThang(nam, thang);
       let sourceRows = s.rows;
-      let hasSavedRows = false;
       let defaultMealPrice = DEFAULT_MEAL_UNIT_PRICE;
       let defaultOvertimeMealPrice = DEFAULT_OVERTIME_MEAL_UNIT_PRICE;
       const defaultsRead = startRead(Promise.all([getDefaultMealUnitPrice(), getDefaultOvertimeMealUnitPrice()]));
@@ -617,7 +612,6 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
         setKyDaLuu(savedPayroll.length > 0);
         const savedRows = payrollBatchToInputRows(savedPayroll);
         if (savedRows.length > 0) {
-          hasSavedRows = true;
           sourceRows = savedRows;
           const savedPercentItem = savedPayroll.find((item) =>
             hasPayrollDetail(item, 'phan_tram_hoa_hong')
@@ -664,9 +658,9 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
       }
       try {
         const payrollData = (await revenueRead)();
-        const merged = hasSavedRows
-          ? sourceRows
-          : (await gopDoanhSoTheoBaoCao(sourceRows, nam, thang, payrollData)).rows;
+        // Luôn đồng bộ doanh số nhân viên theo phiếu bán mới nhất của kỳ,
+        // kể cả khi đã có bảng lương lưu từ trước.
+        const merged = (await gopDoanhSoTheoBaoCao(sourceRows, nam, thang, payrollData)).rows;
         if (cancelled || loadedKyRef.current !== periodKey) return;
         setRows(merged);
         setRevenueCache(payrollData);
@@ -729,6 +723,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
     >();
     for (const p of nhanList) {
       if (!p.ho_ten) continue;
+      if (nhanList.filter(person => chuanHoaTenSoSanh(person.ho_ten || '') === chuanHoaTenSoSanh(p.ho_ten)).length !== 1) continue;
       const raw = p.luong_co_ban;
       const luongCoBan =
         raw != null && !Number.isNaN(Number(raw)) ? Number(raw) : 0;
@@ -831,10 +826,23 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
       group.push(item);
       groups.set(item.coSo, group);
     }
-    return Array.from(groups, ([coSo, items]) => ({ coSo, items })).sort((a, b) =>
-      a.coSo.localeCompare(b.coSo, 'vi')
-    );
-  }, [withKetQua]);
+    return Array.from(groups, ([coSo, items]) => {
+      const tongDoanhSoNhanSu = items.reduce(
+        (total, item) => total + (Number(item.input.tongDoanhThu) || 0),
+        0
+      );
+        const tongDoanhSoCoSo = revenueCache
+          ? revenueCache.branchTotals.get(branchKey(coSo)) ?? 0
+          : null;
+      return {
+        coSo,
+        items,
+        tongDoanhSoNhanSu,
+        tongDoanhSoCoSo,
+        chenhLechDoanhSo: tongDoanhSoCoSo == null ? null : tongDoanhSoCoSo - tongDoanhSoNhanSu,
+      };
+    }).sort((a, b) => a.coSo.localeCompare(b.coSo, 'vi'));
+  }, [withKetQua, revenueCache]);
 
   const updateRow = useCallback(
     (id: string, patch: Partial<BangLuongChamCongInput>) => {
@@ -1212,8 +1220,8 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
   }, [persistPayroll]);
 
   const moChiTietDon = useCallback(
-    async (hoTen: string) => {
-      const ten = hoTen.trim();
+    async (input: BangLuongChamCongInput) => {
+      const ten = input.hoTen.trim();
       if (!ten) return;
       setOrdersModal({ hoTen: ten, orders: [], loading: true });
       try {
@@ -1222,7 +1230,9 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
           data = await loadPayrollRevenueData(nam, thang);
           setRevenueCache(data);
         }
-        const orders = layDonTheoHoTen(ten, data, nhanTheoChuanTen);
+        const orders = input.nhanSuId
+          ? data.personnelOrdersById.get(input.nhanSuId) || []
+          : layDonTheoHoTen(ten, data, nhanTheoChuanTen);
         setOrdersModal({ hoTen: ten, orders, loading: false });
       } catch (e) {
         console.error(e);
@@ -1523,7 +1533,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {groupedWithKetQua.map(({ coSo, items }) => (
+              {groupedWithKetQua.map(({ coSo, items, tongDoanhSoNhanSu, tongDoanhSoCoSo, chenhLechDoanhSo }) => (
                 <Fragment key={coSo}>
                   <tr className="border-y border-primary/20 bg-primary/8">
                     <td colSpan={isAdmin ? 20 : 19} className="px-3 py-3">
@@ -1533,6 +1543,29 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                         <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold">
                           {items.length} nhân sự
                         </span>
+                        <span
+                          className="inline-flex items-baseline gap-1.5 rounded-full border border-emerald-300/70 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200"
+                          title="Tổng doanh số cơ sở theo cùng dữ liệu phiếu bán và bộ lọc cơ sở của trang Phiếu bán hàng."
+                        >
+                          Doanh số cơ sở
+                          {tongDoanhSoCoSo == null ? (
+                            <strong>{revenueLoading ? 'Đang đồng bộ…' : 'Chưa tải được'}</strong>
+                          ) : (
+                            <MoneyValue value={tongDoanhSoCoSo} strong />
+                          )}
+                        </span>
+                        {chenhLechDoanhSo != null && chenhLechDoanhSo !== 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setOrdersModal({ hoTen: coSo, loading: false, issueMode: true,
+                              orders: revenueCache?.allocationIssues.filter(order => order.branches?.includes(branchKey(coSo))) || [] })}
+                            className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
+                            title={`Tổng nhân viên: ${formatVnd(tongDoanhSoNhanSu)}. Bấm xem mã phiếu và lý do chưa khớp.`}
+                          >
+                            <Clock3 className="h-3.5 w-3.5" aria-hidden="true" />
+                            Kiểm tra phân công phiếu
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -1571,7 +1604,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                                 if (isAdmin) setEditingNameId(input.id);
                                 return;
                               }
-                              void moChiTietDon(input.hoTen);
+                              void moChiTietDon(input);
                             }}
                           >
                             <span className="block truncate">{input.hoTen || 'Chưa có tên'}</span>
@@ -1908,6 +1941,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
         thang={thang}
         nam={nam}
         orders={ordersModal?.orders ?? []}
+        issueMode={ordersModal?.issueMode}
         loading={ordersModal?.loading ?? false}
       />
     </div>

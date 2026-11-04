@@ -18,6 +18,8 @@ import { assertSalesDateNotFuture, formatDateTime24h, formatLocalIsoDate } from 
 import { getSalesOrderBranchError } from '../utils/salesOrderBranch';
 import { branchKey } from '../lib/branchCatalog';
 import { preferCustomerLinkKey } from '../lib/customerOrderLink';
+import { resolveInvoiceStaff } from '../lib/payrollRevenueAllocation';
+import { normalizeForCompare } from '../lib/utils';
 
 // Helper for dynamic classes
 const clsx = (...classes: (string | boolean | undefined)[]) => classes.filter(Boolean).join(' ');
@@ -118,14 +120,14 @@ const SalesCardFormModal: React.FC<{
     } else {
       setFormData({
         ...initialData,
-        nhan_vien_id: nhanVien?.ho_ten || initialData.nhan_vien_id || '',
+        nhan_vien_id: nhanVien?.id || initialData.nhan_vien_id || '',
         co_so_khach: employeeBranchLocked ? employeeBranch : initialData.co_so_khach,
         so_km: undefined,
       });
     }
     setShowServiceWarning(false);
     setShowBranchWarning(false);
-  }, [isOpen, initialData, editingCard, nhanVien?.ho_ten, employeeBranchLocked, employeeBranch]);
+  }, [isOpen, initialData, editingCard, nhanVien?.id, employeeBranchLocked, employeeBranch]);
 
   React.useEffect(() => {
     if (isOpen && employeeBranchLocked && employeeBranch) setFormData(previous => previous.co_so_khach === employeeBranch ? previous : { ...previous, co_so_khach: employeeBranch });
@@ -171,9 +173,16 @@ const SalesCardFormModal: React.FC<{
     ? personnel
     : personnel.filter((p) => p.co_so?.trim() && branchKey(p.co_so) === branchKey(employeeBranch));
 
+  const selectedStaff = resolveInvoiceStaff(formData.nhan_vien_id || '', personnel, [formBranchForServices], normalizeForCompare, branchKey);
+  const selectedStaffValues = selectedStaff.map(({ person, token }) => person?.id || token);
+  const unresolvedStaff = selectedStaff.filter(({ person }) => !person);
+  const staffError = unresolvedStaff.length
+    ? `Chọn lại người phụ trách theo mã nhân viên: ${unresolvedStaff.map(({ token, reason }) => `${token} (${reason})`).join('; ')}.`
+    : !selectedStaff.length ? 'Vui lòng chọn người phụ trách.' : null;
+
   const branchAccessError = getSalesOrderBranchError(
     employeeBranch, isAdmin, formBranchForServices, customerBranchFromProfile,
-    formData.nhan_vien_id, personnel,
+    selectedStaffValues.join(', '), personnel,
   );
 
   const servicesForBranch = React.useMemo(() => {
@@ -409,8 +418,14 @@ const SalesCardFormModal: React.FC<{
 
     setShowBranchWarning(false);
 
+    if (staffError) {
+      submittingRef.current = false;
+      alert(staffError);
+      return;
+    }
+
     const accessError = getSalesOrderBranchError(
-      employeeBranch, isAdmin, coSo, customerBranchFromProfile, formData.nhan_vien_id, personnel,
+      employeeBranch, isAdmin, coSo, customerBranchFromProfile, selectedStaffValues.join(', '), personnel,
     );
     if (accessError) {
       submittingRef.current = false;
@@ -420,7 +435,7 @@ const SalesCardFormModal: React.FC<{
 
     setIsSubmitting(true);
     try {
-      await onSubmit({ ...formData, co_so_khach: coSo });
+      await onSubmit({ ...formData, co_so_khach: coSo, nhan_vien_id: selectedStaffValues.join(', ') });
     } finally {
       submittingRef.current = false;
       setIsSubmitting(false);
@@ -528,15 +543,15 @@ const SalesCardFormModal: React.FC<{
                   Người phụ trách (Nhân viên) <span className="text-red-500">*</span>
                 </label>
                 <MultiSearchableSelect
-                  options={personnelForBranch.map(p => ({ value: p.ho_ten, label: `${p.ho_ten} (${p.vi_tri})` }))}
-                  value={formData.nhan_vien_id ? formData.nhan_vien_id.split(',').map(s => s.trim()) : []}
+                  options={personnelForBranch.map(p => ({ value: p.id, label: `${p.ho_ten} · ${p.id_nhan_su || p.id.slice(0, 8)} · ${p.co_so || 'Chưa có cơ sở'}${p.vi_tri ? ` · ${p.vi_tri}` : ''}` }))}
+                  value={selectedStaffValues}
                   onValueChange={(vals: string[]) => !isReadOnly && setFormData(prev => ({ ...prev, nhan_vien_id: vals.join(', ') }))}
                   placeholder="-- Chọn nhân viên --"
-                  searchPlaceholder="Tìm tên, vị trí..."
+                  searchPlaceholder="Tìm tên, mã nhân viên, cơ sở..."
                   className={clsx("font-bold overflow-hidden", isReadOnly && "pointer-events-none opacity-80")}
                 />
-                {!isReadOnly && branchAccessError && (
-                  <p role="alert" className="text-[12px] text-red-600 break-words">{branchAccessError}</p>
+                {!isReadOnly && (staffError || branchAccessError) && (
+                  <p role="alert" className="text-[12px] text-red-600 break-words">{staffError || branchAccessError}</p>
                 )}
               </div>
 

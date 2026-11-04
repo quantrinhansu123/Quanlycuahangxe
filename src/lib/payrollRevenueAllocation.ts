@@ -46,6 +46,78 @@ export interface BranchRevenueComparison {
   difference: number;
 }
 
+export interface RevenuePerson { id: string; ho_ten: string; id_nhan_su?: string | null; co_so?: string | null }
+export interface RevenueInvoice { id: string; amount: number; staff: string; branches: string[] }
+export interface RevenueAllocationIssue {
+  orderId: string; branches: string[]; staff: string; amount: number; reason: string;
+}
+
+/** Legacy names are accepted only when they identify exactly one employee. */
+export function resolveInvoiceStaff(
+  staff: string, personnel: readonly RevenuePerson[], branches: readonly string[],
+  normalizeName: (value: string) => string, normalizeBranch: (value: string) => string,
+) {
+  const branchKeys = branches.map(normalizeBranch).filter(Boolean);
+  const recipients = new Map<string, { person?: RevenuePerson; token: string; reason?: string }>();
+  for (const token of staff.split(',').map(value => value.trim()).filter(Boolean)) {
+    const key = normalizeName(token);
+    let matches = personnel.filter(person => normalizeName(person.id) === key);
+    if (!matches.length) matches = personnel.filter(person => person.id_nhan_su && normalizeName(person.id_nhan_su) === key);
+    if (!matches.length) {
+      matches = personnel.filter(person => normalizeName(person.ho_ten) === key);
+      if (matches.length > 1) {
+        const scoped = matches.filter(person => branchKeys.includes(normalizeBranch(person.co_so || '')));
+        if (scoped.length) matches = scoped;
+      }
+    }
+    const person = matches.length === 1 ? matches[0] : undefined;
+    recipients.set(person ? `id:${person.id}` : `unresolved:${key}`, {
+      person, token,
+      reason: person ? undefined : matches.length ? 'Trùng tên nhân viên; cần chọn đúng mã nhân viên' : 'Không tìm được nhân viên theo người phụ trách trên phiếu',
+    });
+  }
+  return [...recipients.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([, recipient]) => recipient);
+}
+
+/** Resolve identity before splitting. Every invoice retains every dong, including unresolved shares. */
+export function allocateInvoiceRevenue(
+  invoices: readonly RevenueInvoice[], personnel: readonly RevenuePerson[],
+  normalizeName: (value: string) => string, normalizeBranch: (value: string) => string,
+) {
+  const personnelTotals = new Map<string, number>();
+  const personnelGrossTotals = new Map<string, number>();
+  const allocations: Array<{ orderId: string; personnelId: string; amount: number; staffCount: number }> = [];
+  const issues: RevenueAllocationIssue[] = [];
+  for (const invoice of invoices) {
+    if (!Number.isFinite(invoice.amount)) throw new Error(`Phiếu ${invoice.id}: số tiền không hợp lệ.`);
+    const amount = Math.round(invoice.amount);
+    const branches = [...new Set(invoice.branches.map(normalizeBranch).filter(Boolean))];
+    const recipients = resolveInvoiceStaff(invoice.staff, personnel, branches, normalizeName, normalizeBranch);
+    if (!recipients.length) {
+      if (amount) issues.push({ orderId: invoice.id, branches, staff: '', amount, reason: 'Phiếu chưa có nhân viên phụ trách' });
+      continue;
+    }
+    const absolute = Math.abs(amount), sign = amount < 0 ? -1 : 1;
+    const base = Math.floor(absolute / recipients.length), remainder = absolute % recipients.length;
+    recipients.forEach((recipient, index) => {
+      const share = sign * (base + (index < remainder ? 1 : 0));
+      if (!recipient.person) {
+        issues.push({ orderId: invoice.id, branches, staff: recipient.token, amount: share, reason: recipient.reason! });
+        return;
+      }
+      const person = recipient.person;
+      personnelTotals.set(person.id, (personnelTotals.get(person.id) || 0) + share);
+      personnelGrossTotals.set(person.id, (personnelGrossTotals.get(person.id) || 0) + amount);
+      allocations.push({ orderId: invoice.id, personnelId: person.id, amount: share, staffCount: recipients.length });
+      if (branches.length !== 1 || !branches.includes(normalizeBranch(person.co_so || ''))) {
+        issues.push({ orderId: invoice.id, branches, staff: person.ho_ten, amount: share,
+          reason: branches.length !== 1 ? 'Phiếu chưa xác định duy nhất một cơ sở' : `Nhân viên thuộc ${person.co_so || 'cơ sở chưa xác định'}, khác cơ sở của phiếu` });
+      }
+    });
+  }
+  return { personnelTotals, personnelGrossTotals, allocations, issues };
+}
+
 /** Compare invoice branch totals with saved payroll revenue grouped by payroll branch. */
 export function compareRevenueByBranch<T>(
   invoiceTotals: ReadonlyMap<string, number>,

@@ -5,6 +5,7 @@ import { formatDateVi } from '../utils/datetimeFormat';
 import { formatVnd } from '../data/payrollAttendanceSalary';
 
 interface PersonnelRevenueOrdersModalProps {
+  issueMode?: boolean;
   isOpen: boolean;
   onClose: () => void;
   hoTen: string;
@@ -25,6 +26,7 @@ const PersonnelRevenueOrdersModal: React.FC<PersonnelRevenueOrdersModalProps> = 
   nam,
   orders,
   loading = false,
+  issueMode = false,
 }) => {
   if (!isOpen) return null;
 
@@ -39,7 +41,7 @@ const PersonnelRevenueOrdersModal: React.FC<PersonnelRevenueOrdersModalProps> = 
           <div className="min-w-0">
             <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
               <ReceiptText className="w-5 h-5 text-primary shrink-0" />
-              Đơn hàng tính doanh số
+              {issueMode ? 'Phiếu cần kiểm tra nhân viên phụ trách' : 'Đơn hàng tính doanh số'}
             </h2>
             <p className="text-sm text-muted-foreground mt-0.5 truncate">
               {hoTen} · Tháng {thang}/{nam}
@@ -65,7 +67,7 @@ const PersonnelRevenueOrdersModal: React.FC<PersonnelRevenueOrdersModalProps> = 
             <span className="font-bold text-slate-900 tabular-nums">{formatVnd(tongChuaChia)}</span>
           </span>
           <span>
-            <span className="text-muted-foreground">Doanh số sau chia: </span>
+            <span className="text-muted-foreground">{issueMode ? 'Doanh số cần kiểm tra: ' : 'Doanh số sau chia: '}</span>
             <span className="font-bold text-emerald-700 tabular-nums">{formatVnd(tongSauChia)}</span>
           </span>
           {suspiciousCount > 0 && (
@@ -79,7 +81,10 @@ const PersonnelRevenueOrdersModal: React.FC<PersonnelRevenueOrdersModalProps> = 
           Cảnh báo đối chiếu các phiếu cùng khách/xe, ngày, cơ sở, mặt hàng, số lượng và số tiền.
           Bấm mã phiếu dưới nhãn <strong>Cần đối chiếu</strong> để mở phiếu còn lại và xác nhận.
         </div>}
-        {!loading && orders.length > 0 && suspiciousCount === 0 && <p role="status" className="shrink-0 border-b border-border px-5 py-2 text-xs text-muted-foreground">
+        {!loading && issueMode && <p role="status" className="shrink-0 border-b border-amber-200 bg-amber-50 px-5 py-2 text-sm text-amber-900">
+          Bấm mã phiếu để kiểm tra và gán đúng nhân viên. Sau khi lưu phiếu, bấm “Doanh số” trên bảng lương để cập nhật.
+        </p>}
+        {!loading && !issueMode && orders.length > 0 && suspiciousCount === 0 && <p role="status" className="shrink-0 border-b border-border px-5 py-2 text-xs text-muted-foreground">
           Không có cảnh báo nghi trùng trong danh sách này.
         </p>}
 
@@ -91,7 +96,7 @@ const PersonnelRevenueOrdersModal: React.FC<PersonnelRevenueOrdersModalProps> = 
             </div>
           ) : orders.length === 0 ? (
             <p className="text-center text-muted-foreground py-16 text-sm">
-              Không có đơn nào trong kỳ với Phụ trách khớp tên này.
+              {issueMode ? 'Không có phiếu thiếu người phụ trách. Kiểm tra các dòng nhân viên thêm, xóa hoặc chỉnh tay trong bảng lương.' : 'Không có đơn nào trong kỳ với Phụ trách khớp nhân viên này.'}
             </p>
           ) : (
             <table className="w-full border-collapse text-sm">
@@ -103,7 +108,7 @@ const PersonnelRevenueOrdersModal: React.FC<PersonnelRevenueOrdersModalProps> = 
                   <th className="py-2 pr-2 font-semibold text-right whitespace-nowrap">Tổng tiền đơn</th>
                   <th className="py-2 pr-2 font-semibold text-center whitespace-nowrap">Số người</th>
                   <th className="py-2 pr-2 font-semibold text-right whitespace-nowrap">Phần được hưởng</th>
-                  <th className="py-2 pr-2 font-semibold">Người phụ trách</th>
+                  <th className="py-2 pr-2 font-semibold">{issueMode ? 'Người phụ trách / Vấn đề' : 'Người phụ trách'}</th>
                 </tr>
               </thead>
               <tbody>
@@ -150,6 +155,7 @@ const PersonnelRevenueOrdersModal: React.FC<PersonnelRevenueOrdersModalProps> = 
                         <Users className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                         <span>{o.phu_trach}</span>
                       </div>
+                      {o.allocationIssue && <p className="mt-1 font-semibold text-amber-700">{o.allocationIssue}</p>}
                     </td>
                   </tr>
                 ))}

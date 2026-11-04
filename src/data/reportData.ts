@@ -8,6 +8,7 @@ import { branchKey, branchLabel } from '../lib/branchCatalog';
 import type { NhanSu } from './personnelData';
 import { lineRevenue, lineCost, lineQuantity } from '../lib/businessReportMetrics';
 import { findSalesOrderDuplicates } from '../lib/salesOrderDuplicates';
+import { allocateInvoiceRevenue } from '../lib/payrollRevenueAllocation';
 
 /** Chuẩn hóa tên để khớp bảng lương / nhan_vien_id trên đơn (bỏ dấu, thường, gộp khoảng trắng). */
 export function chuanHoaTenTheoDon(s: string): string {
@@ -30,28 +31,6 @@ async function fetchAllRowsPaginated<T>(
     offset += REPORT_PAGE_SIZE;
   }
   return out;
-}
-
-/** Map token nhân viên (tên / UUID / mã) → họ tên chuẩn hóa. */
-function buildPersonnelAliasMap(
-  personnel: Array<{ id: string; ho_ten: string; id_nhan_su?: string | null }>
-): Map<string, string> {
-  const aliasToCanonical = new Map<string, string>();
-  for (const p of personnel) {
-    const canonical = chuanHoaTenTheoDon(p.ho_ten || '');
-    if (!canonical) continue;
-    for (const raw of [p.ho_ten, p.id, p.id_nhan_su]) {
-      if (!raw) continue;
-      const k = chuanHoaTenTheoDon(String(raw));
-      if (k) aliasToCanonical.set(k, canonical);
-    }
-  }
-  return aliasToCanonical;
-}
-
-function resolvePersonnelKey(token: string, aliases: Map<string, string>): string {
-  const k = chuanHoaTenTheoDon(token);
-  return aliases.get(k) || k;
 }
 
 type CTRevenueRow = {
@@ -654,6 +633,8 @@ export async function aggregateReportSnapshot(records: ReportCTRecords, startDat
 export type ReportSnapshot = Awaited<ReturnType<typeof loadReportSnapshot>>;
 
 export interface PayrollRevenueOrderRow {
+  allocationIssue?: string;
+  branches?: string[];
   id_bh: string;
   ngay: string;
   gio?: string | null;
@@ -667,6 +648,11 @@ export interface PayrollRevenueOrderRow {
 }
 
 export interface PayrollRevenueData {
+  personnel: NhanSu[];
+  personnelTotals: Map<string, number>;
+  personnelGrossTotals: Map<string, number>;
+  personnelOrdersById: Map<string, PayrollRevenueOrderRow[]>;
+  allocationIssues: PayrollRevenueOrderRow[];
   /** Tổng nguyên giá trị các đơn có tên nhân viên, trước khi chia. */
   grossTotals: Map<string, number>;
   /** Tổng phần doanh số nhân viên thực nhận sau khi chia theo người phụ trách. */
@@ -702,6 +688,7 @@ export async function loadPayrollRevenueData(nam: number, thang: number, signal?
   const ordersByStaff = new Map<string, PayrollRevenueOrderRow[]>();
   const branchTotals = new Map<string, number>();
   const branchLabels = new Map<string, string>();
+  const personnelOrdersById = new Map<string, PayrollRevenueOrderRow[]>();
 
   if (isDemo()) {
     const staff = ['Nguyễn Văn A', 'Trần Thị B', 'Lê Văn C', 'Phạm Văn D'];
@@ -736,17 +723,16 @@ export async function loadPayrollRevenueData(nam: number, thang: number, signal?
       }
     }
     totals.forEach((value, key) => totals.set(key, Math.round(value)));
-    return { grossTotals, totals, ordersByStaff, branchTotals, branchLabels };
+    return { grossTotals, totals, ordersByStaff, branchTotals, branchLabels, personnel: [], personnelTotals: new Map(), personnelGrossTotals: new Map(), personnelOrdersById, allocationIssues: [] };
   }
 
   const [headers, ctRecords, personnel] = await Promise.all([
     fetchAllHeaderRecords(startDate, endDate, signal),
     fetchAllCTRecords(startDate, endDate, signal),
-    getPersonnel().catch(() => [] as Awaited<ReturnType<typeof getPersonnel>>),
+    getPersonnel(),
   ]);
 
   signal?.throwIfAborted();
-  const aliases = buildPersonnelAliasMap(personnel);
   const orderRevenueMap = buildOrderRevenueFromCT(ctRecords, nam, thang);
 
   type PayrollOrderHeader = {
@@ -770,56 +756,56 @@ export async function loadPayrollRevenueData(nam: number, thang: number, signal?
     return ky === null || (ky.nam === nam && ky.thang === thang);
   }).map(header => ({ ...header, amount: revenueForOrderHeader(header, orderRevenueMap) })), ctRecords);
 
+  const invoiceRows = new Map<string, PayrollRevenueOrderRow>();
   for (const h of payrollHeaders) {
     const ky = extractNamThangTuNgayCot(h.ngay);
     if (ky !== null && (ky.nam !== nam || ky.thang !== thang)) continue;
 
     const amount = revenueForOrderHeader(h, orderRevenueMap);
-    if (amount > 0) {
-      for (const branch of new Set(h.order_branches ?? [])) {
-        const key = branchKey(branch);
+    {
+      for (const key of new Set((h.order_branches ?? []).map(branchKey))) {
         if (!key) continue;
         branchTotals.set(key, (branchTotals.get(key) || 0) + amount);
-        if (!branchLabels.has(key)) branchLabels.set(key, branchLabel(branch));
+        if (!branchLabels.has(key)) branchLabels.set(key, branchLabel((h.order_branches ?? []).find(branch => branchKey(branch) === key) || key));
       }
     }
 
     const staffRaw = String(h.nhan_vien_id ?? '').trim();
-    if (!staffRaw) continue;
-
-    if (amount <= 0) continue;
-
-    // Một tên có thể bị nhập lặp trên cùng đơn. Chuẩn hóa alias trước khi
-    // loại trùng để mỗi nhân viên chỉ được tính đúng một lần.
-    const staffKeys = Array.from(
-      new Set(
-        staffRaw
-          .split(',')
-          .map((name) => resolvePersonnelKey(name, aliases))
-          .filter(Boolean)
-      )
-    );
-    if (staffKeys.length === 0) continue;
-
-    const allocatedAmount = amount / staffKeys.length;
-
     const baseRow: PayrollRevenueOrderRow = {
       id_bh: String(h.id_bh || h.id),
       ngay: h.ngay,
       gio: h.gio,
       khach_hang: (h.ten_khach_hang || '').trim() || '—',
       tong_tien_don: amount,
-      phan_bo: allocatedAmount,
-      so_nhan_vien: staffKeys.length,
+      phan_bo: 0,
+      so_nhan_vien: 0,
       phu_trach: staffRaw,
+      branches: [...new Set((h.order_branches ?? []).map(branchKey))],
       duplicate_order_ids: duplicateCandidates.get(String(h.id_bh || h.id)) ?? [],
     };
 
-    for (const staffKey of staffKeys) {
-      grossTotals.set(staffKey, (grossTotals.get(staffKey) || 0) + amount);
-      pushPayrollOrder(ordersByStaff, totals, staffKey, baseRow);
-    }
+    invoiceRows.set(h.id, baseRow);
   }
+
+  const allocation = allocateInvoiceRevenue(
+    [...invoiceRows].map(([id, row]) => ({ id, amount: row.tong_tien_don, staff: row.phu_trach, branches: row.branches || [] })),
+    personnel, chuanHoaTenTheoDon, branchKey,
+  );
+  const personnelById = new Map(personnel.map(person => [person.id, person]));
+  for (const share of allocation.allocations) {
+    const source = invoiceRows.get(share.orderId)!;
+    const row = { ...source, phan_bo: share.amount, so_nhan_vien: share.staffCount };
+    const orders = personnelOrdersById.get(share.personnelId) || [];
+    orders.push(row);
+    personnelOrdersById.set(share.personnelId, orders);
+    const name = chuanHoaTenTheoDon(personnelById.get(share.personnelId)!.ho_ten);
+    grossTotals.set(name, (grossTotals.get(name) || 0) + source.tong_tien_don);
+    pushPayrollOrder(ordersByStaff, totals, name, row);
+  }
+  const allocationIssues = allocation.issues.map(issue => ({
+    ...invoiceRows.get(issue.orderId)!, phan_bo: issue.amount, allocationIssue: issue.reason,
+    phu_trach: issue.staff || 'Chưa gán nhân viên',
+  }));
 
   for (const list of ordersByStaff.values()) {
     list.sort((a, b) => {
@@ -829,12 +815,9 @@ export async function loadPayrollRevenueData(nam: number, thang: number, signal?
     });
   }
 
-  // Cộng các phần chính xác trước rồi mới làm tròn một lần ở tổng tháng.
-  // Cách này khớp snapshot lương hiện hữu (ví dụ Anh Huân: 26.428.417đ)
-  // và tránh sai vài đồng do làm tròn riêng từng đơn.
-  totals.forEach((value, key) => totals.set(key, Math.round(value)));
-
-  return { grossTotals, totals, ordersByStaff, branchTotals, branchLabels };
+  return { grossTotals, totals, ordersByStaff, branchTotals, branchLabels, personnel,
+    personnelTotals: allocation.personnelTotals, personnelGrossTotals: allocation.personnelGrossTotals,
+    personnelOrdersById, allocationIssues };
 }
 
 /** Gom doanh số theo nhân viên cho bảng lương chấm công. */
