@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { AlertTriangle, ArrowLeft, Calendar, Camera, Clock, Loader2, MapPin, RefreshCw, TrendingUp, User } from 'lucide-react';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAttendanceSettings } from '../hooks/useAttendanceSettings';
@@ -39,6 +39,7 @@ const AddAttendancePage: React.FC = () => {
   const navigate = useNavigate();
   const [personnel, setPersonnel] = useState<NhanSu[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initializationError, setInitializationError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState<Partial<AttendanceRecord>>({});
   const [showDetailView, setShowDetailView] = useState<'total' | 'late' | 'overtime' | null>(null);
@@ -49,65 +50,68 @@ const AddAttendancePage: React.FC = () => {
   const [locationLoading, setLocationLoading] = useState(false);
   const watchIdRef = useRef<number | null>(null);
   const submittingRef = useRef(false);
+  const initializationRequest = useRef(0);
 
-  useEffect(() => {
-    const initData = async () => {
-      setLoading(true);
-      try {
-        const personnelData = await getPersonnel();
-        setPersonnel(personnelData);
+  const loadInitialData = useCallback(async () => {
+    const request = ++initializationRequest.current;
+    setLoading(true);
+    setInitializationError(null);
+    try {
+      const personnelData = await getPersonnel();
+      const todayStr = formatLocalIsoDate();
+      const staffName = resolveStaffNameForUser(nhanVien, personnelData);
+      const staffNames = getStaffAttendanceNameVariants(nhanVien, personnelData);
+      const fallbackName = staffName || nhanVien?.ho_ten || 'Tài khoản đăng nhập';
+      const autoId = await getNextAttendanceId();
 
-        const todayStr = formatLocalIsoDate();
+      let currentRecord: Partial<AttendanceRecord> = {
+        id_cham_cong: autoId,
+        nhan_su: fallbackName,
+        ngay: todayStr,
+        checkin: null,
+        checkout: null,
+        vi_tri: null,
+        anh: null
+      };
 
-        const staffName = resolveStaffNameForUser(nhanVien, personnelData);
-        const staffNames = getStaffAttendanceNameVariants(nhanVien, personnelData);
-        const fallbackName = staffName || nhanVien?.ho_ten || 'Tài khoản đăng nhập';
+      const { data } = await getAttendancePaginated(1, 1, staffNames, '', {
+        startDate: todayStr,
+        endDate: todayStr
+      });
 
-        const autoId = await getNextAttendanceId();
+      if (data.length > 0) {
+        // Read the newest row's photo/history only after the compact status query succeeds.
+        currentRecord = await getAttendanceRecord(data[0].id);
+      }
 
-        setFormData({
-          id_cham_cong: autoId,
-          nhan_su: fallbackName,
-          ngay: todayStr,
-          checkin: null,
-          checkout: null,
-          vi_tri: null,
-          anh: null
-        });
+      const now = new Date();
+      const monthStart = formatLocalIsoDate(new Date(now.getFullYear(), now.getMonth(), 1));
+      const monthEnd = formatLocalIsoDate(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+      const monthData = await getAllAttendanceRecords(staffNames, '', {
+        startDate: monthStart,
+        endDate: monthEnd
+      });
 
-        // Check if there is already a record for today
-        const { data } = await getAttendancePaginated(1, 1, staffNames, '', {
-          startDate: todayStr,
-          endDate: todayStr
-        });
-
-        if (data && data.length > 0) {
-          const todayRecord = data[0];
-          // This form edits one record; fetch its photo/history on demand.
-          setFormData(await getAttendanceRecord(todayRecord.id));
-        }
-
-        // Load monthly records for stats
-        const now = new Date();
-        const monthStart = formatLocalIsoDate(new Date(now.getFullYear(), now.getMonth(), 1));
-        const monthEnd = formatLocalIsoDate(new Date(now.getFullYear(), now.getMonth() + 1, 0));
-
-        const monthData = await getAllAttendanceRecords(staffNames, '', {
-          startDate: monthStart,
-          endDate: monthEnd
-        });
-        setMonthlyRecords(monthData || []);
-
-      } catch (err) {
-        console.error("Lỗi khởi tạo AddAttendancePage:", err);
-      } finally {
+      if (request !== initializationRequest.current) return;
+      setPersonnel(personnelData);
+      setFormData(currentRecord);
+      setMonthlyRecords(monthData);
+    } catch (err) {
+      if (request === initializationRequest.current) {
+        console.error('Lỗi khởi tạo AddAttendancePage:', err);
+        setInitializationError(formatAttendanceSaveError(err));
+      }
+    } finally {
+      if (request === initializationRequest.current) {
         setLoading(false);
         setTimeout(() => getLocation(), 500);
       }
-    };
-
-    initData();
+    }
   }, [nhanVien]);
+
+  useEffect(() => {
+    void loadInitialData();
+  }, [loadInitialData]);
 
   // Auto-track location via watchPosition
   useEffect(() => {
@@ -172,12 +176,20 @@ const AddAttendancePage: React.FC = () => {
   };
 
   const handleQuickSubmit = async (type: 'checkin' | 'checkout') => {
-    if (submittingRef.current) return;
+    if (submittingRef.current || initializationError) return;
 
     const hasCheckin = Boolean(formData.checkin);
     const hasCheckout = Boolean(formData.checkout);
+    if (!hasCheckin && hasCheckout) {
+      showToast('Bản ghi hôm nay thiếu giờ vào. Vui lòng nhờ quản lý kiểm tra trước khi chấm tiếp.', 'warning');
+      return;
+    }
     if (type === 'checkin' && hasCheckin && !hasCheckout) {
       showToast('Bạn đã chấm giờ vào. Hãy chấm giờ ra trước khi bắt đầu lượt mới.', 'warning');
+      return;
+    }
+    if (type === 'checkout' && !hasCheckin) {
+      showToast('Bạn cần chấm giờ vào trước khi chấm giờ ra.', 'warning');
       return;
     }
     if (type === 'checkout' && hasCheckout) {
@@ -340,6 +352,20 @@ const AddAttendancePage: React.FC = () => {
             </button>
             <h1 className="text-2xl font-black text-foreground tracking-tight">Chấm công</h1>
           </div>
+
+          {initializationError && (
+            <div role="alert" className="flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800 sm:flex-row sm:items-center sm:justify-between">
+              <p>Không thể tải trạng thái chấm công: {initializationError}. Hãy tải lại trước khi chấm công.</p>
+              <button
+                type="button"
+                onClick={() => void loadInitialData()}
+                disabled={loading}
+                className="min-h-11 shrink-0 rounded-lg border border-red-300 bg-white px-4 font-semibold text-red-800 disabled:opacity-50"
+              >
+                {loading ? 'Đang tải...' : 'Thử tải lại'}
+              </button>
+            </div>
+          )}
 
           {/* Monthly Stats Cards */}
           <div className="grid grid-cols-3 gap-3">
@@ -563,20 +589,22 @@ const AddAttendancePage: React.FC = () => {
                     const hour = new Date().getHours();
                     const isMorning = hour >= 5 && hour < 12;
                     const isAfternoon = hour >= 14 && hour < 22;
+                    const nextAction = formData.checkin && !formData.checkout ? 'checkout' : 'checkin';
+                    const nextActionIsCheckin = nextAction === 'checkin';
 
                     if (isMorning) {
                       return (
                         <button
                           type="button"
-                          disabled={submitting}
-                          onClick={() => handleQuickSubmit('checkin')}
-                          className="w-full py-4 rounded-xl text-lg font-bold text-white bg-emerald-500 hover:bg-emerald-600 shadow-lg shadow-emerald-500/30 transition-all active:scale-95 flex flex-col items-center justify-center gap-1 disabled:opacity-50"
+                          disabled={submitting || Boolean(initializationError)}
+                          onClick={() => handleQuickSubmit(nextAction)}
+                          className={`w-full py-4 rounded-xl text-lg font-bold text-white ${nextActionIsCheckin ? 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/30' : 'bg-orange-500 hover:bg-orange-600 shadow-orange-500/30'} shadow-lg transition-all active:scale-95 flex flex-col items-center justify-center gap-1 disabled:opacity-50`}
                         >
                           <div className="flex items-center gap-2">
                             {submitting ? <Loader2 className="animate-spin" /> : <Clock size={24} />}
-                            <span>CHẤM CÔNG GIỜ VÀO</span>
+                            <span>{nextActionIsCheckin ? 'CHẤM CÔNG GIỜ VÀO' : 'CHẤM CÔNG GIỜ RA'}</span>
                           </div>
-                          <span className="text-[11px] font-medium opacity-80">(Tự động nhận diện buổi sáng: 5h-12h)</span>
+                          <span className="text-[11px] font-medium opacity-80">(Lượt tiếp theo trong ngày)</span>
                         </button>
                       );
                     }
@@ -585,15 +613,15 @@ const AddAttendancePage: React.FC = () => {
                       return (
                         <button
                           type="button"
-                          disabled={submitting}
-                          onClick={() => handleQuickSubmit('checkout')}
-                          className="w-full py-4 rounded-xl text-lg font-bold text-white bg-orange-500 hover:bg-orange-600 shadow-lg shadow-orange-500/30 transition-all active:scale-95 flex flex-col items-center justify-center gap-1 disabled:opacity-50"
+                          disabled={submitting || Boolean(initializationError)}
+                          onClick={() => handleQuickSubmit(nextAction)}
+                          className={`w-full py-4 rounded-xl text-lg font-bold text-white ${nextActionIsCheckin ? 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/30' : 'bg-orange-500 hover:bg-orange-600 shadow-orange-500/30'} shadow-lg transition-all active:scale-95 flex flex-col items-center justify-center gap-1 disabled:opacity-50`}
                         >
                           <div className="flex items-center gap-2">
                             {submitting ? <Loader2 className="animate-spin" /> : <Clock size={24} />}
-                            <span>CHẤM CÔNG GIỜ RA</span>
+                            <span>{nextActionIsCheckin ? 'CHẤM CÔNG GIỜ VÀO' : 'CHẤM CÔNG GIỜ RA'}</span>
                           </div>
-                          <span className="text-[11px] font-medium opacity-80">(Tự động nhận diện buổi chiều: 14h-22h)</span>
+                          <span className="text-[11px] font-medium opacity-80">(Lượt tiếp theo trong ngày)</span>
                         </button>
                       );
                     }
@@ -605,7 +633,7 @@ const AddAttendancePage: React.FC = () => {
                         <div className="grid grid-cols-2 gap-3">
                           <button
                             type="button"
-                            disabled={submitting}
+                            disabled={submitting || Boolean(initializationError)}
                             onClick={() => handleQuickSubmit('checkin')}
                             className="py-3 rounded-xl text-[14px] font-bold text-white bg-emerald-500 hover:bg-emerald-600 shadow-md transition-all active:scale-95 disabled:opacity-50"
                           >
@@ -613,7 +641,7 @@ const AddAttendancePage: React.FC = () => {
                           </button>
                           <button
                             type="button"
-                            disabled={submitting}
+                            disabled={submitting || Boolean(initializationError)}
                             onClick={() => handleQuickSubmit('checkout')}
                             className="py-3 rounded-xl text-[14px] font-bold text-white bg-orange-500 hover:bg-orange-600 shadow-md transition-all active:scale-95 disabled:opacity-50"
                           >
