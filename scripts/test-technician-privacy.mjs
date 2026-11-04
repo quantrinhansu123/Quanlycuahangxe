@@ -40,6 +40,13 @@ test('technician privacy and immutable saved orders use verified application ses
   const policyFix=await read('supabase/migrations/202610100002_cached_customer_privacy_policy.sql');
   await db.exec(policyFix);
   await db.exec(policyFix);
+  await db.exec(await read('supabase/migrations/202610310006_sales_query_service_filter.sql'));
+  const salesSessionWrapper=await read('supabase/migrations/202611040003_sales_query_session_wrapper.sql');
+  await db.exec(salesSessionWrapper);
+  await db.exec(salesSessionWrapper);
+  const customerSearchFix=await read('supabase/migrations/202610300001_customers_short_numeric_search.sql');
+  await db.exec(customerSearchFix);
+  await db.exec(customerSearchFix);
   await db.exec(await read('supabase/migrations/202610100004_business_report_sources.sql'));
   await db.exec(`CREATE FUNCTION can_manage_purchase_receipt(branch text) RETURNS boolean LANGUAGE sql STABLE AS $$
     SELECT NOT public.app_is_technician() AND public.current_app_nhan_su_uuid() IS NOT NULL;
@@ -91,6 +98,7 @@ test('technician privacy and immutable saved orders use verified application ses
     for (const name of ['sales_query','sales_lookup','customer_order_stats']) {
       const args=name==='sales_query' ? [] : [[cid(3),cid(105),cid(109)]];
       const result=await rpc(name,args);
+      if(name==='sales_query') assert.ok(result.totalCount>0,'technicians still read sales rows through the verified-session wrapper');
       assert.ok(!JSON.stringify(result).includes('0984050141'),name);
     }
     await assert.rejects(db.exec('SELECT * FROM app_private.app_sales_rows()'),{code:'42501'});
