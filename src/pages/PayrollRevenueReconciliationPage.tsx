@@ -23,6 +23,8 @@ import {
   type PayrollRevenueOrderRow,
 } from '../data/reportData';
 import { cn, normalizeForCompare } from '../lib/utils';
+import { branchKey } from '../lib/branchCatalog';
+import { allocatePayrollRevenueByName, compareRevenueByBranch } from '../lib/payrollRevenueAllocation';
 
 type ComparisonStatus = 'matched' | 'mismatched' | 'missing-payroll';
 
@@ -47,6 +49,8 @@ interface ReconciliationData {
   grossTotals: Map<string, number>;
   totals: Map<string, number>;
   ordersByStaff: Map<string, PayrollRevenueOrderRow[]>;
+  branchTotals: Map<string, number>;
+  branchLabels: Map<string, string>;
 }
 
 const ALL_BRANCHES = 'Tất cả cơ sở';
@@ -126,6 +130,8 @@ const PayrollRevenueReconciliationPage: React.FC = () => {
         grossTotals: revenue.grossTotals,
         totals: revenue.totals,
         ordersByStaff: revenue.ordersByStaff,
+        branchTotals: revenue.branchTotals,
+        branchLabels: revenue.branchLabels,
       });
     } catch (loadError) {
       console.error('Không thể tải dữ liệu rà soát doanh số:', loadError);
@@ -148,12 +154,16 @@ const PayrollRevenueReconciliationPage: React.FC = () => {
     const personnelById = new Map(data.personnel.map((person) => [person.id, person]));
     const payrollByPersonnelId = new Map(data.payroll.map((item) => [item.nhan_su_id, item]));
     const rowsByKey = new Map<string, ComparisonRow>();
+    const sourceShares = allocatePayrollRevenueByName(data.personnel, (person) => person.ho_ten, data.totals, normalizeForCompare);
+    const grossShares = allocatePayrollRevenueByName(data.personnel, (person) => person.ho_ten, data.grossTotals, normalizeForCompare);
+    const knownRevenueNames = new Set(data.personnel.map((person) => normalizeForCompare(person.ho_ten)).filter(Boolean));
 
-    const addRow = (key: string, person: NhanSu | undefined, payroll: BangLuong | undefined) => {
+    const addRow = (key: string, person: NhanSu | undefined, payroll: BangLuong | undefined, sourceOverride?: number, grossOverride?: number) => {
       const payrollName = payroll?.nhan_su?.ho_ten?.trim();
       const name = person?.ho_ten?.trim() || payrollName || key;
-      const grossRevenue = Number(data.grossTotals.get(key) ?? 0);
-      const sourceRevenue = Number(data.totals.get(key) ?? 0);
+      const revenueKey = normalizeForCompare(person?.ho_ten || payrollName || key);
+      const grossRevenue = grossOverride ?? Number(data.grossTotals.get(revenueKey) ?? 0);
+      const sourceRevenue = sourceOverride ?? Number(data.totals.get(revenueKey) ?? 0);
       const payrollRevenue = Number(payroll?.doanh_so ?? 0);
       const difference = sourceRevenue - payrollRevenue;
       const status: ComparisonStatus = !payroll
@@ -178,21 +188,20 @@ const PayrollRevenueReconciliationPage: React.FC = () => {
       });
     };
 
-    data.personnel.forEach((person) => {
-      const key = normalizeForCompare(person.ho_ten);
-      if (!key) return;
-      addRow(key, person, payrollByPersonnelId.get(person.id));
+    data.personnel.forEach((person, index) => {
+      if (!normalizeForCompare(person.ho_ten)) return;
+      addRow(person.id, person, payrollByPersonnelId.get(person.id), sourceShares[index], grossShares[index]);
     });
 
     data.payroll.forEach((payroll) => {
       const person = personnelById.get(payroll.nhan_su_id);
       const key = normalizeForCompare(person?.ho_ten || payroll.nhan_su?.ho_ten || '');
-      if (!key || rowsByKey.has(key)) return;
-      addRow(key, person, payroll);
+      if (!key || rowsByKey.has(person?.id || payroll.nhan_su_id)) return;
+      addRow(person?.id || payroll.nhan_su_id, person, payroll);
     });
 
     data.totals.forEach((_total, key) => {
-      if (rowsByKey.has(key)) return;
+      if (knownRevenueNames.has(key) || rowsByKey.has(key)) return;
       addRow(key, undefined, undefined);
     });
 
@@ -234,6 +243,17 @@ const PayrollRevenueReconciliationPage: React.FC = () => {
       allocatedRevenue: rows.reduce((sum, row) => sum + row.sourceRevenue, 0),
     };
   }, [rows]);
+
+  const branchComparisons = useMemo(() => {
+    if (!data) return [];
+    return compareRevenueByBranch(
+      data.branchTotals,
+      data.payroll,
+      (item) => item.co_so,
+      (item) => Number(item.doanh_so ?? 0),
+      branchKey,
+    ).filter((item) => branch === ALL_BRANCHES || item.branchKey === branchKey(branch));
+  }, [branch, data]);
 
   return (
     <div className="min-h-screen bg-muted/20 p-4 sm:p-6" data-testid="revenue-reconciliation-page">
@@ -314,6 +334,27 @@ const PayrollRevenueReconciliationPage: React.FC = () => {
           <SummaryCard icon={Users} label="Doanh số sau chia" value={formatVnd(summary.allocatedRevenue)} tone="green" />
           <SummaryCard icon={SlidersHorizontal} label="Tổng chênh lệch" value={formatVnd(summary.absoluteDifference)} tone="amber" />
         </div>
+
+        {!loading && !error && branchComparisons.length > 0 && (
+          <section className="overflow-hidden rounded-xl border border-border bg-background shadow-sm" data-testid="branch-revenue-comparison">
+            <div className="border-b border-border px-4 py-3">
+              <h2 className="font-bold text-foreground">Đối chiếu tổng theo cơ sở</h2>
+              <p className="mt-1 text-xs text-muted-foreground">Phiếu bán hàng dùng cùng nhãn cơ sở của bộ lọc doanh số; bảng lương cộng doanh số đã lưu của nhân sự thuộc cơ sở.</p>
+            </div>
+            <div className="divide-y divide-border">
+              {branchComparisons.map((item) => (
+                <div key={item.branchKey} className="grid gap-2 px-4 py-3 sm:grid-cols-[1fr_repeat(3,minmax(150px,auto))] sm:items-center">
+                  <strong>{data?.branchLabels.get(item.branchKey) || item.branchKey}</strong>
+                  <span className="text-sm">Phiếu bán: <strong className="tabular-nums">{formatVnd(item.invoiceRevenue)}</strong></span>
+                  <span className="text-sm">Bảng lương: <strong className="tabular-nums">{formatVnd(item.payrollRevenue)}</strong></span>
+                  <span className={cn('text-sm font-bold tabular-nums', item.difference === 0 ? 'text-emerald-700' : 'text-red-600')}>
+                    Lệch: {item.difference > 0 ? '+' : ''}{formatVnd(item.difference)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         <section className="overflow-hidden rounded-2xl border border-border bg-background shadow-sm">
           <div className="flex flex-col gap-3 border-b border-border p-4 lg:flex-row lg:items-center lg:justify-between">
