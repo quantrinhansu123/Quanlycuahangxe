@@ -36,6 +36,7 @@ import {
 } from '../data/payrollSettingsData';
 import { useAuth } from '../context/AuthContext';
 import { useAttendanceSettings } from '../hooks/useAttendanceSettings';
+import { allocatePayrollRevenueByName } from '../lib/payrollRevenueAllocation';
 
 const LS_PREFIX = 'payrollChamCongLuongV2:';
 const LS_PREFIX_LEGACY = 'payrollChamCongLuongV1:';
@@ -111,18 +112,21 @@ async function gopDoanhSoTheoBaoCao(
   } catch {
     // bỏ qua — vẫn map theo tên từ báo cáo
   }
-  const mapped = rows.map((r) => {
+  const revenueByName = new Map<string, number>();
+  rows.forEach((r) => {
     const ten = (r.hoTen || '').trim();
-    if (!ten) return { ...r, tongDoanhThu: 0 };
+    if (!ten) return;
 
     const kTen = chuanHoaTenSoSanh(ten);
     let rev = map.get(kTen) ?? 0;
     if (rev === 0 && nhanList.length > 0) {
-      const ns = nhanList.find((x) => chuanHoaTenSoSanh(x.ho_ten) === kTen);
-      if (ns) rev = map.get(chuanHoaTenSoSanh(ns.id)) ?? 0;
+      const matches = nhanList.filter((x) => chuanHoaTenSoSanh(x.ho_ten) === kTen);
+      if (matches.length === 1) rev = map.get(chuanHoaTenSoSanh(matches[0].id)) ?? 0;
     }
-    return { ...r, tongDoanhThu: rev };
+    revenueByName.set(kTen, rev);
   });
+  const shares = allocatePayrollRevenueByName(rows, (row) => row.hoTen, revenueByName, chuanHoaTenSoSanh);
+  const mapped = rows.map((row, index) => ({ ...row, tongDoanhThu: shares[index] }));
   return { rows: mapped, payrollData: data };
 }
 
@@ -1231,7 +1235,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
               onClick={capNhatDoanhSoTuPhieuBan}
               disabled={revenueLoading || quickLoading}
               className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-primary/10 border-primary/30 text-primary text-sm font-medium px-3 py-2 hover:bg-primary/15 disabled:opacity-50"
-              title="Đơn có ngày thuộc đúng tháng/năm kỳ; mỗi nhân viên được ghi nhận toàn bộ giá trị đơn mà họ cùng phụ trách, khớp bộ lọc nhân viên ở Phiếu bán hàng."
+              title="Đơn thuộc đúng tháng/năm kỳ; giá trị được chia đều giữa nhân sự phụ trách duy nhất. Nhân sự trùng tên sẽ chia chung một tổng để không nhân đôi doanh số."
             >
               {revenueLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <TrendingUp className="w-4 h-4" />}
               Doanh số
@@ -1433,7 +1437,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                         type="text"
                         inputMode="numeric"
                         className="w-32 min-w-0 min-h-10 text-sm bg-transparent border border-primary/30 rounded-md px-2 py-1.5 text-right font-mono"
-                        title="Tổng tong_tien đơn trong kỳ (theo Họ tên). Bấm « Doanh số » để lấy từ hệ thống."
+                        title="Doanh số phiếu được phân bổ theo nhân viên. Nhân sự trùng tên chia chung một tổng. Bấm « Doanh số » để lấy lại từ hệ thống."
                         readOnly={!isAdmin}
                         value={formatTienNhap(input.tongDoanhThu)}
                         onChange={(e) => setTien(input.id, 'tongDoanhThu', e.target.value)}

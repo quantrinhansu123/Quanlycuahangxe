@@ -12,6 +12,7 @@ import {
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useRegisterPageRefresh } from '../context/PageRefreshContext';
 
 import Pagination from '../components/Pagination';
 import SalesCardCTFormModal from '../components/SalesCardCTFormModal';
@@ -65,6 +66,8 @@ const SalesCardCTManagementPage: React.FC = () => {
       if (version === requestVersion.current) setLoading(false);
     }
   }, [currentPage, pageSize, debouncedSearch]);
+
+  useRegisterPageRefresh(loadData);
 
   useEffect(() => {
     void loadData();

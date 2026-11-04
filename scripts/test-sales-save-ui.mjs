@@ -28,7 +28,7 @@ try{
   for(const width of [1440,375]){
     const context=await browser.newContext({viewport:{width,height:1000},timezoneId:'Asia/Ho_Chi_Minh'});
     const page=await context.newPage();lastPage=page;page.setDefaultTimeout(20000);
-    const errors=[],requests=[],saves=[];let fail='validation',inventoryFail=false;
+    const errors=[],requests=[],saves=[],salesQueries=[];let fail='validation',inventoryFail=false;
     let invoice={id:'00000000-0000-0000-0000-000000000099',id_bh:'BH-EDIT-TEST',ngay:'2026-10-01',gio:'10:00',co_so:staff.co_so,
       nhan_vien_id:staff.ho_ten,khach_hang_id:customer.ma_khach_hang,khach_hang:customer,nhan_su:{ho_ten:staff.ho_ten},dich_vu_id:services[0].id,
       so_km:1234,tong_tien:0,resolved_amount:80000,phuong_thuc_thanh_toan:'Tiền mặt',
@@ -53,7 +53,7 @@ try{
         invoice={...invoice,...args.p_header,tong_tien:total,resolved_amount:total,the_ban_hang_ct:args.p_details.map((line,i)=>({...line,id:'detail-'+i,id_don_hang:invoice.id_bh,thanh_tien:line.gia_ban*line.so_luong}))};tx.so_tien=total;
         return json({...invoice,the_ban_hang_ct:undefined,khach_hang:undefined,nhan_su:undefined});
       }
-      if(endpoint==='sales_query'){const summary={totalCount:1,totalAmount:invoice.resolved_amount,totalCustomers:1,newCustomersCount:0,returningCustomersCount:1};
+      if(endpoint==='sales_query'){salesQueries.push(request.postDataJSON());const summary={totalCount:1,totalAmount:invoice.resolved_amount,totalCustomers:1,newCustomersCount:0,returningCustomersCount:1};
         return json({data:[invoice],totalCount:1,summary,groupedSummary:[{...summary,date:invoice.ngay,latestTime:invoice.gio}]});}
       if(endpoint==='customers_query')return json({data:[customer],totalCount:1});
       if(endpoint==='validate_sales_order_branch')return json(null);
@@ -68,6 +68,8 @@ try{
     await page.goto(origin+'/sales-save-test',{waitUntil:'commit'});
     const edit=()=>width>=768?page.locator('button[title="Chỉnh sửa"]').first():page.getByRole('button',{name:'Sửa',exact:true}).first();
     await edit().click();await page.locator('input[name="id_bh"]').waitFor();
+    assert.ok(salesQueries.length>0,'The sales list loads through sales_query');
+    assert.equal(Object.hasOwn(salesQueries[0],'p_service'),false,'An empty service filter must be omitted for legacy RPC signatures');
     assert.equal(await page.locator('input.font-mono').first().inputValue(),'80.000','Opening an order preserves its saved price');
     await page.getByText(/^Puly côn \(/).click();
     await page.getByText('-- Chọn hoặc tìm dịch vụ --',{exact:true}).click();

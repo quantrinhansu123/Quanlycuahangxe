@@ -26,6 +26,8 @@ await db.exec(`CREATE ROLE anon; CREATE ROLE authenticated;
  SET test.actor = '00000000-0000-0000-0000-000000000001';`);
 const migration = await readFile(new URL('../supabase/migrations/202609090003_attendance_shifts.sql', import.meta.url), 'utf8');
 await db.exec(migration);
+const openShiftGuardMigration = await readFile(new URL('../supabase/migrations/202611040001_attendance_open_shift_guard.sql', import.meta.url), 'utf8');
+await db.exec(openShiftGuardMigration);
 const fullDayFallbackMigration = await readFile(new URL('../supabase/migrations/202609160001_attendance_full_day_fallback.sql', import.meta.url), 'utf8');
 await db.exec(fullDayFallbackMigration);
 const attendanceSettingsMigration = await readFile(new URL('../supabase/migrations/202609160002_attendance_settings.sql', import.meta.url), 'utf8');
@@ -77,6 +79,33 @@ test('TEST 6: missing afternoon can be supplied; three-day total = 2', async () 
   assert.equal(await credit('2026-09-08'), 1);
   assert.equal(await credit('2026-09-08') + await credit('2026-09-09') + await credit('2026-09-10'), 2);
 });
+test('regular check-ins reject a second open/overlapping shift while allowing a prior closed shift', async () => {
+  const first = await db.query(
+    `INSERT INTO cham_cong(nhan_su,ngay,checkin) VALUES('NV2','2026-09-25','08:31') RETURNING id`
+  );
+
+  for (const [staff, time] of [['Nhân viên', '08:32'], ['NV2', '14:01'], ['Nhân viên', '14:02']]) {
+    await assert.rejects(
+      db.query(`INSERT INTO cham_cong(nhan_su,ngay,checkin) VALUES($1,'2026-09-25',$2)`, [staff, time]),
+      { code: '23505' },
+      'Repeated check-ins must not create multiple open shifts, including through a name/code alias'
+    );
+  }
+
+  assert.equal((await db.query(`SELECT count(*) n FROM cham_cong WHERE ngay='2026-09-25'`)).rows[0].n, 1);
+  await db.query(`UPDATE cham_cong SET checkout='12:00' WHERE id=$1`, [first.rows[0].id]);
+  await db.query(`INSERT INTO cham_cong(nhan_su,ngay,checkin) VALUES('NV2','2026-09-25','13:01')`);
+  await assert.rejects(
+    db.query(`INSERT INTO cham_cong(nhan_su,ngay,checkin,checkout) VALUES('NV2','2026-09-25','13:30','17:30')`),
+    { code: '23505' },
+    'A completed interval that overlaps an open shift must also be rejected'
+  );
+
+  await db.query(`INSERT INTO cham_cong(nhan_su,ngay,checkin) VALUES('NV2','2026-09-26','13:01')`);
+  await db.query(`INSERT INTO cham_cong(nhan_su,ngay,checkin,checkout) VALUES('NV2','2026-09-26','08:30','12:00')`);
+  assert.equal((await db.query(`SELECT count(*) n FROM cham_cong WHERE ngay='2026-09-26'`)).rows[0].n, 2,
+    'A valid earlier closed shift remains allowed alongside a later open shift');
+});
 test('full day creates two shifts; repeat cannot duplicate; transaction rolls back earlier morning', async () => {
   assert.equal((await manual('2026-09-11', 'full')).rows.length, 2);
   assert.equal(await credit('2026-09-11'), 1);
@@ -125,6 +154,7 @@ test('permission, note validation, regular inserts/updates and name/code duplica
 test('migration reruns without deleting attendance', async () => {
   const before = await db.query('SELECT count(*) n FROM cham_cong');
   await db.exec(migration);
+  await db.exec(openShiftGuardMigration);
   await db.exec(fullDayFallbackMigration);
   await db.exec(attendanceSettingsMigration);
   assert.deepEqual(await db.query('SELECT count(*) n FROM cham_cong'), before);

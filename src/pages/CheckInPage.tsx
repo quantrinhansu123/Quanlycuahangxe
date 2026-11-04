@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { getErrorDetails } from '../lib/errorDetails';
 import {
   MapPin, Clock, User, 
@@ -21,15 +21,17 @@ const CheckInPage: React.FC = () => {
   const [personnel, setPersonnel] = useState<NhanSu[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedStaff, setSelectedStaff] = useState<NhanSu | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const saving = useRef(false);
   const [location, setLocation] = useState<{lat: number, lng: number} | null>(null);
   const [posError, setPosError] = useState<string | null>(null);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const [pData, aData] = await Promise.all([
         getPersonnel(),
         getAllAttendanceRecords(undefined, '', { startDate: formatLocalIsoDate().slice(0, 7) + '-01', endDate: formatLocalIsoDate() })
@@ -38,13 +40,17 @@ const CheckInPage: React.FC = () => {
       setAttendance(aData);
     } catch (error) {
       console.error(error);
+      const details = getErrorDetails(error).message;
+      setLoadError(details
+        ? `Không thể tải trạng thái chấm công: ${details}`
+        : 'Không thể tải trạng thái chấm công. Vui lòng thử tải lại.');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    loadData();
+    void loadData();
     // Get location
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -60,10 +66,10 @@ const CheckInPage: React.FC = () => {
     } else {
       setPosError("Trình duyệt không hỗ trợ định vị.");
     }
-  }, []);
+  }, [loadData]);
 
   const handleCheckAction = async (type: 'in' | 'out') => {
-    if (!selectedStaff || saving.current) return;
+    if (!selectedStaff || saving.current || loading || loadError) return;
     saving.current = true;
     
     try {
@@ -74,9 +80,18 @@ const CheckInPage: React.FC = () => {
 
       // Check if record exists for today and staff
       const todayRows = attendance.filter(r => r.ngay === today && belongsToStaff(r, selectedStaff.ho_ten));
-      const existingRecord = todayRows.find(r => r.checkin && !r.checkout);
-      if (type === 'in' && existingRecord) throw new Error('Ca hiện tại chưa chấm ra.');
-      if (type === 'out' && !existingRecord) throw new Error('Chưa có ca đang làm để chấm ra.');
+      const openRows = todayRows.filter(r => r.checkin && !r.checkout);
+      if (type === 'in' && openRows.length > 0) {
+        throw new Error(openRows.length > 1
+          ? 'Có nhiều lượt chưa chấm ra. Vui lòng nhờ quản lý đối chiếu trước khi chấm tiếp.'
+          : 'Ca hiện tại chưa chấm ra.');
+      }
+      if (type === 'out' && openRows.length !== 1) {
+        throw new Error(openRows.length > 1
+          ? 'Có nhiều lượt chưa chấm ra. Vui lòng nhờ quản lý đối chiếu trước khi chấm ra.'
+          : 'Chưa có ca đang làm để chấm ra.');
+      }
+      const existingRecord = openRows[0];
 
       const record: Partial<AttendanceRecord> = existingRecord 
         ? { ...existingRecord } 
@@ -109,7 +124,8 @@ const CheckInPage: React.FC = () => {
   };
   const getTodayStatus = (staffName: string) => {
     const today = formatLocalIsoDate();
-    return attendance.find((r: AttendanceRecord) => r.ngay === today && belongsToStaff(r, staffName));
+    const todayRows = attendance.filter((r: AttendanceRecord) => r.ngay === today && belongsToStaff(r, staffName));
+    return todayRows.find((r) => r.checkin && !r.checkout) || todayRows[0];
   };
 
   const getMonthlyWorkedDays = (staffName: string) => {
@@ -137,6 +153,20 @@ const CheckInPage: React.FC = () => {
             </p>
           </div>
         </div>
+
+        {loadError && (
+          <div role="alert" className="flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800 sm:flex-row sm:items-center sm:justify-between">
+            <p>{loadError}</p>
+            <button
+              type="button"
+              onClick={() => void loadData()}
+              disabled={loading}
+              className="min-h-11 shrink-0 rounded-lg border border-red-300 bg-white px-4 font-semibold text-red-800 disabled:opacity-50"
+            >
+              {loading ? 'Đang tải...' : 'Thử tải lại'}
+            </button>
+          </div>
+        )}
 
         {loading ? (
           <div className="h-64 flex items-center justify-center bg-card rounded-2xl border border-border">
@@ -248,7 +278,7 @@ const CheckInPage: React.FC = () => {
                     {/* Buttons */}
                     <div className="grid grid-cols-2 gap-6 pt-4">
                       <button
-                        disabled={submitting || !location}
+                        disabled={submitting || loading || Boolean(loadError) || !location}
                         onClick={() => handleCheckAction('in')}
                         className="group relative h-16 bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-300 text-white rounded-2xl font-bold shadow-lg shadow-emerald-500/20 active:scale-95 transition-all overflow-hidden"
                       >
@@ -260,7 +290,7 @@ const CheckInPage: React.FC = () => {
                       </button>
 
                       <button
-                        disabled={submitting || !location}
+                        disabled={submitting || loading || Boolean(loadError) || !location}
                         onClick={() => handleCheckAction('out')}
                         className="group relative h-16 bg-rose-500 hover:bg-rose-600 disabled:bg-slate-300 text-white rounded-2xl font-bold shadow-lg shadow-rose-500/20 active:scale-95 transition-all overflow-hidden"
                       >

@@ -1,4 +1,5 @@
 import { queryCustomers } from '../data/salesQueryData';
+import { useRegisterPageRefresh } from '../context/PageRefreshContext';
 import type { DailySalesSummary } from '../data/salesQueryData';
 import { getErrorDetails, getReadErrorMessage, getSalesWriteErrorMessage, isAbortError } from '../lib/errorDetails';
 import { useBranches } from '../hooks/useBranches';
@@ -341,6 +342,8 @@ const SalesCardManagementPage: React.FC = () => {
     loadReferenceData(); // Non-blocking background load for dropdowns
     await loadSalesCards();
   }, [loadReferenceData, loadSalesCards]);
+
+  useRegisterPageRefresh(loadData);
 
   useEffect(() => { void loadReferenceData(); }, [loadReferenceData]);
   useEffect(() => {

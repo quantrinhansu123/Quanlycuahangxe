@@ -1,7 +1,7 @@
 import React from 'react';
 import { clsx } from 'clsx';
-import { HelpCircle, Star } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { ArrowUpRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
 export interface ModuleCardProps {
@@ -37,49 +37,49 @@ export const ModuleCard: React.FC<ModuleCardProps> = React.memo(({
   path,
   layoutId
 }) => {
-  const navigate = useNavigate();
-
-  const handleClick = () => {
-    if (path) {
-      navigate(path);
-    }
-  };
-
-  return (
-    <motion.div 
+  const card = (
+    <motion.div
       layoutId={layoutId}
-      onClick={handleClick}
       className={clsx(
-        "group flex items-center bg-card rounded-xl p-2.5 lg:rounded-2xl lg:p-4 transition-all duration-300 border border-border hover:border-primary/40 hover:shadow-lg cursor-pointer hover:-translate-y-1",
-        !path && "opacity-60 grayscale-[0.5] cursor-not-allowed hover:translate-y-0 hover:border-border"
+        'flex min-h-[72px] min-w-0 items-center gap-3 rounded-xl border border-border bg-card p-3 transition-colors duration-200 sm:rounded-2xl sm:p-3.5',
+        path && 'group-hover:border-primary/35 group-hover:bg-muted/20 group-hover:shadow-sm cursor-pointer',
+        !path && 'cursor-default opacity-60'
       )}
     >
-      <div 
+      <div
         className={clsx(
-          "w-9 h-9 lg:w-12 lg:h-12 rounded-lg flex items-center justify-center shrink-0 mr-2.5 lg:mr-4 transition-all duration-500 group-hover:scale-110 shadow-md",
+          'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ring-1 ring-inset transition-transform duration-200 group-hover:scale-[1.03] sm:h-12 sm:w-12',
           colorMap[colorScheme as keyof typeof colorMap]
         )}
       >
-        <Icon className="size-4.5 lg:size-6" />
+        <Icon className="size-5 sm:size-[22px]" aria-hidden="true" />
       </div>
-      
-      <div className="flex-1 min-w-0 pr-2">
-        <h3 className="font-bold text-[13px] lg:text-[16px] text-foreground mb-0.5 lg:mb-1 truncate transition-colors group-hover:text-primary leading-tight">
+
+      <div className="min-w-0 flex-1">
+        <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-foreground transition-colors group-hover:text-primary sm:text-[15px]">
           {title}
         </h3>
-        <p className="text-[11px] lg:text-[13px] text-muted-foreground truncate leading-snug opacity-80 font-medium">
+        <p className="mt-0.5 line-clamp-2 text-xs leading-[1.4] text-muted-foreground sm:text-[13px]">
           {description}
         </p>
       </div>
 
-      <div className="flex flex-col gap-2 shrink-0 text-muted-foreground/30" onClick={(e) => e.stopPropagation()}>
-        <button className="hover:text-amber-500 transition-colors" title="Đánh dấu">
-          <Star className="size-3 lg:size-3.5" />
-        </button>
-        <button className="hover:text-primary transition-colors" title="Hướng dẫn">
-          <HelpCircle className="size-3 lg:size-3.5" />
-        </button>
-      </div>
+      <ArrowUpRight
+        className="size-[18px] shrink-0 text-muted-foreground/70 transition-colors group-hover:text-primary"
+        aria-hidden="true"
+      />
     </motion.div>
+  );
+
+  if (!path) return <div aria-disabled="true">{card}</div>;
+
+  return (
+    <Link
+      to={path}
+      aria-label={`${title}. ${description}`}
+      className="group block min-w-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:rounded-2xl"
+    >
+      {card}
+    </Link>
   );
 });

@@ -114,24 +114,102 @@ try {
  await page.addInitScript(()=>{
    navigator.geolocation.getCurrentPosition=success=>success({coords:{latitude:21,longitude:105}});
  });
- const stationRows = attendance.slice(0,21); let stationWrite;
+ const stationRows = attendance.slice(0,21); const stationWrites=[]; const stationDialogs=[]; let stationReadCount=0; let stationReadAvailable=false;
  await page.route('**/rest/v1/cham_cong*', route=>{
    if(route.request().method()==='POST') {
-     stationWrite=route.request().postDataJSON();
-     return route.fulfill({contentType:'application/json',body:JSON.stringify({...stationWrite,id:'new-afternoon'})});
+     const payload=route.request().postDataJSON(); stationWrites.push(payload);
+     const saved={...payload,id:payload.id||'new-afternoon'};
+     const existingIndex=stationRows.findIndex(row=>row.id===saved.id);
+     if(existingIndex>=0) stationRows[existingIndex]=saved; else stationRows.push(saved);
+     return route.fulfill({contentType:'application/json',body:JSON.stringify(saved)});
    }
-   return route.fulfill({contentType:'application/json',headers:{'content-range':'0-20/21','access-control-expose-headers':'content-range'},body:JSON.stringify(stationRows)});
+   stationReadCount++;
+   if(!stationReadAvailable) return route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({code:'503',message:'Attendance service unavailable'})});
+   return route.fulfill({contentType:'application/json',headers:{'content-range':`0-${stationRows.length-1}/${stationRows.length}`,'access-control-expose-headers':'content-range'},body:JSON.stringify(stationRows)});
  });
- page.on('dialog', d=>d.accept());
+ page.on('dialog', d=>{stationDialogs.push(d.message());void d.accept();});
  await page.goto(base+'/.build-verification/station.html');
+ await page.getByRole('alert').waitFor();
+ assert.match(await page.getByRole('alert').innerText(),/không thể tải trạng thái chấm công/i);
+ assert.equal(await page.getByRole('button',{name:'Thử tải lại'}).isDisabled(),false);
+ stationReadAvailable=true;
+ await page.getByRole('button',{name:'Thử tải lại'}).click();
  await page.getByRole('button',{name:/Nhân viên.*C-in/}).click();
  assert.equal(await page.getByText('10.5',{exact:true}).count(),1,'Station must sum shifts, not count rows');
  await page.getByRole('button',{name:'CHẤM VÀO',exact:true}).click();
  await page.getByRole('button',{name:'CHẤM VÀO',exact:true}).waitFor();
- assert.ok(stationWrite);
- assert.equal(stationWrite.id,undefined,'Afternoon must create a new record instead of overwriting morning');
- assert.equal(stationWrite.checkout,null);
+ assert.equal(stationWrites.length,1);
+ assert.equal(stationWrites[0].id,undefined,'Afternoon must create a new record instead of overwriting morning');
+ assert.equal(stationWrites[0].checkout,null);
+ await page.getByRole('button',{name:'CHẤM VÀO',exact:true}).click();
+ await page.getByRole('button',{name:'CHẤM VÀO',exact:true}).waitFor();
+ assert.equal(stationWrites.length,1,'A repeated check-in must not create a second open shift');
+ assert.match(stationDialogs.at(-1),/chưa chấm ra/i);
+ await page.clock.fastForward(60_000);
+ await page.getByRole('button',{name:'CHẤM RA',exact:true}).click();
+ await page.getByRole('button',{name:'CHẤM RA',exact:true}).waitFor();
+ assert.equal(stationWrites.length,2);
+ assert.equal(stationWrites[1].id,'new-afternoon','Check-out must close the active shift');
+ assert.ok(stationWrites[1].checkout);
  assert.deepEqual(errors,[]);
+
+ await writeFile('.build-verification/personal-attendance.html', '<div id="root"></div><script type="module" src="/.build-verification/personal-attendance.tsx"></script>');
+ await writeFile('.build-verification/personal-attendance.tsx', `
+ import React from 'react'; import {createRoot} from 'react-dom/client'; import {MemoryRouter} from 'react-router-dom';
+ import {AttendanceSettingsProvider} from '/src/context/AttendanceSettingsContext'; import {ToastProvider} from '/src/context/ToastContext';
+ import Page from '/src/pages/AddAttendancePage'; import '/src/index.css';
+ createRoot(document.getElementById('root')).render(<AttendanceSettingsProvider><ToastProvider><MemoryRouter><Page/></MemoryRouter></ToastProvider></AttendanceSettingsProvider>);`);
+ const personalContext=await browser.newContext({timezoneId:'Asia/Bangkok'});
+ const personalPage=await personalContext.newPage(); const personalErrors=[]; const personalWrites=[]; let personalReadCount=0; let personalReadAvailable=false;
+ personalPage.on('pageerror',e=>personalErrors.push(e.message));
+ await personalPage.clock.install({time:new Date('2026-09-11T07:00:00Z')});
+ await personalPage.route('**/*',async route=>{
+   const request=route.request(); const url=new URL(request.url());
+   if(url.origin===base) {
+     if(url.pathname==='/src/context/AuthContext.tsx') return route.fulfill({contentType:'application/javascript',body:
+       `const staff=${JSON.stringify(staff)};export const useAuth=()=>({nhanVien:staff,isAdmin:false,canModifyData:true,isTechnician:false,hasViewAccess:()=>true});`});
+     return route.continue();
+   }
+   if(url.pathname.endsWith('/rpc/next_attendance_code')) return route.fulfill({contentType:'application/json',body:JSON.stringify('CC-9000')});
+   if(url.pathname.endsWith('/attendance_settings')) return route.fulfill({contentType:'application/json',body:'[]'});
+   if(url.pathname.endsWith('/nhan_su')) return route.fulfill({contentType:'application/json',body:JSON.stringify([staff])});
+   if(url.pathname.endsWith('/cham_cong')) {
+     if(request.method()==='POST') {
+       const body=request.postDataJSON(); const payload=Array.isArray(body)?body[0]:body; personalWrites.push(payload);
+       const saved={...payload,id:payload.id||'personal-afternoon'};
+       const index=personalRows.findIndex(row=>row.id===saved.id);
+       if(index>=0) personalRows[index]=saved; else personalRows.push(saved);
+       return route.fulfill({contentType:'application/json',body:JSON.stringify(saved)});
+     }
+     personalReadCount++;
+     if(!personalReadAvailable) return route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({code:'503',message:'Attendance service unavailable'})});
+     const id=url.searchParams.get('id')?.slice(3);
+     const rows=id?personalRows.filter(row=>row.id===id):personalRows;
+     return route.fulfill({contentType:'application/json',headers:{'content-range':`0-${rows.length-1}/${rows.length}`,'access-control-expose-headers':'content-range'},body:JSON.stringify(rows)});
+   }
+   return route.fulfill({contentType:'application/json',body:'[]'});
+ });
+ const personalRows=[{id:'personal-morning',id_cham_cong:'CC-8000',nhan_su:'Nhân viên',ngay:'2026-09-11',checkin:'08:30',checkout:'12:00',vi_tri:null,created_at:'2026-09-11T05:00:00Z'}];
+ await personalPage.goto(base+'/.build-verification/personal-attendance.html');
+ await personalPage.getByRole('alert').waitFor();
+ assert.match(await personalPage.getByRole('alert').innerText(),/không thể tải trạng thái chấm công/i);
+ assert.equal(await personalPage.getByRole('button',{name:'CHẤM CÔNG GIỜ VÀO'}).isDisabled(),true,'Self check-in stays disabled until current status loads');
+ personalReadAvailable=true;
+ await personalPage.getByRole('button',{name:'Thử tải lại'}).click();
+ await personalPage.getByRole('button',{name:'CHẤM CÔNG GIỜ VÀO'}).waitFor();
+ await personalPage.getByRole('button',{name:'CHẤM CÔNG GIỜ VÀO'}).click();
+ await personalPage.getByRole('button',{name:'CHẤM CÔNG GIỜ RA'}).waitFor();
+ assert.equal(personalWrites.length,1,'A completed morning shift must start a new afternoon row');
+ assert.equal(personalWrites[0].id,undefined);
+ assert.equal(personalWrites[0].checkout,null);
+ await personalPage.clock.fastForward(60_000);
+ await personalPage.getByRole('button',{name:'CHẤM CÔNG GIỜ RA'}).click();
+ await personalPage.getByRole('button',{name:'CHẤM CÔNG GIỜ VÀO'}).waitFor();
+ assert.equal(personalWrites.length,2);
+ assert.equal(personalWrites[1].id,'personal-afternoon');
+ assert.ok(personalWrites[1].checkout);
+ assert.deepEqual(personalErrors,[]);
+ await personalContext.close();
  await writeFile('.build-verification/attendance-settings.html', '<div id="root"></div><script type="module" src="/.build-verification/attendance-settings.tsx"></script>');
  await writeFile('.build-verification/attendance-settings.tsx', `import React from 'react'; import {createRoot} from 'react-dom/client';
  import {AttendanceSettingsProvider} from '/src/context/AttendanceSettingsContext';
@@ -170,6 +248,7 @@ try {
  assert.deepEqual(errors,[]);
  console.log('PASS: manual morning/afternoon/full defaults, note, duplicate error; payroll total 2; database customer search by plate/phone/name beyond loaded options.');
  console.log('PASS: attendance page groups employee name/code, displays daily credit 1, and makes no additional database reads on page changes.');
- console.log('PASS: check-in station sums half shifts and opens a new record after a completed morning.');
+ console.log('PASS: check-in station retries failed reads, sums half shifts, rejects a repeated open check-in, and closes the active shift.');
+ console.log('PASS: personal attendance retries failed reads, starts the afternoon shift with check-in, and then closes it.');
  console.log('PASS: attendance settings validates overlap and saves configurable split credits.');
 } finally { await browser.close(); }

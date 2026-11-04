@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import React, { useMemo, useState } from 'react';
+import { useRegisterPageRefresh } from '../context/PageRefreshContext';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { statusConfig, positionOptions, mockInterviewSessions } from './candidates/data';
@@ -80,6 +81,8 @@ const CandidatesPage: React.FC = () => {
       setLoading(false);
     }
   }, [debouncedSearch]);
+
+  useRegisterPageRefresh(loadData);
 
   useEffect(() => {
     loadData();

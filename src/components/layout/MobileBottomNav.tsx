@@ -1,68 +1,76 @@
 import React from 'react';
-import { ArrowLeft, BarChart2, Home, Bell } from 'lucide-react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { BarChart3, Grid2X2, Home, ShoppingCart, Users } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { clsx } from 'clsx';
 import { useAuth } from '../../context/AuthContext';
 
-const MobileBottomNav: React.FC = () => {
+interface MobileBottomNavProps {
+  isDrawerOpen: boolean;
+  setSidebarOpen: (open: boolean) => void;
+}
+
+const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ isDrawerOpen, setSidebarOpen }) => {
   const navigate = useNavigate();
-  const location = useLocation();
+  const { pathname } = useLocation();
   const { hasViewAccess } = useAuth();
 
-  const isHome = location.pathname === '/';
-  const isBaoCao = location.pathname.startsWith('/bao-cao');
+  const items = [
+    ...(hasViewAccess('dashboard')
+      ? [{ label: 'Trang chủ', path: '/', icon: Home, active: pathname === '/' }]
+      : []),
+    ...(hasViewAccess('ban-hang') || hasViewAccess('don-hang')
+      ? [{
+          label: 'Bán hàng',
+          path: hasViewAccess('don-hang') ? '/ban-hang/phieu-ban-hang' : '/ban-hang',
+          icon: ShoppingCart,
+          active: pathname.startsWith('/ban-hang') && pathname !== '/ban-hang/khach-hang',
+        }]
+      : []),
+    ...(hasViewAccess('khach-hang')
+      ? [{ label: 'Khách hàng', path: '/ban-hang/khach-hang', icon: Users, active: pathname === '/ban-hang/khach-hang' }]
+      : []),
+    ...(hasViewAccess('bao-cao')
+      ? [{ label: 'Báo cáo', path: '/bao-cao/san-pham', icon: BarChart3, active: pathname.startsWith('/bao-cao') }]
+      : []),
+  ];
+
+  const isMoreActive = !items.some((item) => item.active);
 
   return (
-    <div className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-card border-t border-border z-40 px-2 flex items-center justify-between gap-0.5 pb-safe max-w-lg mx-auto w-full">
+    <nav
+      aria-label="Điều hướng chính"
+      className="mobile-bottom-nav fixed inset-x-0 bottom-0 z-20 flex items-center gap-1 border-t border-border bg-card/95 px-2 pt-1.5 backdrop-blur-md lg:hidden"
+    >
+      {items.map(({ label, path, icon: Icon, active }) => (
+        <button
+          key={path}
+          type="button"
+          onClick={() => navigate(path)}
+          aria-label={label}
+          aria-current={active ? 'page' : undefined}
+          className={clsx(
+            'flex h-12 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-1 text-[10px] font-semibold leading-tight transition-colors active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+            active ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+          )}
+        >
+          <Icon size={20} strokeWidth={active ? 2.4 : 2} aria-hidden="true" />
+          <span className="max-w-full truncate">{label}</span>
+        </button>
+      ))}
       <button
         type="button"
-        onClick={() => navigate(-1)}
-        className="p-2.5 text-muted-foreground hover:text-foreground transition-colors rounded-xl shrink-0"
-        aria-label="Quay lại"
-      >
-        <ArrowLeft size={22} />
-      </button>
-
-      {hasViewAccess('bao-cao') && (
-      <button
-        type="button"
-        onClick={() => navigate('/bao-cao/san-pham')}
+        onClick={() => setSidebarOpen(true)}
+        aria-label="Mở tất cả chức năng"
+        aria-expanded={isDrawerOpen}
         className={clsx(
-          'flex flex-col items-center justify-center gap-0.5 p-1.5 rounded-xl shrink-0 min-w-[3.25rem] transition-colors',
-          isBaoCao
-            ? 'text-primary bg-primary/15'
-            : 'text-muted-foreground hover:text-primary hover:bg-primary/5'
+          'flex h-12 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-1 text-[10px] font-semibold leading-tight transition-colors active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+          isMoreActive ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
         )}
-        aria-label="Báo cáo doanh thu"
       >
-        <BarChart2 size={22} strokeWidth={2.25} className="shrink-0" />
-        <span className="text-[9px] font-bold leading-none">Báo cáo</span>
+        <Grid2X2 size={20} strokeWidth={isMoreActive ? 2.4 : 2} aria-hidden="true" />
+        <span className="truncate">Thêm</span>
       </button>
-      )}
-
-      <button
-        type="button"
-        onClick={() => navigate('/')}
-        className={clsx(
-          "w-12 h-12 rounded-full flex items-center justify-center -translate-y-4 shadow-lg transition-transform hover:scale-105 active:scale-95 shrink-0",
-          isHome ? "bg-primary text-white" : "bg-card text-muted-foreground border border-border"
-        )}
-        aria-label="Trang chủ"
-      >
-        <Home size={24} />
-      </button>
-
-      <button
-        type="button"
-        className="relative p-2.5 text-muted-foreground hover:text-foreground transition-colors rounded-xl shrink-0"
-        aria-label="Thông báo"
-      >
-        <Bell size={22} />
-        <span className="absolute top-1 right-1 w-4 h-4 bg-primary text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-background">
-          4
-        </span>
-      </button>
-    </div>
+    </nav>
   );
 };
 

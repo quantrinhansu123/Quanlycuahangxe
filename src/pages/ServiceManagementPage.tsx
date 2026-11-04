@@ -1,4 +1,5 @@
 import { useBranches } from '../hooks/useBranches';
+import { useRegisterPageRefresh } from '../context/PageRefreshContext';
 import { getBranchOptions } from '../lib/branchCatalog';
 import { clsx } from 'clsx';
 import {
@@ -409,6 +410,8 @@ const ServiceManagementPage: React.FC = () => {
       if (request === requestVersion.current) setLoading(false);
     }
   }, [visibleBranches, branchPages, pageSize, debouncedSearch]);
+
+  useRegisterPageRefresh(loadData);
 
   useEffect(() => {
     void loadData();

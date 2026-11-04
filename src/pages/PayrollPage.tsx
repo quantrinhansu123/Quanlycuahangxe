@@ -1,5 +1,6 @@
 import { useBranches } from '../hooks/useBranches';
 import { useCallback, useState, useEffect, useRef } from 'react';
+import { useRegisterPageRefresh } from '../context/PageRefreshContext';
 import { 
   Search, Settings2, Download, Send, BadgeDollarSign, 
   ChevronDown, Filter, Calendar, Building2, CheckCircle2, AlertCircle, Loader2,
@@ -116,6 +117,8 @@ const PayrollPage: React.FC = () => {
       setLoading(false);
     }
   }, [selectedCoSo, selectedMonth, selectedYear]);
+
+  useRegisterPageRefresh(fetchData);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void fetchData(), 0);

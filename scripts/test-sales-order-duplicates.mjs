@@ -4,11 +4,12 @@ import { test } from 'node:test';
 import { loadReportRuntime } from './reports-p3-test-runtime.mjs';
 
 const header = (id, overrides = {}) => ({ id, id_bh: `BH-${id}`, ngay: '2026-10-19', gio: '10:00',
-  nhan_vien_id: 'Văn Huân', co_so: 'Cơ sở Bắc Ninh', khach_hang_id: 'vehicle-1',
+  nhan_vien_id: 'Văn Huân', co_so: 'Cơ sở Bắc Ninh', order_branches: ['Cơ sở Bắc Ninh'], khach_hang_id: 'vehicle-1',
   so_dien_thoai: '0900000001', ten_khach_hang: 'Cùng tên', tong_tien: 150000, resolved_amount: 150000, ...overrides });
 const line = (ref, overrides = {}) => ({ id: `line-${ref}`, id_don_hang: ref, ngay: '2026-10-19',
   san_pham: 'Dầu', co_so: 'Bắc Ninh', gia_ban: 150000, gia_von: 62000, so_luong: 1, thanh_tien: 150000, ...overrides });
 const source = fs.readFileSync('src/data/reportData.ts', 'utf8');
+const branchMigration = fs.readFileSync('supabase/migrations/202611040002_sales_query_saved_branch_precedence.sql', 'utf8');
 const run = async (headers, lines) => loadReportRuntime(source, { the_ban_hang: headers, the_ban_hang_ct: lines }).report.loadPayrollRevenueData(2026, 10);
 
 test('same phone or name across different vehicles cannot cause an employee duplicate warning', async () => {
@@ -35,6 +36,19 @@ test('matching invoice contents produce visible counterpart codes, including oth
   assert.deepEqual(result.ordersByStaff.get('van huan')[0].duplicate_order_ids, ['BH-2']);
   assert.deepEqual(result.ordersByStaff.get('nguoi khac')[0].duplicate_order_ids, ['BH-1']);
   assert.equal(result.totals.get('van huan'), 150000);
+});
+
+test('invoice branch totals include unassigned invoices and use the resolved sales amount', async () => {
+  const result = await run([
+    header('1', { resolved_amount: 120000 }),
+    header('2', { nhan_vien_id: '', resolved_amount: 80000 }),
+  ], []);
+  assert.equal(result.branchTotals.get('bac ninh'), 200000);
+});
+
+test('sales branch RPC prioritizes the invoice saved branch over detail and customer fallback', () => {
+  assert.match(branchMigration, /s\.ten_khach_hang, s\.tong_tien, s\.co_so,/);
+  assert.equal((branchMigration.match(/ARRAY\[s\.co_so\] END, d\.branches, ARRAY\[s\.customer_branch\]/g) || []).length, 2);
 });
 
 test('exact amounts, canonical customer IDs, stable item order and distinct order IDs govern review hints', () => {

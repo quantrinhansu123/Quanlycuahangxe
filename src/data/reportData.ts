@@ -672,6 +672,9 @@ export interface PayrollRevenueData {
   /** Tổng phần doanh số nhân viên thực nhận sau khi chia theo người phụ trách. */
   totals: Map<string, number>;
   ordersByStaff: Map<string, PayrollRevenueOrderRow[]>;
+  /** Invoice totals grouped with the branch returned by sales_query. */
+  branchTotals: Map<string, number>;
+  branchLabels: Map<string, string>;
 }
 
 function pushPayrollOrder(
@@ -697,6 +700,8 @@ export async function loadPayrollRevenueData(nam: number, thang: number, signal?
   const grossTotals = new Map<string, number>();
   const totals = new Map<string, number>();
   const ordersByStaff = new Map<string, PayrollRevenueOrderRow[]>();
+  const branchTotals = new Map<string, number>();
+  const branchLabels = new Map<string, string>();
 
   if (isDemo()) {
     const staff = ['Nguyễn Văn A', 'Trần Thị B', 'Lê Văn C', 'Phạm Văn D'];
@@ -731,7 +736,7 @@ export async function loadPayrollRevenueData(nam: number, thang: number, signal?
       }
     }
     totals.forEach((value, key) => totals.set(key, Math.round(value)));
-    return { grossTotals, totals, ordersByStaff };
+    return { grossTotals, totals, ordersByStaff, branchTotals, branchLabels };
   }
 
   const [headers, ctRecords, personnel] = await Promise.all([
@@ -755,6 +760,7 @@ export async function loadPayrollRevenueData(nam: number, thang: number, signal?
     khach_hang_id?: string | null;
     so_dien_thoai?: string | null;
     co_so?: string | null;
+    order_branches?: string[] | null;
     khach_hang?: { id?: string | null } | null;
   };
 
@@ -768,10 +774,19 @@ export async function loadPayrollRevenueData(nam: number, thang: number, signal?
     const ky = extractNamThangTuNgayCot(h.ngay);
     if (ky !== null && (ky.nam !== nam || ky.thang !== thang)) continue;
 
+    const amount = revenueForOrderHeader(h, orderRevenueMap);
+    if (amount > 0) {
+      for (const branch of new Set(h.order_branches ?? [])) {
+        const key = branchKey(branch);
+        if (!key) continue;
+        branchTotals.set(key, (branchTotals.get(key) || 0) + amount);
+        if (!branchLabels.has(key)) branchLabels.set(key, branchLabel(branch));
+      }
+    }
+
     const staffRaw = String(h.nhan_vien_id ?? '').trim();
     if (!staffRaw) continue;
 
-    const amount = revenueForOrderHeader(h, orderRevenueMap);
     if (amount <= 0) continue;
 
     // Một tên có thể bị nhập lặp trên cùng đơn. Chuẩn hóa alias trước khi
@@ -819,7 +834,7 @@ export async function loadPayrollRevenueData(nam: number, thang: number, signal?
   // và tránh sai vài đồng do làm tròn riêng từng đơn.
   totals.forEach((value, key) => totals.set(key, Math.round(value)));
 
-  return { grossTotals, totals, ordersByStaff };
+  return { grossTotals, totals, ordersByStaff, branchTotals, branchLabels };
 }
 
 /** Gom doanh số theo nhân viên cho bảng lương chấm công. */

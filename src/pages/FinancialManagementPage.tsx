@@ -1,4 +1,5 @@
 import { useBranches } from '../hooks/useBranches';
+import { useRegisterPageRefresh } from '../context/PageRefreshContext';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Search, Plus, Edit2, Trash2, Camera, Loader2, ChevronDown, 
@@ -184,6 +185,11 @@ const FinancialManagementPage: React.FC = () => {
       if (!controller.signal.aborted) setChartsDataLoading(false);
     }
   }, [filterDateFrom, filterDateTo]);
+
+  useRegisterPageRefresh(async () => {
+    await loadData();
+    if (activeTab === 'charts') await loadAllData();
+  });
 
   useEffect(() => {
     if (activeTab === 'charts') {

@@ -22,6 +22,7 @@ import { getPersonnel } from './personnelData';
 import { loadPayrollRevenueData } from './reportData';
 import { removeVietnameseTones } from '../lib/utils';
 import { getAttendanceSettings } from './attendanceSettingsData';
+import { allocatePayrollRevenueByName } from '../lib/payrollRevenueAllocation';
 
 const LOCKED_PAYROLL_STATUSES = new Set(['Đã duyệt', 'Đã khóa', 'Đã chi trả']);
 const DEFAULT_COMMISSION_PERCENT = 2;
@@ -111,6 +112,16 @@ export async function syncPayrollFromAttendance(
       loadPayrollRevenueData(year, month),
       getAttendanceSettings(),
     ]);
+
+  const revenueShares = allocatePayrollRevenueByName(
+    personnelRows,
+    (person) => person.ho_ten,
+    revenueData.totals,
+    normalizePersonnelToken,
+  );
+  const revenueByPersonnelId = new Map(
+    personnelRows.map((person, index) => [person.id, revenueShares[index]])
+  );
 
   const personnel = branchFilter
     ? personnelRows.filter((person) => person.co_so === branchFilter)
@@ -287,8 +298,7 @@ export async function syncPayrollFromAttendance(
     const employeeType =
       override?.loai ??
       (existingBreakdown.loai_nhan_vien === 2 ? 'thoi_vu' : 'chinh_thuc');
-    const revenueFromOrders =
-      revenueData.totals.get(normalizePersonnelToken(person.ho_ten)) ?? 0;
+    const revenueFromOrders = revenueByPersonnelId.get(person.id) ?? 0;
     // Bảng lương đã lưu là snapshot của kỳ. Các lượt tự đối soát chấm công
     // không được âm thầm ghi đè doanh số đã chỉnh; nút "Doanh số" trên trang
     // bảng lương sẽ truyền override khi admin chủ động lấy lại từ phiếu bán.

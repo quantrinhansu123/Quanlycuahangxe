@@ -1,6 +1,6 @@
 import React from 'react';
 import { clsx } from 'clsx';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import type { ModuleCardProps } from './ModuleCard';
 
@@ -10,7 +10,6 @@ interface SubModuleSwitcherProps {
 }
 
 export const SubModuleSwitcher: React.FC<SubModuleSwitcherProps> = ({ items, variant = 'tabs' }) => {
-  const navigate = useNavigate();
   const location = useLocation();
 
   const isTabs = variant === 'tabs';
@@ -20,56 +19,66 @@ export const SubModuleSwitcher: React.FC<SubModuleSwitcherProps> = ({ items, var
       "flex items-center overflow-x-auto custom-scrollbar no-scrollbar",
       isTabs ? "gap-1 bg-muted/20 p-1 rounded-2xl border border-border/40" : "gap-2 pb-2 mb-4 -mx-1 px-1"
     )}>
-      {items.map((item, idx) => {
+      {items.map((item) => {
         const isActive = location.pathname === item.path;
         const Icon = item.icon;
-
-        return (
+        const card = (
           <motion.div
-            key={idx}
             whileHover={{ y: isTabs ? 0 : -2 }}
             whileTap={{ scale: 0.98 }}
-            onClick={() => item.path && navigate(item.path)}
             className={clsx(
-              "flex items-center gap-1.5 rounded-xl transition-all cursor-pointer whitespace-nowrap shrink-0 overflow-hidden relative group",
-              isTabs ? "px-2.5 py-1.5 sm:px-4" : "px-4 py-2.5 border shadow-sm",
-              isActive 
-                ? (isTabs ? "bg-card text-primary shadow-sm shadow-primary/5 ring-1 ring-primary/10" : "bg-primary/10 border-primary text-primary shadow-sm") 
-                : "text-muted-foreground hover:bg-muted/50"
+              'group relative flex min-h-11 items-center gap-2 overflow-hidden whitespace-nowrap rounded-xl transition-colors',
+              item.path ? 'cursor-pointer' : 'cursor-default opacity-60',
+              isTabs ? 'px-3 py-2 sm:px-4' : 'px-4 py-2.5 border shadow-sm',
+              isActive
+                ? (isTabs ? 'bg-card text-primary shadow-sm shadow-primary/5 ring-1 ring-primary/10' : 'bg-primary/10 border-primary text-primary shadow-sm')
+                : 'text-muted-foreground hover:bg-muted/50'
             )}
           >
-            {/* Active Indicator Slide for Tabs */}
             {isActive && isTabs && (
-              <motion.div 
+              <motion.div
                 layoutId="header-tab-active"
-                className="absolute inset-0 bg-card rounded-xl -z-10 shadow-sm"
-                transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                className="absolute inset-0 -z-10 rounded-xl bg-card shadow-sm"
+                transition={{ type: 'spring', bounce: 0.2, duration: 0.4 }}
               />
             )}
 
-            <div className={clsx(
-              "rounded-lg items-center justify-center shrink-0 transition-colors",
-              isTabs ? "hidden sm:flex w-6 h-6 bg-primary/10" : "flex w-8 h-8",
-              isActive ? "text-primary bg-primary/20" : "text-muted-foreground/60 bg-muted"
+            <span className={clsx(
+              'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors',
+              isActive ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
             )}>
-              <Icon size={isTabs ? 14 : 18} />
-            </div>
+              <Icon size={16} aria-hidden="true" />
+            </span>
 
-            <div className="flex flex-col">
+            <span className="flex min-w-0 flex-col">
               <span className={clsx(
-                "font-bold leading-none tracking-tight",
-                isTabs ? "text-[11px] sm:text-[13px]" : "text-[13px] mb-0.5",
-                isActive ? "text-primary" : "text-foreground"
+                'font-semibold leading-none tracking-tight',
+                isTabs ? 'text-xs sm:text-[13px]' : 'mb-0.5 text-[13px]',
+                isActive ? 'text-primary' : 'text-foreground'
               )}>
                 {item.title}
               </span>
               {!isTabs && (
-                <span className="text-[10px] opacity-60 leading-none truncate max-w-[120px]">
+                <span className="max-w-[120px] truncate text-[10px] leading-none text-muted-foreground">
                   {item.description}
                 </span>
               )}
-            </div>
+            </span>
           </motion.div>
+        );
+
+        return item.path ? (
+          <Link
+            key={item.path}
+            to={item.path}
+            aria-label={item.title}
+            aria-current={isActive ? 'page' : undefined}
+            className="block shrink-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            {card}
+          </Link>
+        ) : (
+          <div key={item.title} aria-disabled="true">{card}</div>
         );
       })}
     </div>

@@ -99,7 +99,7 @@ const dashboardModules: ActionCardProps[] = [
 
 const Dashboard: React.FC = () => {
   const { globalSearch } = useOutletContext<{ globalSearch: string }>() || { globalSearch: '' };
-  const { hasViewAccess, isAdmin } = useAuth();
+  const { hasViewAccess, isAdmin, nhanVien } = useAuth();
 
   const resolveViewKey = React.useCallback(
     (path?: string) => resolveViewKeyByPath(path),
@@ -115,6 +115,19 @@ const Dashboard: React.FC = () => {
       }),
     })).filter((section) => section.items.length > 0),
   [hasViewAccess, resolveViewKey]);
+
+  const normalizedSearch = removeVietnameseTones(globalSearch.trim());
+  const filteredSearchSections = React.useMemo(() => {
+    if (!normalizedSearch) return [];
+
+    return allSections.map((section) => ({
+      ...section,
+      items: section.items.filter((item) =>
+        removeVietnameseTones(item.title).includes(normalizedSearch) ||
+        removeVietnameseTones(item.description).includes(normalizedSearch)
+      ),
+    })).filter((section) => section.items.length > 0);
+  }, [allSections, normalizedSearch]);
 
   const visibleDashboardModules = React.useMemo(
     () =>
@@ -146,49 +159,64 @@ const Dashboard: React.FC = () => {
     [hasViewAccess, resolveViewKey, isAdmin]
   );
 
+  const greeting = new Date().getHours() < 11
+    ? 'Chào buổi sáng'
+    : new Date().getHours() < 18
+      ? 'Chào buổi chiều'
+      : 'Chào buổi tối';
+  const nameParts = nhanVien?.ho_ten.trim().split(/\s+/).filter(Boolean) ?? [];
+  const firstName = nameParts[nameParts.length - 1];
+  const searchResultCount = filteredSearchSections.reduce((total, section) => total + section.items.length, 0);
+
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="mb-6 lg:mb-8">
-        <h1 className="text-2xl lg:text-3xl font-black flex items-center gap-3 text-foreground tracking-tight">
-          Chào buổi tối 👋
+    <div className="animate-in fade-in duration-200 motion-reduce:animate-none">
+      <div className="mb-5 sm:mb-7">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">
+          Trung tâm sửa chữa xe
+        </p>
+        <h1 className="mt-1 text-[22px] font-bold leading-tight tracking-tight text-foreground sm:text-3xl">
+          {greeting}{firstName ? `, ${firstName}` : ''}
         </h1>
-        <p className="text-muted-foreground mt-1 text-[15px] font-medium opacity-60">Chào mừng bạn quay trở lại hệ thống!</p>
+        <p className="mt-1 text-sm text-muted-foreground sm:text-[15px]">
+          Chọn chức năng để bắt đầu công việc.
+        </p>
       </div>
 
-      {globalSearch ? (
-        <div className="space-y-8 animate-in fade-in duration-500">
-          <div className="space-y-8">
-            {allSections.map((section, idx) => {
-              const query = removeVietnameseTones(globalSearch);
-              const filteredItems = section.items.filter(item =>
-                removeVietnameseTones(item.title).includes(query) ||
-                removeVietnameseTones(item.description).includes(query)
-              );
+      {globalSearch.trim() ? (
+        <div className="animate-in fade-in duration-200 motion-reduce:animate-none">
+          <div className="mb-4">
+            <h2 className="text-sm font-semibold text-foreground">
+              Kết quả cho “{globalSearch.trim()}”
+            </h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {searchResultCount} chức năng phù hợp
+            </p>
+          </div>
 
-              if (filteredItems.length === 0) return null;
-
-              return (
-                <div key={idx} className="animate-in fade-in slide-in-from-bottom-2 duration-500" style={{ animationDelay: `${idx * 50}ms` }}>
-                  <h2 className="text-[16px] font-black text-primary mb-5 flex items-center gap-4 uppercase tracking-widest">
-                    <div className="flex items-center gap-3 shrink-0">
-                      <span className="w-1.5 h-6 bg-primary rounded-full"></span>
-                      <span>{section.section}</span>
-                    </div>
-                    <div className="h-px flex-1 bg-border/40"></div>
-                  </h2>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    {filteredItems.map((item, itemIdx) => (
-                      <ModuleCard key={itemIdx} {...item} layoutId={`func-${item.title}`} />
+          {filteredSearchSections.length > 0 ? (
+            <div className="space-y-6 sm:space-y-7">
+              {filteredSearchSections.map((section) => (
+                <section key={section.section}>
+                  <h3 className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {section.section}
+                  </h3>
+                  <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-4">
+                    {section.items.map((item) => (
+                      <ModuleCard key={item.path || item.title} {...item} layoutId={`func-${item.title}`} />
                     ))}
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                </section>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-border bg-card px-5 py-8 text-center">
+              <p className="text-sm font-semibold text-foreground">Không tìm thấy chức năng phù hợp</p>
+              <p className="mt-1 text-sm text-muted-foreground">Thử một từ khóa khác hoặc mở “Thêm” để xem toàn bộ menu.</p>
+            </div>
+          )}
         </div>
       ) : visibleDashboardModules.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-border bg-muted/30 p-8 text-center max-w-lg">
+        <div className="max-w-lg rounded-2xl border border-dashed border-border bg-card p-6 text-center sm:p-8">
           <p className="text-[15px] font-semibold text-foreground">Chưa có module hiển thị</p>
           <p className="text-muted-foreground text-sm mt-2">
             Tài khoản chưa được gán quyền xem module. Liên hệ quản trị viên tại{' '}
@@ -196,7 +224,17 @@ const Dashboard: React.FC = () => {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-8 gap-5">
+        <>
+          <div className="mb-3 flex items-center justify-between gap-3 sm:mb-4">
+            <div>
+              <h2 className="text-sm font-semibold text-foreground sm:text-base">Chức năng chính</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">Truy cập nhanh theo quyền của bạn</p>
+            </div>
+            <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+              {visibleDashboardModules.length} mục
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
           {visibleDashboardModules.map((module, idx) => (
             <ActionCard
               key={idx}
@@ -204,7 +242,8 @@ const Dashboard: React.FC = () => {
               layoutId={`mod-${module.title}`}
             />
           ))}
-        </div>
+          </div>
+        </>
       )}
     </div>
   );
