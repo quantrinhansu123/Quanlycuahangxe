@@ -306,6 +306,14 @@ export function demGioTangCaTheoDongCham(
   return Math.round((totalPhut / 60) * 100) / 100;
 }
 
+/** A positive period salary is a snapshot; zero/missing salaries inherit the personnel rate. */
+export function resolvePayrollBaseSalary(periodSalary: unknown, personnelSalary: unknown): number {
+  const saved = Number(periodSalary);
+  if (Number.isFinite(saved) && saved > 0) return saved;
+  const source = Number(personnelSalary);
+  return Number.isFinite(source) && source > 0 ? source : 0;
+}
+
 export function tinhMotDong(
   row: BangLuongChamCongInput,
   nam: number,
@@ -433,12 +441,15 @@ export function tinhMotDong(
     Math.max(0, row.khoanTru);
 
   let ghiChu = '';
+  if (row.loai === 'chinh_thuc' && gioTangCaApDung > 0 && lcbHieuLuc <= 0) {
+    ghiChu = 'Chưa có lương cơ bản để tính tiền tăng ca. Nhập lương cơ bản của kỳ hoặc cập nhật hồ sơ nhân sự.';
+  }
   if (
     options?.soBuaAnTheoChamCon === undefined &&
     options?.soNgayCongTheoChamCon === undefined &&
     row.soNgayLamTaiQuan + row.soNgayKhongLamTaiQuan > row.soNgayCong
   ) {
-    ghiChu = 'Cảnh báo: tổng ngày tại quán + không tại quán > số ngày công.';
+    ghiChu += (ghiChu ? ' ' : '') + 'Cảnh báo: tổng ngày tại quán + không tại quán > số ngày công.';
   }
   const overtimeLimit = options?.attendanceSettings?.maxOvertimeHoursMonth ?? ATTENDANCE_SALARY.GIO_TANG_CA_TOI_DA_THANG;
   if (gioTangCaNguon > overtimeLimit) {

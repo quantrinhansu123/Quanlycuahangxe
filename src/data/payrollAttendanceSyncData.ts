@@ -15,6 +15,7 @@ import {
   demSoBuaAnTachTheoDongCham,
   demSoNgayCongTheoDongCham,
   tinhMotDong,
+  resolvePayrollBaseSalary,
   type BangLuongChamCongInput,
   type DongChamBuaNhap,
 } from './payrollAttendanceSalary';
@@ -166,11 +167,10 @@ export async function syncPayrollFromAttendance(
     const uniqueName = personnelRows.filter(candidate => normalizePersonnelToken(candidate.ho_ten) === normalizePersonnelToken(person.ho_ten)).length === 1;
     const override = overridesByPersonnelId.get(person.id)
       ?? (uniqueName ? overridesByName.get(normalizePersonnelToken(person.ho_ten)) : undefined);
-    // Lương nhập ngay trên bảng là mức riêng của kỳ đang chọn. Nếu chưa nhập,
-    // giữ snapshot kỳ đã lưu; kỳ mới mới lấy mặc định từ hồ sơ nhân sự.
-    const baseSalary = Math.max(
-      0,
-      amount(override?.luongCoBan ?? existing?.luong_co_ban ?? person.luong_co_ban)
+    // Preserve a positive period snapshot; old zero snapshots must not mask the personnel salary.
+    const baseSalary = resolvePayrollBaseSalary(
+      override?.luongCoBan ?? existing?.luong_co_ban,
+      person.luong_co_ban
     );
     if (baseSalary <= 0) missingBaseSalaryNames.push(person.ho_ten);
     const hasSavedMealSnapshot = Boolean(

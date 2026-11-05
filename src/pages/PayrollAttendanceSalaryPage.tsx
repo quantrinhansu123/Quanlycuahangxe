@@ -21,6 +21,7 @@ import {
   formatVnd,
   parseTienNhap,
   tinhMotDong,
+  resolvePayrollBaseSalary,
 } from '../data/payrollAttendanceSalary';
 import { getPersonnel, type NhanSu } from '../data/personnelData';
 import PersonnelRevenueOrdersModal from '../components/PersonnelRevenueOrdersModal';
@@ -746,7 +747,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
 
   /** Điền dữ liệu gốc còn thiếu từ Nhân sự; các chỉnh sửa theo kỳ sau đó được giữ nguyên. */
   useEffect(() => {
-    if (nhanTheoChuanTen.size === 0) return;
+    if (nhanTheoId.size === 0) return;
     // Personnel arrives asynchronously, so only hydrate blank fields once it is available.
 
     setRows((prev) => {
@@ -764,7 +765,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
           : nhanTheoChuanTen.get(chuanHoaTenSoSanh(r.hoTen));
         if (!meta) return r;
         const patch: Partial<BangLuongChamCongInput> = {};
-        const lcb = meta.luongCoBan;
+        const lcb = resolvePayrollBaseSalary(r.luongCoBan, meta.luongCoBan);
         if ((r.luongCoBan ?? 0) <= 0 && lcb > 0) patch.luongCoBan = lcb;
         const ngayTuNs = meta.ngayVaoLam;
         if (ngayTuNs && r.ngayBatDauLam !== ngayTuNs) patch.ngayBatDauLam = ngayTuNs;
@@ -1689,7 +1690,9 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                       )}
                     </td>
                     <td className="px-2 py-2 text-right" title={`${gTcTuCham !== undefined ? 'Theo chấm công' : 'Nhập tay'}: ${kq.gioTangCaApDung} giờ × ${formatVnd(kq.luongGio)} × ${ATTENDANCE_SALARY.HE_SO_TANG_CA}`}>
-                      <div className="px-2.5"><MoneyValue value={kq.luongTangCa} strong /></div>
+                      <div className="px-2.5">{input.loai === 'chinh_thuc' && kq.gioTangCaApDung > 0 && kq.lcbHieuLuc <= 0
+                        ? <span className="text-xs font-semibold text-amber-700">Chưa có lương cơ bản</span>
+                        : <MoneyValue value={kq.luongTangCa} strong />}</div>
                       <div className="px-2.5 pt-0.5 text-xs text-muted-foreground">{kq.gioTangCaApDung} giờ tăng ca</div>
                     </td>
                     <td className="px-2 py-2 text-right">
