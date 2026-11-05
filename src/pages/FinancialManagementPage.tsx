@@ -30,6 +30,7 @@ import { getCustomersForPageRefs, getSalesForPageRefs, resolvePageSale } from '.
 import { getOpeningBalance, setOpeningBalance as saveOpeningBalance } from '../data/cashBookData';
 import { formatTime24h } from '../utils/datetimeFormat';
 import { isCompletedTransaction } from '../lib/businessReportMetrics';
+import { FINANCIAL_EXPORT_HEADERS, loadAllExportPages, mapTransactionsForExcel } from '../lib/financialExport';
 
 const FinancialCharts = React.lazy(() => import('../components/FinancialCharts'));
 
@@ -39,6 +40,7 @@ const FinancialManagementPage: React.FC = () => {
   const location = useLocation();
   const isSoQuyPage = location.pathname.startsWith('/so-quy');
   const [transactions, setTransactions] = useState<ThuChi[]>([]);
+  const [exportingExcel, setExportingExcel] = useState(false);
   const [customers, setCustomers] = useState<KhachHang[]>([]);
   const [salesCards, setSalesCards] = useState<SalesCard[]>([]);
   const [stats, setStats] = useState({ income: 0, expense: 0, balance: 0 });
@@ -322,6 +324,34 @@ const FinancialManagementPage: React.FC = () => {
     } catch (error) {
       console.error('Excel load failed:', error);
       window.alert('Không tải được thư viện Excel. Vui lòng thử lại.');
+    }
+  };
+
+  const handleExportExcel = async () => {
+    setExportingExcel(true);
+    try {
+      const exportFilters = {
+        branches: selectedBranches,
+        types: selectedTypes,
+        dateFrom: filterDateFrom,
+        dateTo: filterDateTo,
+      };
+      const XLSX = await import('xlsx');
+      const allTransactions = await loadAllExportPages(
+        (page, pageSize) => getTransactionsPaginated(page, pageSize, debouncedSearch, exportFilters),
+      );
+      const rows = mapTransactionsForExcel(allTransactions);
+      const worksheet = XLSX.utils.json_to_sheet(rows, { header: [...FINANCIAL_EXPORT_HEADERS] });
+      worksheet['!cols'] = FINANCIAL_EXPORT_HEADERS.map(header => ({ wch: Math.min(34, Math.max(12, header.length + 3)) }));
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'ThuChi');
+      const dateRange = `${filterDateFrom || 'tat-ca'}_${filterDateTo || 'tat-ca'}`;
+      XLSX.writeFile(workbook, `thu_chi_${dateRange}.xlsx`);
+    } catch (error) {
+      console.error('Excel export failed:', error);
+      window.alert('Không thể xuất Excel. Vui lòng thử lại.');
+    } finally {
+      setExportingExcel(false);
     }
   };
 
@@ -770,6 +800,16 @@ const FinancialManagementPage: React.FC = () => {
 
                 {/* Utility Actions Group */}
                 <div className="flex items-center gap-1.5 flex-wrap justify-end ml-auto sm:ml-0">
+                  <button
+                    type="button"
+                    onClick={handleExportExcel}
+                    disabled={exportingExcel || loading}
+                    className="px-2 py-1 sm:px-3 sm:py-2 bg-primary/5 hover:bg-primary/10 disabled:opacity-50 text-primary border border-primary/20 rounded-lg flex items-center gap-1.5 text-[11px] sm:text-[13px] font-bold transition-all shrink-0"
+                    title="Xuất toàn bộ giao dịch theo bộ lọc hiện tại"
+                  >
+                    {exportingExcel ? <Loader2 className="size-4 sm:size-5 animate-spin" /> : <Download className="size-4 sm:size-5" />}
+                    <span>{exportingExcel ? 'Đang xuất...' : 'Xuất Excel'}</span>
+                  </button>
                   {isAdmin && (
                     <>
                       <button
