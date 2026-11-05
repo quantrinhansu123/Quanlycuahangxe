@@ -1783,7 +1783,7 @@ const SalesCardManagementPage: React.FC = () => {
                     >
                       <option value="">Nhân sự...</option>
                       {personnel.map((p) => (
-                        <option key={p.id} value={p.ho_ten}>{p.ho_ten}</option>
+                        <option key={p.id} value={p.id_nhan_su || p.ho_ten}>{p.ho_ten}</option>
                       ))}
                     </select>
                     <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 size-3.5 pointer-events-none text-muted-foreground" />

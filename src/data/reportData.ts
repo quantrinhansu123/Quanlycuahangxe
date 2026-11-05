@@ -652,10 +652,12 @@ export interface PayrollRevenueData {
   personnelTotals: Map<string, number>;
   personnelGrossTotals: Map<string, number>;
   personnelOrdersById: Map<string, PayrollRevenueOrderRow[]>;
+  personnelAssignedOrdersById: Map<string, PayrollRevenueOrderRow[]>;
+  assignedOrdersByStaff: Map<string, PayrollRevenueOrderRow[]>;
   /** Ambiguous name-only invoices shown to possible employees as unallocated review items. */
   allocationIssuesByPersonnelId: Map<string, PayrollRevenueOrderRow[]>;
   allocationIssues: PayrollRevenueOrderRow[];
-  /** Tổng nguyên giá trị các đơn có tên nhân viên, trước khi chia. */
+  /** Tổng nguyên giá trị phiếu gán cho từng nhân viên; dùng làm cơ sở tính lương. */
   grossTotals: Map<string, number>;
   /** Tổng phần doanh số nhân viên thực nhận sau khi chia theo người phụ trách. */
   totals: Map<string, number>;
@@ -679,8 +681,9 @@ function pushPayrollOrder(
 }
 
 /**
- * Gom doanh số + chi tiết đơn theo Phụ trách. Mỗi đơn được chia đều cho danh
- * sách nhân viên duy nhất sau khi chuẩn hóa tên/mã; tên lặp chỉ tính một lần.
+ * Gom doanh số phiếu theo người phụ trách và giữ riêng số phân bổ để đối soát.
+ * Doanh số lương lấy toàn bộ giá trị phiếu cho từng nhân viên được gán;
+ * phần phân bổ đều vẫn dùng cho báo cáo đối soát tổng doanh thu.
  * Ưu tiên tổng chi tiết đơn; fallback tong_tien.
  */
 export async function loadPayrollRevenueData(nam: number, thang: number, signal?: AbortSignal): Promise<PayrollRevenueData> {
@@ -691,6 +694,8 @@ export async function loadPayrollRevenueData(nam: number, thang: number, signal?
   const branchTotals = new Map<string, number>();
   const branchLabels = new Map<string, string>();
   const personnelOrdersById = new Map<string, PayrollRevenueOrderRow[]>();
+  const personnelAssignedOrdersById = new Map<string, PayrollRevenueOrderRow[]>();
+  const assignedOrdersByStaff = new Map<string, PayrollRevenueOrderRow[]>();
   const allocationIssuesByPersonnelId = new Map<string, PayrollRevenueOrderRow[]>();
 
   if (isDemo()) {
@@ -723,10 +728,14 @@ export async function loadPayrollRevenueData(nam: number, thang: number, signal?
           ...orderRow,
           phan_bo: allocatedAmount,
         });
+        const assignedRow = { ...orderRow, phan_bo: amount };
+        const assigned = assignedOrdersByStaff.get(n) || [];
+        assigned.push(assignedRow);
+        assignedOrdersByStaff.set(n, assigned);
       }
     }
     totals.forEach((value, key) => totals.set(key, Math.round(value)));
-    return { grossTotals, totals, ordersByStaff, branchTotals, branchLabels, personnel: [], personnelTotals: new Map(), personnelGrossTotals: new Map(), personnelOrdersById, allocationIssuesByPersonnelId, allocationIssues: [] };
+    return { grossTotals, totals, ordersByStaff, assignedOrdersByStaff, branchTotals, branchLabels, personnel: [], personnelTotals: new Map(), personnelGrossTotals: new Map(), personnelOrdersById, personnelAssignedOrdersById, allocationIssuesByPersonnelId, allocationIssues: [] };
   }
 
   const [headers, ctRecords, personnel] = await Promise.all([
@@ -804,6 +813,13 @@ export async function loadPayrollRevenueData(nam: number, thang: number, signal?
     const name = chuanHoaTenTheoDon(personnelById.get(share.personnelId)!.ho_ten);
     grossTotals.set(name, (grossTotals.get(name) || 0) + source.tong_tien_don);
     pushPayrollOrder(ordersByStaff, totals, name, row);
+    const assignedRow = { ...source, phan_bo: source.tong_tien_don, so_nhan_vien: share.staffCount };
+    const assignedOrders = personnelAssignedOrdersById.get(share.personnelId) || [];
+    assignedOrders.push(assignedRow);
+    personnelAssignedOrdersById.set(share.personnelId, assignedOrders);
+    const assignedNameOrders = assignedOrdersByStaff.get(name) || [];
+    assignedNameOrders.push(assignedRow);
+    assignedOrdersByStaff.set(name, assignedNameOrders);
   }
   const allocationIssues = allocation.issues.map(issue => ({
     ...invoiceRows.get(issue.orderId)!, phan_bo: issue.amount, allocationIssue: issue.reason,
@@ -847,7 +863,8 @@ export async function loadPayrollRevenueData(nam: number, thang: number, signal?
 
   return { grossTotals, totals, ordersByStaff, branchTotals, branchLabels, personnel,
     personnelTotals: allocation.personnelTotals, personnelGrossTotals: allocation.personnelGrossTotals,
-    personnelOrdersById, allocationIssuesByPersonnelId, allocationIssues };
+    personnelOrdersById, personnelAssignedOrdersById, assignedOrdersByStaff,
+    allocationIssuesByPersonnelId, allocationIssues };
 }
 
 /** Gom doanh số theo nhân viên cho bảng lương chấm công. */

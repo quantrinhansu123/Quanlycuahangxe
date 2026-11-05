@@ -31,6 +31,8 @@ const row = {
 const paid = tinhMotDong(row, 2026, 11);
 assert.equal(paid.luongGio, 25000);
 assert.ok(Math.abs(paid.luongTangCa - 685125) < 0.001, '18.27 hours × 25,000/hour × 1.5');
+const commission = tinhMotDong({ ...row, tongDoanhThu: 20_465_001 }, 2026, 11);
+assert.equal(Math.round(commission.hoaHong), 409_300, '2% commission uses the same full assigned revenue as the sales-person filter');
 const missing = tinhMotDong({ ...row, luongCoBan: 0 }, 2026, 11);
 assert.equal(missing.gioTangCaApDung, 18.27);
 assert.match(missing.ghiChu, /Chưa có lương cơ bản/);
@@ -43,4 +45,4 @@ const shifts = [
   { nhan_su: 'NV-TEST', ngay: '2026-11-04', checkin: '13:00', checkout: '22:50' },
 ];
 assert.equal(demGioTangCaTheoDongCham(shifts, row.hoTen, 'uuid-test', 'NV-TEST', settings), 3.17, 'Multiple shifts count only the latest checkout once per day');
-console.log('PASS payroll overtime: salary fallback, period snapshot, 1.5 rate, missing salary, monthly cap and grouped attendance');
+console.log('PASS payroll: salary fallback, overtime, allocated revenue commission, monthly cap and grouped attendance');

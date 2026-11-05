@@ -241,7 +241,7 @@ async function gopDoanhSoTheoBaoCao(
 ): Promise<{ rows: BangLuongChamCongInput[]; payrollData: PayrollRevenueData }> {
   const data = payrollData ?? (await loadPayrollRevenueData(nam, thang));
   if (!data.personnel.length) {
-    const shares = allocatePayrollRevenueByName(rows, row => row.hoTen, data.totals, chuanHoaTenSoSanh);
+    const shares = allocatePayrollRevenueByName(rows, row => row.hoTen, data.grossTotals, chuanHoaTenSoSanh);
     return { rows: rows.map((row, index) => ({ ...row, tongDoanhThu: shares[index] })), payrollData: data };
   }
   const mapped: BangLuongChamCongInput[] = rows.map(row => {
@@ -250,14 +250,14 @@ async function gopDoanhSoTheoBaoCao(
     const person = data.personnel.find(person => person.id === row.nhanSuId || person.id === row.id)
       ?? (matches.length === 1 ? matches[0] : undefined);
     return { ...row, nhanSuId: person?.id, coSo: person?.co_so || row.coSo,
-      tongDoanhThu: person ? data.personnelTotals.get(person.id) ?? 0 : 0 };
+      tongDoanhThu: person ? data.personnelGrossTotals.get(person.id) ?? 0 : 0 };
   });
   const represented = new Set(mapped.map(row => row.nhanSuId).filter(Boolean));
   for (const person of data.personnel) {
-    if (represented.has(person.id) || !data.personnelTotals.get(person.id)) continue;
+    if (represented.has(person.id) || !data.personnelGrossTotals.get(person.id)) continue;
     mapped.push({ ...emptyRow(), id: person.id, nhanSuId: person.id, hoTen: person.ho_ten,
       coSo: person.co_so || undefined, luongCoBan: Number(person.luong_co_ban) || 0,
-      ngayBatDauLam: ngayIsoTuNhanSu(person) || '', tongDoanhThu: data.personnelTotals.get(person.id)! });
+      ngayBatDauLam: ngayIsoTuNhanSu(person) || '', tongDoanhThu: data.personnelGrossTotals.get(person.id)! });
   }
   return { rows: mapped, payrollData: data };
 }
@@ -271,17 +271,17 @@ function layDonTheoHoTen(
   if (!ten) return [];
 
   const kTen = chuanHoaTenSoSanh(ten);
-  let orders = data.ordersByStaff.get(kTen) || [];
+  let orders = data.assignedOrdersByStaff.get(kTen) || [];
   if (orders.length > 0) return orders;
 
   const meta = nhanTheoChuanTen.get(kTen);
   if (!meta) return [];
 
-  orders = data.ordersByStaff.get(chuanHoaTenSoSanh(meta.id)) || [];
+  orders = data.assignedOrdersByStaff.get(chuanHoaTenSoSanh(meta.id)) || [];
   if (orders.length > 0) return orders;
 
   if (meta.idNhanSu) {
-    orders = data.ordersByStaff.get(chuanHoaTenSoSanh(meta.idNhanSu)) || [];
+    orders = data.assignedOrdersByStaff.get(chuanHoaTenSoSanh(meta.idNhanSu)) || [];
   }
   return orders;
 }
@@ -1233,7 +1233,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
           setRevenueCache(data);
         }
         const orders = input.nhanSuId
-          ? data.personnelOrdersById.get(input.nhanSuId) || []
+          ? data.personnelAssignedOrdersById.get(input.nhanSuId) || []
           : layDonTheoHoTen(ten, data, nhanTheoChuanTen);
         const candidatePersonnelIds = input.nhanSuId
           ? [input.nhanSuId]
@@ -1396,7 +1396,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
               onClick={capNhatDoanhSoTuPhieuBan}
               disabled={revenueLoading || quickLoading}
               className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-primary/10 border-primary/30 text-primary text-sm font-medium px-3 py-2 hover:bg-primary/15 disabled:opacity-50"
-              title="Đơn thuộc đúng tháng/năm kỳ; giá trị được chia đều giữa nhân sự phụ trách duy nhất. Nhân sự trùng tên sẽ chia chung một tổng để không nhân đôi doanh số."
+              title="Doanh số theo nhân viên: lấy nguyên giá trị các phiếu được gán cho nhân viên đó. Phiếu có nhiều người phụ trách được tính cho từng người, giống bộ lọc nhân sự ở Phiếu bán hàng."
             >
               {revenueLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <TrendingUp className="w-4 h-4" />}
               Doanh số
@@ -1497,7 +1497,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                 {thCell('Họ tên', 'Tên nhân viên')}
                 {thCell(
                   'Doanh số tháng',
-                  'Doanh số phiếu được phân bổ cho nhân viên. Bấm tiêu đề để rà soát.',
+                  'Tổng nguyên giá trị phiếu được gán cho nhân viên, khớp bộ lọc nhân sự ở Phiếu bán hàng. Bấm tiêu đề để rà soát.',
                   () => navigate(`/tien-luong/doi-soat-doanh-so?thang=${thang}&nam=${nam}`),
                   'right'
                 )}
@@ -1534,7 +1534,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                 {thCell('Thưởng tháng', 'Khoản thưởng tùy ý; bấm số tiền để nhập.', undefined, 'right')}
                 {thCell('Ghi chú thưởng', 'Nhập nội dung; nếu có số tiền, số đó được cộng ngay vào Thưởng tháng')}
                 {thCell('Tỷ lệ HH', 'Tỷ lệ hoa hồng riêng; bấm để sửa.', undefined, 'right')}
-                {thCell('Tiền hoa hồng', 'Doanh số đã phân bổ nhân viên × tỷ lệ hoa hồng; chi tiết trong gợi ý.', undefined, 'right')}
+                {thCell('Tiền hoa hồng', 'Doanh số của nhân viên × tỷ lệ hoa hồng; chi tiết trong gợi ý.', undefined, 'right')}
                 {thCell('Tổng thu nhập', 'Tổng các khoản thu nhập trong kỳ.', undefined, 'right')}
                 {thCell('Ghi chú', 'Cảnh báo')}
                 {isAdmin && (
@@ -1642,7 +1642,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
                         onChange={(value) => setTien(input.id, 'tongDoanhThu', value)}
                         disabled={!isAdmin}
                         ariaLabel={`doanh số tháng của ${input.hoTen}`}
-                        title="Doanh số phiếu đã phân bổ. Nhân sự trùng tên chia chung một tổng; bấm để điều chỉnh."
+                        title="Tổng nguyên giá trị các phiếu gán cho nhân viên; nhiều người cùng phụ trách cùng nhận toàn bộ doanh số phiếu. Bấm để điều chỉnh."
                       />
                     </td>
                     <td className="px-2 py-2">

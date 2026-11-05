@@ -16,6 +16,7 @@ const source = fs.readFileSync('src/data/reportData.ts', 'utf8');
 const reconciliationSource = fs.readFileSync('src/pages/PayrollRevenueReconciliationPage.tsx', 'utf8');
 const ordersModalSource = fs.readFileSync('src/components/PersonnelRevenueOrdersModal.tsx', 'utf8');
 const branchMigration = fs.readFileSync('supabase/migrations/202611040002_sales_query_saved_branch_precedence.sql', 'utf8');
+const staffIdentityMigration = fs.readFileSync('supabase/migrations/202611050002_sales_query_staff_identity_aliases.sql', 'utf8');
 const run = async (headers, lines, staff = personnel) => loadReportRuntime(source, {
   the_ban_hang: headers, the_ban_hang_ct: lines, nhan_su: staff,
 }).report.loadPayrollRevenueData(2026, 10);
@@ -85,6 +86,13 @@ test('invoice branch totals include unassigned invoices and use the resolved sal
 test('sales branch RPC prioritizes the invoice saved branch over detail and customer fallback', () => {
   assert.match(branchMigration, /s\.ten_khach_hang, s\.tong_tien, s\.co_so,/);
   assert.equal((branchMigration.match(/ARRAY\[s\.co_so\] END, d\.branches, ARRAY\[s\.customer_branch\]/g) || []).length, 2);
+});
+
+test('sales staff filter expands a selected personnel UUID to every stored staff identity', () => {
+  assert.match(staffIdentityMigration, /ns\.id::text/);
+  assert.match(staffIdentityMigration, /ns\.auth_user_id::text/);
+  assert.match(staffIdentityMigration, /ns\.id_nhan_su/);
+  assert.match(staffIdentityMigration, /ns\.ho_ten/);
 });
 
 test('exact amounts, canonical customer IDs, stable item order and distinct order IDs govern review hints', () => {

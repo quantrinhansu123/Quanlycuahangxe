@@ -20,6 +20,22 @@ test('every invoice preserves integer VND when shared, regardless of response or
   for (const order of orders) assert.equal(result.allocations.filter(a => a.orderId === order.id).reduce((sum, a) => sum + a.amount, 0), order.amount);
   assert.deepEqual(allocate([...orders].reverse().map(o => ({ ...o, staff: o.staff.split(',').reverse().join(',') }))).personnelTotals, result.personnelTotals);
 });
+test('full assigned revenue matches each employee filter and is the payroll commission base', () => {
+  const result = allocate([invoice(20_465_001, 'a,b')]);
+  assert.equal(result.personnelGrossTotals.get('a'), 20_465_001);
+  assert.equal(result.personnelGrossTotals.get('b'), 20_465_001);
+  assert.equal(result.personnelTotals.get('a'), 10_232_501);
+  assert.equal(result.personnelTotals.get('b'), 10_232_500);
+  assert.equal(Math.round(result.personnelGrossTotals.get('a') * 0.02), 409_300);
+});
+test('account UUID assignments resolve to the matching employee for payroll', () => {
+  const authId = '1835d8e4-12aa-449e-8b04-51253a1bbd32';
+  const staff = [{ ...people[0], auth_user_id: authId }];
+  const result = allocate([invoice(500_000, authId)], staff);
+  assert.equal(result.personnelGrossTotals.get('a'), 500_000);
+  assert.equal(result.personnelTotals.get('a'), 500_000);
+  assert.equal(result.issues.length, 0);
+});
 test('ID and code resolve the actual employee even when two people share a name', () => {
   const staff = [...people, { id: 'other', id_nhan_su: 'NV4', ho_ten: 'An', co_so: 'Bắc Ninh' }];
   assert.equal(allocate([invoice(880000, 'a,NV1,An')], staff).personnelTotals.get('a'), 880000);

@@ -117,12 +117,12 @@ export async function syncPayrollFromAttendance(
   const revenueShares = allocatePayrollRevenueByName(
     personnelRows,
     (person) => person.ho_ten,
-    revenueData.totals,
+    revenueData.grossTotals,
     normalizePersonnelToken,
   );
   const revenueByPersonnelId = new Map(
     personnelRows.map((person, index) => [person.id,
-      revenueData.personnel.length ? revenueData.personnelTotals.get(person.id) ?? 0 : revenueShares[index]])
+      revenueData.personnel.length ? revenueData.personnelGrossTotals.get(person.id) ?? 0 : revenueShares[index]])
   );
 
   const personnel = branchFilter

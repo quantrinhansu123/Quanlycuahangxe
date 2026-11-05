@@ -46,7 +46,13 @@ export interface BranchRevenueComparison {
   difference: number;
 }
 
-export interface RevenuePerson { id: string; ho_ten: string; id_nhan_su?: string | null; co_so?: string | null }
+export interface RevenuePerson {
+  id: string;
+  auth_user_id?: string | null;
+  ho_ten: string;
+  id_nhan_su?: string | null;
+  co_so?: string | null;
+}
 export interface RevenueInvoice { id: string; amount: number; staff: string; branches: string[] }
 export interface RevenueAllocationIssue {
   orderId: string; branches: string[]; staff: string; amount: number; reason: string;
@@ -61,7 +67,8 @@ export function resolveInvoiceStaff(
   const recipients = new Map<string, { person?: RevenuePerson; token: string; reason?: string }>();
   for (const token of staff.split(',').map(value => value.trim()).filter(Boolean)) {
     const key = normalizeName(token);
-    let matches = personnel.filter(person => normalizeName(person.id) === key);
+    let matches = personnel.filter(person => normalizeName(person.id) === key
+      || (person.auth_user_id && normalizeName(person.auth_user_id) === key));
     if (!matches.length) matches = personnel.filter(person => person.id_nhan_su && normalizeName(person.id_nhan_su) === key);
     if (!matches.length) {
       matches = personnel.filter(person => normalizeName(person.ho_ten) === key);
