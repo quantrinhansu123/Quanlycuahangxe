@@ -6,6 +6,7 @@ import { readRequest } from '../lib/readRequest';
 
 export interface NhanSu {
   id: string;
+  auth_user_id?: string | null;
   id_nhan_su?: string | null;
   ho_ten: string;
   /** Giữ trên bảng cho tài khoản/legacy; không hiển thị trên form quản lý nhân sự. */

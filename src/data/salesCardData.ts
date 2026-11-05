@@ -9,6 +9,7 @@ import { getTransactionsByOrderIds } from './financialData';
 import { touchCustomerLastOrderAt } from '../lib/customerActivity';
 import { readRequest } from '../lib/readRequest';
 import { assertSalesDateNotFuture } from '../utils/datetimeFormat';
+import { resolveSalesPersonnelTokens } from '../utils/salesPersonnel';
 export { phoneLookupVariants } from '../lib/phoneUtils';
 
 type ServiceLookupRow = {
@@ -399,44 +400,33 @@ async function attachPersonnel(cards: SalesCard[], signal?: AbortSignal) {
   const staffIds = [...new Set(allStaffIdsRaw.flatMap(id => id.split(',').map(s => s.trim())))];
   if (staffIds.length > 0) {
     const chunks = chunkArray(staffIds, 50);
-    const allPersonnel: Pick<NhanSu, 'ho_ten' | 'id_nhan_su' | 'vi_tri' | 'co_so'>[] = [];
+    const allPersonnel: Pick<NhanSu, 'id' | 'auth_user_id' | 'ho_ten' | 'id_nhan_su' | 'vi_tri' | 'co_so'>[] = [];
 
     await Promise.all(chunks.map(async (chunk) => {
       throwIfAborted(signal);
+      const uuidTokens = chunk.filter(id => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
+      const textTokens = chunk.filter(id => !uuidTokens.includes(id));
+      const filters = [
+        ...(uuidTokens.length ? [`id.in.(${uuidTokens.join(',')})`, `auth_user_id.in.(${uuidTokens.join(',')})`] : []),
+        ...(textTokens.length ? [
+          `ho_ten.in.(${textTokens.map(id => `"${id}"`).join(',')})`,
+          `id_nhan_su.in.(${textTokens.map(id => `"${id}"`).join(',')})`,
+        ] : []),
+      ];
+      if (!filters.length) return;
       const personnelQuery = supabase
         .from('nhan_su')
-        .select('ho_ten, id_nhan_su, vi_tri, co_so')
-        .or(`ho_ten.in.(${chunk.map(id => `"${id}"`).join(',')}),id_nhan_su.in.(${chunk.map(id => `"${id}"`).join(',')})`);
+        .select('id, auth_user_id, ho_ten, id_nhan_su, vi_tri, co_so')
+        .or(filters.join(','));
       const { data: personnel, error } = await (signal ? personnelQuery.abortSignal(signal) : personnelQuery);
       if (error) throw error;
       throwIfAborted(signal);
       if (personnel) allPersonnel.push(...personnel);
     }));
 
-    const nameMap = new Map(allPersonnel.map(p => [p.ho_ten.toLowerCase(), p]));
-    const idMap = new Map(allPersonnel.filter(p => !!p.id_nhan_su).map(p => [p.id_nhan_su!.toLowerCase(), p]));
-
     cards.forEach(card => {
       if (!card.nhan_vien_id) return;
-
-      const rawTokens = card.nhan_vien_id
-        .split(',')
-        .map(s => s.trim())
-        .filter(Boolean);
-
-      if (rawTokens.length === 0) return;
-
-      const matchedList: Partial<NhanSu>[] = [];
-      rawTokens.forEach(token => {
-        const key = token.toLowerCase();
-        const p = idMap.get(key) || nameMap.get(key);
-        if (p) {
-          matchedList.push({ ho_ten: p.ho_ten, vi_tri: p.vi_tri, co_so: p.co_so });
-        } else {
-          // Không khớp hồ sơ Nhân sự nhưng vẫn hiển thị thô trong \"Phụ trách\"
-          matchedList.push({ ho_ten: token });
-        }
-      });
+      const matchedList = resolveSalesPersonnelTokens(card.nhan_vien_id, allPersonnel);
 
       if (matchedList.length > 0) {
         card.nhan_su_list = matchedList;
