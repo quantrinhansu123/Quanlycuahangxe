@@ -652,6 +652,8 @@ export interface PayrollRevenueData {
   personnelTotals: Map<string, number>;
   personnelGrossTotals: Map<string, number>;
   personnelOrdersById: Map<string, PayrollRevenueOrderRow[]>;
+  /** Ambiguous name-only invoices shown to possible employees as unallocated review items. */
+  allocationIssuesByPersonnelId: Map<string, PayrollRevenueOrderRow[]>;
   allocationIssues: PayrollRevenueOrderRow[];
   /** Tổng nguyên giá trị các đơn có tên nhân viên, trước khi chia. */
   grossTotals: Map<string, number>;
@@ -689,6 +691,7 @@ export async function loadPayrollRevenueData(nam: number, thang: number, signal?
   const branchTotals = new Map<string, number>();
   const branchLabels = new Map<string, string>();
   const personnelOrdersById = new Map<string, PayrollRevenueOrderRow[]>();
+  const allocationIssuesByPersonnelId = new Map<string, PayrollRevenueOrderRow[]>();
 
   if (isDemo()) {
     const staff = ['Nguyễn Văn A', 'Trần Thị B', 'Lê Văn C', 'Phạm Văn D'];
@@ -723,7 +726,7 @@ export async function loadPayrollRevenueData(nam: number, thang: number, signal?
       }
     }
     totals.forEach((value, key) => totals.set(key, Math.round(value)));
-    return { grossTotals, totals, ordersByStaff, branchTotals, branchLabels, personnel: [], personnelTotals: new Map(), personnelGrossTotals: new Map(), personnelOrdersById, allocationIssues: [] };
+    return { grossTotals, totals, ordersByStaff, branchTotals, branchLabels, personnel: [], personnelTotals: new Map(), personnelGrossTotals: new Map(), personnelOrdersById, allocationIssuesByPersonnelId, allocationIssues: [] };
   }
 
   const [headers, ctRecords, personnel] = await Promise.all([
@@ -807,6 +810,33 @@ export async function loadPayrollRevenueData(nam: number, thang: number, signal?
     phu_trach: issue.staff || 'Chưa gán nhân viên',
   }));
 
+  // Keep ambiguous legacy name assignments visible from each possible employee,
+  // while keeping them out of the employee's allocated revenue and order totals.
+  for (const issue of allocation.issues) {
+    if (!issue.reason.startsWith('Trùng tên nhân viên')) continue;
+    const matchingPeople = personnel.filter(person =>
+      chuanHoaTenTheoDon(person.ho_ten) === chuanHoaTenTheoDon(issue.staff)
+    );
+    const branchScopedPeople = matchingPeople.filter(person =>
+      issue.branches.includes(branchKey(person.co_so || ''))
+    );
+    const candidates = branchScopedPeople.length ? branchScopedPeople : matchingPeople;
+    const source = invoiceRows.get(issue.orderId);
+    if (!source) continue;
+    const candidateRow = {
+      ...source,
+      phan_bo: 0,
+      so_nhan_vien: 0,
+      allocationIssue: issue.reason,
+      phu_trach: issue.staff,
+    };
+    for (const person of candidates) {
+      const list = allocationIssuesByPersonnelId.get(person.id) || [];
+      if (!list.some(row => row.id_bh === candidateRow.id_bh)) list.push(candidateRow);
+      allocationIssuesByPersonnelId.set(person.id, list);
+    }
+  }
+
   for (const list of ordersByStaff.values()) {
     list.sort((a, b) => {
       const byDate = b.ngay.localeCompare(a.ngay);
@@ -817,7 +847,7 @@ export async function loadPayrollRevenueData(nam: number, thang: number, signal?
 
   return { grossTotals, totals, ordersByStaff, branchTotals, branchLabels, personnel,
     personnelTotals: allocation.personnelTotals, personnelGrossTotals: allocation.personnelGrossTotals,
-    personnelOrdersById, allocationIssues };
+    personnelOrdersById, allocationIssuesByPersonnelId, allocationIssues };
 }
 
 /** Gom doanh số theo nhân viên cho bảng lương chấm công. */

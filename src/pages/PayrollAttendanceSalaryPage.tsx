@@ -556,6 +556,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
     issueMode?: boolean;
     hoTen: string;
     orders: PayrollRevenueOrderRow[];
+    unresolvedOrders?: PayrollRevenueOrderRow[];
     loading: boolean;
   } | null>(null);
   /** Tránh ghi localStorage bằng dòng dữ liệu tháng cũ khi vừa đổi kỳ (chờ load xong). */
@@ -1223,7 +1224,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
     async (input: BangLuongChamCongInput) => {
       const ten = input.hoTen.trim();
       if (!ten) return;
-      setOrdersModal({ hoTen: ten, orders: [], loading: true });
+      setOrdersModal({ hoTen: ten, orders: [], unresolvedOrders: [], loading: true });
       try {
         let data = revenueCache;
         if (!data) {
@@ -1233,7 +1234,17 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
         const orders = input.nhanSuId
           ? data.personnelOrdersById.get(input.nhanSuId) || []
           : layDonTheoHoTen(ten, data, nhanTheoChuanTen);
-        setOrdersModal({ hoTen: ten, orders, loading: false });
+        const candidatePersonnelIds = input.nhanSuId
+          ? [input.nhanSuId]
+          : data.personnel
+            .filter(person => chuanHoaTenSoSanh(person.ho_ten) === chuanHoaTenSoSanh(ten))
+            .map(person => person.id);
+        const unresolvedOrders = [...new Map(
+          candidatePersonnelIds
+            .flatMap(id => data.allocationIssuesByPersonnelId.get(id) || [])
+            .map(order => [order.id_bh, order] as const)
+        ).values()];
+        setOrdersModal({ hoTen: ten, orders, unresolvedOrders, loading: false });
       } catch (e) {
         console.error(e);
         setOrdersModal(null);
@@ -1941,6 +1952,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
         thang={thang}
         nam={nam}
         orders={ordersModal?.orders ?? []}
+        unresolvedOrders={ordersModal?.unresolvedOrders ?? []}
         issueMode={ordersModal?.issueMode}
         loading={ordersModal?.loading ?? false}
       />

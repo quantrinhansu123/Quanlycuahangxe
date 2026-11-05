@@ -24,7 +24,7 @@ import {
 } from '../data/reportData';
 import { cn, normalizeForCompare } from '../lib/utils';
 import { branchKey } from '../lib/branchCatalog';
-import { allocatePayrollRevenueByName, compareRevenueByBranch } from '../lib/payrollRevenueAllocation';
+import { compareRevenueByBranch } from '../lib/payrollRevenueAllocation';
 
 type ComparisonStatus = 'matched' | 'mismatched' | 'missing-payroll';
 
@@ -40,6 +40,7 @@ interface ComparisonRow {
   sourceRevenue: number;
   difference: number;
   orders: PayrollRevenueOrderRow[];
+  unresolvedOrders: PayrollRevenueOrderRow[];
   status: ComparisonStatus;
 }
 
@@ -49,6 +50,10 @@ interface ReconciliationData {
   grossTotals: Map<string, number>;
   totals: Map<string, number>;
   ordersByStaff: Map<string, PayrollRevenueOrderRow[]>;
+  personnelTotals: Map<string, number>;
+  personnelGrossTotals: Map<string, number>;
+  personnelOrdersById: Map<string, PayrollRevenueOrderRow[]>;
+  allocationIssuesByPersonnelId: Map<string, PayrollRevenueOrderRow[]>;
   branchTotals: Map<string, number>;
   branchLabels: Map<string, string>;
 }
@@ -100,6 +105,7 @@ const PayrollRevenueReconciliationPage: React.FC = () => {
   const [ordersModal, setOrdersModal] = useState<{
     name: string;
     orders: PayrollRevenueOrderRow[];
+    unresolvedOrders: PayrollRevenueOrderRow[];
   } | null>(null);
 
   const years = useMemo(() => {
@@ -130,6 +136,10 @@ const PayrollRevenueReconciliationPage: React.FC = () => {
         grossTotals: revenue.grossTotals,
         totals: revenue.totals,
         ordersByStaff: revenue.ordersByStaff,
+        personnelTotals: revenue.personnelTotals,
+        personnelGrossTotals: revenue.personnelGrossTotals,
+        personnelOrdersById: revenue.personnelOrdersById,
+        allocationIssuesByPersonnelId: revenue.allocationIssuesByPersonnelId,
         branchTotals: revenue.branchTotals,
         branchLabels: revenue.branchLabels,
       });
@@ -154,16 +164,19 @@ const PayrollRevenueReconciliationPage: React.FC = () => {
     const personnelById = new Map(data.personnel.map((person) => [person.id, person]));
     const payrollByPersonnelId = new Map(data.payroll.map((item) => [item.nhan_su_id, item]));
     const rowsByKey = new Map<string, ComparisonRow>();
-    const sourceShares = allocatePayrollRevenueByName(data.personnel, (person) => person.ho_ten, data.totals, normalizeForCompare);
-    const grossShares = allocatePayrollRevenueByName(data.personnel, (person) => person.ho_ten, data.grossTotals, normalizeForCompare);
     const knownRevenueNames = new Set(data.personnel.map((person) => normalizeForCompare(person.ho_ten)).filter(Boolean));
 
-    const addRow = (key: string, person: NhanSu | undefined, payroll: BangLuong | undefined, sourceOverride?: number, grossOverride?: number) => {
+    const addRow = (key: string, person: NhanSu | undefined, payroll: BangLuong | undefined) => {
       const payrollName = payroll?.nhan_su?.ho_ten?.trim();
       const name = person?.ho_ten?.trim() || payrollName || key;
       const revenueKey = normalizeForCompare(person?.ho_ten || payrollName || key);
-      const grossRevenue = grossOverride ?? Number(data.grossTotals.get(revenueKey) ?? 0);
-      const sourceRevenue = sourceOverride ?? Number(data.totals.get(revenueKey) ?? 0);
+      const personId = person?.id || (payroll ? personnelById.get(payroll.nhan_su_id)?.id : undefined);
+      const grossRevenue = personId
+        ? Number(data.personnelGrossTotals.get(personId) ?? 0)
+        : Number(data.grossTotals.get(revenueKey) ?? 0);
+      const sourceRevenue = personId
+        ? Number(data.personnelTotals.get(personId) ?? 0)
+        : Number(data.totals.get(revenueKey) ?? 0);
       const payrollRevenue = Number(payroll?.doanh_so ?? 0);
       const difference = sourceRevenue - payrollRevenue;
       const status: ComparisonStatus = !payroll
@@ -183,14 +196,17 @@ const PayrollRevenueReconciliationPage: React.FC = () => {
         grossRevenue,
         sourceRevenue,
         difference,
-        orders: data.ordersByStaff.get(key) ?? [],
+        orders: personId
+          ? data.personnelOrdersById.get(personId) ?? []
+          : data.ordersByStaff.get(revenueKey) ?? [],
+        unresolvedOrders: personId ? data.allocationIssuesByPersonnelId.get(personId) ?? [] : [],
         status,
       });
     };
 
-    data.personnel.forEach((person, index) => {
+    data.personnel.forEach((person) => {
       if (!normalizeForCompare(person.ho_ten)) return;
-      addRow(person.id, person, payrollByPersonnelId.get(person.id), sourceShares[index], grossShares[index]);
+      addRow(person.id, person, payrollByPersonnelId.get(person.id));
     });
 
     data.payroll.forEach((payroll) => {
@@ -429,7 +445,7 @@ const PayrollRevenueReconciliationPage: React.FC = () => {
                 <ComparisonRowCard
                   key={row.key}
                   row={row}
-                  onShowOrders={() => setOrdersModal({ name: row.name, orders: row.orders })}
+                  onShowOrders={() => setOrdersModal({ name: row.name, orders: row.orders, unresolvedOrders: row.unresolvedOrders })}
                 />
               ))}
             </div>
@@ -444,6 +460,7 @@ const PayrollRevenueReconciliationPage: React.FC = () => {
         thang={month}
         nam={year}
         orders={ordersModal?.orders ?? []}
+        unresolvedOrders={ordersModal?.unresolvedOrders ?? []}
       />
     </div>
   );
@@ -538,7 +555,8 @@ function ComparisonRowCard({ row, onShowOrders }: { row: ComparisonRow; onShowOr
             <p className="text-xl font-bold tabular-nums text-slate-900">{formatVnd(row.sourceRevenue)}</p>
             <p className="mt-1 text-xs font-semibold text-blue-700">Sau chia</p>
             <p className="mt-1.5 text-xs text-muted-foreground">
-              Chưa chia: {formatVnd(row.grossRevenue)} · {row.orders.length} đơn
+              Chưa chia: {formatVnd(row.grossRevenue)} · {row.orders.length} đơn đã gán
+              {row.unresolvedOrders.length > 0 && ` · ${row.unresolvedOrders.length} phiếu chờ gán`}
             </p>
           </div>
           <button

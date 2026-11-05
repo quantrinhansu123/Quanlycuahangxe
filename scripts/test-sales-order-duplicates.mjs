@@ -8,9 +8,17 @@ const header = (id, overrides = {}) => ({ id, id_bh: `BH-${id}`, ngay: '2026-10-
   so_dien_thoai: '0900000001', ten_khach_hang: 'Cùng tên', tong_tien: 150000, resolved_amount: 150000, ...overrides });
 const line = (ref, overrides = {}) => ({ id: `line-${ref}`, id_don_hang: ref, ngay: '2026-10-19',
   san_pham: 'Dầu', co_so: 'Bắc Ninh', gia_ban: 150000, gia_von: 62000, so_luong: 1, thanh_tien: 150000, ...overrides });
+const personnel = [
+  { id: 'staff-huan', id_nhan_su: 'NV-001', ho_ten: 'Văn Huân', co_so: 'Cơ sở Bắc Ninh' },
+  { id: 'staff-other', id_nhan_su: 'NV-002', ho_ten: 'Người khác', co_so: 'Cơ sở Bắc Ninh' },
+];
 const source = fs.readFileSync('src/data/reportData.ts', 'utf8');
+const reconciliationSource = fs.readFileSync('src/pages/PayrollRevenueReconciliationPage.tsx', 'utf8');
+const ordersModalSource = fs.readFileSync('src/components/PersonnelRevenueOrdersModal.tsx', 'utf8');
 const branchMigration = fs.readFileSync('supabase/migrations/202611040002_sales_query_saved_branch_precedence.sql', 'utf8');
-const run = async (headers, lines) => loadReportRuntime(source, { the_ban_hang: headers, the_ban_hang_ct: lines }).report.loadPayrollRevenueData(2026, 10);
+const run = async (headers, lines, staff = personnel) => loadReportRuntime(source, {
+  the_ban_hang: headers, the_ban_hang_ct: lines, nhan_su: staff,
+}).report.loadPayrollRevenueData(2026, 10);
 
 test('same phone or name across different vehicles cannot cause an employee duplicate warning', async () => {
   for (const overrides of [{ khach_hang_id: 'vehicle-2' }, { khach_hang_id: null }]) {
@@ -35,7 +43,35 @@ test('matching invoice contents produce visible counterpart codes, including oth
   const result = await run([header('1'), header('2', { nhan_vien_id: 'Người khác' })], [line('1'), line('BH-2')]);
   assert.deepEqual(result.ordersByStaff.get('van huan')[0].duplicate_order_ids, ['BH-2']);
   assert.deepEqual(result.ordersByStaff.get('nguoi khac')[0].duplicate_order_ids, ['BH-1']);
+  assert.equal(result.personnelOrdersById.get('staff-huan')[0].id_bh, 'BH-1');
+  assert.equal(result.personnelOrdersById.get('staff-other')[0].id_bh, 'BH-2');
   assert.equal(result.totals.get('van huan'), 150000);
+});
+
+test('ambiguous same-branch invoices show under candidate employees without being allocated', async () => {
+  const duplicateNames = [
+    { id: 'van-nam-1', id_nhan_su: 'NV-011', ho_ten: 'Văn Nam', co_so: 'Bắc Giang' },
+    { id: 'van-nam-2', id_nhan_su: 'NV-012', ho_ten: 'Văn Nam', co_so: 'Bắc Giang' },
+  ];
+  const result = await run([
+    header('ambiguous', { nhan_vien_id: 'Văn Nam', co_so: 'Bắc Giang', order_branches: ['Bắc Giang'] }),
+  ], [line('BH-ambiguous', { co_so: 'Bắc Giang' })], duplicateNames);
+
+  assert.equal(result.allocationIssues.length, 1);
+  assert.match(result.allocationIssues[0].allocationIssue, /Trùng tên nhân viên/);
+  for (const id of ['van-nam-1', 'van-nam-2']) {
+    const candidate = result.allocationIssuesByPersonnelId.get(id)?.[0];
+    assert.equal(candidate?.id_bh, 'BH-ambiguous');
+    assert.equal(candidate?.phan_bo, 0, 'candidate visibility must not allocate commission');
+    assert.equal(result.personnelOrdersById.has(id), false, 'unresolved invoices stay out of assigned orders');
+    assert.equal(result.personnelTotals.has(id), false, 'unresolved invoices stay out of revenue totals');
+  }
+});
+
+test('reconciliation details use employee IDs and duplicate references open an in-place report', () => {
+  assert.match(reconciliationSource, /data\.personnelOrdersById\.get\(personId\)/);
+  assert.match(ordersModalSource, /onClick=\{\(\) => setDuplicateReview/);
+  assert.match(ordersModalSource, /role="dialog" aria-modal="true" aria-labelledby="duplicate-review-title"/);
 });
 
 test('invoice branch totals include unassigned invoices and use the resolved sales amount', async () => {
