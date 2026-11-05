@@ -104,6 +104,7 @@ const CustomerManagementPage: React.FC = () => {
   const [totalCount, setTotalCount] = useState(0);
 
   const [selectedDepts, setSelectedDepts] = useState<string[]>([]);
+  const [registrationDate, setRegistrationDate] = useState('');
 
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -207,6 +208,7 @@ const CustomerManagementPage: React.FC = () => {
         [],
         undefined,
         controller.signal,
+        registrationDate,
       );
       if (controller.signal.aborted || request !== listRequest.current) return;
       setCustomers(data);
@@ -238,7 +240,7 @@ const CustomerManagementPage: React.FC = () => {
     } finally {
       if (request === listRequest.current) setLoading(false);
     }
-  }, [currentPage, pageSize, debouncedSearch, canUseDataFilters, selectedDepts, loadCustomerStats, showToast]);
+  }, [currentPage, pageSize, debouncedSearch, canUseDataFilters, selectedDepts, registrationDate, loadCustomerStats, showToast]);
 
   useRegisterPageRefresh(loadCustomers);
 
@@ -278,27 +280,30 @@ const CustomerManagementPage: React.FC = () => {
     setter(prev => prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val]);
   }, []);
 
-  // Nhóm theo ngày đăng ký — giữ đúng thứ tự server (hoá đơn mới / mới tạo ↓), không sort lại các nhóm.
+  // Mỗi ngày đăng ký chỉ có một nhóm; RPC sắp xếp ngày mới trước, hoạt động mới nhất trước trong ngày.
   const groupedCustomers = useMemo(() => {
-    const groups: { key: string; date: string; items: KhachHang[] }[] = [];
+    const groups = new Map<string, { key: string; date: string; items: KhachHang[] }>();
 
     for (const customer of customers) {
-      const dateStr = customer.ngay_dang_ky
-        ? formatDateVi(customer.ngay_dang_ky)
-        : 'Không xác định';
-      const last = groups[groups.length - 1];
-      if (last && last.date === dateStr) {
-        last.items.push(customer);
+      const dateKey = customer.ngay_dang_ky?.slice(0, 10) || '';
+      const key = dateKey || 'unknown';
+      const existing = groups.get(key);
+      if (existing) {
+        existing.items.push(customer);
       } else {
-        groups.push({
-          key: `${dateStr}-${customer.id}`,
-          date: dateStr,
+        groups.set(key, {
+          key,
+          date: dateKey ? formatDateVi(dateKey) : 'Không xác định',
           items: [customer],
         });
       }
     }
 
-    return groups;
+    return Array.from(groups.values()).sort((a, b) => {
+      if (a.key === 'unknown') return b.key === 'unknown' ? 0 : 1;
+      if (b.key === 'unknown') return -1;
+      return b.key.localeCompare(a.key);
+    });
   }, [customers]);
 
 
@@ -350,7 +355,7 @@ const CustomerManagementPage: React.FC = () => {
     try {
       const XLSX = await import('xlsx');
       setExportingExcel(true);
-      const rows = await getCustomersForExport(debouncedSearch, selectedDepts, [], undefined);
+      const rows = await getCustomersForExport(debouncedSearch, selectedDepts, [], undefined, registrationDate);
 
       if (rows.length === 0) {
         showToast('Không có khách hàng nào khớp bộ lọc để xuất.', 'error');
@@ -695,6 +700,34 @@ const CustomerManagementPage: React.FC = () => {
               )}
             </div>
             )}
+            <div className="flex min-w-0 items-center gap-2">
+              <label htmlFor="customer-registration-date" className="whitespace-nowrap text-[11px] font-semibold text-muted-foreground sm:text-xs">
+                Ngày đăng ký
+              </label>
+              <input
+                id="customer-registration-date"
+                type="date"
+                value={registrationDate}
+                onChange={(event) => {
+                  setRegistrationDate(event.target.value);
+                  setCurrentPage(1);
+                }}
+                className="min-h-11 w-[9.5rem] rounded-xl border border-border bg-background px-2 text-xs text-foreground shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 sm:w-auto"
+              />
+              {registrationDate && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRegistrationDate('');
+                    setCurrentPage(1);
+                  }}
+                  className="min-h-11 rounded-xl border border-border px-3 text-xs font-bold text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                  aria-label="Xóa bộ lọc ngày đăng ký"
+                >
+                  Xóa
+                </button>
+              )}
+            </div>
             <div className="flex items-center gap-1.5 sm:gap-2 ml-auto shrink-0">
               <span className="text-[11px] sm:text-[13px] font-semibold text-foreground whitespace-nowrap">Số khách hàng</span>
               <span className="text-base sm:text-xl font-black tabular-nums text-primary">
@@ -867,7 +900,9 @@ const CustomerManagementPage: React.FC = () => {
             </div>
           ) : (
             <div className="px-3 py-8 text-center text-foreground text-[13px]">
-              Chưa có khách hàng nào được tìm thấy.
+              {registrationDate
+                ? `Không có khách hàng đăng ký ngày ${formatDateVi(registrationDate)}.`
+                : 'Chưa có khách hàng nào được tìm thấy.'}
             </div>
           )}
         </div>
@@ -939,6 +974,8 @@ const CustomerManagementPage: React.FC = () => {
                     <td colSpan={12} className="px-4 py-8 text-center text-foreground">
                       {rlsBlocked
                         ? 'Không đọc được khách hàng — xem hướng dẫn sửa RLS phía trên.'
+                      : registrationDate
+                        ? `Không có khách hàng đăng ký ngày ${formatDateVi(registrationDate)}.`
                         : searchQuery || selectedDepts.length > 0
                           ? 'Không tìm thấy khách hàng nào khớp với điều kiện tìm kiếm.'
                           : 'Chưa có khách hàng nào trong hệ thống.'}

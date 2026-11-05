@@ -77,13 +77,19 @@ export type CustomerQueryFilters = {
   p_scope?: string | null;
   p_plate?: string | null;
   p_phone?: string | null;
+  p_registration_date?: string | null;
 };
 export async function queryCustomers(filters: CustomerQueryFilters, page = 1, limit = 50, signal?: AbortSignal): Promise<{ data: KhachHang[]; totalCount: number }> {
   // Short numeric (e.g. "32821") must not use PostgREST `ILIKE '%digits%'` on
   // khach_hang: that path cannot use reverse(app_plate) indexes and timed out
   // as "Máy chủ phản hồi chậm" on the customer list. customers_query RPC is
   // SECURITY DEFINER and uses the plate-suffix index + code match.
-  const { data, error } = await readRequest('customers_query', s => supabase.rpc('customers_query', { ...filters, p_page: page, p_limit: limit }).abortSignal(s), signal);
+  const { data, error } = await readRequest('customers_query', s => supabase.rpc('customers_query', {
+    ...filters,
+    p_page: page,
+    p_limit: limit,
+    p_registration_date: filters.p_registration_date ?? null,
+  }).abortSignal(s), signal);
   if (error) throw error;
   return data;
 }

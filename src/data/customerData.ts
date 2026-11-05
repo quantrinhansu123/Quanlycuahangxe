@@ -74,11 +74,11 @@ export async function diagnoseKhachHangAccess(): Promise<'ok' | 'empty' | 'rls_b
 
 export const getCustomersForSelect = (branchScope?: string) => queryAllCustomers({ p_scope: branchScope });
 
-export const getCustomersPaginated = (page: number, pageSize: number, searchQuery?: string, depts?: string[], cycles?: number[], branchScope?: string, signal?: AbortSignal) =>
-  queryCustomers({ p_search: searchQuery, p_branches: depts, p_cycles: cycles, p_scope: branchScope }, page, pageSize, signal);
+export const getCustomersPaginated = (page: number, pageSize: number, searchQuery?: string, depts?: string[], cycles?: number[], branchScope?: string, signal?: AbortSignal, registrationDate?: string) =>
+  queryCustomers({ p_search: searchQuery, p_branches: depts, p_cycles: cycles, p_scope: branchScope, p_registration_date: registrationDate || null }, page, pageSize, signal);
 
-export const getCustomersForExport = (searchQuery?: string, depts?: string[], cycles?: number[], branchScope?: string) =>
-  queryAllCustomers({ p_search: searchQuery, p_branches: depts, p_cycles: cycles, p_scope: branchScope });
+export const getCustomersForExport = (searchQuery?: string, depts?: string[], cycles?: number[], branchScope?: string, registrationDate?: string) =>
+  queryAllCustomers({ p_search: searchQuery, p_branches: depts, p_cycles: cycles, p_scope: branchScope, p_registration_date: registrationDate || null });
 
 /** ID khách đã có từ lỗi trigger check_customer_identity (trùng SĐT + biển số). */
 export function parseDuplicateCustomerId(error: unknown): string | null {

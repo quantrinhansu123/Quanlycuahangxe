@@ -9,6 +9,7 @@ const dateMigration = await readFile(new URL('../supabase/migrations/20260909000
 const searchMigration = await readFile(new URL('../supabase/migrations/202609100001_sales_search_timeout.sql', import.meta.url), 'utf8');
 const shortNumericSearchMigration = await readFile(new URL('../supabase/migrations/202609100002_short_numeric_sales_search.sql', import.meta.url), 'utf8');
 const customerSearchMigration = await readFile(new URL('../supabase/migrations/202609110001_customer_search_timeout.sql', import.meta.url), 'utf8');
+const customerRegistrationDateMigration = await readFile(new URL('../supabase/migrations/202611050001_customer_registration_date_filter.sql', import.meta.url), 'utf8');
 const db = new PGlite();
 // Use the actual table definitions, excluding unrelated policies/triggers.
 for (const file of ['khach_hang', 'the_ban_hang', 'the_ban_hang_ct', 'dich_vu', 'nhan_su']) {
@@ -23,6 +24,12 @@ await db.exec(`
  ('00000000-0000-0000-0000-000000000002', 'KH2', 'Đinh Thị Thiều', '+84 392 251 537', '27AZ-99999', 'Bắc Ninh'),
  ('00000000-0000-0000-0000-000000000003', 'KH3', '---', '0984 050 141', '98A-12345', 'Bắc Giang'),
  ('00000000-0000-0000-0000-000000000004', 'KH4', 'Đinh Thị Thiều', '0987654321', '98A-11111', 'Bắc Giang');
+ UPDATE khach_hang SET ngay_dang_ky = CASE ma_khach_hang
+   WHEN 'KH1' THEN DATE '2026-11-05'
+   WHEN 'KH2' THEN DATE '2025-12-09'
+   WHEN 'KH3' THEN DATE '2026-11-05'
+   WHEN 'KH4' THEN DATE '2026-11-04'
+ END;
  INSERT INTO nhan_su(ho_ten, id_nhan_su, vi_tri, co_so) VALUES ('An', 'NV1', 'quản lý', 'Bắc Ninh'), ('Anh', 'NV2', 'kỹ thuật viên', 'Bắc Giang');
  INSERT INTO the_ban_hang(id, id_bh, ngay, gio, khach_hang_id, nhan_vien_id, so_km, tong_tien)
  SELECT ('00000000-0000-0000-0001-' || lpad(n::text, 12, '0'))::uuid, 'BH-' || n, '2026-09-07', '10:03', CASE WHEN n % 2 = 0 THEN 'KH1' ELSE '00000000-0000-0000-0000-000000000001' END,
@@ -37,16 +44,37 @@ await db.exec(dateMigration);
 await db.exec(searchMigration);
 await db.exec(shortNumericSearchMigration);
 await db.exec(customerSearchMigration);
+await db.exec(`
+  CREATE SCHEMA app_private;
+  ALTER FUNCTION public.customers_query(text, text[], integer[], text, integer, integer, text, text) SET SCHEMA app_private;
+  CREATE FUNCTION public.current_app_nhan_su_uuid() RETURNS uuid LANGUAGE sql AS 'SELECT NULL::uuid';
+  CREATE FUNCTION public.app_is_service_request() RETURNS boolean LANGUAGE sql AS 'SELECT true';
+  CREATE FUNCTION public.app_mask_customer_phone(value jsonb) RETURNS jsonb LANGUAGE sql AS 'SELECT value';
+`);
+await db.exec(customerRegistrationDateMigration);
+await db.exec(customerRegistrationDateMigration);
 const sales = async (args = {}) => {
   const keys = Object.keys(args);
   const { rows } = await db.query(`SELECT sales_query(${keys.map((k, i) => `${k} => $${i + 1}`).join(', ')}) result`, Object.values(args));
   return rows[0].result;
 };
 const customers = async (args = {}) => {
-  const keys = Object.keys(args);
-  const { rows } = await db.query(`SELECT customers_query(${keys.map((k, i) => `${k} => $${i + 1}`).join(', ')}) result`, Object.values(args));
+  const queryArgs = { p_registration_date: null, ...args };
+  const keys = Object.keys(queryArgs);
+  const { rows } = await db.query(`SELECT public.customers_query(${keys.map((k, i) => `${k} => $${i + 1}`).join(', ')}) result`, Object.values(queryArgs));
   return rows[0].result;
 };
+
+test('customer date filter is server-side and registration-date groups sort newest first', async () => {
+  const all = await customers({ p_limit: 20 });
+  assert.deepEqual(all.data.map((customer) => customer.ngay_dang_ky), [
+    '2026-11-05', '2026-11-05', '2026-11-04', '2025-12-09',
+  ]);
+
+  const oneDay = await customers({ p_registration_date: '2026-11-05', p_limit: 20 });
+  assert.equal(oneDay.totalCount, 2);
+  assert.deepEqual(oneDay.data.map((customer) => customer.ngay_dang_ky), ['2026-11-05', '2026-11-05']);
+});
 
 test('search pushdown matches previous RPC for plates, names, phones and empty searches', async () => {
   const cases = ['27az04620', '04620', 'dinh thieu', '0392251537', 'KH1', 'BH-1', '(),%_', '', null];
@@ -185,7 +213,7 @@ test('migration is idempotent and does not change existing rows', async () => {
 });
 test('branch catalog: create, legacy data, customer/save filters, normalized duplicates and role checks', async () => {
   await db.exec(`CREATE ROLE anon; CREATE ROLE authenticated;
-    CREATE FUNCTION current_app_nhan_su_uuid() RETURNS uuid LANGUAGE sql AS
+    CREATE OR REPLACE FUNCTION current_app_nhan_su_uuid() RETURNS uuid LANGUAGE sql AS
     'SELECT nullif(current_setting(''app.test_user'', true), '''')::uuid';`);
   const branchMigration = await readFile(new URL('../supabase/migrations/202609080002_branch_catalog.sql', import.meta.url), 'utf8');
   await db.exec(branchMigration);
