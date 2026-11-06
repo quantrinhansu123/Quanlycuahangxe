@@ -1424,7 +1424,7 @@ const RevenueReportPage: React.FC = () => {
 
   return (
     <ReportDrillContext.Provider value={setDrillScope}>
-    {drillScope && <ReportOrdersModal scope={drillScope} records={drillRecords} onClose={closeDrill} />}
+    {drillScope && <ReportOrdersModal scope={drillScope} records={drillRecords} personnel={personnelCatalog} onClose={closeDrill} />}
     <div className="w-full h-full flex flex-col p-4 lg:p-6 overflow-y-auto pt-8">
       <div className="w-full space-y-5 max-w-[1400px] mx-auto">
 

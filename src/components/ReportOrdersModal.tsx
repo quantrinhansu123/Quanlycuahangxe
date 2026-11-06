@@ -1,16 +1,19 @@
-import { ExternalLink, Loader2, ReceiptText, X } from 'lucide-react';
+import { ExternalLink, Loader2, ReceiptText, UserRound, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { loadReportOrderDetails, type ReportDrillScope, type ReportOrderDetail } from '../data/reportOrderDetails';
 import type { ReportCTRecords } from '../data/reportData';
+import type { NhanSu } from '../data/personnelData';
 import { getErrorDetails } from '../lib/errorDetails';
 import { formatDateVi } from '../utils/datetimeFormat';
 import { lineRevenue } from '../lib/businessReportMetrics';
+import { resolveSalesPersonnelTokens } from '../utils/salesPersonnel';
+import { branchLabel } from '../lib/branchCatalog';
 
 const money = (amount: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
 
-export default function ReportOrdersModal({ scope, records, onClose }: {
-  scope: ReportDrillScope; records: ReportCTRecords; onClose: () => void;
+export default function ReportOrdersModal({ scope, records, personnel, onClose }: {
+  scope: ReportDrillScope; records: ReportCTRecords; personnel: readonly NhanSu[]; onClose: () => void;
 }) {
   const [orders, setOrders] = useState<ReportOrderDetail[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,7 +74,22 @@ export default function ReportOrdersModal({ scope, records, onClose }: {
                       {order.ref ? <a href={`/ban-hang/phieu-ban-hang?${new URLSearchParams({ don: order.id || order.ref })}`} target="_blank" rel="noopener noreferrer"
                         title="Mở phiếu bán hàng gốc" className="inline-flex items-center gap-1 break-all font-semibold text-primary hover:underline">{order.code || order.ref}<ExternalLink size={14} className="shrink-0" /></a> : <span className="text-amber-700">Thiếu mã đơn</span>}
                       <p className="mt-1 break-words font-medium">{order.customer || 'Chưa có tên khách'}{order.time ? ` · ${order.time.slice(0, 5)}` : ''}</p>
-                      {order.staff && <p className="mt-1 break-words text-xs text-muted-foreground">{order.staff}</p>}
+                      {order.staff && (() => {
+                        const staff = resolveSalesPersonnelTokens(order.staff, personnel);
+                        const metadata = staff.map(person => [
+                          person.vi_tri,
+                          person.co_so ? branchLabel(person.co_so) : '',
+                        ].filter(Boolean).join(' · ')).filter(Boolean);
+                        return (
+                          <div className="mt-2 flex min-w-0 items-start gap-1.5 text-xs" aria-label="Nhân viên phụ trách đơn hàng">
+                            <UserRound size={14} aria-hidden="true" className="mt-0.5 shrink-0 text-primary" />
+                            <div className="min-w-0">
+                              <p className="break-words"><span className="font-medium text-foreground">Nhân viên phụ trách:</span> <span className="text-muted-foreground">{staff.map(person => person.ho_ten).join(', ')}</span></p>
+                              {!!metadata.length && <p className="mt-0.5 break-words text-muted-foreground">{metadata.join(' / ')}</p>}
+                            </div>
+                          </div>
+                        );
+                      })()}
                       {!order.id && <p className="mt-1 text-xs text-amber-700">Chưa tìm thấy phiếu gốc</p>}
                     </div>
                     <strong className="whitespace-nowrap tabular-nums">{money(order.revenue)}</strong>
