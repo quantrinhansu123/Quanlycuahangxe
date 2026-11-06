@@ -8,10 +8,8 @@ import { useToast } from '../context/toast';
 import {
   formatAttendanceSaveError,
   createAttendanceRecord,
-  getAttendancePaginated,
-  getAttendanceRecord,
   getAllAttendanceRecords,
-  getNextAttendanceId,
+  getCanonicalOpenAttendanceRecords,
   getStaffAttendanceNameVariants,
   resolveStaffNameForUser,
   upsertAttendanceRecord,
@@ -40,6 +38,8 @@ const AddAttendancePage: React.FC = () => {
   const [personnel, setPersonnel] = useState<NhanSu[]>([]);
   const [loading, setLoading] = useState(true);
   const [initializationError, setInitializationError] = useState<string | null>(null);
+  const [hasConflictingOpenShifts, setHasConflictingOpenShifts] = useState(false);
+  const [conflictSyncFailed, setConflictSyncFailed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState<Partial<AttendanceRecord>>({});
   const [showDetailView, setShowDetailView] = useState<'total' | 'late' | 'overtime' | null>(null);
@@ -48,24 +48,29 @@ const AddAttendancePage: React.FC = () => {
   // Monthly records for stats
   const [monthlyRecords, setMonthlyRecords] = useState<AttendanceRecord[]>([]);
   const [locationLoading, setLocationLoading] = useState(false);
-  const watchIdRef = useRef<number | null>(null);
   const submittingRef = useRef(false);
   const initializationRequest = useRef(0);
+  const lastFocusRefresh = useRef(0);
+  const conflictSyncFailedRef = useRef(false);
+  const lastAttendanceLoadErrorRef = useRef<string | null>(null);
 
-  const loadInitialData = useCallback(async () => {
+  const loadInitialData = useCallback(async (extraStaffNames: string[] = [], requestedDay?: string): Promise<boolean> => {
     const request = ++initializationRequest.current;
     setLoading(true);
     setInitializationError(null);
+    lastAttendanceLoadErrorRef.current = null;
     try {
       const personnelData = await getPersonnel();
-      const todayStr = formatLocalIsoDate();
+      const todayStr = requestedDay || formatLocalIsoDate();
       const staffName = resolveStaffNameForUser(nhanVien, personnelData);
-      const staffNames = getStaffAttendanceNameVariants(nhanVien, personnelData);
       const fallbackName = staffName || nhanVien?.ho_ten || 'Tài khoản đăng nhập';
-      const autoId = await getNextAttendanceId();
+      const staffNames = [...new Set([
+        ...getStaffAttendanceNameVariants(nhanVien, personnelData),
+        fallbackName,
+        ...extraStaffNames,
+      ].map(name => name.trim()).filter(Boolean))];
 
       let currentRecord: Partial<AttendanceRecord> = {
-        id_cham_cong: autoId,
         nhan_su: fallbackName,
         ngay: todayStr,
         checkin: null,
@@ -74,72 +79,91 @@ const AddAttendancePage: React.FC = () => {
         anh: null
       };
 
-      const { data } = await getAttendancePaginated(1, 1, staffNames, '', {
+      let todayRows = await getAllAttendanceRecords(staffNames, '', {
         startDate: todayStr,
         endDate: todayStr
       });
+      let openRows = todayRows.filter(row => row.checkin && !row.checkout);
+      if (openRows.length === 0 && staffNames.length > 0) {
+        // Use the same canonical identity as the database write guard. A failed
+        // RPC must stay an error; treating a missing/blocked function as [] can
+        // hide the exact open row that caused a 409.
+        const canonicalOpenRows = await getCanonicalOpenAttendanceRecords(todayStr);
+        if (canonicalOpenRows.length > 0) {
+          const canonicalIds = new Set(canonicalOpenRows.map(row => row.id));
+          todayRows = [...canonicalOpenRows, ...todayRows.filter(row => !canonicalIds.has(row.id))];
+          openRows = canonicalOpenRows;
+        }
+      }
+      const hasMultipleOpenRows = openRows.length > 1;
+      const activeOrNewestRow = openRows[0] || todayRows[0];
 
-      if (data.length > 0) {
-        // Read the newest row's photo/history only after the compact status query succeeds.
-        currentRecord = await getAttendanceRecord(data[0].id);
+      if (activeOrNewestRow) {
+        // Check-in/out state is already in the compact row. Keep the state
+        // machine independent from optional detail/photo reads.
+        currentRecord = activeOrNewestRow;
       }
 
+      if (request !== initializationRequest.current) return false;
+      const hasOpenShift = openRows.length > 0;
+      if (hasOpenShift) conflictSyncFailedRef.current = false;
+      const unresolvedConflict = conflictSyncFailedRef.current && !hasOpenShift;
+      setPersonnel(personnelData);
+      setFormData(currentRecord);
+      setConflictSyncFailed(unresolvedConflict);
+      setHasConflictingOpenShifts(hasMultipleOpenRows || unresolvedConflict);
+
+      // A slow or failed month-statistics request must never discard today's
+      // check-in/out state, especially after the server rejects a stale punch.
       const now = new Date();
       const monthStart = formatLocalIsoDate(new Date(now.getFullYear(), now.getMonth(), 1));
       const monthEnd = formatLocalIsoDate(new Date(now.getFullYear(), now.getMonth() + 1, 0));
-      const monthData = await getAllAttendanceRecords(staffNames, '', {
+      void getAllAttendanceRecords(staffNames, '', {
         startDate: monthStart,
         endDate: monthEnd
+      }).then(monthData => {
+        if (request === initializationRequest.current) setMonthlyRecords(monthData);
+      }).catch(statsError => {
+        console.warn('Không thể tải thống kê chấm công tháng:', statsError);
       });
-
-      if (request !== initializationRequest.current) return;
-      setPersonnel(personnelData);
-      setFormData(currentRecord);
-      setMonthlyRecords(monthData);
+      return hasOpenShift;
     } catch (err) {
       if (request === initializationRequest.current) {
         console.error('Lỗi khởi tạo AddAttendancePage:', err);
-        setInitializationError(formatAttendanceSaveError(err));
+        const message = formatAttendanceSaveError(err);
+        lastAttendanceLoadErrorRef.current = message;
+        setInitializationError(message);
       }
+      return false;
     } finally {
       if (request === initializationRequest.current) {
         setLoading(false);
-        setTimeout(() => getLocation(), 500);
       }
     }
   }, [nhanVien]);
 
   useEffect(() => {
+    lastFocusRefresh.current = Date.now();
     void loadInitialData();
+    const refreshWhenVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      const now = Date.now();
+      if (now - lastFocusRefresh.current < 1000) return;
+      lastFocusRefresh.current = now;
+      void loadInitialData();
+    };
+    window.addEventListener('focus', refreshWhenVisible);
+    window.addEventListener('pageshow', refreshWhenVisible);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    return () => {
+      initializationRequest.current++;
+      window.removeEventListener('focus', refreshWhenVisible);
+      window.removeEventListener('pageshow', refreshWhenVisible);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
   }, [loadInitialData]);
 
-  // Auto-track location via watchPosition
-  useEffect(() => {
-    if (!("geolocation" in navigator)) return;
-
-    watchIdRef.current = navigator.geolocation.watchPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        setFormData(prev => ({
-          ...prev,
-          vi_tri: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`
-        }));
-        setLocationLoading(false);
-      },
-      (error) => {
-        logGeolocationError('watchPosition chấm công', error);
-        setLocationLoading(false);
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
-    );
-
-    return () => {
-      if (watchIdRef.current !== null) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
-      }
-    };
-  }, []);
-
+  // Location is optional; never request GPS in the background during check-in.
   const getLocation = () => {
     if (!("geolocation" in navigator)) {
       console.warn("Trình duyệt không hỗ trợ định vị.");
@@ -153,9 +177,11 @@ const AddAttendancePage: React.FC = () => {
           ...prev,
           vi_tri: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`
         }));
+        setLocationLoading(false);
       },
       (error) => {
         logGeolocationError('getCurrentPosition chấm công', error);
+        setLocationLoading(false);
       },
       { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
     );
@@ -169,9 +195,6 @@ const AddAttendancePage: React.FC = () => {
         setFormData(prev => ({ ...prev, anh: reader.result as string }));
       };
       reader.readAsDataURL(file);
-      if (!formData.vi_tri) {
-        getLocation();
-      }
     }
   };
 
@@ -202,8 +225,8 @@ const AddAttendancePage: React.FC = () => {
     const now = formatTime24h(new Date(), false);
 
     try {
-      if (type === 'checkin' && hasCheckin && hasCheckout) {
-        // Lượt làm mới chỉ bắt đầu sau khi lượt trước đã có đủ giờ vào/ra.
+      if (type === 'checkin' && ((!hasCheckin && !formData.id) || (hasCheckin && hasCheckout))) {
+        // Insert a new row only for the first punch or after the previous pair is complete.
         const savedRecord = await createAttendanceRecord({
           nhan_su: formData.nhan_su || '',
           ngay: formData.ngay || formatLocalIsoDate(),
@@ -240,7 +263,39 @@ const AddAttendancePage: React.FC = () => {
         showToast('Cập nhật chấm công thành công', 'success');
       }
     } catch (error: unknown) {
-      showToast(`Không thể lưu chấm công: ${formatAttendanceSaveError(error)}`, 'error');
+      const isConflict = error && typeof error === 'object' && (
+        ('code' in error && error.code === '23505') ||
+        ('status' in error && error.status === 409) ||
+        ('statusCode' in error && error.statusCode === 409) ||
+        ('message' in error && /đã chấm giờ vào|already checked in|duplicate key/i.test(String(error.message)))
+      );
+      if (isConflict) {
+        conflictSyncFailedRef.current = true;
+        setConflictSyncFailed(true);
+        setHasConflictingOpenShifts(true);
+        const failedPunchStaffName = formData.nhan_su?.trim();
+        const failedPunchDay = formData.ngay?.slice(0, 10) || formatLocalIsoDate();
+        const hasOpenShift = await loadInitialData(
+          failedPunchStaffName ? [failedPunchStaffName] : [],
+          failedPunchDay
+        );
+        if (hasOpenShift) {
+          showToast('Đã đồng bộ lượt chấm công đang mở. Hãy chấm giờ ra trước khi bắt đầu lượt mới.', 'warning');
+        } else {
+          conflictSyncFailedRef.current = true;
+          setConflictSyncFailed(true);
+          setHasConflictingOpenShifts(true);
+          const readFailure = lastAttendanceLoadErrorRef.current;
+          showToast(
+            readFailure
+              ? `Không thể tải trạng thái chấm công sau xung đột: ${readFailure}`
+              : 'Máy chủ báo đã có lượt giờ vào nhưng truy vấn trạng thái không trả về lượt đó. Đã khóa chấm giờ vào; hãy tải lại trạng thái.',
+            'error'
+          );
+        }
+      } else {
+        showToast(`Không thể lưu chấm công: ${formatAttendanceSaveError(error)}`, 'error');
+      }
     } finally {
       submittingRef.current = false;
       setSubmitting(false);
@@ -363,6 +418,17 @@ const AddAttendancePage: React.FC = () => {
                 className="min-h-11 shrink-0 rounded-lg border border-red-300 bg-white px-4 font-semibold text-red-800 disabled:opacity-50"
               >
                 {loading ? 'Đang tải...' : 'Thử tải lại'}
+              </button>
+            </div>
+          )}
+
+          {hasConflictingOpenShifts && !initializationError && (
+            <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+              {conflictSyncFailed
+                ? 'Máy chủ báo đã có lượt giờ vào nhưng trang chưa tải được lượt đó. Đã khóa chấm giờ vào để tránh tạo lượt trùng; hãy tải lại trạng thái hoặc nhờ quản lý đối chiếu.'
+                : 'Có nhiều lượt giờ vào chưa có giờ ra. Tạm khóa chấm để tránh ghi sai; vui lòng nhờ quản lý đối chiếu.'}
+              <button type="button" onClick={() => void loadInitialData()} disabled={loading} className="ml-2 font-bold underline disabled:opacity-50">
+                {loading ? 'Đang tải...' : 'Tải lại trạng thái'}
               </button>
             </div>
           )}
@@ -596,7 +662,7 @@ const AddAttendancePage: React.FC = () => {
                       return (
                         <button
                           type="button"
-                          disabled={submitting || Boolean(initializationError)}
+                          disabled={loading || submitting || Boolean(initializationError) || hasConflictingOpenShifts}
                           onClick={() => handleQuickSubmit(nextAction)}
                           className={`w-full py-4 rounded-xl text-lg font-bold text-white ${nextActionIsCheckin ? 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/30' : 'bg-orange-500 hover:bg-orange-600 shadow-orange-500/30'} shadow-lg transition-all active:scale-95 flex flex-col items-center justify-center gap-1 disabled:opacity-50`}
                         >
@@ -613,7 +679,7 @@ const AddAttendancePage: React.FC = () => {
                       return (
                         <button
                           type="button"
-                          disabled={submitting || Boolean(initializationError)}
+                          disabled={loading || submitting || Boolean(initializationError) || hasConflictingOpenShifts}
                           onClick={() => handleQuickSubmit(nextAction)}
                           className={`w-full py-4 rounded-xl text-lg font-bold text-white ${nextActionIsCheckin ? 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/30' : 'bg-orange-500 hover:bg-orange-600 shadow-orange-500/30'} shadow-lg transition-all active:scale-95 flex flex-col items-center justify-center gap-1 disabled:opacity-50`}
                         >
@@ -629,25 +695,19 @@ const AddAttendancePage: React.FC = () => {
                     // Ngoài khung giờ auto hoặc giờ nghỉ trưa
                     return (
                       <div className="space-y-3">
-                        <p className="text-[12px] text-center text-muted-foreground font-bold italic mb-1">Hiện tại ngoài khung giờ tự động, vui lòng chọn thủ công:</p>
-                        <div className="grid grid-cols-2 gap-3">
-                          <button
-                            type="button"
-                            disabled={submitting || Boolean(initializationError)}
-                            onClick={() => handleQuickSubmit('checkin')}
-                            className="py-3 rounded-xl text-[14px] font-bold text-white bg-emerald-500 hover:bg-emerald-600 shadow-md transition-all active:scale-95 disabled:opacity-50"
-                          >
-                            CHẤM GIỜ VÀO
-                          </button>
-                          <button
-                            type="button"
-                            disabled={submitting || Boolean(initializationError)}
-                            onClick={() => handleQuickSubmit('checkout')}
-                            className="py-3 rounded-xl text-[14px] font-bold text-white bg-orange-500 hover:bg-orange-600 shadow-md transition-all active:scale-95 disabled:opacity-50"
-                          >
-                            CHẤM GIỜ RA
-                          </button>
-                        </div>
+                        <p className="text-[12px] text-center text-muted-foreground font-bold italic mb-1">Hiện tại ngoài khung giờ tự động:</p>
+                        <button
+                          type="button"
+                          disabled={loading || submitting || Boolean(initializationError) || hasConflictingOpenShifts}
+                          onClick={() => handleQuickSubmit(nextAction)}
+                          className={`w-full py-4 rounded-xl text-lg font-bold text-white ${nextActionIsCheckin ? 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-500/30' : 'bg-orange-500 hover:bg-orange-600 shadow-orange-500/30'} shadow-lg transition-all active:scale-95 flex flex-col items-center justify-center gap-1 disabled:opacity-50`}
+                        >
+                          <div className="flex items-center gap-2">
+                            {submitting ? <Loader2 className="animate-spin" /> : <Clock size={24} />}
+                            <span>{nextActionIsCheckin ? 'CHẤM GIỜ VÀO' : 'CHẤM GIỜ RA'}</span>
+                          </div>
+                          <span className="text-[11px] font-medium opacity-80">{nextActionIsCheckin ? 'Chỉ mở sau khi lượt trước đã chấm giờ ra' : 'Đang có lượt giờ vào chưa chấm giờ ra'}</span>
+                        </button>
                       </div>
                     );
                   })()}

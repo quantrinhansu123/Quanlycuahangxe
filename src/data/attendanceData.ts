@@ -65,6 +65,9 @@ export function getStaffAttendanceNameVariants(
     if (t) names.add(t);
   };
   add(nhanVien.ho_ten);
+  // `attendance_person_key` also resolves records stored under this key when
+  // the personnel lookup cannot map the signed-in user back to `nhan_su`.
+  add(nhanVien.id);
   add(me?.ho_ten);
   add(nhanVien.id_nhan_su);
   add(me?.id_nhan_su);
@@ -434,6 +437,21 @@ export const getAllAttendanceRecords = async (
 
   return allRows;
 };
+
+/** Open shift resolved from the verified app session, using the DB guard's identity key. */
+export async function getCanonicalOpenAttendanceRecords(
+  day: string,
+  signal?: AbortSignal,
+): Promise<AttendanceListRecord[]> {
+  const { data, error } = await readRequest('attendance_open_status', s => supabase
+    .rpc('get_open_attendance_for_staff', { p_staff_names: [], p_day: day })
+    .abortSignal(s), signal);
+  if (error) {
+    throw error;
+  }
+  const rows = (data as { attendance: AttendanceListRecord }[] | null) || [];
+  return rows.map(row => row.attendance);
+}
 
 export async function addManualAttendance(input: {
   person: string; day: string; shift: 'morning' | 'afternoon' | 'full';

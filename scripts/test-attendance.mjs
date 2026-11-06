@@ -28,10 +28,17 @@ const migration = await readFile(new URL('../supabase/migrations/202609090003_at
 await db.exec(migration);
 const openShiftGuardMigration = await readFile(new URL('../supabase/migrations/202611040001_attendance_open_shift_guard.sql', import.meta.url), 'utf8');
 await db.exec(openShiftGuardMigration);
+const openShiftEnforcementMigration = await readFile(new URL('../supabase/migrations/202611060001_attendance_open_shift_enforcement.sql', import.meta.url), 'utf8');
+await db.exec('DROP TRIGGER attendance_interval_guard ON public.cham_cong');
+await db.exec(openShiftEnforcementMigration);
 const fullDayFallbackMigration = await readFile(new URL('../supabase/migrations/202609160001_attendance_full_day_fallback.sql', import.meta.url), 'utf8');
 await db.exec(fullDayFallbackMigration);
 const attendanceSettingsMigration = await readFile(new URL('../supabase/migrations/202609160002_attendance_settings.sql', import.meta.url), 'utf8');
 await db.exec(attendanceSettingsMigration);
+const openAttendanceStatusMigration = await readFile(new URL('../supabase/migrations/202611060002_attendance_open_status_lookup.sql', import.meta.url), 'utf8');
+await db.exec(openAttendanceStatusMigration);
+const openAttendanceStatusRlsMigration = await readFile(new URL('../supabase/migrations/202611060003_attendance_open_status_rls.sql', import.meta.url), 'utf8');
+await db.exec(openAttendanceStatusRlsMigration);
 const manual = (day, shift = 'morning', start = '08:30', end = '12:00', note = 'Quên chấm công') => db.query(
   `SELECT * FROM add_manual_attendance('00000000-0000-0000-0000-000000000002', $1, $2, $3, $4, $5)`, [day, shift, start, end, note]);
 const credit = async day => Number((await db.query(`SELECT attendance_day_credit('NV2', $1) n`, [day])).rows[0].n);
@@ -106,6 +113,64 @@ test('regular check-ins reject a second open/overlapping shift while allowing a 
   assert.equal((await db.query(`SELECT count(*) n FROM cham_cong WHERE ngay='2026-09-26'`)).rows[0].n, 2,
     'A valid earlier closed shift remains allowed alongside a later open shift');
 });
+test('simultaneous check-in attempts from two devices open only one shift', async () => {
+  const attempts = await Promise.allSettled([
+    db.query(`INSERT INTO cham_cong(nhan_su,ngay,checkin) VALUES('NV2','2026-09-27','08:30')`),
+    db.query(`INSERT INTO cham_cong(nhan_su,ngay,checkin) VALUES('Nhân viên','2026-09-27','08:31')`),
+  ]);
+  assert.equal(attempts.filter(result => result.status === 'fulfilled').length, 1);
+  const rejected = attempts.find(result => result.status === 'rejected');
+  assert.equal(rejected.status, 'rejected');
+  assert.equal(rejected.reason.code, '23505');
+  assert.equal((await db.query(`SELECT count(*) n FROM cham_cong WHERE ngay='2026-09-27'`)).rows[0].n, 1);
+});
+test('open-status RPC resolves a padded legacy name through the database employee key', async () => {
+  const day = '2026-09-28';
+  await db.exec(`SET test.actor = '00000000-0000-0000-0000-000000000002'`);
+  await db.query(`INSERT INTO cham_cong(nhan_su,ngay,checkin,checkout) VALUES
+    ('NV2',$1,'08:30','12:00'), (' NV2 ',$1,'13:01',NULL)`, [day]);
+
+  const { rows } = await db.query(
+    `SELECT attendance FROM get_open_attendance_for_staff($1::text[],$2::date)`,
+    [[], day]
+  );
+  assert.equal(rows.length, 1, 'The RPC returns exactly the open shift, not the earlier closed shift');
+  assert.equal(rows[0].attendance.nhan_su, ' NV2 ');
+  assert.equal(rows[0].attendance.checkin, '13:01:00');
+  assert.equal(rows[0].attendance.checkout, null);
+  await db.exec(`SET test.actor = '00000000-0000-0000-0000-000000000001'`);
+  assert.equal((await db.query(
+    `SELECT count(*) n FROM get_open_attendance_for_staff($1::text[],$2::date)`,
+    [[], day]
+  )).rows[0].n, 0, 'A different employee cannot see this open shift');
+  await db.exec(`SET test.actor = '00000000-0000-0000-0000-000000000001'`);
+});
+test('open-status RPC still returns the conflicting shift when RLS hides direct attendance reads', async () => {
+  const day = '2026-09-29';
+  await db.query(`INSERT INTO cham_cong(nhan_su,ngay,checkin) VALUES('NV2',$1,'08:30')`, [day]);
+  await db.exec(`ALTER TABLE cham_cong ENABLE ROW LEVEL SECURITY;
+    GRANT SELECT ON cham_cong TO anon;
+    CREATE POLICY attendance_select_hidden_test ON cham_cong FOR SELECT TO anon USING (false);
+    SET ROLE anon;`);
+  const hidden = await db.query(`SELECT count(*)::int AS n FROM cham_cong WHERE ngay=$1`, [day]);
+  assert.equal(hidden.rows[0].n, 0, 'RLS hides the direct row from the caller');
+  await db.exec(`SET test.actor = ''`);
+  await assert.rejects(
+    db.query(`SELECT attendance FROM get_open_attendance_for_staff($1::text[],$2::date)`, [[], day]),
+    { code: '28000' },
+    'The definer RPC rejects calls without a verified app session'
+  );
+  await db.exec(`SET test.actor = '00000000-0000-0000-0000-000000000002'`);
+  const visible = await db.query(
+    `SELECT attendance FROM get_open_attendance_for_staff($1::text[],$2::date)`,
+    [[], day]
+  );
+  assert.equal(visible.rows.length, 1, 'The narrow status RPC reads the row that caused the write guard to reject');
+  assert.equal(visible.rows[0].attendance.checkin, '08:30:00');
+  await db.exec(`RESET ROLE; ALTER TABLE cham_cong DISABLE ROW LEVEL SECURITY;
+    DROP POLICY attendance_select_hidden_test ON cham_cong;`);
+  await db.exec(`SET test.actor = '00000000-0000-0000-0000-000000000001'`);
+});
 test('full day creates two shifts; repeat cannot duplicate; transaction rolls back earlier morning', async () => {
   assert.equal((await manual('2026-09-11', 'full')).rows.length, 2);
   assert.equal(await credit('2026-09-11'), 1);
@@ -155,8 +220,11 @@ test('migration reruns without deleting attendance', async () => {
   const before = await db.query('SELECT count(*) n FROM cham_cong');
   await db.exec(migration);
   await db.exec(openShiftGuardMigration);
+  await db.exec(openShiftEnforcementMigration);
   await db.exec(fullDayFallbackMigration);
   await db.exec(attendanceSettingsMigration);
+  await db.exec(openAttendanceStatusMigration);
+  await db.exec(openAttendanceStatusRlsMigration);
   assert.deepEqual(await db.query('SELECT count(*) n FROM cham_cong'), before);
 });
 

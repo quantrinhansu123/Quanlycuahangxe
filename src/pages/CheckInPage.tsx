@@ -25,10 +25,13 @@ const CheckInPage: React.FC = () => {
   const [selectedStaff, setSelectedStaff] = useState<NhanSu | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const saving = useRef(false);
+  const loadSequence = useRef(0);
+  const lastFocusRefresh = useRef(0);
   const [location, setLocation] = useState<{lat: number, lng: number} | null>(null);
   const [posError, setPosError] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
+    const request = ++loadSequence.current;
     try {
       setLoading(true);
       setLoadError(null);
@@ -36,21 +39,35 @@ const CheckInPage: React.FC = () => {
         getPersonnel(),
         getAllAttendanceRecords(undefined, '', { startDate: formatLocalIsoDate().slice(0, 7) + '-01', endDate: formatLocalIsoDate() })
       ]);
+      if (request !== loadSequence.current) return;
       setPersonnel(pData);
       setAttendance(aData);
     } catch (error) {
+      if (request !== loadSequence.current) return;
       console.error(error);
       const details = getErrorDetails(error).message;
       setLoadError(details
         ? `Không thể tải trạng thái chấm công: ${details}`
         : 'Không thể tải trạng thái chấm công. Vui lòng thử tải lại.');
     } finally {
-      setLoading(false);
+      if (request === loadSequence.current) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
+    lastFocusRefresh.current = Date.now();
     void loadData();
+    const refreshWhenVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      const now = Date.now();
+      if (now - lastFocusRefresh.current < 1000) return;
+      lastFocusRefresh.current = now;
+      void loadData();
+    };
+    window.addEventListener('focus', refreshWhenVisible);
+    window.addEventListener('pageshow', refreshWhenVisible);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+
     // Get location
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -66,6 +83,12 @@ const CheckInPage: React.FC = () => {
     } else {
       setPosError("Trình duyệt không hỗ trợ định vị.");
     }
+    return () => {
+      loadSequence.current++;
+      window.removeEventListener('focus', refreshWhenVisible);
+      window.removeEventListener('pageshow', refreshWhenVisible);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
   }, [loadData]);
 
   const handleCheckAction = async (type: 'in' | 'out') => {
@@ -122,6 +145,10 @@ const CheckInPage: React.FC = () => {
     const staff = personnel.find(p => staffNamesMatch(p.ho_ten, staffName));
     return [staffName, staff?.id, staff?.id_nhan_su].some(token => token && staffNamesMatch(row.nhan_su, token));
   };
+  const getOpenTodayRows = (staffName: string) => {
+    const today = formatLocalIsoDate();
+    return attendance.filter((row) => row.ngay === today && row.checkin && !row.checkout && belongsToStaff(row, staffName));
+  };
   const getTodayStatus = (staffName: string) => {
     const today = formatLocalIsoDate();
     const todayRows = attendance.filter((r: AttendanceRecord) => r.ngay === today && belongsToStaff(r, staffName));
@@ -137,6 +164,8 @@ const CheckInPage: React.FC = () => {
     }
     return [...byDay.values()].reduce((sum, rows) => sum + workDaysForDayShifts(rows, attendanceSettings), 0);
   };
+
+  const selectedOpenRows = selectedStaff ? getOpenTodayRows(selectedStaff.ho_ten) : [];
 
   return (
     <div className="flex-1 animate-in fade-in slide-in-from-bottom-4 duration-500 font-sans">
@@ -276,27 +305,33 @@ const CheckInPage: React.FC = () => {
                     </div>
 
                     {/* Buttons */}
+                    {selectedOpenRows.length > 1 && (
+                      <p role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+                        Nhân sự có {selectedOpenRows.length} lượt chưa chấm ra. Tạm khóa chấm tiếp; vui lòng nhờ quản lý đối chiếu các lượt đang mở.
+                      </p>
+                    )}
                     <div className="grid grid-cols-2 gap-6 pt-4">
                       <button
-                        disabled={submitting || loading || Boolean(loadError) || !location}
+                        disabled={submitting || loading || Boolean(loadError) || !location || selectedOpenRows.length > 0}
                         onClick={() => handleCheckAction('in')}
+                        aria-label={selectedOpenRows.length > 0 ? 'Đã chấm giờ vào, cần chấm giờ ra' : 'Chấm giờ vào'}
                         className="group relative h-16 bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-300 text-white rounded-2xl font-bold shadow-lg shadow-emerald-500/20 active:scale-95 transition-all overflow-hidden"
                       >
                         <div className="flex items-center justify-center gap-3 relative z-10">
                           {submitting ? <Loader2 className="animate-spin" /> : <Clock size={24} />}
-                          <span className="text-lg">CHẤM VÀO</span>
+                          <span className="text-sm leading-tight sm:text-lg">{selectedOpenRows.length > 0 ? 'ĐÃ CHẤM VÀO' : 'CHẤM VÀO'}</span>
                         </div>
                         <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
                       </button>
 
                       <button
-                        disabled={submitting || loading || Boolean(loadError) || !location}
+                        disabled={submitting || loading || Boolean(loadError) || !location || selectedOpenRows.length !== 1}
                         onClick={() => handleCheckAction('out')}
                         className="group relative h-16 bg-rose-500 hover:bg-rose-600 disabled:bg-slate-300 text-white rounded-2xl font-bold shadow-lg shadow-rose-500/20 active:scale-95 transition-all overflow-hidden"
                       >
                         <div className="flex items-center justify-center gap-3 relative z-10">
                           {submitting ? <Loader2 className="animate-spin" /> : <Clock size={24} />}
-                          <span className="text-lg">CHẤM RA</span>
+                          <span className="text-sm leading-tight sm:text-lg">CHẤM RA</span>
                         </div>
                         <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
                       </button>
