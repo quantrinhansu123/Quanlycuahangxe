@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import TopProgressBar from './components/ui/TopProgressBar';
 import ProtectedRoute from './components/layout/ProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -40,8 +40,9 @@ const ZaloOauthCallbackPage = lazy(() => import('./pages/ZaloOauthCallbackPage')
 
 
 function AppRoutes() {
+  const location = useLocation();
   return (
-    <ErrorBoundary>
+    <ErrorBoundary key={location.pathname}>
       <Suspense fallback={<TopProgressBar />}>
         <Routes>
           {/* Public route â€” khÃ´ng cáº§n login */}

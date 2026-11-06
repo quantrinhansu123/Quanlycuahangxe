@@ -6,6 +6,10 @@ import { ThemeProvider } from './context/ThemeContext'
 import { AuthProvider } from './context/AuthContext'
 import { ToastProvider } from './context/ToastContext'
 import { AttendanceSettingsProvider } from './context/AttendanceSettingsContext'
+import { installVitePreloadRecovery } from './lib/vitePreloadRecovery'
+
+installVitePreloadRecovery()
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <AuthProvider>

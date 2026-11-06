@@ -6,6 +6,8 @@ type State = { hasError: boolean; message: string };
 export class ErrorBoundary extends React.Component<Props, State> {
   state: State = { hasError: false, message: '' };
 
+  private resetError = () => this.setState({ hasError: false, message: '' });
+
   static getDerivedStateFromError(err: Error): State {
     return { hasError: true, message: err.message || 'Lỗi không xác định' };
   }
@@ -20,13 +22,22 @@ export class ErrorBoundary extends React.Component<Props, State> {
         <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 text-foreground">
           <h1 className="text-lg font-bold mb-2">Đã xảy ra lỗi giao diện</h1>
           <p className="text-sm text-muted-foreground text-center max-w-md mb-4">{this.state.message}</p>
-          <button
-            type="button"
-            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white"
-            onClick={() => window.location.reload()}
-          >
-            Tải lại trang
-          </button>
+          <div className="flex flex-wrap justify-center gap-2">
+            <button
+              type="button"
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white"
+              onClick={this.resetError}
+            >
+              Thử lại giao diện
+            </button>
+            <button
+              type="button"
+              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground"
+              onClick={() => window.location.reload()}
+            >
+              Tải lại trang
+            </button>
+          </div>
         </div>
       );
     }
