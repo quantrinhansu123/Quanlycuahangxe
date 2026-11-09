@@ -20,7 +20,7 @@ import { branchKey } from '../lib/branchCatalog';
 import { preferCustomerLinkKey } from '../lib/customerOrderLink';
 import { resolveInvoiceStaff } from '../lib/payrollRevenueAllocation';
 import { normalizeForCompare } from '../lib/utils';
-import { findPotentialSameDaySalesOrders } from '../data/salesQueryData';
+import { findPotentialTwoDaySalesOrders } from '../data/salesQueryData';
 
 // Helper for dynamic classes
 const clsx = (...classes: (string | boolean | undefined)[]) => classes.filter(Boolean).join(' ');
@@ -105,7 +105,7 @@ const SalesCardFormModal: React.FC<{
   const [showBranchWarning, setShowBranchWarning] = useState(false);
   const [duplicateWarning, setDuplicateWarning] = useState<{
     payload: SalesCardFormData;
-    matches: Awaited<ReturnType<typeof findPotentialSameDaySalesOrders>>;
+    matches: Awaited<ReturnType<typeof findPotentialTwoDaySalesOrders>>;
   } | null>(null);
   const [duplicateCheckError, setDuplicateCheckError] = useState<string | null>(null);
   const [creatingCustomer, setCreatingCustomer] = useState(false);
@@ -448,9 +448,9 @@ const SalesCardFormModal: React.FC<{
         || catalogServices.find(service => service.id === id)?.ten_dich_vu
         || '',
     })).filter(service => service.name);
-    let matches: Awaited<ReturnType<typeof findPotentialSameDaySalesOrders>>;
+    let matches: Awaited<ReturnType<typeof findPotentialTwoDaySalesOrders>>;
     try {
-      matches = await findPotentialSameDaySalesOrders({
+      matches = await findPotentialTwoDaySalesOrders({
         ngay: String(formData.ngay || ''),
         bienSoXe: selectedBsx,
         services: selectedServices,
@@ -458,7 +458,7 @@ const SalesCardFormModal: React.FC<{
       });
     } catch (error) {
       console.error('Không thể kiểm tra phiếu trùng trước khi lưu:', error);
-      setDuplicateCheckError('Không kiểm tra được phiếu cùng ngày. Phiếu chưa được lưu; hãy thử kiểm tra lại.');
+      setDuplicateCheckError('Không kiểm tra được phiếu trong vòng 2 ngày. Phiếu chưa được lưu; hãy thử kiểm tra lại.');
       submittingRef.current = false;
       setIsSubmitting(false);
       return;
@@ -900,7 +900,7 @@ const SalesCardFormModal: React.FC<{
           <h3 id="sales-duplicate-warning-title" className="flex items-center gap-2 text-lg font-bold text-red-800">
             <AlertTriangle className="h-5 w-5 shrink-0" /> Không thể lưu phiếu trùng
           </h3>
-          <p className="mt-2 text-sm text-red-800">Đã có phiếu cùng ngày, cùng biển số xe và dịch vụ. Phiếu này bị chặn lưu; hãy sửa thông tin hoặc xử lý phiếu cũ.</p>
+          <p className="mt-2 text-sm text-red-800">Đã có phiếu trong vòng 2 ngày với cùng biển số xe và dịch vụ. Phiếu này bị chặn lưu; hãy sửa thông tin hoặc xử lý phiếu cũ.</p>
           <div className="mt-3 max-h-48 space-y-2 overflow-auto">
             {duplicateWarning.matches.map(match => <div key={match.id} className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm">
               <p className="font-mono font-bold text-red-900">{match.code}</p>

@@ -7,7 +7,7 @@ import { readRequest } from '../lib/readRequest';
 import { branchKey, branchLabel } from '../lib/branchCatalog';
 import type { NhanSu } from './personnelData';
 import { lineRevenue, lineCost, lineQuantity } from '../lib/businessReportMetrics';
-import { findSalesOrderDuplicates } from '../lib/salesOrderDuplicates';
+import { findSalesOrderDuplicates, shiftSalesOrderDateByDays } from '../lib/salesOrderDuplicates';
 import { allocateInvoiceRevenue } from '../lib/payrollRevenueAllocation';
 
 /** Chuẩn hóa tên để khớp bảng lương / nhan_vien_id trên đơn (bỏ dấu, thường, gộp khoảng trắng). */
@@ -645,7 +645,7 @@ export interface PayrollRevenueOrderRow {
   phan_bo: number;
   so_nhan_vien: number;
   phu_trach: string;
-  /** Mã phiếu khác trùng ngày, biển số xe và ít nhất một dịch vụ. */
+  /** Mã phiếu khác cách tối đa 2 ngày, cùng biển số xe và ít nhất một dịch vụ. */
   duplicate_order_ids: string[];
   duplicate_order_record_ids?: string[];
 }
@@ -722,6 +722,8 @@ function pushPayrollOrder(
  */
 export async function loadPayrollRevenueData(nam: number, thang: number, signal?: AbortSignal): Promise<PayrollRevenueData> {
   const { start: startDate, end: endDate } = khoangNgayCuaThangReport(nam, thang);
+  const duplicateRangeStart = shiftSalesOrderDateByDays(startDate, -2);
+  const duplicateRangeEnd = shiftSalesOrderDateByDays(endDate, 2);
   const grossTotals = new Map<string, number>();
   const totals = new Map<string, number>();
   const ordersByStaff = new Map<string, PayrollRevenueOrderRow[]>();
@@ -773,8 +775,8 @@ export async function loadPayrollRevenueData(nam: number, thang: number, signal?
   }
 
   const [headers, ctRecords, personnel, reviewedDuplicatePairs] = await Promise.all([
-    fetchAllHeaderRecords(startDate, endDate, signal),
-    fetchAllCTRecords(startDate, endDate, signal),
+    fetchAllHeaderRecords(duplicateRangeStart, duplicateRangeEnd, signal),
+    fetchAllCTRecords(duplicateRangeStart, duplicateRangeEnd, signal),
     getPersonnel(),
     getReviewedSalesDuplicatePairs(signal),
   ]);
@@ -799,10 +801,7 @@ export async function loadPayrollRevenueData(nam: number, thang: number, signal?
   };
 
   const payrollHeaders = headers as PayrollOrderHeader[];
-  const duplicateCandidates = findSalesOrderDuplicates(payrollHeaders.filter(header => {
-    const ky = extractNamThangTuNgayCot(header.ngay);
-    return ky === null || (ky.nam === nam && ky.thang === thang);
-  }).map(header => ({ ...header, amount: revenueForOrderHeader(header, orderRevenueMap) })), ctRecords);
+  const duplicateCandidates = findSalesOrderDuplicates(payrollHeaders, ctRecords);
 
   const orderIdByReference = new Map<string, string>();
   for (const header of payrollHeaders) {

@@ -124,7 +124,7 @@ const PersonnelRevenueOrdersModal: React.FC<PersonnelRevenueOrdersModalProps> = 
         </div>
 
         {!loading && suspiciousCount > 0 && <div role="alert" className="shrink-0 border-b border-red-300 bg-red-50 px-5 py-2 text-sm font-medium text-red-800">
-          Cảnh báo đỏ: phiếu cùng ngày, cùng biển số xe và có dịch vụ trùng. Phiếu mới trùng bị chặn lưu; doanh số các phiếu đã có đang tạm giữ.
+          Cảnh báo đỏ: phiếu trong vòng 2 ngày, cùng biển số xe và có dịch vụ trùng. Phiếu mới trùng bị chặn lưu; doanh số các phiếu đã có đang tạm giữ.
           Admin xác nhận cặp là hai lần sửa riêng, hoặc sửa/xóa phiếu sai. Bấm mã dưới nhãn <strong>Cần xác nhận trùng</strong> để rà soát.
         </div>}
         {!loading && issueMode && <p role="status" className="shrink-0 border-b border-amber-200 bg-amber-50 px-5 py-2 text-sm text-amber-900">
@@ -250,7 +250,7 @@ const PersonnelRevenueOrdersModal: React.FC<PersonnelRevenueOrdersModalProps> = 
             ))}
           </div>
           <div className="mt-4 rounded-xl border border-border bg-muted/20 p-4 text-sm">
-            <p className="font-semibold text-red-800">Trùng ngày, biển số xe và dịch vụ</p>
+            <p className="font-semibold text-red-800">Cách nhau tối đa 2 ngày, cùng biển số xe và dịch vụ</p>
             {duplicateReview.order.bien_so_xe && <p className="mt-1 font-mono font-semibold text-foreground">Biển số: {duplicateReview.order.bien_so_xe}</p>}
             <p className="mt-1 text-muted-foreground">{duplicateReview.order.khach_hang} · {formatDateVi(duplicateReview.order.ngay)} · {formatVnd(duplicateReview.order.tong_tien_don)}</p>
             <p className="mt-2 text-xs text-muted-foreground">Mở cả hai phiếu để xác nhận chúng là hai lần sửa xe riêng. Nếu không, hãy sửa hoặc xóa phiếu bị tạo nhầm.</p>

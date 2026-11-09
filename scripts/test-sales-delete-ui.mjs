@@ -93,7 +93,7 @@ try {
     await page.goto(origin + '/sales-delete-test?duplicates=none', { waitUntil: 'commit' });
     await page.getByRole('status').filter({ hasText: 'Không có cảnh báo nghi trùng trong danh sách này.' }).waitFor();
     assert.equal(await page.getByText('Cần xác nhận trùng', { exact: true }).count(), 0);
-    assert.equal(await page.getByText(/Cảnh báo đỏ: phiếu cùng ngày/).count(), 0, 'No red warning when no order is flagged');
+    assert.equal(await page.getByText(/Cảnh báo đỏ: phiếu trong vòng 2 ngày/).count(), 0, 'No red warning when no order is flagged');
     assert.equal(await page.getByRole('link', { name: 'BH-SELF', exact: true }).count(), 1, 'Clean orders remain accessible');
     await page.screenshot({ path: `.build-verification/customer-issues/duplicate-none-${width}.png`, fullPage: true });
     for (const mode of ['empty', 'loading']) {
@@ -101,7 +101,7 @@ try {
       await page.getByText(mode === 'empty' ? 'Không có đơn nào trong kỳ với Phụ trách khớp tên này.' : 'Đang tải đơn hàng...', { exact: true }).waitFor();
       assert.equal(await page.getByText('Không có cảnh báo nghi trùng trong danh sách này.', { exact: true }).count(), 0,
         'Loading or empty data must not be presented as a completed duplicate check');
-      assert.equal(await page.getByText(/Cảnh báo đỏ: phiếu cùng ngày/).count(), 0);
+      assert.equal(await page.getByText(/Cảnh báo đỏ: phiếu trong vòng 2 ngày/).count(), 0);
     }
     assert.deepEqual(errors, []);
     await context.close();

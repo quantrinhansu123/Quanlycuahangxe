@@ -5,6 +5,7 @@ import { queryShortNumericSales } from './shortNumericSearchData';
 import type { SalesCard } from './salesCardData';
 import type { KhachHang } from './customerData';
 import { normalizeBusinessText } from '../lib/businessReportMetrics';
+import { salesOrderDateOrdinal, shiftSalesOrderDateByDays } from '../lib/salesOrderDuplicates';
 
 export type SalesSummary = {
   totalCount: number;
@@ -78,19 +79,26 @@ export interface PotentialDuplicateSalesOrder {
   services: string[];
 }
 
-/** Check only same-day headers and their details when a user tries to save a sales order. */
-export async function findPotentialSameDaySalesOrders(input: {
+/** Check headers up to two days either side and their details before saving an order. */
+export async function findPotentialTwoDaySalesOrders(input: {
   ngay: string;
   bienSoXe: string;
   services: Array<{ id: string; name: string }>;
   excludeOrderId?: string | null;
 }): Promise<PotentialDuplicateSalesOrder[]> {
   const plateKey = normalizeBusinessText(input.bienSoXe).replace(/[^a-z0-9]/g, '');
-  if (!plateKey || !input.ngay || input.services.length === 0) return [];
+  if (!plateKey || input.services.length === 0) return [];
+  const orderDay = salesOrderDateOrdinal(input.ngay);
+  if (orderDay === null) throw new Error('Ngày phiếu không hợp lệ khi kiểm tra trùng.');
 
-  const orders = await queryAllSales({ p_start: input.ngay, p_end: input.ngay });
-  const candidates = orders.filter(order => order.id !== input.excludeOrderId
-    && normalizeBusinessText(order.khach_hang?.bien_so_xe || '').replace(/[^a-z0-9]/g, '') === plateKey);
+  const startDate = shiftSalesOrderDateByDays(input.ngay, -2);
+  const endDate = shiftSalesOrderDateByDays(input.ngay, 2);
+  const orders = await queryAllSales({ p_start: startDate, p_end: endDate });
+  const candidates = orders.filter(order => {
+    const candidateDay = salesOrderDateOrdinal(order.ngay);
+    return order.id !== input.excludeOrderId && candidateDay !== null && Math.abs(candidateDay - orderDay) <= 2
+      && normalizeBusinessText(order.khach_hang?.bien_so_xe || '').replace(/[^a-z0-9]/g, '') === plateKey;
+  });
   if (candidates.length === 0) return [];
 
   const refs = [...new Set(candidates.flatMap(order => [order.id, order.id_bh]
@@ -107,13 +115,13 @@ export async function findPotentialSameDaySalesOrders(input: {
   const serviceKeysByRef = new Map<string, Set<string>>();
   for (const detail of details) {
     const ref = String(detail.id_don_hang || '').trim().toLowerCase();
-    const key = normalizeBusinessText(detail.san_pham);
+    const key = normalizeBusinessText(detail.san_pham).replace(/[^a-z0-9]+/g, '');
     if (!ref || !key) continue;
     const keys = serviceKeysByRef.get(ref) || new Set<string>();
     keys.add(key);
     serviceKeysByRef.set(ref, keys);
   }
-  const selectedNames = new Map(input.services.map(service => [normalizeBusinessText(service.name), service.name.trim()] as const).filter(([key]) => !!key));
+  const selectedNames = new Map(input.services.map(service => [normalizeBusinessText(service.name).replace(/[^a-z0-9]+/g, ''), service.name.trim()] as const).filter(([key]) => !!key));
   const selectedIds = new Set(input.services.map(service => service.id.trim().toLowerCase()).filter(Boolean));
 
   return candidates.flatMap(order => {

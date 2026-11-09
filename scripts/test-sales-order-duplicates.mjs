@@ -20,6 +20,7 @@ const salesFormSource = fs.readFileSync('src/components/SalesCardFormModal.tsx',
 const salesQuerySource = fs.readFileSync('src/data/salesQueryData.ts', 'utf8');
 const branchMigration = fs.readFileSync('supabase/migrations/202611040002_sales_query_saved_branch_precedence.sql', 'utf8');
 const staffIdentityMigration = fs.readFileSync('supabase/migrations/202611050002_sales_query_staff_identity_aliases.sql', 'utf8');
+const twoDayDuplicateMigration = fs.readFileSync('supabase/migrations/202611090002_sales_order_duplicate_two_day_window.sql', 'utf8');
 const run = async (headers, lines, staff = personnel) => loadReportRuntime(source, {
   the_ban_hang: headers, the_ban_hang_ct: lines, nhan_su: staff,
 }).report.loadPayrollRevenueData(2026, 10);
@@ -38,7 +39,7 @@ test('a different or missing plate cannot cause a duplicate warning', async () =
 
 test('different day, plate, service, or missing service details are not flagged', async () => {
   for (const [h, l, missing] of [
-    [{ ngay: '2026-10-20' }, {}],
+    [{ ngay: '2026-10-22' }, {}],
     [{}, { san_pham: 'Rửa xe' }],
     [{ khach_hang: { id: 'vehicle-1', bien_so_xe: '30A-54321' } }, {}],
     [{}, {}, true],
@@ -46,6 +47,35 @@ test('different day, plate, service, or missing service details are not flagged'
     const result = await run([header('1'), header('2', h)], [line('BH-1'), ...(missing ? [] : [line('BH-2', l)])]);
     assert.ok(result.ordersByStaff.get('van huan').every(row => row.duplicate_order_ids.length === 0));
   }
+});
+
+test('same plate and service within two calendar days are held; three days apart are not', async () => {
+  const baseDate = '2026-10-19';
+  for (const difference of [1, 2]) {
+    const nextDate = new Date(Date.parse(`${baseDate}T00:00:00Z`) + difference * 86400000).toISOString().slice(0, 10);
+    const result = await run(
+      [header('1', { ngay: baseDate }), header('2', { ngay: nextDate })],
+      [line('BH-1', { ngay: baseDate }), line('BH-2', { ngay: nextDate })],
+    );
+    assert.equal(result.totals.has('van huan'), false, `invoices ${difference} day(s) apart must be held`);
+    assert.equal(result.allocationIssuesByPersonnelId.get('staff-huan')?.length, 2);
+  }
+
+  const distantDate = '2026-10-22';
+  const distant = await run(
+    [header('1', { ngay: baseDate }), header('2', { ngay: distantDate })],
+    [line('BH-1', { ngay: baseDate }), line('BH-2', { ngay: distantDate })],
+  );
+  assert.equal(distant.totals.get('van huan'), 300000);
+});
+
+test('two-day matching includes orders across a payroll month boundary', async () => {
+  const result = await run(
+    [header('1', { ngay: '2026-10-31' }), header('2', { ngay: '2026-11-02' })],
+    [line('BH-1', { ngay: '2026-10-31' }), line('BH-2', { ngay: '2026-11-02' })],
+  );
+  assert.equal(result.totals.has('van huan'), false, 'the October invoice must be held by its November counterpart');
+  assert.deepEqual(result.allocationIssuesByPersonnelId.get('staff-huan')?.[0].duplicate_order_ids, ['BH-2']);
 });
 
 test('same date, plate and service are held out of revenue despite different totals, quantities, or branches', async () => {
@@ -62,7 +92,7 @@ test('same date, plate and service are held out of revenue despite different tot
   }
 });
 
-test('admin-reviewed same-day pairs return to revenue allocation', async () => {
+test('admin-reviewed duplicate pairs return to revenue allocation', async () => {
   const result = await loadReportRuntime(source, {
     the_ban_hang: [header('1'), header('2')],
     the_ban_hang_ct: [line('BH-1'), line('BH-2')],
@@ -115,12 +145,15 @@ test('reconciliation details use employee IDs and duplicate references open an i
   assert.match(reconciliationSource, /reviewSalesOrderDuplicatePair/);
 });
 
-test('sales save permanently blocks same-day plate/service matches', () => {
-  assert.match(salesQuerySource, /p_start: input\.ngay, p_end: input\.ngay/);
+test('sales save permanently blocks plate/service matches within two days', () => {
+  assert.match(salesQuerySource, /p_start: startDate, p_end: endDate/);
+  assert.match(salesQuerySource, /shiftSalesOrderDateByDays\(input\.ngay, -2\)/);
   assert.match(salesQuerySource, /order\.khach_hang\?\.bien_so_xe/);
-  assert.match(salesFormSource, /findPotentialSameDaySalesOrders/);
+  assert.match(salesFormSource, /findPotentialTwoDaySalesOrders/);
   assert.match(salesFormSource, /Không thể lưu phiếu trùng/);
   assert.doesNotMatch(salesFormSource, /confirmSeparateAndSave|Xác nhận phiếu riêng/);
+  assert.match(twoDayDuplicateMigration, /other\.ngay BETWEEN current_order\.ngay - 2 AND current_order\.ngay \+ 2/);
+  assert.match(twoDayDuplicateMigration, /b\.ngay BETWEEN a\.ngay - 2 AND a\.ngay \+ 2/);
 });
 
 test('invoice branch totals include unassigned invoices and use the resolved sales amount', async () => {

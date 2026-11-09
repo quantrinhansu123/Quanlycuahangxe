@@ -1255,7 +1255,7 @@ const SalesCardManagementPage: React.FC = () => {
       const friendlyMsg = /the_ban_hang_id_bh_key|duplicate key.*id_bh/i.test(rawMsg)
         ? 'Mã phiếu bị trùng. Đóng form, mở lập phiếu mới rồi lưu lại (máy chủ sẽ cấp mã mới).'
         : /sales_order_duplicate_plate_service|Không thể lưu phiếu: đã có phiếu/i.test(rawMsg)
-        ? 'Không thể lưu phiếu: đã có phiếu cùng ngày, biển số xe và dịch vụ. Hãy rà soát hoặc xử lý phiếu cũ.'
+        ? 'Không thể lưu phiếu: đã có phiếu trong vòng 2 ngày với cùng biển số xe và dịch vụ. Hãy rà soát hoặc xử lý phiếu cũ.'
         : /Khách hàng\/xe đã tồn tại|23505/i.test(rawMsg)
         ? 'Khách hàng/xe này đã có trên hệ thống (trùng SĐT và biển số). Hãy chọn khách đã tồn tại rồi lưu lại.'
         : /Chỉ quản trị viên hoặc quản lý được lập/i.test(rawMsg)
