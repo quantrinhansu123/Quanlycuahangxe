@@ -23,7 +23,7 @@ import { getCustomersForSelect } from '../data/customerData';
 import {
   getServiceUsageDatesMap,
   getServiceUsageLatestMap,
-  getServices,
+  getSoldServices,
   type DichVu,
   type ServiceUsageDate,
   type ServiceUsageLatest,
@@ -38,6 +38,10 @@ import {
   ZNS_MAINTENANCE_TEMPLATE_ID,
 } from '../constants/znsTemplates';
 import { removeVietnameseTones } from '../lib/utils';
+import { chuanHoaTenTheoDon } from '../data/reportData';
+
+/** Ngăn cách các tên gốc trong 1 giá trị lựa chọn dịch vụ (tên có thể chứa dấu phẩy). */
+const SERVICE_KEY_SEP = '\u0001';
 import { buildServiceNameParam, collapseServiceNamesByKind } from '../lib/znsServiceName';
 import { SearchableSelect } from '../components/ui/SearchableSelect';
 import DateInputVi from '../components/ui/DateInputVi';
@@ -426,7 +430,7 @@ const ZnsBulkSendPage: React.FC = () => {
     (async () => {
       setLoadingServices(true);
       try {
-        const rows = await getServices();
+        const rows = await getSoldServices();
         setServices(rows);
       } catch (err) {
         showToast(err instanceof Error ? err.message : 'Không tải được danh sách dịch vụ', 'error');
@@ -531,18 +535,19 @@ const ZnsBulkSendPage: React.FC = () => {
     const scoped = branchFilter
       ? services.filter((service) => normalizeBranchLabel(service.co_so) === normalizeBranchLabel(branchFilter))
       : services;
-    const idsByName = new Map<string, string[]>();
-    // Chỉ gom các dịch vụ trùng tên trong phạm vi cơ sở đang được chọn.
+    // Gom theo tên đã chuẩn hoá (giống báo cáo): các biến thể hoa/thường, dấu, khoảng trắng là 1 dịch vụ.
+    const byKey = new Map<string, { label: string; ids: Set<string> }>();
     for (const s of scoped) {
       const name = s.ten_dich_vu?.trim();
       if (!name) continue;
-      const ids = idsByName.get(name) || [];
-      ids.push(s.id);
-      idsByName.set(name, ids);
+      const key = chuanHoaTenTheoDon(name);
+      const group = byKey.get(key) || { label: name, ids: new Set<string>() };
+      group.ids.add(s.id);
+      byKey.set(key, group);
     }
-    return Array.from(idsByName.entries())
-      .sort((a, b) => a[0].localeCompare(b[0], 'vi'))
-      .map(([name, ids]) => ({ value: ids.join(','), label: name, searchKey: name }));
+    return Array.from(byKey.values())
+      .sort((a, b) => a.label.localeCompare(b.label, 'vi'))
+      .map(({ label, ids }) => ({ value: [...ids].join(SERVICE_KEY_SEP), label, searchKey: label }));
   }, [services, branchFilter]);
 
   const selectedServiceGroups = useMemo<SelectedServiceGroup[]>(() => {
@@ -550,7 +555,7 @@ const ZnsBulkSendPage: React.FC = () => {
     return serviceFilters.map((key) => ({
       key,
       label: labelByKey.get(key) || 'Dịch vụ đã chọn',
-      values: key.split(',').map((id) => id.trim()).filter(Boolean),
+      values: key.split(SERVICE_KEY_SEP).filter(Boolean),
     }));
   }, [serviceFilters, serviceOptions]);
 
@@ -560,14 +565,14 @@ const ZnsBulkSendPage: React.FC = () => {
   );
 
   const selectedServiceValues = useMemo(() => {
-    const selectedIds = new Set(serviceFilters.flatMap((value) => value.split(',').map((id) => id.trim()).filter(Boolean)));
+    const selectedIds = new Set(serviceFilters.flatMap((value) => value.split(SERVICE_KEY_SEP).filter(Boolean)));
     return services
       .filter((service) => selectedIds.has(service.id))
       .flatMap((service) => [service.id, service.id_dich_vu || '', service.ten_dich_vu]);
   }, [services, serviceFilters]);
 
   const selectedServiceName = useMemo(() => {
-    const selectedIds = new Set(serviceFilters.flatMap((value) => value.split(',').map((id) => id.trim()).filter(Boolean)));
+    const selectedIds = new Set(serviceFilters.flatMap((value) => value.split(SERVICE_KEY_SEP).filter(Boolean)));
     const names = services
       .filter((service) => selectedIds.has(service.id))
       .map((service) => service.ten_dich_vu?.trim() || '')
@@ -760,11 +765,11 @@ const ZnsBulkSendPage: React.FC = () => {
       out[key] = row.source === 'static' ? { source: 'static', value: row.value } : { source: row.source };
     }
     // Metadata nội bộ để thống kê lịch sử gửi riêng theo từng dịch vụ.
-    (out as Record<string, unknown>).__service_ids = serviceFilters.flatMap((value) => value.split(',').map((id) => id.trim()).filter(Boolean));
-    (out as Record<string, unknown>).__service_names = services
+    (out as Record<string, unknown>).__service_ids = serviceFilters.flatMap((value) => value.split(SERVICE_KEY_SEP).filter(Boolean));
+    (out as Record<string, unknown>).__service_names = [...new Set(services
       .filter((service) => selectedServiceValues.includes(service.id) || selectedServiceValues.includes(service.id_dich_vu || ''))
       .map((service) => service.ten_dich_vu?.trim())
-      .filter((name): name is string => Boolean(name));
+      .filter((name): name is string => Boolean(name)))];
     return out;
   };
 

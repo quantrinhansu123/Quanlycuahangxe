@@ -34,6 +34,46 @@ export interface DichVu {
   updated_at?: string;
 }
 
+/**
+ * Danh sách "dịch vụ" theo đúng tên đã bán trên dòng chi tiết đơn (the_ban_hang_ct.san_pham),
+ * cùng nguồn với báo cáo — không dùng danh mục `dich_vu`, vì tên bán hàng gõ tự do và
+ * thường khác tên danh mục. Trả về DichVu giả: id = ten_dich_vu = san_pham gốc (để khớp chính xác khi truy vấn).
+ */
+export async function getSoldServices(): Promise<DichVu[]> {
+  let rows: { co_so: string | null; san_pham: string | null }[] = [];
+  const rpc = await supabase.rpc('zns_sold_product_names');
+  if (!rpc.error) {
+    rows = (rpc.data as typeof rows) || [];
+  } else {
+    // Chưa chạy migration RPC → quét từng trang (chậm hơn nhưng đúng dữ liệu).
+    const seen = new Set<string>();
+    for (let from = 0; ; from += SERVICE_USAGE_PAGE_SIZE) {
+      const { data, error } = await supabase
+        .from('the_ban_hang_ct')
+        .select('co_so, san_pham')
+        .not('san_pham', 'is', null)
+        .order('id', { ascending: true })
+        .range(from, from + SERVICE_USAGE_PAGE_SIZE - 1);
+      if (error) throw error;
+      const page = (data as typeof rows) || [];
+      for (const r of page) {
+        const k = `${r.co_so ?? ''}\u0001${r.san_pham}`;
+        if (!seen.has(k)) { seen.add(k); rows.push(r); }
+      }
+      if (page.length < SERVICE_USAGE_PAGE_SIZE) break;
+    }
+  }
+  return rows
+    .filter((r) => r.san_pham && r.san_pham.trim())
+    .map((r) => ({
+      id: r.san_pham as string,
+      id_dich_vu: null,
+      co_so: (r.co_so || '').trim(),
+      ten_dich_vu: (r.san_pham as string).trim(),
+      gia_nhap: 0, gia_ban: 0, anh: null, hoa_hong: 0, tu_ngay: null, toi_ngay: null,
+    }));
+}
+
 export const SERVICE_BRANCH_MAIN = 'Cơ sở chính';
 
 /** Dịch vụ thuộc tab Cơ sở chính (theo cột co_so). */
