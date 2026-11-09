@@ -41,10 +41,20 @@ export interface DichVu {
  */
 export async function getSoldServices(): Promise<DichVu[]> {
   let rows: { co_so: string | null; san_pham: string | null }[] = [];
-  const rpc = await supabase.rpc('zns_sold_product_names');
-  if (!rpc.error) {
-    rows = (rpc.data as typeof rows) || [];
-  } else {
+  // PostgREST giới hạn ~1000 dòng/lần → tải theo trang, sắp xếp ổn định để không sót/trùng.
+  let rpcFailed = false;
+  for (let from = 0; ; from += SERVICE_USAGE_PAGE_SIZE) {
+    const rpc = await supabase.rpc('zns_sold_product_names')
+      .order('co_so', { ascending: true })
+      .order('san_pham', { ascending: true })
+      .range(from, from + SERVICE_USAGE_PAGE_SIZE - 1);
+    if (rpc.error) { rpcFailed = true; break; }
+    const page = (rpc.data as typeof rows) || [];
+    rows.push(...page);
+    if (page.length < SERVICE_USAGE_PAGE_SIZE) break;
+  }
+  if (rpcFailed) {
+    rows = [];
     // Chưa chạy migration RPC → quét từng trang (chậm hơn nhưng đúng dữ liệu).
     const seen = new Set<string>();
     for (let from = 0; ; from += SERVICE_USAGE_PAGE_SIZE) {
