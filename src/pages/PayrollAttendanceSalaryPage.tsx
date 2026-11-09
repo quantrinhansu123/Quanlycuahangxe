@@ -551,6 +551,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
     text: string;
   } | null>(null);
   const [chamDong, setChamDong] = useState<DongChamBuaNhap[]>([]);
+  const [payrollLoadIssues, setPayrollLoadIssues] = useState<Set<'doanh số' | 'chấm công'>>(() => new Set());
   const [nhanList, setNhanList] = useState<NhanSu[]>([]);
   const [revenueCache, setRevenueCache] = useState<PayrollRevenueData | null>(null);
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
@@ -584,6 +585,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
     setKyDaLuu(false);
     setRows(s.rows);
     setRevenueCache(null);
+    setPayrollLoadIssues(new Set());
     loadedKyRef.current = periodKey;
 
     let cancelled = false;
@@ -670,6 +672,9 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
         setRevenueCache(payrollData);
       } catch (e) {
         console.error('Lấy doanh số tháng tự động thất bại:', e);
+        if (!cancelled && loadedKyRef.current === periodKey) {
+          setPayrollLoadIssues(prev => new Set(prev).add('doanh số'));
+        }
       }
       try {
         const dongs = (await attendanceRead)();
@@ -677,7 +682,10 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
         setChamDong(dongs as DongChamBuaNhap[]);
       } catch (e) {
         console.error('Tải chấm công tháng (ăn theo công):', e);
-        if (!cancelled && loadedKyRef.current === periodKey) setChamDong([]);
+        if (!cancelled && loadedKyRef.current === periodKey) {
+          setChamDong([]);
+          setPayrollLoadIssues(prev => new Set(prev).add('chấm công'));
+        }
       } finally {
         if (loadedKyRef.current === periodKey) {
           setRevenueLoading(false);
@@ -1087,15 +1095,19 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
       const { rows: next, payrollData } = await gopDoanhSoTheoBaoCao(rows, nam, thang);
       setRows(next);
       setRevenueCache(payrollData);
+      setPayrollLoadIssues(prev => { const nextIssues = new Set(prev); nextIssues.delete('doanh số'); return nextIssues; });
     } catch (e) {
       console.error(e);
+      setPayrollLoadIssues(prev => new Set(prev).add('doanh số'));
       window.alert('Không lấy được doanh số từ hệ thống. Kiểm tra mạng / đăng nhập / bán hàng.');
     }
     try {
       const dongs = await getChamCongTrongKhoang(start, end);
       setChamDong(dongs as DongChamBuaNhap[]);
+      setPayrollLoadIssues(prev => { const nextIssues = new Set(prev); nextIssues.delete('chấm công'); return nextIssues; });
     } catch (e) {
       console.error(e);
+      setPayrollLoadIssues(prev => new Set(prev).add('chấm công'));
     } finally {
       setRevenueLoading(false);
     }
@@ -1187,6 +1199,10 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
       window.alert('Chỉ tài khoản admin được lưu hoặc chỉnh sửa bảng lương.');
       return;
     }
+    if (payrollLoadIssues.size > 0) {
+      window.alert(`Chưa lưu bảng lương vì chưa tải được ${[...payrollLoadIssues].join(' và ')}. Hãy đăng nhập lại hoặc bấm “Doanh số” để tải lại dữ liệu.`);
+      return;
+    }
     if (
       kyDaLuu &&
       (donGiaTienAnKy !== donGiaTienAnDaChot ||
@@ -1238,6 +1254,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
     nam,
     navigate,
     rows,
+    payrollLoadIssues,
     thang,
   ]);
 
@@ -1402,7 +1419,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
             <button
               type="button"
               onClick={savePayrollOnly}
-              disabled={!isAdmin || savingPayroll || revenueLoading || quickLoading}
+              disabled={!isAdmin || savingPayroll || revenueLoading || quickLoading || payrollLoadIssues.size > 0}
               className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-600 text-white text-sm font-semibold px-3 py-2 hover:bg-emerald-700 disabled:opacity-50"
               title={isAdmin ? 'Lưu thay đổi và tiếp tục ở trang hiện tại' : 'Chỉ admin được lưu bảng lương'}
             >
@@ -1412,7 +1429,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
             <button
               type="button"
               onClick={saveAndOpenPayroll}
-              disabled={!isAdmin || savingPayroll || revenueLoading || quickLoading}
+              disabled={!isAdmin || savingPayroll || revenueLoading || quickLoading || payrollLoadIssues.size > 0}
               className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50 text-emerald-700 text-sm font-semibold px-3 py-2 hover:bg-emerald-100"
               title={isAdmin ? 'Lưu đầy đủ các khoản vào Supabase rồi mở bảng lương chính' : 'Chỉ admin được lưu bảng lương'}
             >
@@ -1484,6 +1501,12 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
         >
           <CheckCircle2 className="h-4 w-4 shrink-0" />
           {saveNotice.text}
+        </div>
+      )}
+
+      {payrollLoadIssues.size > 0 && (
+        <div role="alert" className="shrink-0 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm font-medium text-red-800 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
+          Không tải được {Array.from(payrollLoadIssues).join(' và ')} tháng {thang}/{nam}. Bảng lương sẽ không cho lưu để tránh tính thiếu doanh số hoặc tiền ăn. Hãy đăng nhập lại hoặc bấm “Doanh số” để tải lại.
         </div>
       )}
 
