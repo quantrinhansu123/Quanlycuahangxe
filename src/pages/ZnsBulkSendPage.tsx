@@ -436,9 +436,12 @@ const ZnsBulkSendPage: React.FC = () => {
         // để các dòng đó gộp vào đúng dịch vụ (id vẫn là mã gốc để truy vấn khớp chính xác).
         const [sold, catalog] = await Promise.all([getSoldServices(), getServices()]);
         const lookup = buildServiceNameLookup(catalog);
-        setServices(sold.map((s) => looksLikeOpaqueServiceCode(s.id)
-          ? { ...s, ten_dich_vu: resolveServiceDisplayName(s.id, lookup) }
-          : s));
+        // Mã không có trong danh mục (dịch vụ đã xoá) không chọn được vì không biết là gì → ẩn khỏi danh sách.
+        setServices(sold
+          .map((s) => looksLikeOpaqueServiceCode(s.id)
+            ? { ...s, ten_dich_vu: resolveServiceDisplayName(s.id, lookup) }
+            : s)
+          .filter((s) => !looksLikeOpaqueServiceCode(s.ten_dich_vu)));
       } catch (err) {
         showToast(err instanceof Error ? err.message : 'Không tải được danh sách dịch vụ', 'error');
       } finally {
