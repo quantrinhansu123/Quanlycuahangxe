@@ -5,6 +5,7 @@ import { clsx } from 'clsx';
 import { getChamCongTrongKhoang } from '../data/attendanceData';
 import {
   loadPayrollRevenueData,
+  reviewSalesOrderDuplicatePair,
   type PayrollRevenueData,
   type PayrollRevenueOrderRow,
 } from '../data/reportData';
@@ -556,6 +557,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
   const [ordersModal, setOrdersModal] = useState<{
     issueMode?: boolean;
     hoTen: string;
+    personnelId?: string;
     orders: PayrollRevenueOrderRow[];
     unresolvedOrders?: PayrollRevenueOrderRow[];
     loading: boolean;
@@ -1099,6 +1101,32 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
     }
   }, [rows, nam, thang]);
 
+  const confirmDuplicatePair = useCallback(async (orderA: string, orderB: string) => {
+    if (!isAdmin) throw new Error('Chỉ admin được xác nhận hai phiếu là hai lần sửa riêng.');
+    await reviewSalesOrderDuplicatePair(orderA, orderB);
+    const { rows: nextRows, payrollData } = await gopDoanhSoTheoBaoCao(rows, nam, thang);
+    setRows(nextRows);
+    setRevenueCache(payrollData);
+    setOrdersModal(current => {
+      if (!current) return current;
+      if (current.issueMode) {
+        return { ...current, orders: payrollData.allocationIssues.filter(order => order.branches?.includes(branchKey(current.hoTen))) };
+      }
+      const candidateIds = current.personnelId
+        ? [current.personnelId]
+        : payrollData.personnel
+          .filter(person => chuanHoaTenSoSanh(person.ho_ten) === chuanHoaTenSoSanh(current.hoTen))
+          .map(person => person.id);
+      const orders = current.personnelId
+        ? payrollData.personnelAssignedOrdersById.get(current.personnelId) || []
+        : layDonTheoHoTen(current.hoTen, payrollData, nhanTheoChuanTen);
+      const unresolvedOrders = [...new Map(candidateIds
+        .flatMap(id => payrollData.allocationIssuesByPersonnelId.get(id) || [])
+        .map(order => [order.id_bh, order] as const)).values()];
+      return { ...current, orders, unresolvedOrders };
+    });
+  }, [isAdmin, rows, nam, thang, nhanTheoChuanTen]);
+
   const taoNhanh = useCallback(async () => {
     if (!isAdmin) return;
     const hasData = rows.some(
@@ -1225,7 +1253,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
     async (input: BangLuongChamCongInput) => {
       const ten = input.hoTen.trim();
       if (!ten) return;
-      setOrdersModal({ hoTen: ten, orders: [], unresolvedOrders: [], loading: true });
+      setOrdersModal({ hoTen: ten, personnelId: input.nhanSuId, orders: [], unresolvedOrders: [], loading: true });
       try {
         let data = revenueCache;
         if (!data) {
@@ -1245,7 +1273,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
             .flatMap(id => data.allocationIssuesByPersonnelId.get(id) || [])
             .map(order => [order.id_bh, order] as const)
         ).values()];
-        setOrdersModal({ hoTen: ten, orders, unresolvedOrders, loading: false });
+        setOrdersModal({ hoTen: ten, personnelId: input.nhanSuId, orders, unresolvedOrders, loading: false });
       } catch (e) {
         console.error(e);
         setOrdersModal(null);
@@ -1958,6 +1986,7 @@ const PayrollAttendanceSalaryPage: React.FC = () => {
         unresolvedOrders={ordersModal?.unresolvedOrders ?? []}
         issueMode={ordersModal?.issueMode}
         loading={ordersModal?.loading ?? false}
+        onConfirmDuplicatePair={isAdmin ? confirmDuplicatePair : undefined}
       />
     </div>
   );

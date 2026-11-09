@@ -20,6 +20,7 @@ import { getPayrollBatch, type BangLuong } from '../data/payrollData';
 import { getPersonnel, type NhanSu } from '../data/personnelData';
 import {
   loadPayrollRevenueData,
+  reviewSalesOrderDuplicatePair,
   type PayrollRevenueOrderRow,
 } from '../data/reportData';
 import { cn, normalizeForCompare } from '../lib/utils';
@@ -104,6 +105,7 @@ const PayrollRevenueReconciliationPage: React.FC = () => {
   const [onlyMismatched, setOnlyMismatched] = useState(false);
   const [ordersModal, setOrdersModal] = useState<{
     name: string;
+    personnelId?: string;
     orders: PayrollRevenueOrderRow[];
     unresolvedOrders: PayrollRevenueOrderRow[];
   } | null>(null);
@@ -143,6 +145,20 @@ const PayrollRevenueReconciliationPage: React.FC = () => {
         branchTotals: revenue.branchTotals,
         branchLabels: revenue.branchLabels,
       });
+      setOrdersModal(current => {
+        if (!current) return current;
+        const personnelId = current.personnelId || personnel.find(person =>
+          normalizeForCompare(person.ho_ten) === normalizeForCompare(current.name)
+        )?.id;
+        return {
+          ...current,
+          personnelId,
+          orders: personnelId
+            ? revenue.personnelOrdersById.get(personnelId) ?? []
+            : revenue.ordersByStaff.get(normalizeForCompare(current.name)) ?? [],
+          unresolvedOrders: personnelId ? revenue.allocationIssuesByPersonnelId.get(personnelId) ?? [] : [],
+        };
+      });
     } catch (loadError) {
       console.error('Không thể tải dữ liệu rà soát doanh số:', loadError);
       setError(loadError instanceof Error ? loadError.message : 'Không thể tải dữ liệu đối chiếu.');
@@ -151,6 +167,11 @@ const PayrollRevenueReconciliationPage: React.FC = () => {
       setLoading(false);
     }
   }, [month, year]);
+
+  const handleConfirmDuplicatePair = useCallback(async (orderA: string, orderB: string) => {
+    await reviewSalesOrderDuplicatePair(orderA, orderB);
+    await loadData();
+  }, [loadData]);
 
   useEffect(() => {
     // The selected period is external input; reload both comparison sources together.
@@ -445,7 +466,7 @@ const PayrollRevenueReconciliationPage: React.FC = () => {
                 <ComparisonRowCard
                   key={row.key}
                   row={row}
-                  onShowOrders={() => setOrdersModal({ name: row.name, orders: row.orders, unresolvedOrders: row.unresolvedOrders })}
+                  onShowOrders={() => setOrdersModal({ name: row.name, personnelId: row.personnelId, orders: row.orders, unresolvedOrders: row.unresolvedOrders })}
                 />
               ))}
             </div>
@@ -461,6 +482,7 @@ const PayrollRevenueReconciliationPage: React.FC = () => {
         nam={year}
         orders={ordersModal?.orders ?? []}
         unresolvedOrders={ordersModal?.unresolvedOrders ?? []}
+        onConfirmDuplicatePair={handleConfirmDuplicatePair}
       />
     </div>
   );

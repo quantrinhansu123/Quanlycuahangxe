@@ -62,6 +62,7 @@ import {
   validateSalesOrderBranch,
 } from '../data/salesCardData';
 import { computeChanges, saveEditHistory } from '../data/salesCardHistoryData';
+import { reviewSalesOrderDuplicatePair } from '../data/reportData';
 import { queueOrderMessage } from '../data/znsOrderMessageData';
 import type { DichVu } from '../data/serviceData';
 import { supabase } from '../lib/supabase';
@@ -900,7 +901,7 @@ const SalesCardManagementPage: React.FC = () => {
   };
 
   const submitLock = useRef(false);
-  const handleSubmit = async (formDataHeader: SalesCardFormData) => {
+  const handleSubmit = async (formDataHeader: SalesCardFormData, reviewedDuplicateIds: string[] = []) => {
     if (submitLock.current) return;
     submitLock.current = true;
     try {
@@ -1131,6 +1132,16 @@ const SalesCardManagementPage: React.FC = () => {
 
       // The server calculates the invoice total and commits services and receipt atomically.
       const savedCard = await saveSalesOrder(cleanData, detailRecords, !editingCard);
+      let duplicateReviewFailed = false;
+      if (editingCard && isAdmin && reviewedDuplicateIds.length > 0) {
+        const reviewResults = await Promise.allSettled(
+          [...new Set(reviewedDuplicateIds)].map(counterpartId => reviewSalesOrderDuplicatePair(savedCard.id, counterpartId))
+        );
+        duplicateReviewFailed = reviewResults.some(result => result.status === 'rejected');
+        if (duplicateReviewFailed) {
+          console.error('Đã lưu phiếu nhưng chưa xác nhận được toàn bộ cặp trùng:', reviewResults);
+        }
+      }
       const totalAmount = Number(savedCard.tong_tien ?? 0);
       if (editingCard) {
         const changes = computeChanges(editingCard, cleanData, editingCard.the_ban_hang_ct || [], formDataHeader.service_items || []);
@@ -1219,7 +1230,12 @@ const SalesCardManagementPage: React.FC = () => {
       }
 
       handleCloseModal();
-      showToast(inventoryFailed ? 'Đơn đã lưu. Vui lòng kiểm tra đồng bộ xuất kho.' : 'Lưu phiếu bán hàng thành công!', inventoryFailed ? 'warning' : 'success');
+      showToast(
+        duplicateReviewFailed
+          ? 'Phiếu đã lưu; doanh số cặp trùng vẫn tạm giữ vì chưa xác nhận được. Kiểm tra cấu hình máy chủ hoặc rà soát lại.'
+          : inventoryFailed ? 'Đơn đã lưu. Vui lòng kiểm tra đồng bộ xuất kho.' : 'Lưu phiếu bán hàng thành công!',
+        duplicateReviewFailed || inventoryFailed ? 'warning' : 'success'
+      );
       if (!editingCard && currentPage !== 1) {
         // Về trang 1 tải đồng thời danh sách và tổng từ cùng một truy vấn.
         setCurrentPage(1);
@@ -1238,6 +1254,8 @@ const SalesCardManagementPage: React.FC = () => {
       const rawMsg = [error?.message, error?.details, error?.hint].filter(Boolean).join(' ') || '';
       const friendlyMsg = /the_ban_hang_id_bh_key|duplicate key.*id_bh/i.test(rawMsg)
         ? 'Mã phiếu bị trùng. Đóng form, mở lập phiếu mới rồi lưu lại (máy chủ sẽ cấp mã mới).'
+        : /sales_order_duplicate_plate_service|Không thể lưu phiếu: đã có phiếu/i.test(rawMsg)
+        ? 'Không thể lưu phiếu: đã có phiếu cùng ngày, biển số xe và dịch vụ. Hãy rà soát hoặc xử lý phiếu cũ.'
         : /Khách hàng\/xe đã tồn tại|23505/i.test(rawMsg)
         ? 'Khách hàng/xe này đã có trên hệ thống (trùng SĐT và biển số). Hãy chọn khách đã tồn tại rồi lưu lại.'
         : /Chỉ quản trị viên hoặc quản lý được lập/i.test(rawMsg)

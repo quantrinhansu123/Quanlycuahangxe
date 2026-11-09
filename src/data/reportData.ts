@@ -635,6 +635,8 @@ export type ReportSnapshot = Awaited<ReturnType<typeof loadReportSnapshot>>;
 export interface PayrollRevenueOrderRow {
   allocationIssue?: string;
   branches?: string[];
+  bien_so_xe?: string;
+  id?: string;
   id_bh: string;
   ngay: string;
   gio?: string | null;
@@ -643,8 +645,40 @@ export interface PayrollRevenueOrderRow {
   phan_bo: number;
   so_nhan_vien: number;
   phu_trach: string;
-  /** Các phiếu khác cùng xe/khách, ngày, cơ sở, mặt hàng, số lượng và số tiền để đối chiếu. */
+  /** Mã phiếu khác trùng ngày, biển số xe và ít nhất một dịch vụ. */
   duplicate_order_ids: string[];
+  duplicate_order_record_ids?: string[];
+}
+
+export function salesDuplicateReviewPairKey(orderA: string, orderB: string): string {
+  return [orderA.toLowerCase(), orderB.toLowerCase()].sort().join(':');
+}
+
+async function getReviewedSalesDuplicatePairs(signal?: AbortSignal): Promise<Set<string>> {
+  try {
+    const rows = await fetchAllRowsPaginated<{ order_a: string; order_b: string }>(async (offset, size) => {
+      signal?.throwIfAborted();
+      const result = await readRequest('payroll_duplicate_reviews', s => supabase
+        .from('sales_order_duplicate_reviews').select('order_a,order_b')
+        .order('order_a', { ascending: true }).order('order_b', { ascending: true })
+        .range(offset, offset + size - 1).abortSignal(s), signal);
+      return { data: result.data, error: result.error };
+    });
+    return new Set(rows.map(pair => salesDuplicateReviewPairKey(pair.order_a, pair.order_b)));
+  } catch (error) {
+    const code = (error as { code?: string } | null)?.code;
+    if (code === 'PGRST205' || code === '42P01') return new Set();
+    throw error;
+  }
+}
+
+export async function reviewSalesOrderDuplicatePair(orderA: string, orderB: string): Promise<void> {
+  const { error } = await supabase.rpc('review_sales_order_duplicate', {
+    p_order_a: orderA,
+    p_order_b: orderB,
+  });
+  if (error?.code === 'PGRST202') throw new Error('Máy chủ chưa cập nhật chức năng xác nhận phiếu trùng.');
+  if (error) throw error;
 }
 
 export interface PayrollRevenueData {
@@ -738,10 +772,11 @@ export async function loadPayrollRevenueData(nam: number, thang: number, signal?
     return { grossTotals, totals, ordersByStaff, assignedOrdersByStaff, branchTotals, branchLabels, personnel: [], personnelTotals: new Map(), personnelGrossTotals: new Map(), personnelOrdersById, personnelAssignedOrdersById, allocationIssuesByPersonnelId, allocationIssues: [] };
   }
 
-  const [headers, ctRecords, personnel] = await Promise.all([
+  const [headers, ctRecords, personnel, reviewedDuplicatePairs] = await Promise.all([
     fetchAllHeaderRecords(startDate, endDate, signal),
     fetchAllCTRecords(startDate, endDate, signal),
     getPersonnel(),
+    getReviewedSalesDuplicatePairs(signal),
   ]);
 
   signal?.throwIfAborted();
@@ -755,11 +790,12 @@ export async function loadPayrollRevenueData(nam: number, thang: number, signal?
     nhan_vien_id?: string | null;
     tong_tien?: number | null;
     ten_khach_hang?: string | null;
+    bien_so_xe?: string | null;
     khach_hang_id?: string | null;
     so_dien_thoai?: string | null;
     co_so?: string | null;
     order_branches?: string[] | null;
-    khach_hang?: { id?: string | null } | null;
+    khach_hang?: { id?: string | null; bien_so_xe?: string | null } | null;
   };
 
   const payrollHeaders = headers as PayrollOrderHeader[];
@@ -768,13 +804,38 @@ export async function loadPayrollRevenueData(nam: number, thang: number, signal?
     return ky === null || (ky.nam === nam && ky.thang === thang);
   }).map(header => ({ ...header, amount: revenueForOrderHeader(header, orderRevenueMap) })), ctRecords);
 
+  const orderIdByReference = new Map<string, string>();
+  for (const header of payrollHeaders) {
+    for (const ref of [header.id, header.id_bh]) {
+      if (ref) orderIdByReference.set(String(ref).trim().toLowerCase(), header.id);
+    }
+  }
+  const unresolvedDuplicateCandidates = new Map<string, string[]>();
+  const unresolvedDuplicateOrderIds = new Set<string>();
+  const unresolvedDuplicateRecordIds = new Map<string, string[]>();
+  for (const [reference, counterparts] of duplicateCandidates) {
+    const currentId = orderIdByReference.get(reference.trim().toLowerCase());
+    if (!currentId) continue;
+    const unresolved = counterparts.filter(counterpart => {
+      const counterpartId = orderIdByReference.get(counterpart.trim().toLowerCase());
+      if (!counterpartId || reviewedDuplicatePairs.has(salesDuplicateReviewPairKey(currentId, counterpartId))) return false;
+      unresolvedDuplicateOrderIds.add(currentId);
+      unresolvedDuplicateOrderIds.add(counterpartId);
+      const ids = unresolvedDuplicateRecordIds.get(reference) || [];
+      if (!ids.includes(counterpartId)) ids.push(counterpartId);
+      unresolvedDuplicateRecordIds.set(reference, ids);
+      return true;
+    });
+    if (unresolved.length) unresolvedDuplicateCandidates.set(reference, unresolved);
+  }
+
   const invoiceRows = new Map<string, PayrollRevenueOrderRow>();
   for (const h of payrollHeaders) {
     const ky = extractNamThangTuNgayCot(h.ngay);
     if (ky !== null && (ky.nam !== nam || ky.thang !== thang)) continue;
 
     const amount = revenueForOrderHeader(h, orderRevenueMap);
-    {
+    if (!unresolvedDuplicateOrderIds.has(h.id)) {
       for (const key of new Set((h.order_branches ?? []).map(branchKey))) {
         if (!key) continue;
         branchTotals.set(key, (branchTotals.get(key) || 0) + amount);
@@ -783,24 +844,32 @@ export async function loadPayrollRevenueData(nam: number, thang: number, signal?
     }
 
     const staffRaw = String(h.nhan_vien_id ?? '').trim();
+    const orderReference = String(h.id_bh || h.id);
     const baseRow: PayrollRevenueOrderRow = {
-      id_bh: String(h.id_bh || h.id),
+      id: h.id,
+      id_bh: orderReference,
       ngay: h.ngay,
       gio: h.gio,
       khach_hang: (h.ten_khach_hang || '').trim() || '—',
+      bien_so_xe: String(h.khach_hang?.bien_so_xe || h.bien_so_xe || '').trim(),
       tong_tien_don: amount,
       phan_bo: 0,
       so_nhan_vien: 0,
       phu_trach: staffRaw,
       branches: [...new Set((h.order_branches ?? []).map(branchKey))],
-      duplicate_order_ids: duplicateCandidates.get(String(h.id_bh || h.id)) ?? [],
+      duplicate_order_ids: unresolvedDuplicateCandidates.get(orderReference) ?? [],
+      duplicate_order_record_ids: unresolvedDuplicateRecordIds.get(orderReference) ?? [],
     };
 
     invoiceRows.set(h.id, baseRow);
   }
 
+  const allocationInputs = [...invoiceRows].map(([id, row]) => ({ id, amount: row.tong_tien_don, staff: row.phu_trach, branches: row.branches || [] }));
+  const completeAllocation = allocateInvoiceRevenue(
+    allocationInputs, personnel, chuanHoaTenTheoDon, branchKey,
+  );
   const allocation = allocateInvoiceRevenue(
-    [...invoiceRows].map(([id, row]) => ({ id, amount: row.tong_tien_don, staff: row.phu_trach, branches: row.branches || [] })),
+    allocationInputs.filter(invoice => !unresolvedDuplicateOrderIds.has(invoice.id)),
     personnel, chuanHoaTenTheoDon, branchKey,
   );
   const personnelById = new Map(personnel.map(person => [person.id, person]));
@@ -821,10 +890,48 @@ export async function loadPayrollRevenueData(nam: number, thang: number, signal?
     assignedNameOrders.push(assignedRow);
     assignedOrdersByStaff.set(name, assignedNameOrders);
   }
-  const allocationIssues = allocation.issues.map(issue => ({
+  const allocationIssues: PayrollRevenueOrderRow[] = allocation.issues.map(issue => ({
     ...invoiceRows.get(issue.orderId)!, phan_bo: issue.amount, allocationIssue: issue.reason,
     phu_trach: issue.staff || 'Chưa gán nhân viên',
   }));
+
+  const heldDuplicateRows = new Map<string, PayrollRevenueOrderRow>();
+  for (const orderId of unresolvedDuplicateOrderIds) {
+    const source = invoiceRows.get(orderId);
+    if (!source) continue;
+    const heldRow: PayrollRevenueOrderRow = {
+      ...source,
+      phan_bo: source.tong_tien_don,
+      so_nhan_vien: 0,
+      allocationIssue: 'Doanh số đang tạm giữ đến khi admin xác nhận, sửa hoặc xóa phiếu trùng.',
+    };
+    heldDuplicateRows.set(orderId, heldRow);
+    allocationIssues.push(heldRow);
+  }
+  const heldPersonnelOrderKeys = new Set<string>();
+  for (const share of completeAllocation.allocations) {
+    const heldRow = heldDuplicateRows.get(share.orderId);
+    if (!heldRow) continue;
+    const rows = allocationIssuesByPersonnelId.get(share.personnelId) || [];
+    if (!rows.some(row => row.id_bh === heldRow.id_bh)) rows.push(heldRow);
+    allocationIssuesByPersonnelId.set(share.personnelId, rows);
+    heldPersonnelOrderKeys.add(`${share.personnelId}:${heldRow.id_bh}`);
+  }
+  for (const issue of completeAllocation.issues) {
+    const heldRow = heldDuplicateRows.get(issue.orderId);
+    if (!heldRow) continue;
+    const matching = personnel.filter(person => chuanHoaTenTheoDon(person.ho_ten) === chuanHoaTenTheoDon(issue.staff));
+    const branchScoped = matching.filter(person => issue.branches.includes(branchKey(person.co_so || '')));
+    const candidates = branchScoped.length ? branchScoped : matching;
+    for (const person of candidates) {
+      const heldKey = `${person.id}:${heldRow.id_bh}`;
+      if (heldPersonnelOrderKeys.has(heldKey)) continue;
+      const rows = allocationIssuesByPersonnelId.get(person.id) || [];
+      if (!rows.some(row => row.id_bh === heldRow.id_bh)) rows.push(heldRow);
+      allocationIssuesByPersonnelId.set(person.id, rows);
+      heldPersonnelOrderKeys.add(heldKey);
+    }
+  }
 
   // Keep ambiguous legacy name assignments visible from each possible employee,
   // while keeping them out of the employee's allocated revenue and order totals.

@@ -1,5 +1,5 @@
 import { useBranches } from '../hooks/useBranches';
-import { Banknote, Building2, Calendar, Car, ChevronDown, ChevronUp, Clock, FileText, History, Loader2, Save, ShoppingCart, User, Wrench, X } from 'lucide-react';
+import { AlertTriangle, Banknote, Building2, Calendar, Car, ChevronDown, ChevronUp, Clock, FileText, History, Loader2, Save, ShoppingCart, User, Wrench, X } from 'lucide-react';
 import { matchesServiceBranch, resolveCustomerBranch } from '../constants/customerBranches';
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -20,6 +20,7 @@ import { branchKey } from '../lib/branchCatalog';
 import { preferCustomerLinkKey } from '../lib/customerOrderLink';
 import { resolveInvoiceStaff } from '../lib/payrollRevenueAllocation';
 import { normalizeForCompare } from '../lib/utils';
+import { findPotentialSameDaySalesOrders } from '../data/salesQueryData';
 
 // Helper for dynamic classes
 const clsx = (...classes: (string | boolean | undefined)[]) => classes.filter(Boolean).join(' ');
@@ -84,7 +85,7 @@ const SalesCardFormModal: React.FC<{
   onServiceCreated?: (service: DichVu) => void;
   onCustomerCreated?: (customer: KhachHang) => void;
   onClose: () => void;
-  onSubmit: (data: SalesCardFormData) => Promise<void>;
+  onSubmit: (data: SalesCardFormData, reviewedDuplicateIds?: string[]) => Promise<void>;
   onCollectPayment?: (data: SalesCardFormData, method: string) => Promise<void>;
   isReadOnly?: boolean;
 }> = React.memo(({ isOpen, editingCard, initialData, customerOptions, onCustomerSearch, personnel, services, onServiceCreated, onCustomerCreated, onClose, onSubmit, isReadOnly: requestedReadOnly, onCollectPayment }) => {
@@ -102,6 +103,11 @@ const SalesCardFormModal: React.FC<{
   const submittingRef = React.useRef(false);
   const [showServiceWarning, setShowServiceWarning] = useState(false);
   const [showBranchWarning, setShowBranchWarning] = useState(false);
+  const [duplicateWarning, setDuplicateWarning] = useState<{
+    payload: SalesCardFormData;
+    matches: Awaited<ReturnType<typeof findPotentialSameDaySalesOrders>>;
+  } | null>(null);
+  const [duplicateCheckError, setDuplicateCheckError] = useState<string | null>(null);
   const [creatingCustomer, setCreatingCustomer] = useState(false);
   const [creatingService, setCreatingService] = useState(false);
   const [createdCustomers, setCreatedCustomers] = useState<KhachHang[]>([]);
@@ -434,8 +440,37 @@ const SalesCardFormModal: React.FC<{
     }
 
     setIsSubmitting(true);
+    setDuplicateCheckError(null);
+    const payload = { ...formData, co_so_khach: coSo, nhan_vien_id: selectedStaffValues.join(', ') };
+    const selectedServices = (formData.dich_vu_ids || []).map(id => ({
+      id,
+      name: formData.service_items?.find(item => item.id === id)?.ten_dich_vu
+        || catalogServices.find(service => service.id === id)?.ten_dich_vu
+        || '',
+    })).filter(service => service.name);
+    let matches: Awaited<ReturnType<typeof findPotentialSameDaySalesOrders>>;
     try {
-      await onSubmit({ ...formData, co_so_khach: coSo, nhan_vien_id: selectedStaffValues.join(', ') });
+      matches = await findPotentialSameDaySalesOrders({
+        ngay: String(formData.ngay || ''),
+        bienSoXe: selectedBsx,
+        services: selectedServices,
+        excludeOrderId: editingCard?.id,
+      });
+    } catch (error) {
+      console.error('Không thể kiểm tra phiếu trùng trước khi lưu:', error);
+      setDuplicateCheckError('Không kiểm tra được phiếu cùng ngày. Phiếu chưa được lưu; hãy thử kiểm tra lại.');
+      submittingRef.current = false;
+      setIsSubmitting(false);
+      return;
+    }
+    if (matches.length > 0) {
+      setDuplicateWarning({ payload, matches });
+      submittingRef.current = false;
+      setIsSubmitting(false);
+      return;
+    }
+    try {
+      await onSubmit(payload);
     } finally {
       submittingRef.current = false;
       setIsSubmitting(false);
@@ -464,6 +499,9 @@ const SalesCardFormModal: React.FC<{
         </div>
 
         <form onSubmit={handleFormSubmit} className="overflow-y-auto p-4 sm:p-8 flex-1 custom-scrollbar overscroll-contain">
+          {duplicateCheckError && <div role="alert" className="mb-4 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">
+            <div className="flex items-start gap-2"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />{duplicateCheckError}</div>
+          </div>}
           <div className="space-y-4 sm:space-y-6">
             <div className="grid grid-cols-2 gap-3 sm:gap-6 [&>*]:min-w-0">
               <InputField label="Ngày lập" name="ngay" type="date" value={formData.ngay || ''} onChange={handleInputChange} icon={Calendar} required disabled={isReadOnly} max={formatLocalIsoDate()} />
@@ -857,6 +895,34 @@ const SalesCardFormModal: React.FC<{
         setFormData(prev => ({ ...prev, dich_vu_ids: [...(prev.dich_vu_ids || []), saved.id], service_items: [...(prev.service_items || []), { id: saved.id, ten_dich_vu: saved.ten_dich_vu, gia_ban: saved.gia_ban, gia_von: saved.gia_nhap ?? 0, so_luong: 1 }] }));
         setCreatingService(false);
       }} /></div>}
+      {duplicateWarning && <div className="fixed inset-0 z-[10000002] flex items-center justify-center bg-black/70 p-4" role="presentation">
+        <section role="alertdialog" aria-modal="true" aria-labelledby="sales-duplicate-warning-title" className="w-full max-w-xl rounded-2xl border-2 border-red-400 bg-white p-5 shadow-2xl">
+          <h3 id="sales-duplicate-warning-title" className="flex items-center gap-2 text-lg font-bold text-red-800">
+            <AlertTriangle className="h-5 w-5 shrink-0" /> Không thể lưu phiếu trùng
+          </h3>
+          <p className="mt-2 text-sm text-red-800">Đã có phiếu cùng ngày, cùng biển số xe và dịch vụ. Phiếu này bị chặn lưu; hãy sửa thông tin hoặc xử lý phiếu cũ.</p>
+          <div className="mt-3 max-h-48 space-y-2 overflow-auto">
+            {duplicateWarning.matches.map(match => <div key={match.id} className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm">
+              <p className="font-mono font-bold text-red-900">{match.code}</p>
+              <p className="mt-0.5">{match.bien_so_xe} · {match.services.join(', ')}</p>
+              <a href={`/ban-hang/phieu-ban-hang?${new URLSearchParams({ don: match.code }).toString()}`} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex min-h-8 items-center font-semibold text-primary underline">Mở phiếu để rà soát</a>
+            </div>)}
+          </div>
+          <p className="mt-3 text-sm text-slate-700">Nếu đây là lần sửa xe riêng, hãy sửa dịch vụ hoặc ngày để phân biệt rõ. Nếu nhập nhầm, hãy hủy phiếu mới hoặc chỉnh sửa/xóa phiếu cũ.</p>
+          <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button type="button" onClick={() => setDuplicateWarning(null)} className="min-h-11 rounded-lg border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted">Quay lại chỉnh sửa</button>
+            {editingCard && isAdmin && <button type="button" onClick={async () => {
+              if (!duplicateWarning || submittingRef.current) return;
+              const pending = duplicateWarning;
+              submittingRef.current = true;
+              setIsSubmitting(true);
+              setDuplicateWarning(null);
+              try { await onSubmit(pending.payload, pending.matches.map(match => match.id)); }
+              finally { submittingRef.current = false; setIsSubmitting(false); }
+            }} className="min-h-11 rounded-lg bg-red-700 px-4 py-2 text-sm font-bold text-white hover:bg-red-800">Lưu thay đổi và xác nhận đã rà soát</button>}
+          </div>
+        </section>
+      </div>}
     </div>,
     document.body
   );

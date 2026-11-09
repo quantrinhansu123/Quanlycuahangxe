@@ -4,6 +4,7 @@ import { isTargetedVehicleSearch } from '../lib/shortNumericSearch';
 import { queryShortNumericSales } from './shortNumericSearchData';
 import type { SalesCard } from './salesCardData';
 import type { KhachHang } from './customerData';
+import { normalizeBusinessText } from '../lib/businessReportMetrics';
 
 export type SalesSummary = {
   totalCount: number;
@@ -68,6 +69,65 @@ export async function queryAllSales(filters: SalesQueryFilters, signal?: AbortSi
     rows.push(...result.data);
     if (rows.length >= result.totalCount || result.data.length === 0) return rows;
   }
+}
+
+export interface PotentialDuplicateSalesOrder {
+  id: string;
+  code: string;
+  bien_so_xe: string;
+  services: string[];
+}
+
+/** Check only same-day headers and their details when a user tries to save a sales order. */
+export async function findPotentialSameDaySalesOrders(input: {
+  ngay: string;
+  bienSoXe: string;
+  services: Array<{ id: string; name: string }>;
+  excludeOrderId?: string | null;
+}): Promise<PotentialDuplicateSalesOrder[]> {
+  const plateKey = normalizeBusinessText(input.bienSoXe).replace(/[^a-z0-9]/g, '');
+  if (!plateKey || !input.ngay || input.services.length === 0) return [];
+
+  const orders = await queryAllSales({ p_start: input.ngay, p_end: input.ngay });
+  const candidates = orders.filter(order => order.id !== input.excludeOrderId
+    && normalizeBusinessText(order.khach_hang?.bien_so_xe || '').replace(/[^a-z0-9]/g, '') === plateKey);
+  if (candidates.length === 0) return [];
+
+  const refs = [...new Set(candidates.flatMap(order => [order.id, order.id_bh]
+    .filter((ref): ref is string => !!ref?.trim()).map(ref => ref.trim())))];
+  const details: Array<{ id_don_hang: string | null; san_pham: string | null }> = [];
+  for (let offset = 0; offset < refs.length; offset += 200) {
+    const result = await readRequest('sales_duplicate_service_check', signal => supabase
+      .from('the_ban_hang_ct').select('id_don_hang,san_pham')
+      .in('id_don_hang', refs.slice(offset, offset + 200)).abortSignal(signal));
+    if (result.error) throw result.error;
+    details.push(...(result.data || []));
+  }
+
+  const serviceKeysByRef = new Map<string, Set<string>>();
+  for (const detail of details) {
+    const ref = String(detail.id_don_hang || '').trim().toLowerCase();
+    const key = normalizeBusinessText(detail.san_pham);
+    if (!ref || !key) continue;
+    const keys = serviceKeysByRef.get(ref) || new Set<string>();
+    keys.add(key);
+    serviceKeysByRef.set(ref, keys);
+  }
+  const selectedNames = new Map(input.services.map(service => [normalizeBusinessText(service.name), service.name.trim()] as const).filter(([key]) => !!key));
+  const selectedIds = new Set(input.services.map(service => service.id.trim().toLowerCase()).filter(Boolean));
+
+  return candidates.flatMap(order => {
+    const orderRefs = [order.id, order.id_bh].filter((ref): ref is string => !!ref?.trim()).map(ref => ref.trim().toLowerCase());
+    const existingServices = new Set(orderRefs.flatMap(ref => [...(serviceKeysByRef.get(ref) || [])]));
+    const sharedServices = [...existingServices].filter(key => selectedNames.has(key)).map(key => selectedNames.get(key)!);
+    if (order.dich_vu_id && selectedIds.has(order.dich_vu_id.trim().toLowerCase())) {
+      const name = input.services.find(service => service.id.trim().toLowerCase() === order.dich_vu_id!.trim().toLowerCase())?.name;
+      if (name && !sharedServices.includes(name)) sharedServices.push(name);
+    }
+    return sharedServices.length
+      ? [{ id: order.id, code: order.id_bh || order.id, bien_so_xe: order.khach_hang?.bien_so_xe || input.bienSoXe, services: sharedServices }]
+      : [];
+  });
 }
 
 export type CustomerQueryFilters = {

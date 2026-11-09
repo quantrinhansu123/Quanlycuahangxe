@@ -1,13 +1,8 @@
-import { branchKey } from './branchCatalog';
-import { lineQuantity, lineRevenue, normalizeBusinessText, type BusinessOrderDetailInput } from './businessReportMetrics';
+import { normalizeBusinessText, type BusinessOrderDetailInput } from './businessReportMetrics';
 
-type DuplicateOrder = {
-  id: string; id_bh?: string | null; ngay: string; co_so?: string | null;
-  khach_hang_id?: string | null; khach_hang?: { id?: string | null } | null;
-  amount: number;
-};
+type DuplicateOrder = { id: string; id_bh?: string | null; ngay: string; bien_so_xe?: string | null; khach_hang?: { bien_so_xe?: string | null } | null };
 
-/** Conservative review hints only: never identify a vehicle by phone or name alone. */
+/** Flag same-day invoices for the same plate when they share at least one service. */
 export function findSalesOrderDuplicates(orders: DuplicateOrder[], details: BusinessOrderDetailInput[]): Map<string, string[]> {
   const linesByRef = new Map<string, BusinessOrderDetailInput[]>();
   for (const line of details) {
@@ -17,24 +12,25 @@ export function findSalesOrderDuplicates(orders: DuplicateOrder[], details: Busi
   }
   const buckets = new Map<string, Map<string, string>>();
   for (const order of new Map(orders.map(order => [order.id, order])).values()) {
-    const customer = String(order.khach_hang?.id || order.khach_hang_id || '').trim().toLowerCase();
-    if (!customer || !Number.isFinite(order.amount) || order.amount <= 0) continue;
+    const plate = normalizeBusinessText(order.khach_hang?.bien_so_xe || order.bien_so_xe).replace(/[^a-z0-9]/g, '');
+    if (!plate || !order.ngay) continue;
     const refs = [...new Set([order.id, order.id_bh].filter(Boolean).map(ref => ref!.trim().toLowerCase()))];
     const lines = refs.flatMap(ref => linesByRef.get(ref) || []);
-    if (!lines.length || lines.some(line => !normalizeBusinessText(line.san_pham))) continue;
-    const branches = new Set([order.co_so, ...lines.map(line => line.co_so)].map(value => branchKey(value || '')).filter(Boolean));
-    if (branches.size !== 1) continue;
-    const items = lines.map(line => JSON.stringify([
-      normalizeBusinessText(line.san_pham), lineQuantity(line), lineRevenue(line),
-    ])).sort();
-    const signature = JSON.stringify([order.ngay, customer, [...branches][0], order.amount, items]);
-    const bucket = buckets.get(signature) || new Map<string, string>();
-    bucket.set(order.id, order.id_bh || order.id); buckets.set(signature, bucket);
+    const services = new Set(lines.map(line => normalizeBusinessText(line.san_pham)).filter(Boolean));
+    for (const service of services) {
+      const signature = JSON.stringify([order.ngay, plate, service]);
+      const bucket = buckets.get(signature) || new Map<string, string>();
+      bucket.set(order.id, order.id_bh || order.id); buckets.set(signature, bucket);
+    }
   }
-  const candidates = new Map<string, string[]>();
+  const candidateSets = new Map<string, Map<string, string>>();
   for (const bucket of buckets.values()) {
     if (bucket.size < 2) continue;
-    for (const [id, ref] of bucket) candidates.set(ref, [...bucket].filter(([other]) => other !== id).map(([, code]) => code));
+    for (const [id, ref] of bucket) {
+      const counterparts = candidateSets.get(ref) || new Map<string, string>();
+      for (const [other, code] of bucket) if (other !== id) counterparts.set(other, code);
+      candidateSets.set(ref, counterparts);
+    }
   }
-  return candidates;
+  return new Map([...candidateSets].map(([ref, counterparts]) => [ref, [...counterparts.values()]]));
 }
