@@ -23,6 +23,7 @@ import { getCustomersForSelect } from '../data/customerData';
 import {
   getServiceUsageDatesMap,
   getServiceUsageLatestMap,
+  getServices,
   getSoldServices,
   type DichVu,
   type ServiceUsageDate,
@@ -39,6 +40,7 @@ import {
 } from '../constants/znsTemplates';
 import { removeVietnameseTones } from '../lib/utils';
 import { chuanHoaTenTheoDon } from '../data/reportData';
+import { buildServiceNameLookup, looksLikeOpaqueServiceCode, resolveServiceDisplayName } from '../data/salesCardData';
 
 /** Ngăn cách các tên gốc trong 1 giá trị lựa chọn dịch vụ (tên có thể chứa dấu phẩy). */
 const SERVICE_KEY_SEP = '\u0001';
@@ -430,8 +432,13 @@ const ZnsBulkSendPage: React.FC = () => {
     (async () => {
       setLoadingServices(true);
       try {
-        const rows = await getSoldServices();
-        setServices(rows);
+        // Dữ liệu cũ lưu mã (id dịch vụ) thay vì tên trong san_pham → tra ra tên giống màn hình bán hàng,
+        // để các dòng đó gộp vào đúng dịch vụ (id vẫn là mã gốc để truy vấn khớp chính xác).
+        const [sold, catalog] = await Promise.all([getSoldServices(), getServices()]);
+        const lookup = buildServiceNameLookup(catalog);
+        setServices(sold.map((s) => looksLikeOpaqueServiceCode(s.id)
+          ? { ...s, ten_dich_vu: resolveServiceDisplayName(s.id, lookup) }
+          : s));
       } catch (err) {
         showToast(err instanceof Error ? err.message : 'Không tải được danh sách dịch vụ', 'error');
       } finally {
