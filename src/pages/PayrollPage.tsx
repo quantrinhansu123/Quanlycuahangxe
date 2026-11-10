@@ -37,6 +37,7 @@ const PayrollPage: React.FC = () => {
   const { isAdmin } = useAuth();
   const [payrollData, setPayrollData] = useState<BangLuong[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const value = Number(searchParams.get('thang'));
     return value >= 1 && value <= 12 ? value : new Date().getMonth() + 1;
@@ -109,10 +110,17 @@ const PayrollPage: React.FC = () => {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const data = await getPayrollBatch(selectedMonth, selectedYear, selectedCoSo);
       setPayrollData(data);
     } catch (error) {
       console.error('Error fetching payroll:', error);
+      setPayrollData([]);
+      setLoadError(
+        typeof error === 'object' && error !== null && 'message' in error
+          ? String(error.message)
+          : 'Không thể tải dữ liệu bảng lương. Vui lòng thử lại.'
+      );
     } finally {
       setLoading(false);
     }
@@ -1257,8 +1265,29 @@ const PayrollPage: React.FC = () => {
               <div className="p-4 bg-slate-50 rounded-full inline-block mb-3">
                 <User size={32} className="text-slate-300" />
               </div>
-              <p className="text-slate-500 font-bold">Không có dữ liệu</p>
-              {isAdmin && (
+              {loadError ? (
+                <div role="alert" className="mx-auto max-w-xl px-4">
+                  <p className="font-bold text-rose-600">Không thể tải dữ liệu bảng lương.</p>
+                  <p className="mt-2 break-words text-sm text-slate-500">{loadError}</p>
+                  <button
+                    type="button"
+                    onClick={() => void fetchData()}
+                    className="mt-4 rounded-xl bg-primary px-4 py-2 text-xs font-black text-white"
+                  >
+                    Thử tải lại
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <p className="text-slate-500 font-bold">Không có dữ liệu</p>
+                  {!isAdmin && (
+                    <p className="mx-auto mt-2 max-w-md text-xs text-slate-400">
+                      Chỉ phiếu lương đã được gửi cho bạn mới hiển thị ở đây.
+                    </p>
+                  )}
+                </>
+              )}
+              {!loadError && isAdmin && (
                 <button onClick={() => setShowAddEmployee(true)} className="mt-4 flex items-center gap-2 px-5 py-2 bg-primary/10 text-primary font-black rounded-xl text-[11px] uppercase tracking-widest mx-auto">
                   <Plus size={14} /> Khởi tạo bảng lương
                 </button>

@@ -77,6 +77,94 @@ const hasAttendanceTime = (record: AttendanceRecord): boolean =>
     (record.checkout && String(record.checkout).trim())
   );
 
+function normalizeAttendanceTimeInput(value: string | null | undefined): string | null {
+  const raw = (value ?? '').trim();
+  if (!raw) return '';
+  const match = raw.match(/^(\d{1,2}):([0-5]\d)(?::([0-5]\d))?$/);
+  if (!match) return null;
+  const hour = Number(match[1]);
+  if (hour < 0 || hour > 23) return null;
+  return `${String(hour).padStart(2, '0')}:${match[2]}:${match[3] ?? '00'}`;
+}
+
+function Time24Picker({
+  label,
+  value,
+  tone,
+  onChange,
+}: {
+  label: string;
+  value: string | null | undefined;
+  tone: 'emerald' | 'orange';
+  onChange: (value: string | null) => void;
+}) {
+  const normalized = normalizeAttendanceTimeInput(value);
+  const parts = normalized ? normalized.split(':') : ['', '', ''];
+  const colors = tone === 'emerald'
+    ? {
+      icon: 'text-emerald-600 dark:text-emerald-400',
+      badge: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300',
+      surface: 'border-emerald-200/80 bg-emerald-50/40 dark:border-emerald-900/60 dark:bg-emerald-950/20',
+      focus: 'focus-within:border-emerald-400 focus-within:ring-emerald-500/10',
+    }
+    : {
+      icon: 'text-orange-600 dark:text-orange-400',
+      badge: 'bg-orange-100 text-orange-800 dark:bg-orange-950/60 dark:text-orange-300',
+      surface: 'border-orange-200/80 bg-orange-50/40 dark:border-orange-900/60 dark:bg-orange-950/20',
+      focus: 'focus-within:border-orange-400 focus-within:ring-orange-500/10',
+    };
+
+  const updatePart = (index: number, nextValue: string) => {
+    if (!nextValue) {
+      onChange(null);
+      return;
+    }
+    const next = [...parts];
+    next[index] = nextValue;
+    onChange(`${next[0] || '00'}:${next[1] || '00'}:${next[2] || '00'}`);
+  };
+
+  const selectClass = 'min-h-11 w-full cursor-pointer appearance-none rounded-lg bg-transparent px-1 pr-4 text-center font-mono text-base font-semibold tabular-nums text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/40';
+  const renderOptions = (count: number) => Array.from({ length: count }, (_, index) => String(index).padStart(2, '0'))
+    .map(part => <option key={part} value={part}>{part}</option>);
+
+  return (
+    <div className="min-w-0 space-y-2">
+      <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+        <Clock size={16} className={colors.icon} aria-hidden="true" />
+        {label}
+        <span className={`ml-auto rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wide ${colors.badge}`}>24 GIỜ</span>
+      </div>
+      <div role="group" aria-label={`${label}, chọn theo giờ 24h`} className={`rounded-xl border p-2 transition-all focus-within:ring-4 ${colors.surface} ${colors.focus}`}>
+        <div className="grid grid-cols-3 gap-1.5">
+          {([
+            { label: 'Giờ', ariaLabel: `${label}, giờ`, count: 24 },
+            { label: 'Phút', ariaLabel: `${label}, phút`, count: 60 },
+            { label: 'Giây', ariaLabel: `${label}, giây`, count: 60 },
+          ] as const).map((unit, index) => (
+            <div key={unit.label} className="min-w-0 rounded-lg border border-border/70 bg-card px-1.5 pt-1 shadow-sm transition-colors hover:border-primary/30 focus-within:border-primary/40">
+              <div className="text-center text-[9px] font-bold uppercase tracking-widest text-muted-foreground">{unit.label}</div>
+              <div className="relative">
+                <select
+                  aria-label={unit.ariaLabel}
+                  className={selectClass}
+                  value={parts[index]}
+                  onChange={event => updatePart(index, event.target.value)}
+                >
+                  <option value="">--</option>
+                  {renderOptions(unit.count)}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-0.5 top-1/2 size-3 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <p className="px-0.5 text-[11px] text-muted-foreground">Giờ 00–23 · phút, giây 00–59</p>
+    </div>
+  );
+}
+
 const AttendanceManagementPage: React.FC = () => {
   const { nhanVien, isAdmin, canModifyData, isTechnician, hasViewAccess } = useAuth();
   const { settings: attendanceSettings, loading: attendanceSettingsLoading } = useAttendanceSettings();
@@ -123,6 +211,7 @@ const AttendanceManagementPage: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const savingRef = useRef(false);
   const [formData, setFormData] = useState<Partial<AttendanceRecord>>({});
+  const [timeInputError, setTimeInputError] = useState<string | null>(null);
   const [originalRecord, setOriginalRecord] = useState<AttendanceRecord | null>(null);
   const [showHistoryRecord, setShowHistoryRecord] = useState<AttendanceRecord | null>(null);
   const [showPhotoRecord, setShowPhotoRecord] = useState<AttendanceRecord | null>(null);
@@ -478,6 +567,7 @@ const AttendanceManagementPage: React.FC = () => {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setIsNewRecord(false);
+    setTimeInputError(null);
   };
 
   const getLocation = () => {
@@ -518,10 +608,22 @@ const AttendanceManagementPage: React.FC = () => {
     e.preventDefault();
     if (!canModifyData || savingRef.current) return;
 
+    const checkin = normalizeAttendanceTimeInput(formData.checkin);
+    const checkout = normalizeAttendanceTimeInput(formData.checkout);
+    if (checkin === null || checkout === null) {
+      setTimeInputError('Nhập giờ theo định dạng 24h HH:MM hoặc HH:MM:SS (00–23 giờ).');
+      return;
+    }
+    setTimeInputError(null);
+
     savingRef.current = true;
     setIsSaving(true);
     try {
-      const updatedData = { ...formData };
+      const updatedData = {
+        ...formData,
+        checkin: checkin || null,
+        checkout: checkout || null,
+      };
 
       if (isNewRecord) {
         if (!updatedData.nhan_su || !updatedData.ngay) {
@@ -1506,33 +1608,20 @@ const AttendanceManagementPage: React.FC = () => {
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                      <Clock size={14} className="text-emerald-600" />
-                      Giờ vào
-                    </label>
-                    <input
-                      type="time"
-                      step="1"
-                      value={formData.checkin || ''}
-                      onChange={(e) => setFormData(prev => ({ ...prev, checkin: e.target.value }))}
-                      className="w-full px-4 py-2.5 bg-card border border-border rounded-xl font-bold text-[14px] text-foreground focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                      <Clock size={14} className="text-orange-600" />
-                      Giờ ra
-                    </label>
-                    <input
-                      type="time"
-                      step="1"
-                      value={formData.checkout || ''}
-                      onChange={(e) => setFormData(prev => ({ ...prev, checkout: e.target.value }))}
-                      className="w-full px-4 py-2.5 bg-card border border-border rounded-xl font-bold text-[14px] text-foreground focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-                    />
-                  </div>
+                  <Time24Picker
+                    label="Giờ vào"
+                    value={formData.checkin}
+                    tone="emerald"
+                    onChange={value => { setTimeInputError(null); setFormData(prev => ({ ...prev, checkin: value })); }}
+                  />
+                  <Time24Picker
+                    label="Giờ ra"
+                    value={formData.checkout}
+                    tone="orange"
+                    onChange={value => { setTimeInputError(null); setFormData(prev => ({ ...prev, checkout: value })); }}
+                  />
                 </div>
+                {timeInputError && <p role="alert" className="-mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{timeInputError}</p>}
 
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between gap-2">

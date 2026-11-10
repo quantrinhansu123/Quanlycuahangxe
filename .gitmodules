@@ -1,0 +1,3 @@
+[submodule ".codex/skills/ui-ux-pro-max"]
+	path = .codex/skills/ui-ux-pro-max
+	url = https://github.com/nextlevelbuilder/ui-ux-pro-max-skill.git

@@ -32,3 +32,7 @@ env*
 
 pnpm-lock.yaml
 pnpm-workspace.yaml
+
+# Python generated cache
+__pycache__/
+*.pyc

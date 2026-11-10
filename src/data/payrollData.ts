@@ -42,7 +42,7 @@ export interface BangLuong {
   da_nhan?: number;
   tam_ung?: number;
   con_phai_tra?: number;
-  chi_tiet?: BangLuongChiTiet[];
+  chi_tiet?: Array<Pick<BangLuongChiTiet, 'ghi_chu' | 'gia_tri'>>;
   ngay_cong_them?: number;
   phu_cap_chuyen_can?: number;
   phu_cap_xang_dien_thoai?: number;
@@ -231,7 +231,7 @@ function hydratePayrollBreakdown(item: BangLuong): BangLuong {
 export const getPayrollBatch = async (thang: number, nam: number, coSo?: string): Promise<BangLuong[]> => {
   let query = supabase
     .from('bang_luong')
-    .select('*, nhan_su:nhan_su_id(id, ho_ten, vi_tri, hinh_anh, ngay_vao_lam), chi_tiet:bang_luong_chi_tiet(*)');
+    .select('*, nhan_su:nhan_su_id(id, ho_ten, vi_tri, hinh_anh, ngay_vao_lam), chi_tiet:bang_luong_chi_tiet(ghi_chu,gia_tri)');
     
   query = query.eq('thang', thang).eq('nam', nam);
   
@@ -246,9 +246,18 @@ export const getPayrollBatch = async (thang: number, nam: number, coSo?: string)
     throw error;
   }
   if (!data?.length) return [];
-  const { data: totals, error: paymentError } = await supabase.from('business_payroll_payment_totals')
-    .select('nhan_su_id,da_nhan,tam_ung').eq('thang', thang).eq('nam', nam);
-  if (paymentError) throw paymentError;
+
+  const employeeIds = Array.from(new Set(data.map((item) => item.nhan_su_id).filter(Boolean)));
+  let totals: Array<{ nhan_su_id: string; da_nhan: number; tam_ung: number }> = [];
+  if (employeeIds.length > 0) {
+    const result = await supabase.from('business_payroll_payment_totals')
+      .select('nhan_su_id,da_nhan,tam_ung')
+      .eq('thang', thang)
+      .eq('nam', nam)
+      .in('nhan_su_id', employeeIds);
+    if (result.error) throw result.error;
+    totals = result.data ?? [];
+  }
   const byEmployee = new Map((totals || []).map(t => [t.nhan_su_id, t]));
   return (data as BangLuong[]).map(item => {
     const paid = byEmployee.get(item.nhan_su_id);
