@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { fetchAllPages } from '../lib/fetchAllPages';
 import { normalizeVnPhoneDigits } from '../lib/phoneUtils';
 import { getCustomerServiceHistory } from './customerData';
 import { clampZnsParam } from '../lib/znsServiceName';
@@ -210,13 +211,13 @@ export async function listCampaigns(): Promise<ZnsCampaign[]> {
 }
 
 export async function getCampaignLogs(campaignId: string): Promise<ZnsLogEntry[]> {
-  const { data, error } = await supabase
+  return fetchAllPages<ZnsLogEntry>((from, to) => supabase
     .from('zns_gui_log')
     .select('*')
     .eq('chien_dich_id', campaignId)
-    .order('created_at', { ascending: false });
-  if (error) throw error;
-  return (data as ZnsLogEntry[]) || [];
+    .order('created_at', { ascending: false })
+    .order('id')
+    .range(from, to));
 }
 
 export interface ZnsGuiLogWithCustomer extends ZnsLogEntry {
@@ -225,12 +226,12 @@ export interface ZnsGuiLogWithCustomer extends ZnsLogEntry {
 
 /** Toàn bộ log gửi ZNS (mọi chiến dịch) — dùng cho báo cáo tổng hợp theo khách hàng. */
 export async function listAllGuiLogs(): Promise<ZnsGuiLogWithCustomer[]> {
-  const { data, error } = await supabase
+  return fetchAllPages<ZnsGuiLogWithCustomer>((from, to) => supabase
     .from('zns_gui_log')
     .select('*, khach_hang:khach_hang_id(ho_va_ten, dia_chi_hien_tai)')
-    .order('created_at', { ascending: false });
-  if (error) throw error;
-  return (data as ZnsGuiLogWithCustomer[]) || [];
+    .order('created_at', { ascending: false })
+    .order('id')
+    .range(from, to));
 }
 
 export interface RenderedRecipient {

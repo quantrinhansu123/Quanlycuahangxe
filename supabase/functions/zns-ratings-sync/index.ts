@@ -1,7 +1,7 @@
 import { adminClient, corsHeaders, getCustomerRatings, getValidAccessToken, jsonResponse } from "../_shared/zalo.ts";
 
 const PAGE_LIMIT = 100;
-const MAX_PAGES = 50; // chặn vòng lặp vô hạn nếu Zalo trả total sai lệch
+const MAX_PAGES = 1000; // chặn vòng lặp vô hạn nếu Zalo trả total sai lệch
 
 /**
  * Đồng bộ thủ công đánh giá của 1 template (API "Lấy thông tin đánh giá của khách hàng"),

@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { fetchAllPages } from '../lib/fetchAllPages';
 
 export type OrderMessageStatus = 'cho_duyet' | 'da_gui' | 'that_bai';
 
@@ -142,21 +143,25 @@ async function syncQueueCustomerSnapshots(rows: OrderMessageQueueItem[]): Promis
 
 /** date: 'YYYY-MM-DD' theo giờ máy; lọc ở server để không kéo cả lịch sử hàng đợi. */
 export async function listOrderMessageQueue(date?: string): Promise<OrderMessageQueueItem[]> {
-  let query = supabase
-    .from('zns_order_message_queue')
-    .select('*')
-    .order('created_at', { ascending: false });
+  let range: [string, string] | null = null;
   if (date) {
     const start = new Date(`${date}T00:00:00`);
     if (!Number.isNaN(start.getTime())) {
       const end = new Date(start);
       end.setDate(end.getDate() + 1);
-      query = query.gte('created_at', start.toISOString()).lt('created_at', end.toISOString());
+      range = [start.toISOString(), end.toISOString()];
     }
   }
-  const { data, error } = await query;
-  if (error) throw error;
-  return syncQueueCustomerSnapshots((data as OrderMessageQueueItem[]) || []);
+  const data = await fetchAllPages<OrderMessageQueueItem>((from, to) => {
+    let query = supabase
+      .from('zns_order_message_queue')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .order('id');
+    if (range) query = query.gte('created_at', range[0]).lt('created_at', range[1]);
+    return query.range(from, to);
+  });
+  return syncQueueCustomerSnapshots(data);
 }
 
 export async function approveOrderMessages(queueIds: string[]): Promise<{

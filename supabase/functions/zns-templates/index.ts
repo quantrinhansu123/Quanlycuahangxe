@@ -43,21 +43,27 @@ Deno.serve(async (req) => {
       });
     }
 
-    const url = new URL("https://business.openapi.zalo.me/template/all");
-    url.searchParams.set("offset", "0");
-    url.searchParams.set("limit", "100");
-    url.searchParams.set("status", "1");
-    const response = await fetch(url, { headers: { access_token: tokenResult.token } });
-    const json = await response.json().catch(() => ({}));
-    if (!response.ok || (json?.error !== undefined && Number(json.error) !== 0)) {
-      return jsonResponse({ error: zaloErrorMessage(json?.error ?? response.status, json?.message ?? `Không tải được danh sách Template (${response.status})`) }, 502);
+    // Zalo trả tối đa 100 mẫu/lần → lặp theo offset đến khi hết trang.
+    const rawRows: JsonRow[] = [];
+    for (let offset = 0; offset < 5000; offset += 100) {
+      const url = new URL("https://business.openapi.zalo.me/template/all");
+      url.searchParams.set("offset", String(offset));
+      url.searchParams.set("limit", "100");
+      url.searchParams.set("status", "1");
+      const response = await fetch(url, { headers: { access_token: tokenResult.token } });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok || (json?.error !== undefined && Number(json.error) !== 0)) {
+        return jsonResponse({ error: zaloErrorMessage(json?.error ?? response.status, json?.message ?? `Không tải được danh sách Template (${response.status})`) }, 502);
+      }
+      const page = Array.isArray(json?.data)
+        ? json.data
+        : Array.isArray(json?.data?.templates)
+          ? json.data.templates
+          : [];
+      rawRows.push(...(page as JsonRow[]));
+      if (page.length < 100) break;
     }
-    const rawRows = Array.isArray(json?.data)
-      ? json.data
-      : Array.isArray(json?.data?.templates)
-        ? json.data.templates
-        : [];
-    const templates = (rawRows as JsonRow[]).map((row) => ({
+    const templates = rawRows.map((row) => ({
       template_id: idOf(row),
       template_name: nameOf(row),
       status: row.status ?? null,

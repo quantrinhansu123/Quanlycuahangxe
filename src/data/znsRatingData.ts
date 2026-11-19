@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { fetchAllPages } from '../lib/fetchAllPages';
 
 export type ZnsRatingSource = 'webhook' | 'dong_bo';
 
@@ -24,14 +25,14 @@ export interface ZnsRating {
 }
 
 export async function listRatings(): Promise<ZnsRating[]> {
-  const { data, error } = await supabase
+  return fetchAllPages<ZnsRating>((from, to) => supabase
     .from('zns_danh_gia')
     .select(
       '*, khach_hang:khach_hang_id(ho_va_ten, so_dien_thoai, dia_chi_hien_tai), gui_log:gui_log_id(so_dien_thoai), chien_dich:chien_dich_id(ten_chien_dich, template_id)'
     )
-    .order('thoi_diem_danh_gia', { ascending: false, nullsFirst: false });
-  if (error) throw error;
-  return (data as ZnsRating[]) || [];
+    .order('thoi_diem_danh_gia', { ascending: false, nullsFirst: false })
+    .order('id')
+    .range(from, to));
 }
 
 export interface SyncRatingsInput {
