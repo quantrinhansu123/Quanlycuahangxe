@@ -3,6 +3,7 @@ import type { Candidate } from '../pages/candidates/types';
 import { deletePersonnel, getNextPersonnelCode, upsertPersonnel, type NhanSu } from './personnelData';
 
 import { getStoredDemoRole } from '../lib/authStorage';
+import { fetchAllPages } from '../lib/fetchAllPages';
 
 const isDemo = () => typeof window !== 'undefined' && !!getStoredDemoRole();
 
@@ -309,6 +310,17 @@ export const getCandidatesPaginated = async (
     totalCount: count ?? 0,
   };
 };
+
+/** Load position names independently of the current personnel search and page. */
+export async function getCandidatePositions(signal: AbortSignal): Promise<string[]> {
+  if (isDemo()) return getDemoList().map(candidate => candidate.position);
+
+  const rows = await fetchAllPages((from, to) =>
+    supabase.from('nhan_su').select('vi_tri').not('vi_tri', 'is', null)
+      .order('id').range(from, to).abortSignal(signal),
+  );
+  return rows.map(row => row.vi_tri as string);
+}
 
 export const getNextCandidateCode = async (): Promise<string> => {
   if (isDemo()) {

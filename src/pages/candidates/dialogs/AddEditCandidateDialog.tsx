@@ -17,8 +17,9 @@ import {
 import React from 'react';
 import { createPortal } from 'react-dom';
 
-import type { CandidateDocument, CandidateFormState, FilterOption } from '../types';
+import type { CandidateDocument, CandidateFormState } from '../types';
 import DatePickerVi from '../../../components/ui/DatePickerVi';
+import CandidatePositionPicker from './CandidatePositionPicker';
 
 
 interface Props {
@@ -28,7 +29,6 @@ interface Props {
   onClose: () => void;
   formState: CandidateFormState;
   setFormField: <K extends keyof CandidateFormState>(key: K, value: CandidateFormState[K]) => void;
-  positionOptions: FilterOption[];
   onSave: () => void;
   isSaving: boolean;
 }
@@ -40,7 +40,6 @@ const AddEditCandidateDialog: React.FC<Props> = ({
   onClose,
   formState,
   setFormField,
-  positionOptions,
   onSave,
   isSaving,
 }) => {
@@ -235,24 +234,11 @@ const AddEditCandidateDialog: React.FC<Props> = ({
             </div>
             <div className="p-5 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[13px] font-bold text-foreground">Vị trí</label>
-                  <select
-                    value={formPosition}
-                    onChange={e => setFormField('formPosition', e.target.value)}
-                    className="w-full px-4 py-2 bg-muted/10 border border-border rounded-xl text-[13px] focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all"
-                  >
-                    <option value="">Chọn Quản lý hoặc Kỹ thuật viên</option>
-                    {positionOptions.map(p => (
-                      <option key={p.id} value={p.id}>
-                        {p.label}
-                      </option>
-                    ))}
-                    {formPosition && !positionOptions.some(p => p.id === formPosition) ? (
-                      <option value={formPosition}>{formPosition}</option>
-                    ) : null}
-                  </select>
-                </div>
+                <CandidatePositionPicker
+                  value={formPosition}
+                  onChange={position => setFormField('formPosition', position)}
+                  disabled={isSaving}
+                />
                 <div className="space-y-1.5">
                   <label className="text-[13px] font-bold text-foreground">Ngày vào làm</label>
                   <DatePickerVi

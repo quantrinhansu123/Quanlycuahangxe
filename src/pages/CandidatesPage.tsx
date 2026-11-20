@@ -9,7 +9,7 @@ import React, { useMemo, useState } from 'react';
 import { useRegisterPageRefresh } from '../context/PageRefreshContext';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { statusConfig, positionOptions, mockInterviewSessions } from './candidates/data';
+import { statusConfig, mockInterviewSessions } from './candidates/data';
 import AddEditCandidateDialog from './candidates/dialogs/AddEditCandidateDialog';
 import CandidateDetailDialog from './candidates/dialogs/CandidateDetailDialog';
 import { motion } from 'framer-motion';
@@ -505,7 +505,6 @@ const CandidatesPage: React.FC = () => {
           }}
           formState={formState}
           setFormField={(k, v) => setFormState(prev => ({ ...prev, [k]: v }))}
-          positionOptions={positionOptions}
           isSaving={saving}
           onSave={async () => {
             if (!formState.formName.trim()) {
@@ -513,7 +512,7 @@ const CandidatesPage: React.FC = () => {
               return;
             }
             if (!formState.formPosition.trim()) {
-              window.alert('Vui lòng chọn vị trí (Quản lý hoặc Kỹ thuật viên).');
+              window.alert('Vui lòng chọn hoặc thêm mới vị trí.');
               return;
             }
             try {
