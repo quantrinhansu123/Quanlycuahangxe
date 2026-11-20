@@ -82,6 +82,16 @@ export const formatMinutesToHours = (minutes: number): string => {
   return `${m}p`;
 };
 
+export function normalizeAttendanceTimeInput(value: string | null | undefined): string | null {
+  const raw = (value ?? '').trim();
+  if (!raw) return '';
+  const match = raw.match(/^(\d{1,2}):([0-5]\d)(?::([0-5]\d))?$/);
+  if (!match) return null;
+  const hour = Number(match[1]);
+  if (hour < 0 || hour > 23) return null;
+  return `${String(hour).padStart(2, '0')}:${match[2]}:${match[3] ?? '00'}`;
+}
+
 /** Đọc time/text/ISO thành số phút trong ngày. */
 export function parseTimeStringToMinutes(timeStr: string | null | undefined): number | null {
   if (timeStr == null) return null;

@@ -26,7 +26,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import type { KhachHang } from '../data/customerData';
-import { getCustomersByPhone, getCustomersByPlate, uploadCustomerImage, upsertCustomer } from '../data/customerData';
+import { getCustomersByPhone, getCustomersByPlate, getNewCustomerRequiredFieldsError, uploadCustomerImage, upsertCustomer } from '../data/customerData';
 import { computeCustomerChanges, getCustomerEditHistory, saveCustomerEditHistory, type CustomerEditHistory } from '../data/customerHistoryData';
 import { formatDateTime24h } from '../utils/datetimeFormat';
 import { useToast } from '../context/toast';
@@ -64,6 +64,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [requiredFieldsError, setRequiredFieldsError] = useState('');
   const { showToast } = useToast();
 
   const [duplicateWarning, setDuplicateWarning] = useState<DuplicateWarningState | null>(null);
@@ -84,6 +85,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
 
   useEffect(() => {
     if (isOpen) {
+      setRequiredFieldsError('');
       if (customer) {
         setFormData({
           ...customer,
@@ -214,6 +216,9 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
   const handleSubmit = async (e: React.SyntheticEvent, shouldOrder: boolean = false) => {
     e.preventDefault();
     if (uploadingImage || isSubmitting) return;
+    const validationError = customer ? '' : getNewCustomerRequiredFieldsError(formData);
+    setRequiredFieldsError(validationError);
+    if (validationError) return;
 
     try {
       setIsSubmitting(true);
@@ -313,7 +318,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
           <button onClick={onClose} className="p-2 rounded-full hover:bg-muted transition-colors text-muted-foreground"><X size={20} /></button>
         </div>
 
-        <form onSubmit={handleSubmit} className="overflow-y-auto p-8 flex-1 custom-scrollbar">
+        <form onSubmit={e => void handleSubmit(e)} className="overflow-y-auto p-8 flex-1 custom-scrollbar">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
             <div className="md:col-span-2 flex flex-col items-center mb-4">
               <div className="relative group">
@@ -334,7 +339,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
             <InputField label="Số điện thoại" name="so_dien_thoai" value={formData.so_dien_thoai} onChange={handleInputChange} icon={Phone} placeholder="09xx..." required />
             <InputField label="Mã khách hàng" name="ma_khach_hang" value={formData.ma_khach_hang} onChange={handleInputChange} icon={Tag} placeholder="KH-XXXXXX" />
             <div><InputField label="Địa chỉ lưu trú hiện tại" name="dia_chi_hien_tai" value={formData.dia_chi_hien_tai} onChange={handleInputChange} icon={MapPin} type="select" options={[...CUSTOMER_BRANCH_OPTIONS]} placeholder="Chọn cơ sở..." /><BranchCreateButton onCreated={name => setFormData(prev => ({ ...prev, dia_chi_hien_tai: name }))} /></div>
-            <InputField label="Biển số xe" name="bien_so_xe" value={formData.bien_so_xe} onChange={handleInputChange} icon={CreditCard} placeholder="98A-xxx.xx" />
+            <InputField label="Biển số xe" name="bien_so_xe" value={formData.bien_so_xe} onChange={handleInputChange} icon={CreditCard} placeholder="98A-xxx.xx" required={!customer} />
             <InputField label="Ngày đăng ký" name="ngay_dang_ky" type="date" value={formData.ngay_dang_ky} onChange={handleInputChange} icon={Calendar} />
           </div>
 
@@ -406,14 +411,18 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
             </div>
           )}
 
+          {requiredFieldsError && <p role="alert" className="mt-4 text-sm font-medium text-destructive">{requiredFieldsError}</p>}
+
           <div className="mt-10 flex items-center justify-end gap-3 pt-6 border-t border-border flex-wrap sm:flex-nowrap">
             <button type="button" onClick={onClose} className="px-5 py-2.5 rounded-xl text-sm font-bold text-muted-foreground hover:bg-muted border border-border transition-all">Hủy bỏ</button>
             <div className="flex items-center gap-2 w-full sm:w-auto">
               {/* Nút Lên đơn (Chỉ hiện khi thêm mới hoặc nếu cần thiết khi sửa) */}
               {!inline && <button
                 type="button"
-                disabled={uploadingImage}
-                onClick={(e) => handleSubmit(e, true)}
+                disabled={uploadingImage || isSubmitting}
+                onClick={e => {
+                  if (e.currentTarget.form?.reportValidity()) void handleSubmit(e, true);
+                }}
                 className={clsx(
                   "flex-1 sm:flex-none px-6 py-2.5 rounded-xl text-sm font-bold text-white shadow-lg transition-all flex items-center justify-center gap-2 active:scale-95",
                   uploadingImage ? "bg-emerald-500/50 cursor-not-allowed" : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200"
@@ -425,7 +434,7 @@ const CustomerFormModal: React.FC<CustomerFormModalProps> = React.memo(({ isOpen
 
               <button
                 type="submit"
-                disabled={uploadingImage}
+                disabled={uploadingImage || isSubmitting}
                 className={clsx(
                   "flex-1 sm:flex-none px-6 py-2.5 rounded-xl text-sm font-bold text-white shadow-lg transition-all flex items-center justify-center gap-2 active:scale-95",
                   uploadingImage ? "bg-primary/50 cursor-not-allowed" : "bg-primary hover:bg-primary/90 shadow-primary/25"

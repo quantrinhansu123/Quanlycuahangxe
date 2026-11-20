@@ -11,13 +11,14 @@ import { resolveViewKeyByPath } from '../../data/viewPermissions';
 import { ErrorBoundary } from '../ErrorBoundary';
 import TopProgressBar from '../ui/TopProgressBar';
 import { PageRefreshProvider } from '../../context/PageRefreshContext';
+import { routePageKey } from '../../lib/routePageKey';
 
 const MainLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [globalSearch, setGlobalSearch] = useState('');
   const location = useLocation();
   const mainRef = React.useRef<HTMLElement | null>(null);
-  const pageKey = location.pathname === '/bao-cao' || location.pathname.startsWith('/bao-cao/') ? '/bao-cao' : location.pathname;
+  const pageKey = routePageKey(location.pathname);
   const { hasViewAccess, isAdmin } = useAuth();
 
   React.useEffect(() => {

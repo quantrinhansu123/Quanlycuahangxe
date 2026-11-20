@@ -5,6 +5,7 @@ import { chromium } from 'playwright';
 
 const origin = 'http://127.0.0.1:5224';
 const branch = 'Cơ sở Bắc Ninh';
+const savedCustomerId = '00000000-0000-4000-8000-000000000099';
 const customer = {
   id: '00000000-0000-4000-8000-000000000010', ma_khach_hang: 'KH-TEST',
   ho_va_ten: 'Khách kiểm thử', so_dien_thoai: null, bien_so_xe: '29A-12345',
@@ -24,11 +25,15 @@ import {BrowserRouter,Routes,Route,useNavigate} from 'react-router-dom';
 import {ThemeProvider} from '/src/context/ThemeContext.tsx'; import {ToastProvider} from '/src/context/ToastContext.tsx';
 import {useToast} from '/src/context/toast.ts';
 import CustomerDetailsModal from '/src/components/CustomerDetailsModal.tsx';
+import CustomerFormModal from '/src/components/CustomerFormModal.tsx';
 import SalesCardManagementPage from '/src/pages/SalesCardManagementPage.tsx'; import '/src/index.css';
 const customer=${JSON.stringify(customer)};
 function ToastProbe(){const {toasts}=useToast();return React.createElement('output',{id:'test-toasts'},toasts.map(t=>t.message).join(' | '));}
 function CustomerScreen(){
   const navigate=useNavigate(),params=new URLSearchParams(location.search);
+  if(params.has('new-form'))return React.createElement(CustomerFormModal,{isOpen:true,customer:null,onClose:()=>{},
+    onSuccess:(customer,order,isTemp)=>{window.customerFormResult={customer,order,isTemp}}
+  });
   const selected=params.has('uuid-only')?{...customer,ma_khach_hang:undefined}:customer;
   if(params.has('deferred'))return React.createElement('button',{onClick:()=>navigate('/ban-hang/phieu-ban-hang',{
     state:{pendingCustomerData:{...customer,id:'PENDING-KH-NEW',ma_khach_hang:'KH-NEW',ho_va_ten:'Khách mới',so_dien_thoai:'0912345678'}}
@@ -99,7 +104,7 @@ try {
         customerWrites.push(request.postDataJSON());
         const payload = request.postDataJSON().p_customer;
         assert.equal(payload.id, undefined, 'A deferred customer must be inserted, not updated');
-        return json({ ...payload, id: '00000000-0000-4000-8000-000000000099', so_dien_thoai: null });
+        return json({ ...payload, id: savedCustomerId, so_dien_thoai: null });
       }
       if (endpoint === 'khach_hang' && request.method() !== 'GET') {
         customerWrites.push(request.postDataJSON());
@@ -126,7 +131,7 @@ try {
       await page.locator('select[name="phuong_thuc_thanh_toan"]').selectOption('Tiền mặt');
       await page.locator('textarea[name="ghi_chu"]').fill('Test');
     };
-    for (const [query, expectedRef] of [['', customer.ma_khach_hang], ['?uuid-only', customer.id], ['', customer.ma_khach_hang]]) {
+    for (const query of ['', '?uuid-only', '']) {
       const previous = orders.length;
       await openAndFill(query);
       if (previous === 0) await page.screenshot({ path: `.build-verification/customer-order-create/existing-${width}.png`, fullPage: true });
@@ -134,7 +139,7 @@ try {
       await page.waitForFunction(() => !document.querySelector('input[name="so_km"]')
         || document.body.textContent.includes('Lỗi lưu phiếu:'));
       assert.equal(orders.length, previous + 1, await page.locator('#test-toasts').innerText());
-      assert.equal(orders.at(-1).p_header.khach_hang_id, expectedRef);
+      assert.equal(orders.at(-1).p_header.khach_hang_id, customer.id);
       assert.equal(orders.at(-1).p_details[0].gia_ban, 550000);
       assert.equal(customerWrites.length, 0, 'Existing customers must not be saved again');
     }
@@ -144,15 +149,52 @@ try {
     await page.locator('input[name="so_km"]').waitFor({ state: 'detached' });
     assert.equal(customerWrites.length, 1);
     assert.equal(customerWrites[0].p_customer.ma_khach_hang, 'KH-NEW');
-    assert.equal(orders.at(-1).p_header.khach_hang_id, 'KH-NEW');
+    assert.equal(orders.at(-1).p_header.khach_hang_id, savedCustomerId);
     failOrder = true;
     await openAndFill('');
     await page.getByRole('button', { name: 'Lập phiếu', exact: true }).click();
     await page.getByText('Lỗi lưu phiếu: Server rejected order', { exact: true }).waitFor();
     assert.equal(orders.length, 4, 'A server rejection must not be treated as a successful save');
     assert.equal(customerWrites.length, 1);
+
+    await page.goto(origin + '/customer-test?new-form', { waitUntil: 'domcontentloaded' });
+    const form = page.locator('form');
+    const orderButton = form.getByRole('button', { name: 'Lên đơn', exact: true });
+    const saveButton = form.getByRole('button', { name: 'Lưu', exact: true });
+    const fields = [
+      ['ho_va_ten', 'Khách nhập form'],
+      ['so_dien_thoai', '0987650000'],
+      ['bien_so_xe', '30Z12345'],
+    ];
+    for (const [key, value] of fields) {
+      const input = form.locator(`input[name="${key}"]`);
+      await input.fill(value);
+      assert.equal(await input.evaluate(element => element.required), true);
+    }
+    for (const [key, value] of fields) {
+      const input = form.locator(`input[name="${key}"]`);
+      for (const button of [saveButton, orderButton]) {
+        await input.fill('');
+        await button.click();
+        assert.equal(await input.evaluate(element => element.validity.valueMissing), true);
+        assert.equal(await page.evaluate(() => window.customerFormResult), undefined);
+        await input.fill('   ');
+        await button.click();
+        await form.getByRole('alert').waitFor();
+        assert.equal(await page.evaluate(() => window.customerFormResult), undefined);
+        assert.equal(customerWrites.length, 1);
+      }
+      await input.fill(value);
+    }
+    await orderButton.click();
+    await page.waitForFunction(() => window.customerFormResult?.isTemp);
+    assert.equal(customerWrites.length, 1, 'Opening the order defers creation');
+    await saveButton.click();
+    await page.waitForFunction(() => window.customerFormResult?.order === false);
+    assert.equal(customerWrites.length, 2);
+    for (const [key,value] of fields) assert.equal(customerWrites.at(-1).p_customer[key], value);
     assert.deepEqual(errors, []);
-    console.log(`PASS ${width}px: existing customer -> new order without customer writes; UUID/legacy references, repeat visits, deferred customer, server rejection`);
+    console.log(`PASS ${width}px: existing and deferred customer orders, server rejection, and required fields on Save/Create Order`);
     await context.close();
   }
 } catch (error) {

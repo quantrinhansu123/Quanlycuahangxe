@@ -42,9 +42,11 @@ import {
   staffNamesMatch,
   upsertAttendanceRecord
 } from '../data/attendanceData';
+import { buildAttendanceRoster } from '../data/attendanceRoster';
 import { getPersonnel, type NhanSu } from '../data/personnelData';
 import { formatDateTime24h, formatDateVi, formatLocalIsoDate } from '../utils/datetimeFormat';
 import DateInputVi from '../components/ui/DateInputVi';
+import Time24Picker from '../components/ui/Time24Picker';
 import { matchImportedAttendancePairs } from '../utils/attendanceImport';
 import {
   workDaysForDayShifts,
@@ -53,6 +55,7 @@ import {
   formatMinutesToHours,
   overtimeMinutesForDayShifts,
   parseTimeStringToMinutes,
+  normalizeAttendanceTimeInput,
 } from '../utils/timekeeping';
 
 type DisplayAttendanceRecord = AttendanceListRecord & { isMockAbsent?: boolean };
@@ -62,12 +65,8 @@ interface DailyAttendanceStat {
   total: number;
 }
 
-const attendancePersonnelKey = (name: string, personnel: NhanSu[]): string => {
-  const matched = personnel.find(
-    (p) =>
-      staffNamesMatch(name, p.id) || staffNamesMatch(name, p.ho_ten) ||
-      (p.id_nhan_su != null && staffNamesMatch(name, p.id_nhan_su))
-  );
+const attendancePersonnelKey = (name: string, roster: ReturnType<typeof buildAttendanceRoster>): string => {
+  const matched = roster.find(name);
   return matched ? `personnel:${matched.id}` : `name:${name.trim().toLowerCase()}`;
 };
 
@@ -76,94 +75,6 @@ const hasAttendanceTime = (record: AttendanceRecord): boolean =>
     (record.checkin && String(record.checkin).trim()) ||
     (record.checkout && String(record.checkout).trim())
   );
-
-function normalizeAttendanceTimeInput(value: string | null | undefined): string | null {
-  const raw = (value ?? '').trim();
-  if (!raw) return '';
-  const match = raw.match(/^(\d{1,2}):([0-5]\d)(?::([0-5]\d))?$/);
-  if (!match) return null;
-  const hour = Number(match[1]);
-  if (hour < 0 || hour > 23) return null;
-  return `${String(hour).padStart(2, '0')}:${match[2]}:${match[3] ?? '00'}`;
-}
-
-function Time24Picker({
-  label,
-  value,
-  tone,
-  onChange,
-}: {
-  label: string;
-  value: string | null | undefined;
-  tone: 'emerald' | 'orange';
-  onChange: (value: string | null) => void;
-}) {
-  const normalized = normalizeAttendanceTimeInput(value);
-  const parts = normalized ? normalized.split(':') : ['', '', ''];
-  const colors = tone === 'emerald'
-    ? {
-      icon: 'text-emerald-600 dark:text-emerald-400',
-      badge: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300',
-      surface: 'border-emerald-200/80 bg-emerald-50/40 dark:border-emerald-900/60 dark:bg-emerald-950/20',
-      focus: 'focus-within:border-emerald-400 focus-within:ring-emerald-500/10',
-    }
-    : {
-      icon: 'text-orange-600 dark:text-orange-400',
-      badge: 'bg-orange-100 text-orange-800 dark:bg-orange-950/60 dark:text-orange-300',
-      surface: 'border-orange-200/80 bg-orange-50/40 dark:border-orange-900/60 dark:bg-orange-950/20',
-      focus: 'focus-within:border-orange-400 focus-within:ring-orange-500/10',
-    };
-
-  const updatePart = (index: number, nextValue: string) => {
-    if (!nextValue) {
-      onChange(null);
-      return;
-    }
-    const next = [...parts];
-    next[index] = nextValue;
-    onChange(`${next[0] || '00'}:${next[1] || '00'}:${next[2] || '00'}`);
-  };
-
-  const selectClass = 'min-h-11 w-full cursor-pointer appearance-none rounded-lg bg-transparent px-1 pr-4 text-center font-mono text-base font-semibold tabular-nums text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/40';
-  const renderOptions = (count: number) => Array.from({ length: count }, (_, index) => String(index).padStart(2, '0'))
-    .map(part => <option key={part} value={part}>{part}</option>);
-
-  return (
-    <div className="min-w-0 space-y-2">
-      <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-        <Clock size={16} className={colors.icon} aria-hidden="true" />
-        {label}
-        <span className={`ml-auto rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wide ${colors.badge}`}>24 GIỜ</span>
-      </div>
-      <div role="group" aria-label={`${label}, chọn theo giờ 24h`} className={`rounded-xl border p-2 transition-all focus-within:ring-4 ${colors.surface} ${colors.focus}`}>
-        <div className="grid grid-cols-3 gap-1.5">
-          {([
-            { label: 'Giờ', ariaLabel: `${label}, giờ`, count: 24 },
-            { label: 'Phút', ariaLabel: `${label}, phút`, count: 60 },
-            { label: 'Giây', ariaLabel: `${label}, giây`, count: 60 },
-          ] as const).map((unit, index) => (
-            <div key={unit.label} className="min-w-0 rounded-lg border border-border/70 bg-card px-1.5 pt-1 shadow-sm transition-colors hover:border-primary/30 focus-within:border-primary/40">
-              <div className="text-center text-[9px] font-bold uppercase tracking-widest text-muted-foreground">{unit.label}</div>
-              <div className="relative">
-                <select
-                  aria-label={unit.ariaLabel}
-                  className={selectClass}
-                  value={parts[index]}
-                  onChange={event => updatePart(index, event.target.value)}
-                >
-                  <option value="">--</option>
-                  {renderOptions(unit.count)}
-                </select>
-                <ChevronDown className="pointer-events-none absolute right-0.5 top-1/2 size-3 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-      <p className="px-0.5 text-[11px] text-muted-foreground">Giờ 00–23 · phút, giây 00–59</p>
-    </div>
-  );
-}
 
 const AttendanceManagementPage: React.FC = () => {
   const { nhanVien, isAdmin, canModifyData, isTechnician, hasViewAccess } = useAuth();
@@ -176,6 +87,7 @@ const AttendanceManagementPage: React.FC = () => {
   const navigate = useNavigate();
   const [allRecords, setAllRecords] = useState<DisplayAttendanceRecord[]>([]);
   const [personnel, setPersonnel] = useState<NhanSu[]>([]);
+  const attendanceRoster = React.useMemo(() => buildAttendanceRoster(personnel), [personnel]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -277,24 +189,21 @@ const AttendanceManagementPage: React.FC = () => {
       if (showLoading) setLoading(true);
       const personnelData = await getPersonnel();
       if (request !== attendanceRequest.current) return;
+      const roster = buildAttendanceRoster(personnelData);
       const selfStaffNames = getStaffAttendanceNameVariants(nhanVien, personnelData);
       const staffScope = restrictToSelf
         ? selfStaffNames
         : isAdmin
           ? undefined
           : selfStaffNames;
-      const selectedPersonnel = selectedStaff
-        ? personnelData.find((p) => staffNamesMatch(p.ho_ten, selectedStaff))
-        : undefined;
+      const selectedPersonnel = selectedStaff ? roster.find(selectedStaff) : undefined;
       const searchedPersonnel = debouncedSearch ? personnelData.filter(p =>
         p.ho_ten.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
         p.id_nhan_su?.toLowerCase().includes(debouncedSearch.toLowerCase())) : [];
       const staffFilter = restrictToSelf
         ? undefined
         : selectedStaff
-          ? [selectedStaff, selectedPersonnel?.id_nhan_su, selectedPersonnel?.id].filter(
-              (value): value is string => Boolean(value)
-            )
+          ? [selectedStaff, ...roster.references(selectedPersonnel)]
           : searchedPersonnel.length ? searchedPersonnel.flatMap(p => [p.ho_ten, p.id, p.id_nhan_su || p.id]) : undefined;
 
       if (restrictToSelf && selfStaffNames.length === 0) {
@@ -333,7 +242,7 @@ const AttendanceManagementPage: React.FC = () => {
          }
       }
 
-      const relevantPersonnel = personnelData.filter((p) => {
+      const relevantPersonnel = roster.people.filter((p) => {
         if (restrictToSelf) {
           if (selfStaffNames.length === 0) return false;
           return (
@@ -356,7 +265,7 @@ const AttendanceManagementPage: React.FC = () => {
       const byPersonDay = new Map<string, AttendanceRecord[]>();
       for (const r of summaryRows) {
         if (!r.ngay || !r.nhan_su) continue;
-        const key = `${r.ngay}|||${attendancePersonnelKey(r.nhan_su, personnelData)}`;
+        const key = `${r.ngay}|||${attendancePersonnelKey(r.nhan_su, roster)}`;
         const rows = byPersonDay.get(key) || [];
         rows.push(r);
         byPersonDay.set(key, rows);
@@ -434,8 +343,8 @@ const AttendanceManagementPage: React.FC = () => {
       finalRecords.sort((a, b) => {
         const dateOrder = (b.ngay || '').localeCompare(a.ngay || '');
         if (dateOrder !== 0) return dateOrder;
-        const personA = attendancePersonnelKey(a.nhan_su, personnelData);
-        const personB = attendancePersonnelKey(b.nhan_su, personnelData);
+        const personA = attendancePersonnelKey(a.nhan_su, roster);
+        const personB = attendancePersonnelKey(b.nhan_su, roster);
         const personOrder = personA.localeCompare(personB, 'vi');
         if (personOrder !== 0) return personOrder;
         if (Boolean(a.isMockAbsent) !== Boolean(b.isMockAbsent)) return a.isMockAbsent ? 1 : -1;
@@ -450,7 +359,7 @@ const AttendanceManagementPage: React.FC = () => {
         relevantPersonnel.forEach((p) => totalPeople.add(`personnel:${p.id}`));
         summaryRows.forEach((r) => {
           if (r.ngay !== date || !r.nhan_su) return;
-          const key = attendancePersonnelKey(r.nhan_su, personnelData);
+          const key = attendancePersonnelKey(r.nhan_su, roster);
           totalPeople.add(key);
           if (hasAttendanceTime(r)) presentPeople.add(key);
         });
@@ -535,12 +444,12 @@ const AttendanceManagementPage: React.FC = () => {
     }
     const isMockAbsent = (record as AttendanceRecord & { isMockAbsent?: boolean }).isMockAbsent;
     if (isMockAbsent && isAdmin) {
-      const person = personnel.find(p => staffNamesMatch(p.ho_ten, record.nhan_su) || staffNamesMatch(p.id_nhan_su, record.nhan_su));
+      const person = attendanceRoster.find(record.nhan_su);
       setManualDraft({ person: person?.id, day: record.ngay });
       return;
     }
     if (isMockAbsent) {
-      const person = personnel.find(p => staffNamesMatch(p.ho_ten, record.nhan_su) || staffNamesMatch(p.id_nhan_su, record.nhan_su));
+      const person = attendanceRoster.find(record.nhan_su);
       setIsNewRecord(true);
       setOriginalRecord(null);
       setFormData({
@@ -838,7 +747,7 @@ const AttendanceManagementPage: React.FC = () => {
             const matched = matchImportedAttendancePairs(
               formattedData,
               existingRecords,
-              (value) => attendancePersonnelKey(value, personnel)
+              (value) => attendancePersonnelKey(value, attendanceRoster)
             );
             await bulkUpsertAttendanceRecords(matched.records);
             await loadRecords(false);
@@ -929,17 +838,16 @@ const AttendanceManagementPage: React.FC = () => {
   const tableColSpan = 1 + visibleColumns.length;
 
   const selfDisplayName = resolveStaffNameForUser(nhanVien, personnel);
-  const displayStaffName = (value: string) => personnel.find(p =>
-    [p.id, p.id_nhan_su, p.ho_ten].some(token => staffNamesMatch(value, token)))?.ho_ten || value;
+  const displayStaffName = (value: string) => attendanceRoster.find(value)?.ho_ten || value;
   const dailyCredits = React.useMemo(() => {
     const groups = new Map<string, AttendanceRecord[]>();
     for (const row of allRecords) {
-      const key = `${row.ngay}|${attendancePersonnelKey(row.nhan_su, personnel)}`;
+      const key = `${row.ngay}|${attendancePersonnelKey(row.nhan_su, attendanceRoster)}`;
       groups.set(key, [...(groups.get(key) || []), row]);
     }
     return new Map([...groups].map(([key, rows]) => [key, attendanceCreditBreakdownForDay(rows, attendanceSettings)]));
-  }, [allRecords, personnel, attendanceSettings]);
-  const dayCredit = (row: AttendanceRecord) => dailyCredits.get(`${row.ngay}|${attendancePersonnelKey(row.nhan_su, personnel)}`)
+  }, [allRecords, attendanceRoster, attendanceSettings]);
+  const dayCredit = (row: AttendanceRecord) => dailyCredits.get(`${row.ngay}|${attendancePersonnelKey(row.nhan_su, attendanceRoster)}`)
     ?? { morning: 0, afternoon: 0, total: 0, fullDay: false };
 
   const handleMonthChange = (monthStr: string) => {
@@ -1012,7 +920,7 @@ const AttendanceManagementPage: React.FC = () => {
                 className="px-3 py-1.5 border border-border rounded text-[13px] bg-card outline-none focus:ring-1 focus:ring-primary min-w-[150px]"
               >
                 <option value="">Tất cả nhân sự</option>
-                {personnel.map(p => (
+                {attendanceRoster.people.map(p => (
                   <option key={p.id} value={p.ho_ten}>{p.ho_ten}</option>
                 ))}
               </select>
@@ -1541,7 +1449,7 @@ const AttendanceManagementPage: React.FC = () => {
         </div>
       </div>
 
-      {isAdmin && manualDraft && <ManualAttendanceModal personnel={personnel} initialPerson={manualDraft.person}
+      {isAdmin && manualDraft && <ManualAttendanceModal personnel={attendanceRoster.people} initialPerson={manualDraft.person}
         initialDay={manualDraft.day} onClose={() => setManualDraft(null)} onSaved={() => loadRecords(false)} />}
       {/* Modal - Add/Edit Attendance */}
       {isModalOpen && createPortal(
@@ -1589,7 +1497,7 @@ const AttendanceManagementPage: React.FC = () => {
                     {formData.nhan_su && !personnel.some(p => p.ho_ten === formData.nhan_su) && (
                       <option value={formData.nhan_su}>{formData.nhan_su}</option>
                     )}
-                    {personnel.map(p => (
+                    {attendanceRoster.people.map(p => (
                       <option key={p.id} value={p.ho_ten}>{p.ho_ten}</option>
                     ))}
                   </select>

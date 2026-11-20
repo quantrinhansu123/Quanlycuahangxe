@@ -7,6 +7,12 @@ import { reportFixture } from './reports-p3-test-runtime.mjs';
 const data=reportFixture(), dir='docs/performance-reports-p3', origin='http://127.0.0.1:5203';
 data.co_so=[{id:'branch-a',ten_co_so:'Cơ sở A'},{id:'branch-b',ten_co_so:'Cơ sở B'}];
 data.nhap_xuat_kho.forEach(row=>{row.co_so='A';row.id_xuat_nhap_kho='NH-UI';row.id_don_hang='NH-UI';});
+const cashDay = '2026-09-20';
+data.thu_chi.push(
+  {id:'day-cash',ngay:cashDay,co_so:'A',loai_phieu:'phiếu thu',phuong_thuc:'Tiền mặt',trang_thai:'Hoàn thành',so_tien:123450,danh_muc:'Thu tiền mặt trong ngày'},
+  {id:'day-bank',ngay:cashDay,co_so:'A',loai_phieu:'phiếu chi',phuong_thuc:'Chuyển khoản',trang_thai:'Hoàn thành',so_tien:45670,danh_muc:'Chi ngân hàng trong ngày'},
+  {id:'prev-cash',ngay:'2026-09-19',co_so:'A',loai_phieu:'phiếu thu',phuong_thuc:'Tiền mặt',trang_thai:'Hoàn thành',so_tien:999999,danh_muc:'Thu ngoài ngày lọc'},
+);
 fs.mkdirSync('.build-verification',{recursive:true});
 const html=`<div id="root"></div><script type="module">
 import React from 'react';import{createRoot}from'react-dom/client';import App from '/src/App.tsx';import{ThemeProvider}from'/src/context/ThemeContext.tsx';import{ToastProvider}from'/src/context/ToastContext.tsx';import '/src/index.css';
@@ -90,6 +96,25 @@ try {
  checks.push('Failed read shows retry; explicit refresh fetches changed data instead of stale global cache');
  const beforeScope=requests.length;await page.evaluate(()=>window.__p3ChangeScope());await settled();assert.ok(requests.length>beforeScope,'Same user changing role/branch must invalidate the report snapshot');
  checks.push('Same user with changed branch/role scope invalidates prior snapshot');
+ await page.getByLabel('Khoảng thời gian: từ ngày',{exact:true}).fill(cashDay);
+ await page.getByLabel('Khoảng thời gian: đến ngày',{exact:true}).fill(cashDay);
+ await tab('Tài chính tổng hợp');
+ await page.getByRole('button',{name:/^Dòng tiền /}).click();
+ const cashFlow=page.locator('section').filter({has:page.getByRole('heading',{name:'Dòng tiền tiền mặt / ngân hàng',exact:true})});
+ await cashFlow.getByRole('row').filter({has:page.getByRole('button',{name:'Tiền mặt',exact:true})}).getByRole('cell').nth(1).getByText(/123[.,]450/).waitFor();
+ await cashFlow.getByRole('row').filter({has:page.getByRole('button',{name:'Ngân hàng',exact:true})}).getByRole('cell').nth(2).getByText(/45[.,]670/).waitFor();
+ for(const [method,voucher,other] of [
+   ['Tiền mặt','Thu tiền mặt trong ngày','Chi ngân hàng trong ngày'],
+   ['Ngân hàng','Chi ngân hàng trong ngày','Thu tiền mặt trong ngày'],
+ ]){
+   await cashFlow.getByRole('button',{name:method,exact:true}).click();
+   const dialog=page.getByRole('dialog');
+   await dialog.getByText(voucher,{exact:true}).waitFor();
+   assert.equal(await dialog.getByText(other,{exact:true}).count(),0);
+   assert.equal(await dialog.getByText('Thu ngoài ngày lọc',{exact:true}).count(),0);
+   await dialog.getByRole('button',{name:'Đóng chi tiết',exact:true}).click();
+ }
+ checks.push('Single-day cash and bank totals and vouchers exclude other dates and payment methods');
  assert.deepEqual(errors,[]);fs.writeFileSync(`${dir}/ui-regression.json`,JSON.stringify({at:new Date().toISOString(),passed:true,checks,reads:requests.length,allRemoteMocked:true,liveWrites:0,errors},null,2)+'\n');
  console.log(JSON.stringify({p3UiPassed:true,checks:checks.length,reads:requests.length}));
 } catch(error){if(page){fs.writeFileSync('.build-verification/p3-ui-failure.html',await page.content());await page.screenshot({path:'.build-verification/p3-ui-failure.png'});}console.error(JSON.stringify({p3UiPassed:false,error:String(error.message).split('Call log:')[0].slice(0,600),pageErrors:errors,checksCompleted:checks,requests,failedRequests,consoleErrors}));process.exitCode=1;}

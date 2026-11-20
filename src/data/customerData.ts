@@ -28,6 +28,15 @@ export interface KhachHang {
   last_order_at?: string | null; // Hoá đơn gần nhất (sort + hiển thị nhanh)
 }
 
+export function getNewCustomerRequiredFieldsError(customer: Partial<KhachHang>): string {
+  const missing = [
+    !customer.ho_va_ten?.trim() && 'họ và tên',
+    !customer.so_dien_thoai?.trim() && 'số điện thoại',
+    !customer.bien_so_xe?.trim() && 'biển số xe',
+  ].filter(Boolean);
+  return missing.length ? `Vui lòng nhập ${missing.join(', ')}.` : '';
+}
+
 const sanitizeCustomerPayload = (customer: Partial<KhachHang>) => {
   const payload: Partial<KhachHang> = {
     id: customer.id,
@@ -117,6 +126,10 @@ async function resolveExistingCustomerOnDuplicate(error: unknown): Promise<Khach
 export const upsertCustomer = async (customer: Partial<KhachHang>): Promise<KhachHang> => {
   const payload = sanitizeCustomerPayload(customer);
   if (payload.id) assertCanEditSavedRecord();
+  else {
+    const requiredFieldsError = getNewCustomerRequiredFieldsError(payload);
+    if (requiredFieldsError) throw new Error(requiredFieldsError);
+  }
   if (isStoredTechnician()) {
     const { data, error } = await supabase.rpc('create_technician_customer', { p_customer: payload });
     if (error) {

@@ -4,6 +4,7 @@ import TopProgressBar from './components/ui/TopProgressBar';
 import ProtectedRoute from './components/layout/ProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { HIDE_KHO_VAN, HIDE_SO_QUY } from './data/featureFlags';
+import { routePageKey } from './lib/routePageKey';
 
 // Lazy load all pages for optimal performance
 const MainLayout = lazy(() => import('./components/layout/MainLayout'));
@@ -42,7 +43,7 @@ const ZaloOauthCallbackPage = lazy(() => import('./pages/ZaloOauthCallbackPage')
 function AppRoutes() {
   const location = useLocation();
   return (
-    <ErrorBoundary key={location.pathname}>
+    <ErrorBoundary key={routePageKey(location.pathname)}>
       <Suspense fallback={<TopProgressBar />}>
         <Routes>
           {/* Public route â€” khÃ´ng cáº§n login */}

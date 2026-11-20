@@ -15,6 +15,7 @@ import {
   upsertAttendanceRecord,
   type AttendanceRecord
 } from '../data/attendanceData';
+import { buildAttendanceRoster } from '../data/attendanceRoster';
 import { formatDateVi, formatLocalIsoDate, formatTime24h } from '../utils/datetimeFormat';
 import DateInputVi from '../components/ui/DateInputVi';
 import {
@@ -36,6 +37,7 @@ const AddAttendancePage: React.FC = () => {
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [personnel, setPersonnel] = useState<NhanSu[]>([]);
+  const attendancePersonnel = useMemo(() => buildAttendanceRoster(personnel).people, [personnel]);
   const [loading, setLoading] = useState(true);
   const [initializationError, setInitializationError] = useState<string | null>(null);
   const [hasConflictingOpenShifts, setHasConflictingOpenShifts] = useState(false);
@@ -592,10 +594,10 @@ const AddAttendancePage: React.FC = () => {
                       className="w-full px-4 py-3 bg-card border border-border rounded-xl font-bold text-[14px] text-foreground focus:ring-2 focus:ring-primary/20 outline-none transition-all"
                     >
                       <option value="">Chọn nhân sự</option>
-                      {formData.nhan_su && !personnel.some(p => p.ho_ten === formData.nhan_su) && (
+                      {formData.nhan_su && !attendancePersonnel.some(p => p.ho_ten === formData.nhan_su) && (
                         <option value={formData.nhan_su}>{formData.nhan_su}</option>
                       )}
-                      {personnel.map(p => (
+                      {attendancePersonnel.map(p => (
                         <option key={p.id} value={p.ho_ten}>{p.ho_ten}</option>
                       ))}
                     </select>

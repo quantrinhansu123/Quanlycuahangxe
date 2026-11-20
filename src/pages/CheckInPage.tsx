@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { getPersonnel } from '../data/personnelData';
 import type { NhanSu } from '../data/personnelData';
 import { upsertAttendanceRecord, getAllAttendanceRecords, staffNamesMatch } from '../data/attendanceData';
+import { buildAttendanceRoster } from '../data/attendanceRoster';
 import { workDaysForDayShifts } from '../utils/timekeeping';
 import type { AttendanceRecord } from '../data/attendanceData';
 import { clsx } from 'clsx';
@@ -19,6 +20,7 @@ const CheckInPage: React.FC = () => {
   const { settings: attendanceSettings } = useAttendanceSettings();
   const navigate = useNavigate();
   const [personnel, setPersonnel] = useState<NhanSu[]>([]);
+  const attendanceRoster = React.useMemo(() => buildAttendanceRoster(personnel), [personnel]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -142,8 +144,8 @@ const CheckInPage: React.FC = () => {
   };
 
   const belongsToStaff = (row: AttendanceRecord, staffName: string) => {
-    const staff = personnel.find(p => staffNamesMatch(p.ho_ten, staffName));
-    return [staffName, staff?.id, staff?.id_nhan_su].some(token => token && staffNamesMatch(row.nhan_su, token));
+    const staff = attendanceRoster.find(staffName);
+    return [staffName, ...attendanceRoster.references(staff)].some(token => staffNamesMatch(row.nhan_su, token));
   };
   const getOpenTodayRows = (staffName: string) => {
     const today = formatLocalIsoDate();
@@ -211,7 +213,7 @@ const CheckInPage: React.FC = () => {
                 </h3>
               </div>
               <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
-                {personnel.map((staff: NhanSu) => {
+                {attendanceRoster.people.map((staff: NhanSu) => {
                   const status = getTodayStatus(staff.ho_ten);
                   return (
                     <button
