@@ -3,12 +3,14 @@ import { useRegisterPageRefresh } from '../context/PageRefreshContext';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Search, Plus, Edit2, Trash2, Camera, Loader2, ChevronDown, 
-  Building2, Wallet, BadgeDollarSign, Download, Upload, Calendar, RefreshCw
+  Building2, Wallet, BadgeDollarSign, Download, Upload, Calendar, RefreshCw,
+  Banknote, CreditCard, ArrowDownRight, Scale
 } from 'lucide-react';
 
 import { useLocation } from 'react-router-dom';
 import { clsx } from 'clsx';
 import { format } from 'date-fns';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { getErrorDetails } from '../lib/errorDetails';
 import { 
   getTransactions,
@@ -49,7 +51,7 @@ const FinancialManagementPage: React.FC = () => {
   const [lookupError, setLookupError] = useState('');
   const loadVersion = useRef({ value: 0 });
   const loadAbort = useRef<AbortController | null>(null);
-  const [activeTab, setActiveTab] = useState<'list' | 'charts'>(isSoQuyPage ? 'list' : 'list');
+  const [activeTab, setActiveTab] = useState<'list' | 'charts' | 'cash-check'>('list');
   const [listViewMode, setListViewMode] = useState<'standard' | 'cashbook'>(isSoQuyPage ? 'cashbook' : 'standard');
   const [chartSummary, setChartSummary] = useState<FinancialChartSummary | null>(null);
   const chartsAbort = useRef<AbortController | null>(null);
@@ -72,6 +74,12 @@ const FinancialManagementPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [totalCount, setTotalCount] = useState(0);
+
+  // Check quỹ theo ngày (Tiền mặt vs Tài khoản)
+  const [cashCheckDay, setCashCheckDay] = useState(() => format(new Date(), 'yyyy-MM-dd'));
+  const [cashCheckTx, setCashCheckTx] = useState<ThuChi[]>([]);
+  const [cashCheckLoading, setCashCheckLoading] = useState(false);
+  const [cashCheckError, setCashCheckError] = useState('');
   
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -188,9 +196,27 @@ const FinancialManagementPage: React.FC = () => {
     }
   }, [filterDateFrom, filterDateTo]);
 
+  const loadCashCheck = React.useCallback(async () => {
+    try {
+      setCashCheckLoading(true);
+      setCashCheckError('');
+      // Lấy đủ giao dịch của ngày (bỏ qua phân trang/search/filter để check đúng 1 ngày).
+      const { data } = await getTransactionsPaginated(1, 1000, '', {
+        dateFrom: cashCheckDay,
+        dateTo: cashCheckDay,
+      });
+      setCashCheckTx(data);
+    } catch (error) {
+      setCashCheckError(getErrorDetails(error).message || 'Không tải được dữ liệu check quỹ.');
+    } finally {
+      setCashCheckLoading(false);
+    }
+  }, [cashCheckDay]);
+
   useRegisterPageRefresh(async () => {
     await loadData();
     if (activeTab === 'charts') await loadAllData();
+    if (activeTab === 'cash-check') await loadCashCheck();
   });
 
   useEffect(() => {
@@ -199,6 +225,12 @@ const FinancialManagementPage: React.FC = () => {
     }
     return () => chartsAbort.current?.abort();
   }, [activeTab, loadAllData]);
+
+  useEffect(() => {
+    if (activeTab === 'cash-check') {
+      void loadCashCheck();
+    }
+  }, [activeTab, cashCheckDay, loadCashCheck]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -540,6 +572,36 @@ const FinancialManagementPage: React.FC = () => {
 
   const closingBalance = openingBalance + stats.income - stats.expense;
 
+  // Tổng hợp check quỹ theo ngày: chia Tiền mặt vs Tài khoản (Chuyển khoản + Ngân hàng).
+  const cashCheckSummary = useMemo(() => {
+    const norm = (m?: string) => {
+      const v = (m || '').trim().toLowerCase();
+      if (v === 'tiền mặt' || v === 'tien mat') return 'cash';
+      return 'account';
+    };
+    const cashIn = cashCheckTx.filter(t => t.loai_phieu === 'phiếu thu' && norm(t.phuong_thuc) === 'cash');
+    const cashOut = cashCheckTx.filter(t => t.loai_phieu === 'phiếu chi' && norm(t.phuong_thuc) === 'cash');
+    const accIn = cashCheckTx.filter(t => t.loai_phieu === 'phiếu thu' && norm(t.phuong_thuc) === 'account');
+    const accOut = cashCheckTx.filter(t => t.loai_phieu === 'phiếu chi' && norm(t.phuong_thuc) === 'account');
+    const sum = (rows: ThuChi[]) => rows.reduce((s, t) => s + t.so_tien, 0);
+    const cashIncome = sum(cashIn);
+    const cashExpense = sum(cashOut);
+    const accIncome = sum(accIn);
+    const accExpense = sum(accOut);
+    return {
+      cashIncome,
+      cashExpense,
+      cashNet: cashIncome - cashExpense,
+      accIncome,
+      accExpense,
+      accNet: accIncome - accExpense,
+      totalIncome: cashIncome + accIncome,
+      totalExpense: cashExpense + accExpense,
+      cashRows: cashCheckTx.filter(t => norm(t.phuong_thuc) === 'cash'),
+      accountRows: cashCheckTx.filter(t => norm(t.phuong_thuc) === 'account'),
+    };
+  }, [cashCheckTx]);
+
   return (
     <div className="w-full h-full flex flex-col p-4 lg:p-6 animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-y-auto pt-8">
       <div className="w-full space-y-6">
@@ -587,6 +649,17 @@ const FinancialManagementPage: React.FC = () => {
               )}
             >
               Biểu đồ
+            </button>
+            <button
+              onClick={() => setActiveTab('cash-check')}
+              className={clsx(
+                "px-6 py-1.5 rounded-md text-[13px] font-bold transition-all duration-200",
+                activeTab === 'cash-check'
+                  ? "bg-white text-primary shadow-sm ring-1 ring-black/5"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Check quỹ
             </button>
           </div>
         </div>
@@ -1147,7 +1220,7 @@ const FinancialManagementPage: React.FC = () => {
               />
             </div>
           </>
-        ) : (
+        ) : activeTab === 'charts' ? (
           <div className="w-full space-y-4">
             {chartsDataLoading && (
               <div className="flex items-center justify-center gap-2 py-2 text-[13px] text-muted-foreground">
@@ -1170,6 +1243,17 @@ const FinancialManagementPage: React.FC = () => {
               />
             </React.Suspense>}
           </div>
+        ) : (
+          <CashCheckView
+            day={cashCheckDay}
+            setDay={setCashCheckDay}
+            loading={cashCheckLoading}
+            error={cashCheckError}
+            onReload={() => void loadCashCheck()}
+            summary={cashCheckSummary}
+            onOpenModal={handleOpenModal}
+            isAdmin={isAdmin}
+          />
         )}
       </div>
 
@@ -1189,6 +1273,241 @@ const FinancialManagementPage: React.FC = () => {
           customerOptions={customerOptions}
         />
       )}
+    </div>
+  );
+};
+
+interface CashCheckSummary {
+  cashIncome: number;
+  cashExpense: number;
+  cashNet: number;
+  accIncome: number;
+  accExpense: number;
+  accNet: number;
+  totalIncome: number;
+  totalExpense: number;
+  cashRows: ThuChi[];
+  accountRows: ThuChi[];
+}
+
+const CASH_CHECK_COLORS = ['#10b981', '#ef4444'];
+
+const CashCheckView: React.FC<{
+  day: string;
+  setDay: (v: string) => void;
+  loading: boolean;
+  error: string;
+  onReload: () => void;
+  summary: CashCheckSummary;
+  onOpenModal: (t?: ThuChi) => void;
+  isAdmin: boolean;
+}> = ({ day, setDay, loading, error, onReload, summary, onOpenModal, isAdmin }) => {
+  const fmtVnd = (n: number) => new Intl.NumberFormat('vi-VN').format(n);
+  const grandTotal = summary.totalIncome + summary.totalExpense;
+  const cashPct = grandTotal > 0 ? Math.round((summary.cashIncome + summary.cashExpense) / grandTotal * 100) : 0;
+  const accPct = 100 - cashPct;
+
+  const pieData = [
+    { name: 'Tiền mặt', value: summary.cashIncome + summary.cashExpense },
+    { name: 'Tài khoản', value: summary.accIncome + summary.accExpense },
+  ].filter(d => d.value > 0);
+
+  const renderTable = (rows: ThuChi[], title: string, tone: 'emerald' | 'blue') => {
+    const income = rows.filter(t => t.loai_phieu === 'phiếu thu').reduce((s, t) => s + t.so_tien, 0);
+    const expense = rows.filter(t => t.loai_phieu === 'phiếu chi').reduce((s, t) => s + t.so_tien, 0);
+    const net = income - expense;
+    return (
+      <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+        <div className={clsx(
+          'px-5 py-4 border-b border-border flex items-center justify-between',
+          tone === 'emerald' ? 'bg-emerald-50/40' : 'bg-blue-50/40'
+        )}>
+          <div className="flex items-center gap-2">
+            {tone === 'emerald' ? <Banknote size={18} className="text-emerald-600" /> : <CreditCard size={18} className="text-blue-600" />}
+            <h3 className="text-sm font-black text-foreground uppercase tracking-tight">{title}</h3>
+          </div>
+          <span className={clsx(
+            'text-lg font-black tabular-nums',
+            net >= 0 ? 'text-emerald-600' : 'text-rose-600'
+          )}>
+            {net >= 0 ? '+' : ''}{fmtVnd(net)}đ
+          </span>
+        </div>
+        <div className="grid grid-cols-3 gap-2 px-5 py-3 text-center">
+          <div>
+            <p className="text-[10px] font-bold text-muted-foreground uppercase">Thu</p>
+            <p className="text-sm font-black text-emerald-600">{fmtVnd(income)}</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-bold text-muted-foreground uppercase">Chi</p>
+            <p className="text-sm font-black text-rose-600">{fmtVnd(expense)}</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-bold text-muted-foreground uppercase">Chênh lệch</p>
+            <p className={clsx('text-sm font-black', net >= 0 ? 'text-emerald-600' : 'text-rose-600')}>
+              {net >= 0 ? '+' : ''}{fmtVnd(net)}
+            </p>
+          </div>
+        </div>
+        <div className="overflow-x-auto border-t border-border">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-muted/60 border-b border-border text-muted-foreground text-[12px] font-bold">
+                <th className="px-3 py-2 font-semibold">Loại</th>
+                <th className="px-3 py-2 font-semibold">Nghiệp vụ</th>
+                <th className="px-3 py-2 font-semibold">Cơ sở</th>
+                <th className="px-3 py-2 font-semibold">Giờ</th>
+                <th className="px-3 py-2 font-semibold text-right">Số tiền</th>
+                <th className="px-3 py-2 font-semibold">Trạng thái</th>
+                {isAdmin && <th className="px-3 py-2 text-center font-semibold">Sửa</th>}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 text-[13px]">
+              {rows.length === 0 ? (
+                <tr><td colSpan={isAdmin ? 7 : 6} className="px-3 py-8 text-center text-muted-foreground">Không có giao dịch.</td></tr>
+              ) : rows.map(t => (
+                <tr key={t.id} className="hover:bg-muted/50 transition-colors">
+                  <td className="px-3 py-2">
+                    <span className={clsx(
+                      'px-2 py-0.5 rounded text-[10px] font-bold uppercase',
+                      t.loai_phieu === 'phiếu thu' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+                    )}>
+                      {t.loai_phieu === 'phiếu thu' ? 'Thu' : 'Chi'}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 font-bold text-foreground truncate max-w-[200px]" title={t.danh_muc || t.ghi_chu || ''}>{t.danh_muc || t.ghi_chu || '—'}</td>
+                  <td className="px-3 py-2 text-muted-foreground text-[12px]">{t.co_so}</td>
+                  <td className="px-3 py-2 text-muted-foreground text-[12px] tabular-nums">{t.gio || '—'}</td>
+                  <td className={clsx('px-3 py-2 text-right font-black tabular-nums', t.loai_phieu === 'phiếu thu' ? 'text-emerald-600' : 'text-rose-600')}>
+                    {t.loai_phieu === 'phiếu thu' ? '+' : '-'}{fmtVnd(t.so_tien)}
+                  </td>
+                  <td className="px-3 py-2">
+                    <span className={clsx(
+                      'px-2 py-0.5 rounded text-[10px] font-bold',
+                      t.trang_thai === 'Hoàn thành' ? 'bg-emerald-50 text-emerald-600' : t.trang_thai === 'Đang chờ' ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'
+                    )}>{t.trang_thai}</span>
+                  </td>
+                  {isAdmin && (
+                    <td className="px-3 py-2 text-center">
+                      <button onClick={() => onOpenModal(t)} className="text-primary hover:bg-primary/5 rounded p-1.5"><Edit2 size={16} /></button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="w-full space-y-5">
+      {/* Chọn ngày */}
+      <div className="bg-card border border-border rounded-xl p-3 sm:p-4 flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2 text-foreground">
+          <Calendar className="w-4 h-4 text-primary shrink-0" />
+          <span className="text-[13px] font-bold">Check ngày</span>
+        </div>
+        <input
+          type="date"
+          value={day}
+          onChange={(e) => setDay(e.target.value)}
+          className="px-2 py-1.5 rounded-lg border border-border bg-background text-[13px] font-medium min-h-9"
+        />
+        <button
+          type="button"
+          onClick={onReload}
+          disabled={loading}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-muted/50 hover:bg-muted text-[12px] font-bold disabled:opacity-50"
+        >
+          {loading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+          Tải lại
+        </button>
+      </div>
+
+      {error && <p role="alert" className="text-red-600">{error}</p>}
+
+      {loading ? (
+        <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" /> Đang tải dữ liệu check quỹ…
+        </div>
+      ) : (
+        <>
+          {/* Tổng quan + biểu đồ phần trăm */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-1 bg-card rounded-2xl border border-border shadow-sm p-5 flex flex-col items-center justify-center">
+              <h3 className="text-sm font-black text-foreground uppercase tracking-tight mb-4 flex items-center gap-2">
+                <Scale size={16} className="text-primary" /> Tỷ trọng Tiền mặt / Tài khoản
+              </h3>
+              {pieData.length === 0 ? (
+                <p className="text-muted-foreground text-sm py-10">Chưa có giao dịch trong ngày.</p>
+              ) : (
+                <>
+                  <div className="relative w-[180px] h-[180px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={pieData} cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={4} dataKey="value">
+                          {pieData.map((_, i) => <Cell key={i} fill={CASH_CHECK_COLORS[i % CASH_CHECK_COLORS.length]} strokeWidth={0} />)}
+                        </Pie>
+                        <Tooltip formatter={(v) => fmtVnd(Number(v)) + 'đ'} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                      <span className="text-[10px] text-muted-foreground uppercase font-bold">Tổng</span>
+                      <span className="text-lg font-black text-foreground">{fmtVnd(grandTotal)}</span>
+                    </div>
+                  </div>
+                  <div className="mt-4 space-y-2 w-full">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="flex items-center gap-2 text-[12px] font-bold text-foreground"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Tiền mặt</span>
+                      <span className="text-[12px] font-black tabular-nums">{cashPct}%</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="flex items-center gap-2 text-[12px] font-bold text-foreground"><span className="w-2.5 h-2.5 rounded-full bg-rose-500" /> Tài khoản</span>
+                      <span className="text-[12px] font-black tabular-nums">{accPct}%</span>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="lg:col-span-2 grid grid-cols-2 gap-3">
+              <MiniStat title="Thu tiền mặt" value={summary.cashIncome} icon={Banknote} tone="emerald" />
+              <MiniStat title="Thu tài khoản" value={summary.accIncome} icon={CreditCard} tone="blue" />
+              <MiniStat title="Chi tiền mặt" value={summary.cashExpense} icon={ArrowDownRight} tone="rose" />
+              <MiniStat title="Chi tài khoản" value={summary.accExpense} icon={ArrowDownRight} tone="rose" />
+            </div>
+          </div>
+
+          {/* 2 bảng */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+            {renderTable(summary.cashRows, 'Bảng Tiền mặt', 'emerald')}
+            {renderTable(summary.accountRows, 'Bảng Tài khoản (CK + Ngân hàng)', 'blue')}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+const MiniStat: React.FC<{ title: string; value: number; icon: React.ElementType; tone: 'emerald' | 'rose' | 'blue' }> = ({ title, value, icon: Icon, tone }) => {
+  const tones = {
+    emerald: 'text-emerald-600 bg-emerald-50/50',
+    rose: 'text-rose-600 bg-rose-50/50',
+    blue: 'text-blue-600 bg-blue-50/50',
+  } as const;
+  return (
+    <div className="bg-card rounded-xl border border-border shadow-sm p-4 flex items-center gap-3">
+      <div className={clsx('w-10 h-10 rounded-lg flex items-center justify-center shrink-0', tones[tone])}>
+        <Icon size={20} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] font-bold text-muted-foreground uppercase truncate">{title}</p>
+        <p className={clsx('text-lg font-black truncate tabular-nums', tones[tone].split(' ')[0])}>
+          {new Intl.NumberFormat('vi-VN').format(value)} <span className="text-[10px] font-normal">đ</span>
+        </p>
+      </div>
     </div>
   );
 };
